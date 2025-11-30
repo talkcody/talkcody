@@ -1,0 +1,95 @@
+---
+title: TalkCody 正式开源
+description: TalkCody 开源背后的故事和愿景
+author: Kaisen Kang
+date: 2025-11-30
+tags: [开源, Coding Agent, 公告]
+---
+
+今天，由我开发的 AI Coding Agent —— TalkCody 正式开源了，欢迎大家试用、反馈，一起参与建设。
+
+## TalkCody 是什么
+
+ TalkCody 是一款免费、开源的 AI Coding Agent 桌面应用，使用 Rust + Tauri 2 构建，支持 Windows、macOS 和 Linux 三大平台。
+
+## 💡我为什么打造 TalkCody
+
+### 学习的最佳方式是亲手创造
+
+ 在 AI Agent 时代，学习一个概念或系统最好的方式是自己动手去实现它。所以我决定从零开始，亲手打造一个 AI Coding Agent。
+
+### 我想掌控每一个环节
+
+用过各种 AI Coding 工具后，我发现一个问题：它们大多是黑盒。我不知道它们是怎么工作的，也无法定制和修改它们的行为。
+
+我希望能掌控 AI Coding Agent 的每一个过程——从模型选择、Agents 设计，Prompt 设计、Tool 定义，到最终的代码生成。我想知道它在做什么，为什么这么做。而且当我不满意的时候，我希望能快速修改和调整。
+
+TalkCody 满足了我的这个执念。
+
+ ### 不想被任何厂商锁定
+
+这几年用 AI 模型的一个深刻体会是：没有哪个模型是万能的。
+
+我经常遇到这种情况：一个问题问 Claude 死活解决不了，换成 GPT 就搞定了；或者反过来。有时候 DeepSeek
+能给出让人眼前一亮的思路，有时候 Gemini 的表现却更好。
+
+所以我从一开始就决定：TalkCody 必须支持灵活切换模型和服务商。你用自己的 API Key，直接和 AI 厂商结算，没有中间商。这种 BYOK（Bring
+Your Own Key）的模式，让你既能省钱，又不会被锁定。
+
+### 隐私和数据安全
+
+在我们日常工作，生活中，我们总有一些隐私的问题或者文件想问大模型，这个时候使用本地大模型是最理想的方案，而且随着 笔记本的算力和配置越来越强，本地大模型可以解决的日常问题也越来越多。 比如现在的 gpt-oss 模型，已经可以解决很多日常问题了。
+
+所以我在一开始开发 TalkCody 的时候，定位就是一款桌面应用，用户所有的数据都存储在本地，不会上传到任何第三方服务器。 同时也支持本地大模型，可以完全离线使用。
+
+### AI Agent 框架是通用的
+
+在现在和未来，各行各业，各种场景都会被 AI Agent 提效。 在不断开发 TalkCody 的过程中，我发现 **AI Agent 框架是通用的**， 不仅仅可以用在 Coding 领域，还可以用在写作，设计，数据分析等各种领域。 所以我希望把 TalkCody 打造成一个通用的 AI Agent 框架，让更多的人可以基于 TalkCody 轻松构建自己的 AI Agent。
+
+## 🤝为什么选择开源
+
+1. **我自己是开源的受益者**。TalkCody 能做出来，离不开 Tauri、React、Vercel AI SDK 等很多优秀的开源项目。开源是一种回馈。
+
+2. **透明建立信任**。当你能看到每一行代码，你就知道这个工具不会偷偷做什么奇怪的事情。
+
+3. **社区的力量**。一个人的想象力是有限的。开源之后，可能会有人贡献我从没想到过的功能和场景。
+
+4. **这是正确的事**。在 AI 工具越来越强大的今天，我觉得保持透明和开放是一种责任。
+
+## ⚡ TalkCody 的核心能力
+
+- **随时切换最适合的模型:** 同一个问题，Claude 和 GPT 可能给出完全不同的答案。TalkCody 支持 50+ 主流模型，让你随时切换，第一时间体验最新发布的模型。
+
+- **多种方式和 AI 对话:** 除了打字，你还可以语音输入、截图提问、拖入文件。有时候截个图比描述半天更高效。语音输入可以释放你的双手，避免手疼。
+
+- **用 MCP 扩展 AI 的能力:** TalkCody 原生支持 MCP 服务器，你可以一键连接各种 MCP 服务器，扩展 AI 的上下文理解能力和工具使用能力。
+
+- **Agent 和 Skill 市场:** 你可以创建、修改、分享自己的 Agent 和 Skill。比如写一个专门做 Code Review 的 Agent，或者一个生成单元测试的 Skill。
+
+- **Plan 模式处理复杂任务:** 对于复杂的任务，TalkCody 提供 Plan 模式：先探索、思考、规划、分解任务，然后逐步执行、验证。这比直接让 AI "一口气写完" 可靠得多。
+
+- **内置终端，减少切换:** 写代码时经常需要跑命令。TalkCody 内置了终端，不用再切换窗口。
+
+- **轻量极速:** TalkCody 用 Rust 和 Tauri 构建，启动速度和内存占用都远优于 Electron 应用。
+
+
+## 🗺️ 近期的下一步计划
+
+### 易用性提升
+
+- 通过更多的Agent和Skills， 全面覆盖 StarRocks 所有角色的完整工作流
+- 内置更多优秀的 Claude Code Skills
+
+### 效率提升
+
+- 同一个 Project 支持多分支、多个 Task 并行工作
+- 同一个 Task 支持多个 Agent 并行工作
+
+## 🚀 欢迎体验与共建
+
+如果你对 TalkCody 感兴趣，欢迎试用、反馈、提 Issue、提 PR。
+
+
+- TalkCody 官网：https://talkcody.com
+- TalkCody GitHub：https://github.com/talkcody/talkcody
+- TalkCody 下载地址：https://www.talkcody.com/docs/introduction/client-downloads

@@ -1,0 +1,91 @@
+---
+title: TalkCody Is Now Open Source
+description: The story and vision behind TalkCody going open source
+author: Kaisen Kang
+date: 2025-11-30
+tags: [Open Source, Coding Agent, Announcement]
+---
+
+Today, I'm excited to announce that TalkCody, an AI Coding Agent I developed, is officially open source. I welcome everyone to try it out, provide feedback, and join in building it together.
+
+## What Is TalkCody
+
+TalkCody is a free, open-source AI Coding Agent desktop application built with Rust + Tauri 2, supporting Windows, macOS, and Linux.
+
+## 💡 Why I Built TalkCody
+
+### The Best Way to Learn Is to Create
+
+In the age of AI Agents, the best way to learn a concept or system is to build it yourself. So I decided to start from scratch and build an AI Coding Agent with my own hands.
+
+### I Want Control Over Every Detail
+
+After using various AI Coding tools, I noticed a problem: most of them are black boxes. I don't know how they work, and I can't customize or modify their behavior.
+
+I wanted to control every aspect of my AI Coding Agent—from model selection, agent design, prompt engineering, tool definitions, to the final code generation. I want to know what it's doing and why. And when I'm not satisfied, I want to be able to quickly modify and adjust it.
+
+TalkCody satisfies this obsession of mine.
+
+### No Vendor Lock-in
+
+One profound realization from using AI models over the years: no single model is perfect for everything.
+
+I often encounter situations like this: a problem that Claude absolutely cannot solve gets resolved instantly by GPT, or vice versa. Sometimes DeepSeek provides surprisingly brilliant insights, while other times Gemini performs better.
+
+So from the very beginning, I decided: TalkCody must support flexible switching between models and providers. You use your own API key and settle directly with the AI providers—no middleman. This BYOK (Bring Your Own Key) approach lets you save money while avoiding vendor lock-in.
+
+### Privacy and Data Security
+
+In our daily work and life, we always have some private questions or files we want to ask AI about. In these cases, using a local model is the ideal solution. And as laptops become more powerful, local models can handle more and more everyday problems. For example, the current gpt-oss model can already solve many daily issues.
+
+So when I started developing TalkCody, I positioned it as a desktop application where all user data is stored locally and never uploaded to any third-party servers. It also supports local models for completely offline use.
+
+### AI Agent Frameworks Are Universal
+
+Now and in the future, all industries and scenarios will be enhanced by AI Agents. As I continued developing TalkCody, I discovered that **AI Agent frameworks are universal**—they can be used not just in coding, but also in writing, design, data analysis, and many other domains. So I hope to build TalkCody into a universal AI Agent framework, enabling more people to easily build their own AI Agents based on TalkCody.
+
+## 🤝 Why Open Source
+
+1. **I'm a beneficiary of open source myself.** TalkCody couldn't have been built without many excellent open source projects like Tauri, React, and Vercel AI SDK. Open sourcing is a way of giving back.
+
+2. **Transparency builds trust.** When you can see every line of code, you know this tool won't secretly do anything strange.
+
+3. **The power of community.** One person's imagination is limited. After going open source, someone might contribute features and use cases I never thought of.
+
+4. **It's the right thing to do.** As AI tools become increasingly powerful, I believe maintaining transparency and openness is a responsibility.
+
+## ⚡ TalkCody's Core Capabilities
+
+- **Switch to the best model anytime:** For the same question, Claude and GPT might give completely different answers. TalkCody supports 50+ mainstream models, letting you switch freely and experience the latest released models immediately.
+
+- **Multiple ways to interact with AI:** Besides typing, you can also use voice input, take screenshots to ask questions, or drag in files. Sometimes a screenshot is more efficient than describing something for half a day. Voice input frees your hands and prevents hand strain.
+
+- **Extend AI capabilities with MCP:** TalkCody natively supports MCP servers. You can connect to various MCP servers with one click to extend AI's context understanding and tool usage capabilities.
+
+- **Agent and Skill Marketplace:** You can create, modify, and share your own Agents and Skills. For example, create an Agent specifically for Code Review, or a Skill for generating unit tests.
+
+- **Plan Mode for complex tasks:** For complex tasks, TalkCody provides Plan Mode: first explore, think, plan, and break down the task, then execute and verify step by step. This is much more reliable than having AI "write everything at once."
+
+- **Built-in terminal, less context switching:** Coding often requires running commands. TalkCody has a built-in terminal, so you don't need to switch windows.
+
+- **Lightweight and fast:** TalkCody is built with Rust and Tauri, with startup speed and memory usage far superior to Electron applications.
+
+## 🗺️ Near-term Roadmap
+
+### Usability Improvements
+
+- Cover complete workflows for all StarRocks roles through more Agents and Skills
+- Include more excellent Claude Code Skills built-in
+
+### Efficiency Improvements
+
+- Support multiple branches and parallel tasks within the same project
+- Support multiple Agents working in parallel on the same task
+
+## 🚀 Try It Out and Join the Community
+
+If you're interested in TalkCody, feel free to try it out, provide feedback, open issues, or submit PRs.
+
+- TalkCody Website: https://talkcody.com
+- TalkCody GitHub: https://github.com/talkcody/talkcody
+- TalkCody Downloads: https://www.talkcody.com/docs/introduction/client-downloads

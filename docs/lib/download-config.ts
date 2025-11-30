@@ -13,8 +13,8 @@ export const DOWNLOAD_CONFIG = {
 
   downloads: {
     'darwin-aarch64': 'https://cdn.talkcody.com/releases/v0.1.11/TalkCody_0.1.11_aarch64.dmg',
-    'darwin-x86_64': 'https://cdn.talkcody.com/releases/v0.1.10/TalkCody_0.1.10_x64.dmg',
-    'windows-x86_64': 'https://cdn.talkcody.com/releases/v0.1.9/TalkCody_0.1.9_x64_en-US.msi',
-    'linux-x86_64': 'https://cdn.talkcody.com/releases/v0.1.9/TalkCody_0.1.9_amd64.AppImage',
+    'darwin-x86_64': 'https://cdn.talkcody.com/releases/v0.1.11/TalkCody_0.1.11_x64.dmg',
+    'windows-x86_64': 'https://cdn.talkcody.com/releases/v0.1.11/TalkCody_0.1.11_x64_en-US.msi',
+    'linux-x86_64': 'https://cdn.talkcody.com/releases/v0.1.11/TalkCody_0.1.11_amd64.AppImage',
   },
 };
