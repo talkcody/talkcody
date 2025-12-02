@@ -4,7 +4,7 @@ contact_links:
     url: https://github.com/talkcody/talkcody/discussions
     about: Ask questions, share ideas, and discuss with the community
   - name: 📖 Documentation
-    url: https://talkcody.dev
+    url: https://talkcody.com
     about: Read the documentation
   - name: 🔒 Security Issue
     url: https://github.com/talkcody/talkcody/security/advisories/new

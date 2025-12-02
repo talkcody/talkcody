@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useLocale } from '@/hooks/use-locale';
 import { useAppSettings } from '@/hooks/use-settings';
 import { DOC_LINKS } from '@/lib/doc-links';
 import { logger } from '@/lib/logger';
@@ -15,6 +16,7 @@ import { useAgentStore } from '@/stores/agent-store';
 import { useToolOverrideStore } from '@/stores/tool-override-store';
 
 export function ToolSelectorButton() {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const { settings } = useAppSettings();
   const [toolsLoaded, setToolsLoaded] = useState(false);
@@ -53,7 +55,7 @@ export function ToolSelectorButton() {
       const allTools = getAvailableToolsForUISync();
       // Filter out hidden tools
       return allTools.filter((tool) => {
-        const ref = tool.ref as any;
+        const ref = tool.ref as { hidden?: boolean };
         return !ref.hidden;
       });
     } catch (error) {
@@ -99,7 +101,7 @@ export function ToolSelectorButton() {
 
   const handleToggleTool = (toolId: string) => {
     if (!currentAgent) {
-      toast.error('No active agent');
+      toast.error(t.Error.generic);
       return;
     }
 
@@ -109,14 +111,14 @@ export function ToolSelectorButton() {
       // Use tool override store for temporary modifications
       if (isSelected) {
         useToolOverrideStore.getState().removeTool(currentAgent.id, toolId);
-        toast.success('Tool removed (temporary)');
+        toast.success(t.Chat.tools.removedTemp);
       } else {
         useToolOverrideStore.getState().addTool(currentAgent.id, toolId);
-        toast.success('Tool added (temporary)');
+        toast.success(t.Chat.tools.addedTemp);
       }
     } catch (error) {
       logger.error('Failed to toggle tool:', error);
-      toast.error('Failed to update tool');
+      toast.error(t.Error.generic);
     }
   };
 
@@ -125,10 +127,10 @@ export function ToolSelectorButton() {
 
     try {
       useToolOverrideStore.getState().clearOverride(currentAgent.id);
-      toast.success('Tool overrides reset');
+      toast.success(t.Chat.tools.resetSuccess);
     } catch (error) {
       logger.error('Failed to reset tool overrides:', error);
-      toast.error('Failed to reset');
+      toast.error(t.Error.generic);
     }
   };
 
@@ -168,19 +170,15 @@ export function ToolSelectorButton() {
         </HoverCardTrigger>
         <HoverCardContent side="top" className="w-72">
           <div className="space-y-2">
-            <h4 className="font-medium text-sm">Agent Tools</h4>
-            <p className="text-xs text-muted-foreground">
-              Built-in tools that enable the AI agent to perform specific actions like file
-              operations, web search, and code execution. You can enable or disable tools for the
-              current conversation.
-            </p>
+            <h4 className="font-medium text-sm">{t.Chat.tools.title}</h4>
+            <p className="text-xs text-muted-foreground">{t.Chat.tools.description}</p>
             <a
               href={DOC_LINKS.features.tools}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
             >
-              Learn more
+              {t.Common.learnMore}
               <ExternalLink className="h-3 w-3" />
             </a>
           </div>
@@ -189,16 +187,18 @@ export function ToolSelectorButton() {
         <PopoverContent className="w-80 p-0" align="start">
           <div className="flex items-center justify-between px-3 py-2 border-b">
             <div className="flex items-center gap-2">
-              <div className="font-semibold text-sm">Agent Tools</div>
+              <div className="font-semibold text-sm">{t.Chat.tools.title}</div>
               {hasOverride && (
                 <span className="text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400">
-                  Modified
+                  {t.Chat.tools.modified}
                 </span>
               )}
             </div>
             <div className="flex items-center gap-2">
               {selectedCount > 0 && (
-                <span className="text-xs text-muted-foreground">{selectedCount} selected</span>
+                <span className="text-xs text-muted-foreground">
+                  {t.Chat.tools.selected(selectedCount)}
+                </span>
               )}
               {hasOverride && (
                 <Button
@@ -208,7 +208,7 @@ export function ToolSelectorButton() {
                   onClick={handleReset}
                 >
                   <RotateCcw className="h-3 w-3 mr-1" />
-                  Reset
+                  {t.Chat.tools.reset}
                 </Button>
               )}
             </div>
@@ -217,7 +217,7 @@ export function ToolSelectorButton() {
           <ScrollArea className="h-[400px]">
             {allAvailableTools.length === 0 ? (
               <div className="p-4 text-center text-sm text-muted-foreground">
-                No tools available
+                {t.Chat.tools.noTools}
               </div>
             ) : (
               <div className="p-2 space-y-1">
@@ -252,7 +252,7 @@ export function ToolSelectorButton() {
                         <div className="font-medium text-sm truncate">{tool.label}</div>
                       </div>
 
-                      <div className="text-xs text-muted-foreground">Built-in</div>
+                      <div className="text-xs text-muted-foreground">{t.Chat.tools.builtIn}</div>
                     </div>
                   );
                 })}

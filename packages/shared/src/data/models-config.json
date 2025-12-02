@@ -1,5 +1,5 @@
 {
-  "version": "2025-12-01T06:55:13.963Z",
+  "version": "2025-12-02T13:44:44.416Z",
   "models": {
     "gpt-5-nano": {
       "name": "GPT-5 Nano",
@@ -259,29 +259,21 @@
         "output": "0.0000025"
       }
     },
-    "deepseek-v3.1": {
-      "name": "Deepseek V3.1",
+    "deepseek-v3.2": {
+      "name": "Deepseek V3.2",
       "providers": [
         "aiGateway",
+        "deepseek",
         "openRouter"
       ],
       "providerMappings": {
-        "aiGateway": "deepseek/deepseek-v3.1",
-        "openRouter": "deepseek/deepseek-chat-v3.1"
+        "aiGateway": "deepseek/deepseek-v3.2-thinking",
+        "openRouter": "deepseek/deepseek-v3.2",
+        "deepseek": "deepseek-reasoner"
       },
       "pricing": {
-        "input": "0.0000003",
-        "output": "0.000001"
-      }
-    },
-    "deepseek-v3.1-thinking": {
-      "name": "Deepseek V3.1 Thinking",
-      "providers": [
-        "aiGateway"
-      ],
-      "pricing": {
-        "input": "0.00000056",
-        "output": "0.00000168"
+        "input": "0.00000028",
+        "output": "0.00000042"
       }
     },
     "grok-code-fast-1": {
@@ -341,14 +333,10 @@
       "providers": [
         "MiniMax",
         "aiGateway",
-        "openRouter",
-        "anthropic",
-        "openai"
+        "openRouter"
       ],
       "providerMappings": {
         "MiniMax": "MiniMax-M2-Stable",
-        "anthropic": "MiniMax-M2",
-        "openai": "MiniMax-M2",
         "aiGateway": "minimax/minimax-m2",
         "openRouter": "minimax/minimax-m2"
       },
@@ -360,22 +348,16 @@
     "gpt-oss:20b": {
       "name": "GPT-OSS 20B (Local)",
       "providers": [
-        "ollama"
+        "ollama",
+        "lmstudio"
       ],
+      "providerMappings": {
+        "ollama": "gpt-oss:20b",
+        "lmstudio": "openai/gpt-oss-20b"
+      },
       "pricing": {
         "input": "0.00000007",
         "output": "0.0000003"
-      }
-    },
-    "deepseek/deepseek-chat-v3.1:free": {
-      "name": "Deepseek V3 (Free)",
-      "imageGeneration": false,
-      "providers": [
-        "openRouter"
-      ],
-      "pricing": {
-        "input": "0",
-        "output": "0"
       }
     },
     "z-ai/glm-4.5-air:free": {

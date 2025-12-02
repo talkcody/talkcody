@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts';
+import { useLocale } from '@/hooks/use-locale';
 import { logger } from '@/lib/logger';
 import {
   DEFAULT_SHORTCUTS,
@@ -13,20 +14,39 @@ import {
 } from '@/types/shortcuts';
 import { ShortcutInput } from './shortcut-input';
 
-const SHORTCUT_LABELS: Record<ShortcutAction, string> = {
-  globalFileSearch: 'Global File Search',
-  globalContentSearch: 'Global Content Search',
-  fileSearch: 'Search in File',
-  saveFile: 'Save File',
-  newWindow: 'Open New Window',
-  openModelSettings: 'Open Model Settings',
-  toggleTerminal: 'Toggle Terminal',
-  nextTerminalTab: 'Next Terminal Tab',
-  previousTerminalTab: 'Previous Terminal Tab',
-  newTerminalTab: 'New Terminal Tab',
+// All shortcut action keys in display order
+const SHORTCUT_ACTIONS: ShortcutAction[] = [
+  'globalFileSearch',
+  'globalContentSearch',
+  'fileSearch',
+  'saveFile',
+  'newWindow',
+  'openModelSettings',
+  'toggleTerminal',
+  'nextTerminalTab',
+  'previousTerminalTab',
+  'newTerminalTab',
+];
+
+// Helper to get localized shortcut label
+const getShortcutLabel = (action: ShortcutAction, t: ReturnType<typeof useLocale>['t']): string => {
+  const labels: Record<ShortcutAction, string> = {
+    globalFileSearch: t.Settings.shortcuts.globalFileSearch,
+    globalContentSearch: t.Settings.shortcuts.globalContentSearch,
+    fileSearch: t.Settings.shortcuts.fileSearch,
+    saveFile: t.Settings.shortcuts.saveFile,
+    newWindow: t.Settings.shortcuts.newWindow,
+    openModelSettings: t.Settings.shortcuts.openModelSettings,
+    toggleTerminal: t.Settings.shortcuts.toggleTerminal,
+    nextTerminalTab: t.Settings.shortcuts.nextTerminalTab,
+    previousTerminalTab: t.Settings.shortcuts.previousTerminalTab,
+    newTerminalTab: t.Settings.shortcuts.newTerminalTab,
+  };
+  return labels[action] || action;
 };
 
 export function ShortcutSettingsPanel() {
+  const { t } = useLocale();
   const [localShortcuts, setLocalShortcuts] = useState<ShortcutSettings | null>(null);
   const [hasChanges, setHasChanges] = useState(false);
 
@@ -88,7 +108,7 @@ export function ShortcutSettingsPanel() {
 
     try {
       await updateShortcuts(localShortcuts);
-      toast.success('Shortcut settings saved');
+      toast.success(t.Settings.shortcuts.saved);
       setHasChanges(false);
 
       // Update local shortcuts to match saved shortcuts to prevent flickering
@@ -100,7 +120,7 @@ export function ShortcutSettingsPanel() {
       logger.info('Shortcuts saved successfully');
     } catch (error) {
       logger.error('Failed to save shortcuts:', error);
-      toast.error('Failed to save shortcut settings');
+      toast.error(t.Settings.shortcuts.saveFailed);
     }
   };
 
@@ -108,12 +128,12 @@ export function ShortcutSettingsPanel() {
     try {
       await resetToDefaults();
       // The shortcuts will be updated through the useEffect when resetToDefaults updates the global state
-      toast.success('Shortcuts reset to defaults');
+      toast.success(t.Settings.shortcuts.resetSuccess);
       setHasChanges(false);
       logger.info('All shortcuts reset to defaults');
     } catch (error) {
       logger.error('Failed to reset shortcuts:', error);
-      toast.error('Failed to reset shortcuts');
+      toast.error(t.Settings.shortcuts.resetFailed);
     }
   };
 
@@ -128,16 +148,13 @@ export function ShortcutSettingsPanel() {
     return (
       <Card>
         <CardHeader>
-          <CardTitle>Shortcut Settings</CardTitle>
-          <CardDescription>
-            Customize application shortcuts. Click the input field and press your desired key
-            combination.
-          </CardDescription>
+          <CardTitle>{t.Settings.shortcuts.title}</CardTitle>
+          <CardDescription>{t.Settings.shortcuts.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Loading skeleton matching actual layout */}
           <div className="grid gap-4">
-            {Object.keys(SHORTCUT_LABELS).map((action) => (
+            {SHORTCUT_ACTIONS.map((action) => (
               <div key={`skeleton-${action}`} className="space-y-2 animate-pulse">
                 {/* Label skeleton */}
                 <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/4"></div>
@@ -181,23 +198,20 @@ export function ShortcutSettingsPanel() {
   return (
     <Card className="animate-in fade-in duration-200">
       <CardHeader>
-        <CardTitle>Shortcut Settings</CardTitle>
-        <CardDescription>
-          Customize application shortcuts. Click the input field and press your desired key
-          combination.
-        </CardDescription>
+        <CardTitle>{t.Settings.shortcuts.title}</CardTitle>
+        <CardDescription>{t.Settings.shortcuts.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {/* Shortcut inputs */}
         <div className="grid gap-4">
-          {Object.entries(SHORTCUT_LABELS).map(([action, label]) => (
+          {SHORTCUT_ACTIONS.map((action) => (
             <ShortcutInput
               key={action}
-              label={label}
-              action={action as ShortcutAction}
-              value={localShortcuts[action as ShortcutAction]}
-              onChange={(config) => handleShortcutChange(action as ShortcutAction, config)}
-              onReset={() => handleResetSingle(action as ShortcutAction)}
+              label={getShortcutLabel(action, t)}
+              action={action}
+              value={localShortcuts[action]}
+              onChange={(config) => handleShortcutChange(action, config)}
+              onReset={() => handleResetSingle(action)}
             />
           ))}
         </div>
@@ -208,18 +222,18 @@ export function ShortcutSettingsPanel() {
         <div className="flex items-center justify-between">
           <div className="space-x-2">
             <Button variant="outline" onClick={handleResetAll} disabled={shortcutsLoading}>
-              Reset All to Defaults
+              {t.Settings.shortcuts.resetAllToDefaults}
             </Button>
           </div>
 
           <div className="space-x-2">
             {hasChanges && (
               <Button variant="outline" onClick={handleDiscard} disabled={shortcutsLoading}>
-                Discard Changes
+                {t.Settings.shortcuts.discardChanges}
               </Button>
             )}
             <Button onClick={handleSave} disabled={!hasChanges || shortcutsLoading}>
-              Save Settings
+              {t.Settings.shortcuts.saveSettings}
             </Button>
           </div>
         </div>
@@ -227,19 +241,19 @@ export function ShortcutSettingsPanel() {
         {hasChanges && (
           <div className="bg-blue-50 dark:bg-blue-950/30 p-3 rounded-lg">
             <p className="text-sm text-blue-700 dark:text-blue-200">
-              You have unsaved changes. Click "Save Settings" to apply them.
+              {t.Settings.shortcuts.unsavedChanges}
             </p>
           </div>
         )}
 
         {/* Help text */}
         <div className="bg-gray-50 dark:bg-gray-800/50 p-4 rounded-lg">
-          <h4 className="font-medium text-sm mb-2">Usage Instructions:</h4>
+          <h4 className="font-medium text-sm mb-2">{t.Settings.shortcuts.usageTitle}</h4>
           <ul className="text-sm text-gray-600 dark:text-gray-400 space-y-1">
-            <li>• Click an input field and press your desired key combination</li>
-            <li>• Supports Cmd/Ctrl + Alt + Shift + letter key combinations</li>
-            <li>• Shows Cmd on macOS, Ctrl on other platforms</li>
-            <li>• Use the reset button to restore individual shortcuts to defaults</li>
+            <li>• {t.Settings.shortcuts.usageClickInput}</li>
+            <li>• {t.Settings.shortcuts.usageModifiers}</li>
+            <li>• {t.Settings.shortcuts.usagePlatform}</li>
+            <li>• {t.Settings.shortcuts.usageResetButton}</li>
           </ul>
         </div>
       </CardContent>

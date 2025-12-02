@@ -23,6 +23,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFileUpload } from '@/hooks/use-file-upload';
+import { useLocale } from '@/hooks/use-locale';
 import { useAppSettings } from '@/hooks/use-settings';
 import { useVoiceInput } from '@/hooks/use-voice-input';
 import { logger } from '@/lib/logger';
@@ -84,6 +85,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     },
     ref
   ) => {
+    const { t } = useLocale();
     const { loading: settingsLoading } = useAppSettings();
     const { isPlanModeEnabled, togglePlanMode } = usePlanModeStore();
 
@@ -464,10 +466,10 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
           logger.info(`Successfully switched model to ${modelKey} and added pending images`);
         } catch (error) {
           logger.error('Failed to switch model:', error);
-          toast.error('Failed to switch model. Please try again.');
+          toast.error(t.Chat.model.switchFailed);
         }
       },
-      [pendingImageAttachments]
+      [pendingImageAttachments, t]
     );
 
     const handleImageUpload = async () => {
@@ -534,15 +536,15 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
           // Show success message
           const message =
             newAttachments.length === 1
-              ? `Image "${newAttachments[0]?.filename ?? 'unknown'}" pasted successfully`
-              : `${newAttachments.length} images pasted successfully`;
+              ? t.Chat.image.pasteSuccess(newAttachments[0]?.filename ?? 'unknown')
+              : t.Chat.image.pasteMultipleSuccess(newAttachments.length);
           toast.success(message);
 
           logger.info('✅ Paste completed successfully, attachments:', newAttachments.length);
         }
       } catch (error) {
         logger.error('Failed to handle paste:', error);
-        toast.error('Failed to paste image');
+        toast.error(t.Error.generic);
       }
     };
 
@@ -701,15 +703,15 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
 
                   const message =
                     attachments.length === 1
-                      ? `Image "${attachments[0]?.filename ?? 'unknown'}" added successfully`
-                      : `${attachments.length} images added successfully`;
+                      ? t.Chat.image.pasteSuccess(attachments[0]?.filename ?? 'unknown')
+                      : t.Chat.image.pasteMultipleSuccess(attachments.length);
                   toast.success(message);
 
                   logger.info('✅ Drag-drop completed successfully:', attachments.length);
                 }
               } catch (error) {
                 logger.error('Failed to process dropped files:', error);
-                toast.error('Failed to upload dropped files');
+                toast.error(t.Error.generic);
               }
             }
           );
@@ -780,7 +782,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       return (
         <div className="flex-shrink-0 border-t bg-background p-4">
           <div className="flex h-16 items-center justify-center">
-            <span className="text-muted-foreground text-sm">Loading settings...</span>
+            <span className="text-muted-foreground text-sm">{t.Common.loading}</span>
           </div>
         </div>
       );
@@ -814,7 +816,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
               >
                 <div className="flex flex-col items-center gap-2">
                   <Image size={32} className="text-primary" />
-                  <p className="text-sm font-medium text-primary">Drop images here</p>
+                  <p className="text-sm font-medium text-primary">{t.Chat.image.dropHere}</p>
                 </div>
               </div>
             )}
@@ -839,7 +841,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 onChange={handleInputChange}
                 onKeyDown={handleInputKeydown}
                 onPaste={handlePaste}
-                placeholder="Ask any question... / for commands, # add files to context"
+                placeholder={t.Chat.placeholder}
                 ref={textareaRef}
                 value={isRecording && partialTranscript ? input + partialTranscript : input}
                 readOnly={isRecording}
@@ -852,30 +854,30 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         <DropdownMenuTrigger asChild>
                           <PromptInputButton disabled={isUploading || isLoading}>
                             <Plus size={16} />
-                            <span className="sr-only">Add attachment</span>
+                            <span className="sr-only">{t.Chat.files.addAttachment}</span>
                           </PromptInputButton>
                         </DropdownMenuTrigger>
                       </TooltipTrigger>
                       <DropdownMenuContent>
                         <DropdownMenuItem onClick={handleImageUpload}>
                           <Image size={16} className="mr-2" />
-                          <span>Upload Image</span>
+                          <span>{t.Chat.files.uploadImage}</span>
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={handleFileUpload}>
                           <FileIcon size={16} className="mr-2" />
-                          <span>Upload File</span>
+                          <span>{t.Chat.files.uploadFile}</span>
                         </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                     <TooltipContent>
-                      <p>Add attachment</p>
+                      <p>{t.Chat.files.addAttachment}</p>
                     </TooltipContent>
                   </Tooltip>
                   <AgentSelector disabled={isLoading} />
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <div className="flex items-center gap-2 rounded-md border-input bg-background px-3 py-1.5">
-                        <span className="text-xs font-medium">Plan Mode</span>
+                        <span className="text-xs font-medium">{t.Chat.planMode.label}</span>
                         <Switch
                           checked={isPlanModeEnabled}
                           onCheckedChange={togglePlanMode}
@@ -886,8 +888,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     <TooltipContent>
                       <p>
                         {isPlanModeEnabled
-                          ? 'Plan Mode: AI will create a plan for approval first'
-                          : 'Act Mode: AI will execute tasks directly'}
+                          ? t.Chat.planMode.enabledTooltip
+                          : t.Chat.planMode.disabledTooltip}
                       </p>
                     </TooltipContent>
                   </Tooltip>

@@ -10,8 +10,15 @@ use url::Url;
 
 static REQUEST_COUNTER: AtomicU32 = AtomicU32::new(0);
 
+/// Allowed localhost ports for local AI services
+const ALLOWED_LOCALHOST_PORTS: &[u16] = &[
+    11434, // Ollama
+    1234,  // LM Studio (default)
+];
+
 /// Validate URL to prevent SSRF attacks
 /// Returns an error if the URL points to a private/internal IP address
+/// Exception: localhost access is allowed for specific AI service ports
 fn validate_url(url_str: &str) -> Result<(), String> {
     let url = Url::parse(url_str).map_err(|e| format!("Invalid URL: {}", e))?;
 
@@ -26,7 +33,17 @@ fn validate_url(url_str: &str) -> Result<(), String> {
 
     // Check for localhost variations
     let host_lower = host.to_lowercase();
-    if host_lower == "localhost" || host_lower == "127.0.0.1" || host_lower == "::1" {
+    let is_localhost = host_lower == "localhost"
+        || host_lower == "127.0.0.1"
+        || host_lower == "::1"
+        || host_lower == "[::1]";  // IPv6 bracket notation
+
+    if is_localhost {
+        // Allow localhost access for specific AI service ports
+        let port = url.port().unwrap_or(80);
+        if ALLOWED_LOCALHOST_PORTS.contains(&port) {
+            return Ok(()); // Allow access to local AI services
+        }
         return Err("Access to localhost is not allowed".to_string());
     }
 
@@ -544,24 +561,36 @@ mod tests {
     }
 
     #[test]
-    fn test_validate_url_blocks_localhost() {
+    fn test_validate_url_blocks_localhost_default_port() {
+        // Default port (80) should be blocked
         assert!(validate_url("http://localhost").is_err());
-        assert!(validate_url("http://localhost:8080").is_err());
         assert!(validate_url("https://localhost/api").is_err());
         assert!(validate_url("http://LOCALHOST").is_err()); // case insensitive
     }
 
     #[test]
-    fn test_validate_url_blocks_127_0_0_1() {
-        assert!(validate_url("http://127.0.0.1").is_err());
-        assert!(validate_url("http://127.0.0.1:3000").is_err());
-        assert!(validate_url("https://127.0.0.1/api").is_err());
+    fn test_validate_url_allows_localhost_ai_ports() {
+        // Allowed AI service ports
+        assert!(validate_url("http://localhost:11434").is_ok()); // Ollama
+        assert!(validate_url("http://localhost:1234").is_ok());  // LM Studio
+        assert!(validate_url("http://localhost:8080").is_ok());  // Common alternative
+        assert!(validate_url("http://127.0.0.1:11434/v1/models").is_ok());
+        assert!(validate_url("http://127.0.0.1:1234/v1/chat/completions").is_ok());
+    }
+
+    #[test]
+    fn test_validate_url_blocks_localhost_other_ports() {
+        // Non-allowed ports should be blocked
+        assert!(validate_url("http://localhost:3000").is_err());
+        assert!(validate_url("http://127.0.0.1:9999").is_err());
     }
 
     #[test]
     fn test_validate_url_blocks_ipv6_loopback() {
         assert!(validate_url("http://[::1]").is_err());
-        assert!(validate_url("http://[::1]:8080").is_err());
+        assert!(validate_url("http://[::1]:9999").is_err());
+        // But allowed ports should work for IPv6 too
+        assert!(validate_url("http://[::1]:11434").is_ok());
     }
 
     #[test]

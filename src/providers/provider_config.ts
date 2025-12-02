@@ -12,7 +12,6 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
   aiGateway: {
     id: 'aiGateway',
     name: 'Vercel AI Gateway',
-    description: 'Multi-model AI Gateway',
     priority: 0,
     apiKeyName: 'AI_GATEWAY_API_KEY',
     required: false,
@@ -31,7 +30,6 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
   openRouter: {
     id: 'openRouter',
     name: 'OpenRouter',
-    description: 'OpenRouter API Gateway',
     priority: 1,
     apiKeyName: 'OPEN_ROUTER_API_KEY',
     required: false,
@@ -55,7 +53,6 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
   openai: {
     id: 'openai',
     name: 'OpenAI',
-    description: 'Official OpenAI API',
     priority: 2,
     apiKeyName: 'OPENAI_API_KEY',
     required: false,
@@ -76,10 +73,43 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
     },
   },
 
+  anthropic: {
+    id: 'anthropic',
+    name: 'Anthropic',
+    priority: 2,
+    apiKeyName: 'ANTHROPIC_API_KEY',
+    required: false,
+    type: 'custom',
+    createProvider: (apiKey: string, baseUrl?: string) =>
+      createAnthropic({
+        apiKey,
+        ...(baseUrl && { baseURL: baseUrl }),
+        // Use Tauri fetch to bypass webview CORS restrictions
+        // This works for both official Anthropic API and third-party compatible APIs
+        fetch: createTauriFetch() as typeof fetch,
+      }),
+  },
+
+  deepseek: {
+    id: 'deepseek',
+    name: 'Deepseek',
+    priority: 2,
+    apiKeyName: 'DEEPSEEK_API_KEY',
+    baseUrl: 'https://api.deepseek.com',
+    required: false,
+    type: 'openai-compatible',
+    createProvider: (apiKey: string, baseUrl?: string) =>
+      createOpenAICompatible({
+        apiKey,
+        name: 'deepseek',
+        baseURL: baseUrl || 'https://api.deepseek.com/v1/',
+        fetch: createTauriFetch() as typeof fetch,
+      }),
+  },
+
   zhipu: {
     id: 'zhipu',
     name: 'Zhipu AI',
-    description: 'Zhipu GLM Models',
     priority: 2,
     apiKeyName: 'ZHIPU_API_KEY',
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4/',
@@ -97,7 +127,6 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
   MiniMax: {
     id: 'MiniMax',
     name: 'MiniMax',
-    description: 'MiniMax Models',
     priority: 2,
     apiKeyName: 'MINIMAX_API_KEY',
     required: false,
@@ -119,7 +148,6 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
   google: {
     id: 'google',
     name: 'Google AI',
-    description: 'Google Generative AI',
     priority: 2,
     apiKeyName: 'GOOGLE_API_KEY',
     required: false,
@@ -131,28 +159,9 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
       }),
   },
 
-  anthropic: {
-    id: 'anthropic',
-    name: 'Anthropic',
-    description: 'Official Anthropic Claude API',
-    priority: 2,
-    apiKeyName: 'ANTHROPIC_API_KEY',
-    required: false,
-    type: 'custom',
-    createProvider: (apiKey: string, baseUrl?: string) =>
-      createAnthropic({
-        apiKey,
-        ...(baseUrl && { baseURL: baseUrl }),
-        // Use Tauri fetch to bypass webview CORS restrictions
-        // This works for both official Anthropic API and third-party compatible APIs
-        fetch: createTauriFetch() as typeof fetch,
-      }),
-  },
-
   ollama: {
     id: 'ollama',
     name: 'Ollama',
-    description: 'Local Ollama Models (No API Key Required)',
     priority: 1,
     apiKeyName: 'OLLAMA_ENABLED',
     baseUrl: 'http://127.0.0.1:11434',
@@ -167,10 +176,26 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
       }),
   },
 
+  lmstudio: {
+    id: 'lmstudio',
+    name: 'LM Studio',
+    priority: 1,
+    apiKeyName: 'LMSTUDIO_ENABLED',
+    baseUrl: 'http://127.0.0.1:1234',
+    required: false,
+    type: 'openai-compatible',
+    createProvider: (_apiKey: string, baseUrl?: string) =>
+      createOpenAICompatible({
+        name: 'lmstudio',
+        baseURL: baseUrl ? `${baseUrl}/v1` : 'http://127.0.0.1:1234/v1',
+        apiKey: 'lm-studio', // LM Studio doesn't require a real API key
+        fetch: createTauriFetch() as typeof fetch,
+      }),
+  },
+
   tavily: {
     id: 'tavily',
-    name: 'Tavily',
-    description: 'Tavily Web Search API',
+    name: 'Tavily Web Search',
     priority: 3,
     apiKeyName: 'TAVILY_API_KEY',
     baseUrl: 'https://api.tavily.com',
@@ -180,8 +205,7 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
   },
   elevenlabs: {
     id: 'elevenlabs',
-    name: 'Eleven Labs',
-    description: 'Eleven Labs API',
+    name: 'Eleven Labs Text-to-Speech',
     priority: 3,
     apiKeyName: 'ELEVENLABS_API_KEY',
     baseUrl: 'https://api.elevenlabs.io',

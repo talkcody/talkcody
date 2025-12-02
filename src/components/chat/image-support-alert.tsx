@@ -11,6 +11,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { useLocale } from '@/hooks/use-locale';
 import { logger } from '@/lib/logger';
 import { useModelStore } from '@/stores/model-store';
 
@@ -27,6 +28,7 @@ export function ImageSupportAlert({
   onModelSelect,
   onCancel,
 }: ImageSupportAlertProps) {
+  const { t } = useLocale();
   const { availableModels } = useModelStore();
   const [imageSupportedModels, setImageSupportedModels] = useState<string[]>([]);
 
@@ -44,7 +46,6 @@ export function ImageSupportAlert({
       onCancel();
     }
     onOpenChange(false);
-    toast.info('You can remove the image to continue with the current model');
   };
 
   const handleModelClick = async (modelKey: string) => {
@@ -53,7 +54,7 @@ export function ImageSupportAlert({
       onOpenChange(false);
       // Then call onModelSelect (this is async but we don't await it here to avoid blocking)
       onModelSelect(modelKey).then(() => {
-        toast.success('Model switched to one that supports images');
+        toast.success(t.Chat.model.switchSuccess);
       });
     } catch (error) {
       logger.error('Error handling model click:', error);
@@ -66,17 +67,14 @@ export function ImageSupportAlert({
         <AlertDialogHeader>
           <div className="flex items-center gap-2">
             <ImageIcon className="h-5 w-5 text-orange-500" />
-            <AlertDialogTitle>Image Input Not Supported</AlertDialogTitle>
+            <AlertDialogTitle>{t.Chat.image.notSupported}</AlertDialogTitle>
           </div>
-          <AlertDialogDescription>
-            The current model doesn't support image input. Please switch to a model that supports
-            images or remove the image to continue.
-          </AlertDialogDescription>
+          <AlertDialogDescription>{t.Chat.image.notSupportedDescription}</AlertDialogDescription>
         </AlertDialogHeader>
 
         {imageSupportedModels.length > 0 && (
           <div className="space-y-3 py-3">
-            <div className="text-sm font-medium">Models that support images:</div>
+            <div className="text-sm font-medium">{t.Chat.image.supportedModels}</div>
             <div className="grid gap-2 max-h-48 overflow-y-auto">
               {imageSupportedModels.map((modelKey) => {
                 const model = availableModels.find((m) => m.key === modelKey);
@@ -93,7 +91,6 @@ export function ImageSupportAlert({
                     </div>
                     <div className="flex items-center gap-1">
                       <ImageIcon className="h-4 w-4 text-green-500" />
-                      <span className="text-xs text-green-600">Supports images</span>
                     </div>
                   </button>
                 );
@@ -105,18 +102,17 @@ export function ImageSupportAlert({
         {imageSupportedModels.length === 0 && (
           <div className="flex items-center gap-2 p-3 bg-orange-50 dark:bg-orange-950/30 rounded-lg">
             <AlertTriangle className="h-4 w-4 text-orange-500" />
-            <div className="text-sm">
-              No models with image support are currently available. Please configure API keys for
-              providers that offer image-capable models.
-            </div>
+            <div className="text-sm">{t.Chat.image.noModelsAvailable}</div>
           </div>
         )}
 
         <AlertDialogFooter>
-          <AlertDialogCancel onClick={handleKeepCurrentModel}>Keep Current Model</AlertDialogCancel>
+          <AlertDialogCancel onClick={handleKeepCurrentModel}>
+            {t.Chat.image.keepCurrentModel}
+          </AlertDialogCancel>
           {imageSupportedModels.length > 0 && (
             <AlertDialogAction onClick={() => onOpenChange(false)}>
-              Choose Model Manually
+              {t.Chat.image.chooseModel}
             </AlertDialogAction>
           )}
         </AlertDialogFooter>

@@ -5,6 +5,9 @@ use serde::{Deserialize, Serialize};
 use std::ffi::OsStr;
 use std::time::UNIX_EPOCH;
 
+/// Default maximum number of results to return from glob search
+const DEFAULT_MAX_GLOB_RESULTS: usize = 100;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobResult {
     pub path: String,
@@ -26,7 +29,12 @@ impl HighPerformanceGlob {
     }
 
     /// High-performance glob pattern matching with results sorted by modification time
-    pub fn search_files_by_glob(&self, pattern: &str, root_path: &str) -> Result<Vec<GlobResult>, String> {
+    ///
+    /// # Arguments
+    /// * `pattern` - Glob pattern to match files against
+    /// * `root_path` - Root directory to search from
+    /// * `max_results` - Maximum number of results to return (to prevent excessive output)
+    pub fn search_files_by_glob(&self, pattern: &str, root_path: &str, max_results: usize) -> Result<Vec<GlobResult>, String> {
         if pattern.trim().is_empty() {
             return Ok(vec![]);
         }
@@ -55,6 +63,11 @@ impl HighPerformanceGlob {
         let mut results = Vec::new();
 
         for result in walker {
+            // Early termination if we have enough results
+            if results.len() >= max_results {
+                break;
+            }
+
             if let Ok(entry) = result {
                 // Skip root directory
                 if entry.depth() == 0 {
@@ -94,6 +107,9 @@ impl HighPerformanceGlob {
         results.par_sort_unstable_by(|a, b| {
             b.modified_time.cmp(&a.modified_time)
         });
+
+        // Ensure we don't exceed limit after sorting
+        results.truncate(max_results);
 
         Ok(results)
     }
@@ -266,11 +282,13 @@ impl HighPerformanceGlob {
 pub fn search_files_by_glob(
     pattern: String,
     path: Option<String>,
+    max_results: Option<usize>,
 ) -> Result<Vec<GlobResult>, String> {
     let root_path = path.unwrap_or_else(|| ".".to_string());
+    let limit = max_results.unwrap_or(DEFAULT_MAX_GLOB_RESULTS);
 
     let glob = HighPerformanceGlob::new();
-    glob.search_files_by_glob(&pattern, &root_path)
+    glob.search_files_by_glob(&pattern, &root_path, limit)
 }
 
 #[cfg(test)]
@@ -370,11 +388,25 @@ mod tests {
         let temp_dir = create_test_directory();
         let glob = HighPerformanceGlob::new();
 
-        let results = glob.search_files_by_glob("", temp_dir.path().to_str().unwrap()).unwrap();
+        let results = glob.search_files_by_glob("", temp_dir.path().to_str().unwrap(), 1000).unwrap();
         assert!(results.is_empty());
 
-        let results = glob.search_files_by_glob("   ", temp_dir.path().to_str().unwrap()).unwrap();
+        let results = glob.search_files_by_glob("   ", temp_dir.path().to_str().unwrap(), 1000).unwrap();
         assert!(results.is_empty());
+    }
+
+    #[test]
+    fn test_max_results_limit() {
+        let temp_dir = create_test_directory();
+        let glob = HighPerformanceGlob::new();
+
+        // Search all files but limit to 2 results
+        let results = glob.search_files_by_glob("**/*", temp_dir.path().to_str().unwrap(), 2).unwrap();
+        assert!(results.len() <= 2, "Results should be limited to 2, got {}", results.len());
+
+        // Search with higher limit should return more
+        let all_results = glob.search_files_by_glob("**/*", temp_dir.path().to_str().unwrap(), 1000).unwrap();
+        assert!(all_results.len() > 2, "Should find more than 2 files without limit");
     }
 
     #[test]

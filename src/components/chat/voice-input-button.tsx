@@ -1,5 +1,6 @@
 // src/components/chat/voice-input-button.tsx
 import { Mic } from 'lucide-react';
+import { useLocale } from '@/hooks/use-locale';
 import { PromptInputButton } from '../ai-elements/prompt-input';
 
 interface VoiceInputButtonProps {
@@ -19,17 +20,19 @@ export function VoiceInputButton({
   error,
   disabled = false,
 }: VoiceInputButtonProps) {
+  const { t } = useLocale();
+
   const getTooltip = () => {
     if (!isSupported) {
-      return 'Voice recording not supported in this environment';
+      return t.Chat.voice.notSupported;
     }
     if (error) {
-      return `Error: ${error}`;
+      return t.Chat.voice.error(error);
     }
     if (isRecording || isTranscribing) {
-      return 'Recording in progress...';
+      return t.Chat.voice.stopRecording;
     }
-    return 'Click to start voice recording';
+    return t.Chat.voice.startRecording;
   };
 
   return (

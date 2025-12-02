@@ -40,6 +40,17 @@ export function useUpdater(options?: {
   });
 
   /**
+   * Store update object in a ref to ensure downloadAndInstall always has
+   * access to the latest update without timing issues.
+   */
+  const updateRef = useRef<Update | null>(null);
+
+  // Sync update object to ref whenever it changes
+  useEffect(() => {
+    updateRef.current = state.update;
+  }, [state.update]);
+
+  /**
    * Update last check timestamp
    */
   const updateLastCheckTime = useCallback(() => {
@@ -91,18 +102,13 @@ export function useUpdater(options?: {
   /**
    * Download and install update
    *
-   * Fix: Use functional setState to access the latest update from state
-   * instead of capturing it in closure. This prevents the function reference
-   * from changing every time state.update changes, which would cause
-   * UpdateDialog's useEffect to re-trigger unnecessarily.
+   * Fix: Use updateRef to access the latest update object directly.
+   * This ensures we always have the most recent update without timing issues
+   * that can occur with the setState callback pattern.
    */
   const downloadAndInstall = useCallback(async () => {
-    // Read update from state using functional setState pattern
-    let currentUpdate: Update | null = null;
-    setState((prev) => {
-      currentUpdate = prev.update;
-      return prev;
-    });
+    // Read update from ref - this is always in sync with state.update
+    const currentUpdate = updateRef.current;
 
     if (!currentUpdate) {
       setState((prev) => ({

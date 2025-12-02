@@ -31,6 +31,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTranslation } from '@/hooks/use-locale';
 import { useUnifiedAgents } from '@/hooks/use-unified-agents';
 import { DOC_LINKS } from '@/lib/doc-links';
 import { logger } from '@/lib/logger';
@@ -60,6 +61,7 @@ export function AgentMarketplacePage() {
   const [deletingAgentId, setDeletingAgentId] = useState<string | null>(null);
   const [publishingAgent, setPublishingAgent] = useState<Agent | null>(null);
 
+  const t = useTranslation();
   const refreshAgents = useAgentStore((state) => state.refreshAgents);
 
   const {
@@ -218,11 +220,12 @@ export function AgentMarketplacePage() {
       dynamicEnabled: boolean;
       dynamicProviders: string[];
       dynamicVariables: Record<string, string>;
-      dynamicProviderSettings?: Record<string, any>;
+      dynamicProviderSettings?: Record<string, unknown>;
     }) => {
       try {
         // Build tools from selected names
         const availableTools = getAvailableToolsForUISync();
+        // biome-ignore lint/suspicious/noExplicitAny: Tools are dynamically built with refs of various types
         const tools: Record<string, any> = {};
         for (const t of agentData.selectedTools) {
           const match = availableTools.find((x) => x.id === t);
@@ -298,13 +301,13 @@ export function AgentMarketplacePage() {
   const handleDeleteAgent = async (agentId: string) => {
     try {
       await agentRegistry.delete(agentId);
-      toast.success('Agent deleted successfully');
+      toast.success(t.Agents.page.deleted);
       setDeletingAgentId(null);
       await refreshLocalAgents();
       await refreshAgents();
     } catch (error) {
       logger.error('Failed to delete agent:', error);
-      toast.error('Failed to delete agent');
+      toast.error(t.Agents.deleteFailed);
     }
   };
 
@@ -312,15 +315,15 @@ export function AgentMarketplacePage() {
     try {
       const newId = await forkAgent(agentId);
       if (newId) {
-        toast.success('Agent forked successfully!');
+        toast.success(t.Agents.page.forked);
         await refreshLocalAgents();
         await refreshAgents();
       } else {
-        toast.error('Failed to fork agent');
+        toast.error(t.Agents.page.forkFailed);
       }
     } catch (error) {
       logger.error('Fork agent error:', error);
-      toast.error('An error occurred while forking the agent');
+      toast.error(t.Agents.page.forkError);
     }
   };
 
@@ -330,11 +333,11 @@ export function AgentMarketplacePage() {
       if (dbAgent) {
         setPublishingAgent(dbAgent);
       } else {
-        toast.error('Agent not found');
+        toast.error(t.Agents.page.notFound);
       }
     } catch (error) {
       logger.error('Share agent error:', error);
-      toast.error('Failed to load agent details');
+      toast.error(t.Agents.page.loadDetailsFailed);
     }
   };
 
@@ -345,7 +348,9 @@ export function AgentMarketplacePage() {
         agentRegistry.setSystemAgentEnabled(agent.id, !agent.is_enabled);
         await refreshLocalAgents();
         await refreshAgents();
-        toast.success(`Agent ${agent.is_enabled ? 'deactivated' : 'activated'}`);
+        toast.success(
+          t.Agents.page.toggleSuccess(agent.is_enabled ? t.Skills.deactivate : t.Skills.activate)
+        );
       } else {
         // For user agents, update database
         await agentService.updateAgent(agent.id, {
@@ -356,12 +361,12 @@ export function AgentMarketplacePage() {
       }
     } catch (error) {
       logger.error('Failed to toggle agent:', error);
-      toast.error('Failed to update agent');
+      toast.error(t.Agents.page.updateFailed);
     }
   };
 
   const handlePublishSuccess = async () => {
-    toast.success('Agent published to marketplace!');
+    toast.success(t.Agents.page.published);
     setPublishingAgent(null);
     await refreshLocalAgents();
     await refreshAgents();
@@ -378,17 +383,17 @@ export function AgentMarketplacePage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">Agents</h1>
+                <h1 className="text-2xl font-bold">{t.Agents.title}</h1>
                 <HelpTooltip
-                  title="AI Agents"
-                  description="Agents are specialized AI assistants with different capabilities and personalities. Each agent can have different tools, skills, and system prompts configured to help with specific tasks like coding, writing, or research."
+                  title={t.Agents.page.tooltipTitle}
+                  description={t.Agents.page.tooltipDescription}
                   docUrl={DOC_LINKS.features.agents}
                 />
               </div>
               <p className="text-sm text-muted-foreground">
                 {activeTab === 'myagents'
-                  ? 'Manage your local and installed agents'
-                  : 'Discover and install agents from the marketplace'}
+                  ? t.Agents.page.description
+                  : t.Agents.page.marketplaceDescription}
               </p>
             </div>
           </div>
@@ -396,12 +401,12 @@ export function AgentMarketplacePage() {
             {activeTab === 'myagents' && (
               <Button variant="default" size="sm" onClick={handleCreateAgent}>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Agent
+                {t.Agents.page.addAgent}
               </Button>
             )}
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-              Refresh
+              {t.Agents.page.refresh}
             </Button>
           </div>
         </div>
@@ -411,7 +416,7 @@ export function AgentMarketplacePage() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search agents..."
+              placeholder={t.Agents.page.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-9"
@@ -423,7 +428,7 @@ export function AgentMarketplacePage() {
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="all">{t.Agents.page.allCategories}</SelectItem>
               {categories.map((category) => (
                 <SelectItem key={category.id} value={category.id}>
                   {category.name}
@@ -440,28 +445,28 @@ export function AgentMarketplacePage() {
               <SelectItem value="popular">
                 <div className="flex items-center gap-2">
                   <Star className="h-4 w-4" />
-                  Popular
+                  {t.Agents.page.sortPopular}
                 </div>
               </SelectItem>
               <SelectItem value="recent">
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  Recent
+                  {t.Agents.page.sortRecent}
                 </div>
               </SelectItem>
               <SelectItem value="downloads">
                 <div className="flex items-center gap-2">
                   <Download className="h-4 w-4" />
-                  Downloads
+                  {t.Agents.page.sortDownloads}
                 </div>
               </SelectItem>
               <SelectItem value="installs">
                 <div className="flex items-center gap-2">
                   <TrendingUp className="h-4 w-4" />
-                  Installs
+                  {t.Agents.page.sortInstalls}
                 </div>
               </SelectItem>
-              <SelectItem value="name">Name</SelectItem>
+              <SelectItem value="name">{t.Agents.page.sortName}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -472,23 +477,21 @@ export function AgentMarketplacePage() {
         <Tabs value={activeTab} onValueChange={setActiveTab} className="h-full">
           <div className="px-6 pt-4">
             <TabsList>
-              <TabsTrigger value="myagents">Local Agents</TabsTrigger>
+              <TabsTrigger value="myagents">{t.Agents.page.localAgents}</TabsTrigger>
               {/* <TabsTrigger value="featured">Featured</TabsTrigger> */}
-              <TabsTrigger value="all">Remote Agents</TabsTrigger>
+              <TabsTrigger value="all">{t.Agents.page.remoteAgents}</TabsTrigger>
             </TabsList>
           </div>
 
           <TabsContent value="all" className="px-6 pb-6 mt-4">
             {isLoading ? (
               <div className="flex items-center justify-center h-64">
-                <div className="text-muted-foreground">Loading agents...</div>
+                <div className="text-muted-foreground">{t.Agents.page.loading}</div>
               </div>
             ) : marketplaceAgents.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-center">
-                <p className="text-muted-foreground mb-2">No agents found</p>
-                <p className="text-sm text-muted-foreground">
-                  Try adjusting your search or filters
-                </p>
+                <p className="text-muted-foreground mb-2">{t.Agents.page.noAgentsFound}</p>
+                <p className="text-sm text-muted-foreground">{t.Agents.page.adjustFilters}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -532,23 +535,23 @@ export function AgentMarketplacePage() {
           <TabsContent value="myagents" className="px-6 pb-6 mt-4">
             {isLoading ? (
               <div className="flex items-center justify-center h-64">
-                <div className="text-muted-foreground">Loading your agents...</div>
+                <div className="text-muted-foreground">{t.Agents.page.loadingYourAgents}</div>
               </div>
             ) : myAgents.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-center">
-                <p className="text-muted-foreground mb-2">No agents yet</p>
+                <p className="text-muted-foreground mb-2">{t.Agents.page.noAgentsYet}</p>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Create your first agent or install one from the marketplace
+                  {t.Agents.page.createFirstAgent}
                 </p>
                 <Button onClick={handleCreateAgent}>
                   <Plus className="h-4 w-4 mr-2" />
-                  Create Agent
+                  {t.Agents.createNew}
                 </Button>
               </div>
             ) : filteredMyAgents.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-center">
-                <p className="text-muted-foreground mb-2">No agents match your search</p>
-                <p className="text-sm text-muted-foreground">Try adjusting your search query</p>
+                <p className="text-muted-foreground mb-2">{t.Agents.page.noAgentsMatch}</p>
+                <p className="text-sm text-muted-foreground">{t.Agents.page.adjustSearch}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -587,7 +590,7 @@ export function AgentMarketplacePage() {
                 id: editingAgent.id,
                 name: editingAgent.name,
                 description: editingAgent.description,
-                modelType: editingAgent.model_type as any,
+                modelType: editingAgent.model_type as ModelType,
                 systemPrompt: editingAgent.system_prompt,
                 tools: editingAgent.tools_config
                   ? (() => {
@@ -632,18 +635,16 @@ export function AgentMarketplacePage() {
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Agent</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete this agent? This action cannot be undone.
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t.Agents.page.deleteTitle}</AlertDialogTitle>
+            <AlertDialogDescription>{t.Agents.page.deleteDescription}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.Common.cancel}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingAgentId && handleDeleteAgent(deletingAgentId)}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t.Common.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -1,5 +1,6 @@
 // src/providers/registry.ts
 import { logger } from '@/lib/logger';
+import { isLocalProvider } from '@/services/custom-model-service';
 import { PROVIDER_CONFIGS } from './provider_config';
 import type { ProviderDefinition } from './types';
 
@@ -70,9 +71,9 @@ export class ProviderRegistry {
       return false;
     }
 
-    if (providerId === 'ollama') {
-      const result = apiKeys.ollama === 'enabled';
-      // logger.info('[hasApiKey] Ollama provider check', { result });
+    // Local providers (Ollama, LM Studio) use 'enabled' instead of API key
+    if (isLocalProvider(providerId)) {
+      const result = apiKeys[providerId] === 'enabled';
       return result;
     }
 

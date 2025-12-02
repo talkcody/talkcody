@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useTranslation } from '@/hooks/use-locale';
 import { useMultiMCPTools } from '@/hooks/use-multi-mcp-tools';
 import { DOC_LINKS } from '@/lib/doc-links';
 import { logger } from '@/lib/logger';
@@ -66,6 +67,8 @@ export function MCPServersPage() {
   const editHeadersId = useId();
   const editCommandId = useId();
   const editArgsId = useId();
+
+  const t = useTranslation();
 
   const {
     servers,
@@ -125,31 +128,31 @@ export function MCPServersPage() {
 
   const validateForm = (): boolean => {
     if (!formData.id.trim()) {
-      setFormError('Server ID is required');
+      setFormError(t.MCPServers.validation.serverIdRequired);
       return false;
     }
 
     if (!formData.name.trim()) {
-      setFormError('Server name is required');
+      setFormError(t.MCPServers.validation.nameRequired);
       return false;
     }
 
     // Validate protocol-specific fields
     if (formData.protocol === 'stdio') {
       if (!formData.stdio_command?.trim()) {
-        setFormError('Command is required for stdio protocol');
+        setFormError(t.MCPServers.validation.commandRequired);
         return false;
       }
     } else {
       if (!formData.url.trim()) {
-        setFormError('URL is required for HTTP/SSE protocols');
+        setFormError(t.MCPServers.validation.urlRequired);
         return false;
       }
 
       try {
         new URL(formData.url);
       } catch {
-        setFormError('Invalid URL format');
+        setFormError(t.MCPServers.validation.invalidUrl);
         return false;
       }
     }
@@ -159,7 +162,7 @@ export function MCPServersPage() {
       try {
         JSON.parse(formData.headers);
       } catch {
-        setFormError('Headers must be valid JSON');
+        setFormError(t.MCPServers.validation.invalidHeaders);
         return false;
       }
     }
@@ -168,11 +171,11 @@ export function MCPServersPage() {
       try {
         const args = JSON.parse(formData.stdio_args);
         if (!Array.isArray(args)) {
-          setFormError('Arguments must be a JSON array');
+          setFormError(t.MCPServers.validation.argumentsMustBeArray);
           return false;
         }
       } catch {
-        setFormError('Arguments must be valid JSON array');
+        setFormError(t.MCPServers.validation.invalidArguments);
         return false;
       }
     }
@@ -294,25 +297,23 @@ export function MCPServersPage() {
       <div className="flex items-center justify-between border-b px-6 py-4">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold">MCP Servers</h1>
+            <h1 className="text-2xl font-bold">{t.MCPServers.title}</h1>
             <HelpTooltip
-              title="MCP Servers"
-              description="Model Context Protocol (MCP) servers provide external tools and integrations. Connect to services like databases, APIs, and other external systems to extend the AI agent's capabilities."
+              title={t.MCPServers.tooltipTitle}
+              description={t.MCPServers.tooltipDescription}
               docUrl={DOC_LINKS.features.mcpServers}
             />
           </div>
-          <p className="text-gray-600 dark:text-gray-400 mt-1">
-            Manage Model Context Protocol servers
-          </p>
+          <p className="text-gray-600 dark:text-gray-400 mt-1">{t.MCPServers.description}</p>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="outline" size="sm" onClick={refreshTools} disabled={isLoading}>
             <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
-            Refresh All
+            {t.MCPServers.refreshAll}
           </Button>
           <Button size="sm" onClick={openCreateDialog}>
             <Plus className="h-4 w-4 mr-2" />
-            Add Server
+            {t.MCPServers.addServer}
           </Button>
         </div>
       </div>
@@ -345,7 +346,9 @@ export function MCPServersPage() {
 
                     <div className="flex items-center gap-2">
                       {/* Status Badges */}
-                      {serverData.server.is_built_in && <Badge variant="secondary">Built-in</Badge>}
+                      {serverData.server.is_built_in && (
+                        <Badge variant="secondary">{t.MCPServers.builtIn}</Badge>
+                      )}
 
                       <Badge
                         variant={serverData.server.protocol === 'http' ? 'default' : 'outline'}
@@ -355,10 +358,10 @@ export function MCPServersPage() {
 
                       {serverData.isConnected ? (
                         <Badge className="bg-green-100 text-green-800">
-                          Connected ({serverData.toolCount} tools)
+                          {t.MCPServers.connected(serverData.toolCount)}
                         </Badge>
                       ) : (
-                        <Badge variant="destructive">Disconnected</Badge>
+                        <Badge variant="destructive">{t.MCPServers.disconnected}</Badge>
                       )}
 
                       {/* Action Buttons */}
@@ -374,7 +377,7 @@ export function MCPServersPage() {
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Refresh connection</p>
+                          <p>{t.MCPServers.refreshConnection}</p>
                         </TooltipContent>
                       </Tooltip>
 
@@ -394,7 +397,11 @@ export function MCPServersPage() {
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>{serverData.server.is_enabled ? 'Disable server' : 'Enable server'}</p>
+                          <p>
+                            {serverData.server.is_enabled
+                              ? t.MCPServers.disableServer
+                              : t.MCPServers.enableServer}
+                          </p>
                         </TooltipContent>
                       </Tooltip>
 
@@ -410,7 +417,7 @@ export function MCPServersPage() {
                           </Button>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>Edit server</p>
+                          <p>{t.MCPServers.editServer}</p>
                         </TooltipContent>
                       </Tooltip>
 
@@ -500,7 +507,7 @@ export function MCPServersPage() {
                 {serverData.server.is_enabled && serverData.tools.length > 0 && (
                   <CardContent className="pt-0">
                     <div className="text-sm text-gray-600 dark:text-gray-400">
-                      <strong>Available Tools:</strong>{' '}
+                      <strong>{t.MCPServers.availableTools}</strong>{' '}
                       {serverData.tools.map((tool) => tool.name).join(', ')}
                     </div>
                   </CardContent>
@@ -513,14 +520,14 @@ export function MCPServersPage() {
                 <CardContent className="flex flex-col items-center justify-center py-12">
                   <Server className="h-12 w-12 text-gray-400 mb-4" />
                   <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">
-                    No MCP servers configured
+                    {t.MCPServers.noServers}
                   </h3>
                   <p className="text-gray-600 dark:text-gray-400 text-center mt-2 mb-4">
-                    Get started by adding your first MCP server
+                    {t.MCPServers.noServersDescription}
                   </p>
                   <Button onClick={openCreateDialog}>
                     <Plus className="h-4 w-4 mr-2" />
-                    Add Server
+                    {t.MCPServers.addServer}
                   </Button>
                 </CardContent>
               </Card>
@@ -533,7 +540,7 @@ export function MCPServersPage() {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add MCP Server</DialogTitle>
+            <DialogTitle>{t.MCPServers.addDialogTitle}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -545,27 +552,27 @@ export function MCPServersPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor={createIdId}>Server ID</Label>
+                <Label htmlFor={createIdId}>{t.MCPServers.form.serverId}</Label>
                 <Input
                   id={createIdId}
                   value={formData.id}
                   onChange={(e) => setFormData({ ...formData, id: e.target.value })}
-                  placeholder="e.g., my-server"
+                  placeholder={t.MCPServers.form.serverIdPlaceholder}
                 />
               </div>
               <div>
-                <Label htmlFor={createNameId}>Name</Label>
+                <Label htmlFor={createNameId}>{t.MCPServers.form.name}</Label>
                 <Input
                   id={createNameId}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., My MCP Server"
+                  placeholder={t.MCPServers.form.namePlaceholder}
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="create-protocol">Protocol</Label>
+              <Label htmlFor="create-protocol">{t.MCPServers.form.protocol}</Label>
               <Select
                 value={formData.protocol}
                 onValueChange={(value: 'http' | 'sse' | 'stdio') =>
@@ -591,33 +598,33 @@ export function MCPServersPage() {
             {formData.protocol !== 'stdio' ? (
               <>
                 <div>
-                  <Label htmlFor={createUrlId}>URL</Label>
+                  <Label htmlFor={createUrlId}>{t.MCPServers.form.url}</Label>
                   <Input
                     id={createUrlId}
                     value={formData.url}
                     onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                    placeholder="https://api.example.com/mcp"
+                    placeholder={t.MCPServers.form.urlPlaceholder}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor={createApiKeyId}>API Key (optional)</Label>
+                  <Label htmlFor={createApiKeyId}>{t.MCPServers.form.apiKey}</Label>
                   <Input
                     id={createApiKeyId}
                     type="password"
                     value={formData.api_key || ''}
                     onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-                    placeholder="Bearer token or API key"
+                    placeholder={t.MCPServers.form.apiKeyPlaceholder}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor={createHeadersId}>Headers (optional JSON)</Label>
+                  <Label htmlFor={createHeadersId}>{t.MCPServers.form.headers}</Label>
                   <Textarea
                     id={createHeadersId}
                     value={formData.headers || ''}
                     onChange={(e) => setFormData({ ...formData, headers: e.target.value })}
-                    placeholder='{"Authorization": "Bearer token", "X-Custom": "value"}'
+                    placeholder={t.MCPServers.form.headersPlaceholder}
                     rows={3}
                   />
                 </div>
@@ -625,7 +632,7 @@ export function MCPServersPage() {
             ) : (
               <>
                 <div>
-                  <Label htmlFor={createCommandId}>Command</Label>
+                  <Label htmlFor={createCommandId}>{t.MCPServers.form.command}</Label>
                   <Input
                     id={createCommandId}
                     value={formData.stdio_command || ''}
@@ -635,17 +642,17 @@ export function MCPServersPage() {
                         stdio_command: e.target.value,
                       })
                     }
-                    placeholder="node"
+                    placeholder={t.MCPServers.form.commandPlaceholder}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor={createArgsId}>Arguments (JSON array)</Label>
+                  <Label htmlFor={createArgsId}>{t.MCPServers.form.arguments}</Label>
                   <Textarea
                     id={createArgsId}
                     value={formData.stdio_args || ''}
                     onChange={(e) => setFormData({ ...formData, stdio_args: e.target.value })}
-                    placeholder='["path/to/server.js", "--option", "value"]'
+                    placeholder={t.MCPServers.form.argumentsPlaceholder}
                     rows={3}
                   />
                 </div>
@@ -658,10 +665,10 @@ export function MCPServersPage() {
                 onClick={() => setIsCreateDialogOpen(false)}
                 disabled={isSubmitting}
               >
-                Cancel
+                {t.Common.cancel}
               </Button>
               <Button onClick={handleCreateServer} disabled={isSubmitting}>
-                {isSubmitting ? 'Creating...' : 'Create Server'}
+                {isSubmitting ? t.MCPServers.actions.creating : t.MCPServers.actions.create}
               </Button>
             </div>
           </div>
@@ -672,7 +679,7 @@ export function MCPServersPage() {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit MCP Server</DialogTitle>
+            <DialogTitle>{t.MCPServers.editDialogTitle}</DialogTitle>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -684,7 +691,7 @@ export function MCPServersPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor={editIdId}>Server ID</Label>
+                <Label htmlFor={editIdId}>{t.MCPServers.form.serverId}</Label>
                 <Input
                   id={editIdId}
                   value={formData.id}
@@ -693,18 +700,18 @@ export function MCPServersPage() {
                 />
               </div>
               <div>
-                <Label htmlFor={editNameId}>Name</Label>
+                <Label htmlFor={editNameId}>{t.MCPServers.form.name}</Label>
                 <Input
                   id={editNameId}
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="e.g., My MCP Server"
+                  placeholder={t.MCPServers.form.namePlaceholder}
                 />
               </div>
             </div>
 
             <div>
-              <Label htmlFor="edit-protocol">Protocol</Label>
+              <Label htmlFor="edit-protocol">{t.MCPServers.form.protocol}</Label>
               <Select
                 value={formData.protocol}
                 onValueChange={(value: 'http' | 'sse' | 'stdio') =>
@@ -730,33 +737,33 @@ export function MCPServersPage() {
             {formData.protocol !== 'stdio' ? (
               <>
                 <div>
-                  <Label htmlFor={editUrlId}>URL</Label>
+                  <Label htmlFor={editUrlId}>{t.MCPServers.form.url}</Label>
                   <Input
                     id={editUrlId}
                     value={formData.url}
                     onChange={(e) => setFormData({ ...formData, url: e.target.value })}
-                    placeholder="https://api.example.com/mcp"
+                    placeholder={t.MCPServers.form.urlPlaceholder}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor={editApiKeyId}>API Key (optional)</Label>
+                  <Label htmlFor={editApiKeyId}>{t.MCPServers.form.apiKey}</Label>
                   <Input
                     id={editApiKeyId}
                     type="password"
                     value={formData.api_key || ''}
                     onChange={(e) => setFormData({ ...formData, api_key: e.target.value })}
-                    placeholder="Bearer token or API key"
+                    placeholder={t.MCPServers.form.apiKeyPlaceholder}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor={editHeadersId}>Headers (optional JSON)</Label>
+                  <Label htmlFor={editHeadersId}>{t.MCPServers.form.headers}</Label>
                   <Textarea
                     id={editHeadersId}
                     value={formData.headers || ''}
                     onChange={(e) => setFormData({ ...formData, headers: e.target.value })}
-                    placeholder='{"Authorization": "Bearer token", "X-Custom": "value"}'
+                    placeholder={t.MCPServers.form.headersPlaceholder}
                     rows={3}
                   />
                 </div>
@@ -764,7 +771,7 @@ export function MCPServersPage() {
             ) : (
               <>
                 <div>
-                  <Label htmlFor={editCommandId}>Command</Label>
+                  <Label htmlFor={editCommandId}>{t.MCPServers.form.command}</Label>
                   <Input
                     id={editCommandId}
                     value={formData.stdio_command || ''}
@@ -774,17 +781,17 @@ export function MCPServersPage() {
                         stdio_command: e.target.value,
                       })
                     }
-                    placeholder="node"
+                    placeholder={t.MCPServers.form.commandPlaceholder}
                   />
                 </div>
 
                 <div>
-                  <Label htmlFor={editArgsId}>Arguments (JSON array)</Label>
+                  <Label htmlFor={editArgsId}>{t.MCPServers.form.arguments}</Label>
                   <Textarea
                     id={editArgsId}
                     value={formData.stdio_args || ''}
                     onChange={(e) => setFormData({ ...formData, stdio_args: e.target.value })}
-                    placeholder='["path/to/server.js", "--option", "value"]'
+                    placeholder={t.MCPServers.form.argumentsPlaceholder}
                     rows={3}
                   />
                 </div>
@@ -797,10 +804,10 @@ export function MCPServersPage() {
                 onClick={() => setIsEditDialogOpen(false)}
                 disabled={isSubmitting}
               >
-                Cancel
+                {t.Common.cancel}
               </Button>
               <Button onClick={handleUpdateServer} disabled={isSubmitting}>
-                {isSubmitting ? 'Updating...' : 'Update Server'}
+                {isSubmitting ? t.MCPServers.actions.updating : t.MCPServers.actions.update}
               </Button>
             </div>
           </div>
@@ -811,10 +818,9 @@ export function MCPServersPage() {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete MCP Server</AlertDialogTitle>
+            <AlertDialogTitle>{t.MCPServers.deleteDialogTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{serverToDelete?.name}"? This action cannot be
-              undone.
+              {t.MCPServers.deleteDialogDescription(serverToDelete?.name || '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -824,13 +830,13 @@ export function MCPServersPage() {
                 setIsDeleteDialogOpen(false);
               }}
             >
-              Cancel
+              {t.Common.cancel}
             </AlertDialogCancel>
             <AlertDialogAction
               onClick={confirmDeleteServer}
               className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
             >
-              Delete
+              {t.Common.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

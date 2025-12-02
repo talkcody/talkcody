@@ -92,6 +92,27 @@ vi.mock('sonner', () => ({
   },
 }));
 
+// Mock settings store for useLocale hook
+vi.mock('@/stores/settings-store', () => {
+  const mockStore: any = vi.fn((selector) => {
+    const state = {
+      language: 'en' as const,
+      setLanguage: vi.fn(),
+    };
+    if (typeof selector === 'function') {
+      return selector(state);
+    }
+    return state;
+  });
+  mockStore.getState = () => ({
+    language: 'en' as const,
+    setLanguage: vi.fn(),
+  });
+  return {
+    useSettingsStore: mockStore,
+  };
+});
+
 describe('ToolSelectorButton Component', () => {
   beforeEach(() => {
     // Reset agent store state

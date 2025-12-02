@@ -2,7 +2,12 @@ use crate::constants::{is_binary_extension, should_exclude_dir};
 use ignore::{WalkBuilder, WalkParallel, WalkState};
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::mpsc::channel;
+use std::sync::Arc;
+
+/// Default maximum number of files to return
+const DEFAULT_MAX_FILES: usize = 1000;
 
 fn normalize_seps(path: &Path) -> String {
     path.to_string_lossy().replace('\\', "/")
@@ -13,6 +18,7 @@ pub fn list_project_files(
     directory_path: String,
     recursive: Option<bool>,
     max_depth: Option<usize>,
+    max_files: Option<usize>,
 ) -> Result<String, String> {
     let root = PathBuf::from(&directory_path);
     if !root.exists() {
@@ -20,6 +26,9 @@ pub fn list_project_files(
     }
 
     let recursive = recursive.unwrap_or(false);
+    let limit = max_files.unwrap_or(DEFAULT_MAX_FILES);
+    let file_count = Arc::new(AtomicUsize::new(0));
+
     let mut builder = WalkBuilder::new(&root);
     builder
         .hidden(true) // skip hidden files/dirs by default
@@ -58,7 +67,13 @@ pub fn list_project_files(
     walker.run(|| {
         let tx = tx.clone();
         let root_clone = root.clone();
+        let count = Arc::clone(&file_count);
         Box::new(move |result| {
+            // Check if we've reached the limit
+            if count.load(Ordering::Relaxed) >= limit {
+                return WalkState::Quit;
+            }
+
             match result {
                 Ok(entry) => {
                     // Skip root itself
@@ -85,7 +100,8 @@ pub fn list_project_files(
                     let group_key = normalize_seps(parent);
                     let name = entry.file_name().to_string_lossy().to_string();
 
-                    // Send tuple to collector
+                    // Increment counter and send tuple to collector
+                    count.fetch_add(1, Ordering::Relaxed);
                     let _ = tx.send((group_key, name, is_dir));
                 }
                 Err(_) => {}

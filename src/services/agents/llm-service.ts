@@ -3,6 +3,7 @@ import { type AssistantModelMessage, stepCountIs, streamText, type ToolModelMess
 import { createErrorContext, extractAndFormatError } from '@/lib/error-utils';
 import { convertMessages } from '@/lib/llm-utils';
 import { logger } from '@/lib/logger';
+import { MessageTransform } from '@/lib/message-transform';
 import { GEMINI_25_FLASH_LITE } from '@/lib/models';
 import { getToolSync } from '@/lib/tools';
 import { modelService } from '@/services/model-service';
@@ -400,13 +401,6 @@ export class LLMService {
                 );
                 break;
               case 'raw': {
-                logger.info('Received raw delta', {
-                  provider: providerModel.provider,
-                  model: model,
-                  raw: delta.rawValue,
-                  iteration: loopState.currentIteration,
-                });
-
                 // Store raw chunks for post-analysis debugging
                 if (!loopState.rawChunks) {
                   loopState.rawChunks = [];
@@ -568,9 +562,13 @@ export class LLMService {
               input: tc.input,
             }));
 
+            // Apply provider-specific transformation (e.g., DeepSeek reasoning_content)
+            const transformed = MessageTransform.transformAssistantContent(assistantContent, model);
+
             const assistantMessage: AssistantModelMessage = {
               role: 'assistant',
-              content: [...assistantContent, ...toolCallParts],
+              content: [...transformed.content, ...toolCallParts],
+              ...(transformed.providerOptions && { providerOptions: transformed.providerOptions }),
             };
             loopState.messages.push(assistantMessage);
 

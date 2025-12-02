@@ -1,25 +1,56 @@
-import { RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { ModelSelector } from '@/components/selectors/model-selector';
 import { ProviderSelector } from '@/components/selectors/provider-selector';
+import {
+  AddCustomModelDialog,
+  CustomModelList,
+} from '@/components/settings/add-custom-model-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import { useLocale } from '@/hooks/use-locale';
 import { logger } from '@/lib/logger';
-import { MODEL_CONFIGS } from '@/lib/models';
+import { MODEL_CONFIGS, refreshModelConfigs } from '@/lib/models';
 import { modelTypeService } from '@/services/model-type-service';
 import { useModelStore } from '@/stores/model-store';
 import { settingsManager } from '@/stores/settings-store';
-import {
-  DEFAULT_MODELS_BY_TYPE,
-  MODEL_TYPE_DESCRIPTIONS,
-  MODEL_TYPE_LABELS,
-  MODEL_TYPE_SETTINGS_KEYS,
-  ModelType,
-} from '@/types/model-types';
+import { DEFAULT_MODELS_BY_TYPE, MODEL_TYPE_SETTINGS_KEYS, ModelType } from '@/types/model-types';
+
+// Helper to get localized model type labels and descriptions
+const getModelTypeLocale = (
+  modelType: ModelType,
+  t: ReturnType<typeof useLocale>['t']
+): { title: string; description: string } => {
+  switch (modelType) {
+    case ModelType.MAIN:
+      return {
+        title: t.Settings.models.mainModel.title,
+        description: t.Settings.models.mainModel.description,
+      };
+    case ModelType.SMALL:
+      return {
+        title: t.Settings.models.smallModel.title,
+        description: t.Settings.models.smallModel.description,
+      };
+    case ModelType.IMAGE_GENERATOR:
+      return {
+        title: t.Settings.models.imageGenerator.title,
+        description: t.Settings.models.imageGenerator.description,
+      };
+    case ModelType.TRANSCRIPTION:
+      return {
+        title: t.Settings.models.transcription.title,
+        description: t.Settings.models.transcription.description,
+      };
+    default:
+      return { title: modelType, description: '' };
+  }
+};
 
 export function ModelTypeSettings() {
+  const { t } = useLocale();
   const { availableModels, refreshModels } = useModelStore();
 
   // Store model key (without provider)
@@ -39,6 +70,7 @@ export function ModelTypeSettings() {
   });
 
   const [isLoading, setIsLoading] = useState(false);
+  const [isCustomModelDialogOpen, setIsCustomModelDialogOpen] = useState(false);
 
   // Helper function to get placeholder text for model type
   const getPlaceholder = (modelType: ModelType): string => {
@@ -47,7 +79,7 @@ export function ModelTypeSettings() {
     if (modelConfig) {
       return `${modelConfig.name}`;
     }
-    return 'Select model';
+    return t.Settings.models.selectModel;
   };
 
   const loadModelTypeSettings = useCallback(async () => {
@@ -75,11 +107,11 @@ export function ModelTypeSettings() {
       setSelectedProviders(providers as Record<ModelType, string>);
     } catch (error) {
       logger.error('Failed to load model type settings:', error);
-      toast.error('Failed to load model type settings');
+      toast.error(t.Settings.apiKeys.loadFailed);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [t.Settings.apiKeys.loadFailed]);
 
   useEffect(() => {
     // Initial load
@@ -161,10 +193,10 @@ export function ModelTypeSettings() {
       const value = defaultProvider ? `${modelKey}@${defaultProvider}` : modelKey;
       await settingsManager.set(settingsKey, value);
 
-      toast.success(`${MODEL_TYPE_LABELS[modelType]} updated`);
+      toast.success(t.Settings.models.updated(getModelTypeLocale(modelType, t).title));
     } catch (error) {
       logger.error(`Failed to update ${modelType}:`, error);
-      toast.error(`Failed to update ${MODEL_TYPE_LABELS[modelType]}`);
+      toast.error(t.Settings.models.updateFailed(getModelTypeLocale(modelType, t).title));
     }
   };
 
@@ -181,10 +213,10 @@ export function ModelTypeSettings() {
       const value = `${modelKey}@${provider}`;
       await settingsManager.set(settingsKey, value);
 
-      toast.success(`Provider for ${MODEL_TYPE_LABELS[modelType]} updated`);
+      toast.success(t.Settings.models.providerUpdated(getModelTypeLocale(modelType, t).title));
     } catch (error) {
       logger.error(`Failed to update provider for ${modelType}:`, error);
-      toast.error(`Failed to update provider for ${MODEL_TYPE_LABELS[modelType]}`);
+      toast.error(t.Settings.models.updateFailed(getModelTypeLocale(modelType, t).title));
     }
   };
 
@@ -194,11 +226,19 @@ export function ModelTypeSettings() {
       setSelectedModels((prev) => ({ ...prev, [modelType]: '' }));
       setSelectedProviders((prev) => ({ ...prev, [modelType]: '' }));
 
-      toast.success(`${MODEL_TYPE_LABELS[modelType]} reset to default`);
+      toast.success(t.Settings.models.updated(getModelTypeLocale(modelType, t).title));
     } catch (error) {
       logger.error(`Failed to reset ${modelType}:`, error);
-      toast.error(`Failed to reset ${MODEL_TYPE_LABELS[modelType]}`);
+      toast.error(t.Settings.models.updateFailed(getModelTypeLocale(modelType, t).title));
     }
+  };
+
+  // Handle custom models added
+  const handleCustomModelsAdded = async () => {
+    // Refresh model configs to include new custom models
+    await refreshModelConfigs();
+    // Refresh available models in the store
+    await refreshModels();
   };
 
   if (isLoading) {
@@ -211,14 +251,41 @@ export function ModelTypeSettings() {
 
   return (
     <div className="space-y-6">
+      {/* Custom Models Section */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div className="flex-1">
+              <CardTitle className="text-lg">{t.Settings.models.customModels.title}</CardTitle>
+              <CardDescription className="mt-1.5">
+                {t.Settings.models.customModels.description}
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsCustomModelDialogOpen(true)}
+              className="ml-4"
+            >
+              <Plus className="mr-2 h-4 w-4" />
+              {t.Settings.models.customModels.addModel}
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <CustomModelList onRefresh={handleCustomModelsAdded} />
+        </CardContent>
+      </Card>
+
+      {/* Model Type Cards */}
       {Object.values(ModelType).map((modelType) => (
         <Card key={modelType}>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div className="flex-1">
-                <CardTitle className="text-lg">{MODEL_TYPE_LABELS[modelType]}</CardTitle>
+                <CardTitle className="text-lg">{getModelTypeLocale(modelType, t).title}</CardTitle>
                 <CardDescription className="mt-1.5">
-                  {MODEL_TYPE_DESCRIPTIONS[modelType]}
+                  {getModelTypeLocale(modelType, t).description}
                 </CardDescription>
               </div>
               {selectedModels[modelType] && (
@@ -228,7 +295,7 @@ export function ModelTypeSettings() {
                   onClick={() => handleResetToDefault(modelType)}
                   className="ml-4"
                 >
-                  Reset to Default
+                  {t.Settings.models.resetToDefault}
                 </Button>
               )}
             </div>
@@ -237,7 +304,7 @@ export function ModelTypeSettings() {
             <div className="flex gap-3">
               <div className="flex-1 space-y-2">
                 <Label htmlFor={`model-type-${modelType}`} className="font-medium text-sm">
-                  Model
+                  {t.Settings.models.customModels.model}
                 </Label>
                 <ModelSelector
                   value={selectedModels[modelType]}
@@ -258,13 +325,13 @@ export function ModelTypeSettings() {
                 getAvailableProviders(selectedModels[modelType]).length > 1 && (
                   <div className="flex-1 space-y-2">
                     <Label htmlFor={`provider-type-${modelType}`} className="font-medium text-sm">
-                      Provider
+                      {t.Settings.models.customModels.provider}
                     </Label>
                     <ProviderSelector
                       modelKey={selectedModels[modelType]}
                       value={selectedProviders[modelType]}
                       onChange={(value) => handleProviderChange(modelType, value)}
-                      placeholder="Select provider"
+                      placeholder={t.Settings.models.customModels.selectProvider}
                     />
                   </div>
                 )}
@@ -272,6 +339,13 @@ export function ModelTypeSettings() {
           </CardContent>
         </Card>
       ))}
+
+      {/* Add Custom Model Dialog */}
+      <AddCustomModelDialog
+        open={isCustomModelDialogOpen}
+        onOpenChange={setIsCustomModelDialogOpen}
+        onModelsAdded={handleCustomModelsAdded}
+      />
     </div>
   );
 }

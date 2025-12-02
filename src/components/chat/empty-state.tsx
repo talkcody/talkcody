@@ -2,6 +2,7 @@
 
 import { format } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
+import { useLocale } from '@/hooks/use-locale';
 
 interface EmptyStateProps {
   assistant?: {
@@ -15,6 +16,8 @@ interface EmptyStateProps {
 }
 
 export function EmptyState({ assistant }: EmptyStateProps) {
+  const { t } = useLocale();
+
   const getCategoryColor = (category: string) => {
     const colors: Record<string, string> = {
       translation: 'bg-blue-100 text-blue-800',
@@ -31,24 +34,24 @@ export function EmptyState({ assistant }: EmptyStateProps) {
     <div className="flex h-full flex-col items-center justify-center p-4 text-gray-500">
       <div className="text-center">
         <div className="mb-4 text-4xl">{assistant?.avatar || '🤖'}</div>
-        <h3 className="mb-2 font-semibold text-lg">{assistant?.name || 'AI Assistant'}</h3>
+        <h3 className="mb-2 font-semibold text-lg">{assistant?.name || t.Chat.emptyState.title}</h3>
         {assistant?.category && (
           <Badge className={`mb-3 ${getCategoryColor(assistant.category)}`}>
             {assistant.category.charAt(0).toUpperCase() + assistant.category.slice(1)}
           </Badge>
         )}
         <p className="mx-auto mb-4 max-w-md text-sm">
-          {assistant?.description || 'Start chatting with AI!'}
+          {assistant?.description || t.Chat.emptyState.description}
         </p>
         {assistant?.systemPrompt && (
           <div className="mx-auto mb-4 max-w-md rounded-lg bg-gray-100 p-3 text-left text-xs">
-            <p className="mb-1 font-medium">System Prompt:</p>
+            <p className="mb-1 font-medium">{t.Chat.emptyState.systemPrompt}</p>
             <p className="line-clamp-3">{assistant.systemPrompt}</p>
           </div>
         )}
         {assistant?.createdAt && (
           <p className="text-gray-400 text-xs">
-            Created: {format(new Date(assistant.createdAt), 'MMM d, yyyy')}
+            {t.Chat.emptyState.created} {format(new Date(assistant.createdAt), 'MMM d, yyyy')}
           </p>
         )}
       </div>

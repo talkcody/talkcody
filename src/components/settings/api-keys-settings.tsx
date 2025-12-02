@@ -1,5 +1,5 @@
 import { generateText } from 'ai';
-import { ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, ExternalLink, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -8,11 +8,14 @@ import { HelpTooltip } from '@/components/ui/help-tooltip';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
+import { useLocale } from '@/hooks/use-locale';
 import { DOC_LINKS } from '@/lib/doc-links';
 import { logger } from '@/lib/logger';
 import { CLAUDE_HAIKU, GEMINI_25_FLASH_LITE, GLM_46, GPT5_NANO } from '@/lib/models';
+import { createTauriFetch } from '@/lib/tauri-fetch';
 import { PROVIDER_CONFIGS } from '@/providers';
 import { aiProviderService } from '@/services/ai-provider-service';
+import { isLocalProvider } from '@/services/custom-model-service';
 import { settingsManager } from '@/stores/settings-store';
 import type { ApiKeySettings } from '@/types/api-keys';
 
@@ -21,6 +24,7 @@ interface ApiKeyVisibility {
 }
 
 export function ApiKeysSettings() {
+  const { t } = useLocale();
   const [apiKeys, setApiKeys] = useState<ApiKeySettings>({});
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>({});
   const [useCodingPlanSettings, setUseCodingPlanSettings] = useState<Record<string, boolean>>({});
@@ -32,6 +36,7 @@ export function ApiKeysSettings() {
   const [baseUrlTimeouts, setBaseUrlTimeouts] = useState<{
     [key: string]: ReturnType<typeof setTimeout>;
   }>({});
+  const [baseUrlExpanded, setBaseUrlExpanded] = useState<Record<string, boolean>>({});
 
   // Load settings when component mounts
   useEffect(() => {
@@ -129,10 +134,14 @@ export function ApiKeysSettings() {
       // Refresh providers after useCodingPlan change
       await aiProviderService.refreshProviders();
       logger.info(`${providerId} useCodingPlan updated to ${value}`);
-      toast.success(`${providerId} Coding Plan API ${value ? 'enabled' : 'disabled'}`);
+      toast.success(
+        value
+          ? t.Settings.apiKeys.codingPlanEnabled(providerId)
+          : t.Settings.apiKeys.codingPlanDisabled(providerId)
+      );
     } catch (error) {
       logger.error(`Failed to update ${providerId} useCodingPlan:`, error);
-      toast.error(`Failed to update ${providerId} Coding Plan setting`);
+      toast.error(t.Settings.apiKeys.codingPlanUpdateFailed(providerId));
     }
   };
 
@@ -151,42 +160,55 @@ export function ApiKeysSettings() {
       // Refresh providers first
       await aiProviderService.refreshProviders();
 
-      // For Ollama, test the connection directly instead of going through the AI provider service
-      if (providerId === 'ollama') {
-        // Check if Ollama is enabled first
+      // For local providers (Ollama, LM Studio), test the connection directly
+      if (isLocalProvider(providerId)) {
+        // Check if the provider is enabled first
         const currentApiKeys = await settingsManager.getApiKeys();
-        if (currentApiKeys.ollama !== 'enabled') {
-          throw new Error('Ollama is not enabled. Please enable Ollama in settings first.');
+        const providerKey = providerId as keyof typeof currentApiKeys;
+        if (currentApiKeys[providerKey] !== 'enabled') {
+          throw new Error(
+            `${PROVIDER_CONFIGS[providerId]?.name || providerId} is not enabled. Please enable it in settings first.`
+          );
         }
 
-        // Test the Ollama connection by making a direct API call to check if the server is running
+        // Test the connection by making a direct API call to check if the server is running
         try {
-          const response = await fetch('http://localhost:11434/api/tags');
+          // Different endpoints for different local providers
+          const testUrl =
+            providerId === 'ollama'
+              ? 'http://localhost:11434/api/tags'
+              : 'http://localhost:1234/v1/models';
+
+          // Use Tauri fetch to go through the HTTP proxy (native fetch is blocked in webview)
+          const tauriFetch = createTauriFetch();
+          const response = await tauriFetch(testUrl);
           if (!response.ok) {
-            throw new Error(`Ollama API returned status: ${response.status}`);
+            throw new Error(
+              `${PROVIDER_CONFIGS[providerId]?.name} API returned status: ${response.status}`
+            );
           }
           const data = await response.json();
-          logger.info(
-            'Ollama connection test successful - server is running and returned models:',
-            data.models?.length || 0
-          );
 
-          // Test specific model availability if possible
-          const hasTestModel = data.models?.some(
-            (model: { name: string }) => model.name === 'gpt-oss:20b'
-          );
-          if (!hasTestModel) {
-            logger.warn('Test model gpt-oss:20b not found in Ollama models list');
+          if (providerId === 'ollama') {
+            logger.info(
+              'Ollama connection test successful - server is running and returned models:',
+              data.models?.length || 0
+            );
+          } else {
+            logger.info(
+              'LM Studio connection test successful - server is running and returned models:',
+              data.data?.length || 0
+            );
           }
 
-          logger.info(`Ollama connection test successful`);
+          logger.info(`${providerId} connection test successful`);
           toast.success(
             `${PROVIDER_CONFIGS[providerId]?.name || providerId} connection test successful!`
           );
-        } catch (ollamaError) {
-          logger.error(`Failed to test ollama connection:`, ollamaError);
+        } catch (localError) {
+          logger.error(`Failed to test ${providerId} connection:`, localError);
           throw new Error(
-            `Failed to connect to Ollama server: ${ollamaError instanceof Error ? ollamaError.message : 'Unknown error'}`
+            `Failed to connect to ${PROVIDER_CONFIGS[providerId]?.name || providerId} server: ${localError instanceof Error ? localError.message : 'Unknown error'}`
           );
         }
       } else {
@@ -202,12 +224,12 @@ export function ApiKeysSettings() {
 
           logger.info(`${providerId} connection test successful`);
           toast.success(
-            `${PROVIDER_CONFIGS[providerId]?.name || providerId} connection test successful!`
+            t.Settings.apiKeys.testSuccess(PROVIDER_CONFIGS[providerId]?.name || providerId)
           );
         } else {
           logger.info(`${providerId} connection refreshed (no test model available)`);
           toast.success(
-            `${PROVIDER_CONFIGS[providerId]?.name || providerId} API key verified and providers refreshed!`
+            t.Settings.apiKeys.testSuccess(PROVIDER_CONFIGS[providerId]?.name || providerId)
           );
         }
       }
@@ -216,9 +238,7 @@ export function ApiKeysSettings() {
       window.dispatchEvent(new CustomEvent('apiKeysUpdated'));
     } catch (error) {
       logger.error(`Failed to test ${providerId} connection:`, error);
-      toast.error(
-        `${PROVIDER_CONFIGS[providerId]?.name || providerId} connection test failed. Please check your configuration.`
-      );
+      toast.error(t.Settings.apiKeys.testFailed(PROVIDER_CONFIGS[providerId]?.name || providerId));
     } finally {
       setTestingProvider(null);
     }
@@ -247,24 +267,21 @@ export function ApiKeysSettings() {
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2">
-          <CardTitle className="text-lg">API Key Configuration</CardTitle>
+          <CardTitle className="text-lg">{t.Settings.apiKeys.title}</CardTitle>
           <HelpTooltip
-            title="API Keys"
-            description="API keys are required to access AI models from different providers. Each provider (OpenAI, Anthropic, Google, etc.) requires its own API key. Only models with configured API keys will be available for use."
+            title={t.Settings.apiKeys.tooltipTitle}
+            description={t.Settings.apiKeys.tooltipDescription}
             docUrl={DOC_LINKS.configuration.apiKeys}
           />
         </div>
-        <CardDescription>
-          Configure your API keys for different AI providers. Only models with configured API keys
-          will be available.
-        </CardDescription>
+        <CardDescription>{t.Settings.apiKeys.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {Object.entries(PROVIDER_CONFIGS).map(([providerId, config]) => {
           const currentKey = apiKeys[providerId as keyof ApiKeySettings] || '';
           const isVisible = apiKeyVisibility[providerId] || false;
-          const hasKey =
-            providerId === 'ollama' ? currentKey === 'enabled' : currentKey.trim().length > 0;
+          const isLocal = isLocalProvider(providerId);
+          const hasKey = isLocal ? currentKey === 'enabled' : currentKey.trim().length > 0;
 
           return (
             <div key={providerId} className="space-y-3">
@@ -274,7 +291,7 @@ export function ApiKeysSettings() {
                     <span className="font-medium">{config.name}</span>
                     {hasKey && (
                       <span className="text-green-600 text-xs bg-green-50 px-2 py-0.5 rounded-full">
-                        Configured
+                        {t.Settings.apiKeys.configured}
                       </span>
                     )}
                     {DOC_LINKS.apiKeysProviders[
@@ -289,13 +306,12 @@ export function ApiKeysSettings() {
                         target="_blank"
                         rel="noopener noreferrer"
                         className="text-muted-foreground hover:text-foreground transition-colors"
-                        title="View documentation"
+                        title={t.Settings.apiKeys.viewDocumentation}
                       >
                         <ExternalLink size={14} />
                       </a>
                     )}
                   </Label>
-                  <p className="text-muted-foreground text-xs mt-1">{config.description}</p>
                 </div>
                 {/* Use Coding Plan toggle for Zhipu - inline with header */}
                 {providerId === 'zhipu' && (
@@ -304,7 +320,7 @@ export function ApiKeysSettings() {
                       htmlFor={`use-coding-plan-${providerId}`}
                       className="text-sm text-muted-foreground"
                     >
-                      Use Coding Plan
+                      {t.Settings.apiKeys.useCodingPlan}
                     </Label>
                     <Switch
                       id={`use-coding-plan-${providerId}`}
@@ -315,19 +331,19 @@ export function ApiKeysSettings() {
                 )}
               </div>
 
-              {providerId === 'ollama' ? (
-                // Special UI for Ollama - toggle switch instead of API key input
+              {isLocal ? (
+                // Special UI for local providers (Ollama, LM Studio) - toggle switch instead of API key input
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <Switch
-                      id={`ollama-enabled`}
+                      id={`${providerId}-enabled`}
                       checked={currentKey === 'enabled'}
                       onCheckedChange={(checked) =>
                         handleApiKeyChange(providerId, checked ? 'enabled' : '')
                       }
                     />
-                    <Label htmlFor="ollama-enabled" className="text-sm">
-                      {currentKey === 'enabled' ? 'Enabled' : 'Disabled'}
+                    <Label htmlFor={`${providerId}-enabled`} className="text-sm">
+                      {currentKey === 'enabled' ? t.Common.enabled : t.Common.disabled}
                     </Label>
                   </div>
                   {currentKey === 'enabled' && (
@@ -341,10 +357,10 @@ export function ApiKeysSettings() {
                       {testingProvider === providerId ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Testing...
+                          {t.Settings.apiKeys.testing}
                         </>
                       ) : (
-                        'Test Connection'
+                        t.Settings.apiKeys.testConnection
                       )}
                     </Button>
                   )}
@@ -356,7 +372,7 @@ export function ApiKeysSettings() {
                     <Input
                       id={`api-key-${providerId}`}
                       type={isVisible ? 'text' : 'password'}
-                      placeholder={`Enter your ${config.name} API key`}
+                      placeholder={t.Settings.apiKeys.enterKey(config.name)}
                       value={currentKey}
                       onChange={(e) => handleApiKeyChange(providerId, e.target.value)}
                       className="pr-10"
@@ -381,38 +397,50 @@ export function ApiKeysSettings() {
                       {testingProvider === providerId ? (
                         <>
                           <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Testing...
+                          {t.Settings.apiKeys.testing}
                         </>
                       ) : (
-                        'Test'
+                        t.Settings.apiKeys.testConnection
                       )}
                     </Button>
                   )}
                 </div>
               )}
 
-              {config.baseUrl && (
-                <p className="text-muted-foreground text-xs">Default Endpoint: {config.baseUrl}</p>
-              )}
-
               {/* Base URL configuration for Anthropic and OpenAI */}
               {(providerId === 'anthropic' || providerId === 'openai') && (
                 <div className="space-y-2">
-                  <Label htmlFor={`base-url-${providerId}`} className="text-xs">
-                    Custom Base URL (Optional)
-                  </Label>
-                  <Input
-                    id={`base-url-${providerId}`}
-                    type="text"
-                    placeholder={
-                      providerId === 'anthropic'
-                        ? 'https://api.anthropic.com (leave empty for default)'
-                        : 'https://api.openai.com/v1 (leave empty for default)'
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setBaseUrlExpanded((prev) => ({
+                        ...prev,
+                        [providerId]: !prev[providerId],
+                      }))
                     }
-                    value={baseUrls[providerId] || ''}
-                    onChange={(e) => handleBaseUrlChange(providerId, e.target.value)}
-                    className="text-sm"
-                  />
+                    className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {baseUrlExpanded[providerId] ? (
+                      <ChevronDown size={14} />
+                    ) : (
+                      <ChevronRight size={14} />
+                    )}
+                    {t.Settings.apiKeys.customBaseUrl}
+                  </button>
+                  {baseUrlExpanded[providerId] && (
+                    <Input
+                      id={`base-url-${providerId}`}
+                      type="text"
+                      placeholder={t.Settings.apiKeys.baseUrlPlaceholder(
+                        providerId === 'anthropic'
+                          ? 'https://api.anthropic.com'
+                          : 'https://api.openai.com/v1'
+                      )}
+                      value={baseUrls[providerId] || ''}
+                      onChange={(e) => handleBaseUrlChange(providerId, e.target.value)}
+                      className="text-sm"
+                    />
+                  )}
                 </div>
               )}
             </div>

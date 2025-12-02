@@ -19,6 +19,7 @@ import { Label } from '@/components/ui/label';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Textarea } from '@/components/ui/textarea';
+import { useLocale } from '@/hooks/use-locale';
 import { logger } from '@/lib/logger';
 import type { AgentDefinition } from '@/types/agent';
 import { ModelType } from '@/types/model-types';
@@ -51,6 +52,7 @@ export function AgentEditorDialog({
   onSave,
   onClose,
 }: AgentEditorDialogProps) {
+  const { t } = useLocale();
   const [activeTab, setActiveTab] = useState('basic');
   const [saving, setSaving] = useState(false);
 
@@ -128,11 +130,11 @@ export function AgentEditorDialog({
   const handleSave = async () => {
     // Validation
     if (!name.trim()) {
-      toast.error('Agent name is required');
+      toast.error(t.Agents.form.nameRequired);
       return;
     }
     if (!systemPrompt.trim()) {
-      toast.error('System prompt is required');
+      toast.error(t.Agents.form.systemPromptRequired);
       return;
     }
 
@@ -155,11 +157,11 @@ export function AgentEditorDialog({
       };
 
       await onSave(agentData);
-      toast.success(agent ? 'Agent updated successfully' : 'Agent created successfully');
+      toast.success(agent ? t.Agents.updated : t.Agents.created);
       onClose();
     } catch (error) {
       logger.error('Failed to save agent:', error);
-      toast.error('Failed to save agent');
+      toast.error(t.Agents.saveFailed);
     } finally {
       setSaving(false);
     }
@@ -169,74 +171,69 @@ export function AgentEditorDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-fit min-w-4/5 max-h-[90vh] overflow-y-auto">
         <DialogHeader className="p-6 pb-0">
-          <DialogTitle>{agent ? 'Edit Agent' : 'Create New Agent'}</DialogTitle>
+          <DialogTitle>{agent ? t.Agents.editTitle : t.Agents.createTitle}</DialogTitle>
           <DialogDescription>
-            {agent
-              ? 'Update your agent configuration'
-              : 'Create a new AI agent with custom behavior'}
+            {agent ? t.Agents.editDescription : t.Agents.createDescription}
           </DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
           <div className="border-b px-6">
             <TabsList className="w-full justify-start">
-              <TabsTrigger value="basic">Basic Info</TabsTrigger>
-              <TabsTrigger value="prompt">Prompt & Tools</TabsTrigger>
-              <TabsTrigger value="dynamic">Dynamic Context</TabsTrigger>
+              <TabsTrigger value="basic">{t.Agents.tabs.basic}</TabsTrigger>
+              <TabsTrigger value="prompt">{t.Agents.tabs.prompt}</TabsTrigger>
+              <TabsTrigger value="dynamic">{t.Agents.tabs.dynamic}</TabsTrigger>
             </TabsList>
           </div>
 
           <ScrollArea className="flex-1 px-6">
             <TabsContent value="basic" className="mt-4 space-y-4">
               <div>
-                <Label htmlFor={nameId}>Name *</Label>
+                <Label htmlFor={nameId}>{t.Agents.form.name} *</Label>
                 <Input
                   id={nameId}
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="Code Assistant"
+                  placeholder={t.Agents.form.namePlaceholder}
                 />
               </div>
 
               <div>
-                <Label htmlFor={descriptionId}>Description</Label>
+                <Label htmlFor={descriptionId}>{t.Agents.form.description}</Label>
                 <Textarea
                   id={descriptionId}
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Brief description of this agent's purpose..."
+                  placeholder={t.Agents.form.descriptionPlaceholder}
                   rows={2}
                 />
               </div>
 
               <div>
-                <Label htmlFor="model-type">Model Type *</Label>
+                <Label htmlFor="model-type">{t.Agents.form.modelType} *</Label>
                 <ModelTypeSelector value={modelType} onValueChange={setModelType} label="" />
-                <p className="text-xs text-muted-foreground mt-1">
-                  Select the model type category for this agent. Configure actual models in Settings
-                  → Models.
-                </p>
+                <p className="text-xs text-muted-foreground mt-1">{t.Agents.form.modelTypeHint}</p>
               </div>
 
               <div>
-                <Label htmlFor={rulesId}>Rules</Label>
+                <Label htmlFor={rulesId}>{t.Agents.form.rules}</Label>
                 <Textarea
                   id={rulesId}
                   value={rules}
                   onChange={(e) => setRules(e.target.value)}
-                  placeholder="Optional rules for agent behavior..."
+                  placeholder={t.Agents.form.rulesPlaceholder}
                   rows={3}
                   className="font-mono text-sm"
                 />
               </div>
 
               <div>
-                <Label htmlFor={outputFormatId}>Output Format</Label>
+                <Label htmlFor={outputFormatId}>{t.Agents.form.outputFormat}</Label>
                 <Textarea
                   id={outputFormatId}
                   value={outputFormat}
                   onChange={(e) => setOutputFormat(e.target.value)}
-                  placeholder="Optional output format instructions..."
+                  placeholder={t.Agents.form.outputFormatPlaceholder}
                   rows={3}
                   className="font-mono text-sm"
                 />
@@ -245,22 +242,22 @@ export function AgentEditorDialog({
 
             <TabsContent value="prompt" className="mt-4 space-y-4">
               <div>
-                <Label htmlFor={systemPromptId}>System Prompt *</Label>
+                <Label htmlFor={systemPromptId}>{t.Agents.form.systemPrompt} *</Label>
                 <Textarea
                   id={systemPromptId}
                   value={systemPrompt}
                   onChange={(e) => setSystemPrompt(e.target.value)}
-                  placeholder="System prompt that defines the agent's behavior and personality..."
+                  placeholder={t.Agents.form.systemPromptPlaceholder}
                   rows={12}
                   className="font-mono text-sm"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  The core instructions that define how this agent behaves and responds
+                  {t.Agents.form.systemPromptHint}
                 </p>
               </div>
 
               <div className="space-y-4">
-                <Label>Available Tools</Label>
+                <Label>{t.Agents.tools.available}</Label>
                 <BuiltInToolsSelector
                   selectedTools={selectedTools}
                   onToolsChange={setSelectedTools}
@@ -293,10 +290,10 @@ export function AgentEditorDialog({
 
         <DialogFooter className="p-6 pt-4 border-t">
           <Button variant="outline" onClick={onClose} disabled={saving}>
-            Cancel
+            {t.Common.cancel}
           </Button>
           <Button onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving...' : agent ? 'Update' : 'Create'}
+            {saving ? t.Common.saving : agent ? t.Common.update : t.Common.create}
           </Button>
         </DialogFooter>
       </DialogContent>

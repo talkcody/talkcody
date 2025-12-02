@@ -4,11 +4,13 @@ import { useEffect, useState } from 'react';
 import { ProfileEditDialog } from '@/components/settings/profile-edit-dialog';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useLocale } from '@/hooks/use-locale';
 import { logger } from '@/lib/logger';
 import { apiClient } from '@/services/api-client';
 import { useAuthStore } from '@/stores/auth-store';
 
 export function AccountSettings() {
+  const { t } = useLocale();
   const {
     isAuthenticated,
     isLoading,
@@ -57,7 +59,7 @@ export function AccountSettings() {
       } catch (parseError) {
         logger.error('Failed to parse response as JSON:', parseError);
         logger.error('Response was:', responseText);
-        throw new Error('Server returned invalid JSON response');
+        throw new Error(t.Settings.account.invalidJsonResponse);
       }
 
       logger.info('Profile updated successfully');
@@ -71,14 +73,14 @@ export function AccountSettings() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-lg">Account</CardTitle>
-        <CardDescription>Manage your TalkCody marketplace account</CardDescription>
+        <CardTitle className="text-lg">{t.Settings.account.title}</CardTitle>
+        <CardDescription>{t.Settings.account.description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
         {isAuthenticated && isLoading ? (
           <div className="flex items-center justify-center py-8">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            <span className="ml-2 text-sm text-muted-foreground">Loading account...</span>
+            <span className="ml-2 text-sm text-muted-foreground">{t.Common.loading}</span>
           </div>
         ) : isAuthenticated && user ? (
           <>
@@ -118,7 +120,7 @@ export function AccountSettings() {
             <div className="border-t pt-4">
               <Button onClick={signOut} variant="outline" className="w-full">
                 <LogOut className="mr-2 h-4 w-4" />
-                Sign Out
+                {t.Settings.account.signOut}
               </Button>
             </div>
 
@@ -135,12 +137,11 @@ export function AccountSettings() {
             {/* Not Signed In */}
             <div className="space-y-4">
               <p className="text-sm text-muted-foreground">
-                Sign in to publish agents to the TalkCody marketplace and manage your published
-                agents.
+                {t.Settings.account.signInDescription}
               </p>
               <Button onClick={signInWithGitHub} variant="default" className="w-full">
                 <Github className="mr-2 h-4 w-4" />
-                Sign in with GitHub
+                {t.Settings.account.signInWithGitHub}
               </Button>
             </div>
           </>

@@ -16,6 +16,27 @@ vi.mock('sonner', () => ({
   },
 }));
 
+// Mock settings store for useLocale hook
+vi.mock('@/stores/settings-store', () => {
+  const mockStore: any = vi.fn((selector) => {
+    const state = {
+      language: 'en' as const,
+      setLanguage: vi.fn(),
+    };
+    if (typeof selector === 'function') {
+      return selector(state);
+    }
+    return state;
+  });
+  mockStore.getState = () => ({
+    language: 'en' as const,
+    setLanguage: vi.fn(),
+  });
+  return {
+    useSettingsStore: mockStore,
+  };
+});
+
 describe('ImageSupportAlert', () => {
   const mockAvailableModels = [
     {
@@ -113,7 +134,7 @@ describe('ImageSupportAlert', () => {
     });
 
     expect(mockOnOpenChange).toHaveBeenCalledWith(false);
-    expect(toast.success).toHaveBeenCalledWith('Model switched to one that supports images');
+    expect(toast.success).toHaveBeenCalledWith('Model switched');
   });
 
   it('should handle "Keep Current Model" button', async () => {
@@ -135,8 +156,6 @@ describe('ImageSupportAlert', () => {
     await waitFor(() => {
       expect(mockOnOpenChange).toHaveBeenCalledWith(false);
     });
-
-    expect(toast.info).toHaveBeenCalledWith('You can remove the image to continue with the current model');
   });
 
   it('should show message when no models support images', async () => {

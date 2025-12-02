@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useTranslation } from '@/hooks/use-locale';
 import { getApiUrl } from '@/lib/config';
 import { logger } from '@/lib/logger';
 import { secureStorage } from '@/services/secure-storage';
@@ -26,6 +27,7 @@ interface ProfileEditDialogProps {
 }
 
 export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileEditDialogProps) {
+  const t = useTranslation();
   const avatarUrlId = useId();
   const avatarFileId = useId();
   const displayNameId = useId();
@@ -49,14 +51,14 @@ export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileE
     // Validate file type
     const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
     if (!validTypes.includes(file.type)) {
-      toast.error('Invalid file type. Only JPEG, PNG, GIF, and WebP are allowed');
+      toast.error(t.Settings.account.invalidFileType);
       return;
     }
 
     // Validate file size (max 5MB)
     const maxSize = 5 * 1024 * 1024; // 5MB
     if (file.size > maxSize) {
-      toast.error('File too large. Maximum size is 5MB');
+      toast.error(t.Settings.account.fileTooLarge);
       return;
     }
 
@@ -92,7 +94,7 @@ export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileE
         // Get auth token
         const token = await secureStorage.getAuthToken();
         if (!token) {
-          throw new Error('Authentication required. Please sign in again.');
+          throw new Error(t.Settings.account.authRequired);
         }
 
         const response = await fetch(apiUrl, {
@@ -106,7 +108,7 @@ export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileE
         if (!response.ok) {
           const error = await response.json();
           logger.error('Avatar upload failed:', error);
-          throw new Error(error.error || 'Failed to upload avatar');
+          throw new Error(error.error || t.Settings.account.failedUploadAvatar);
         }
 
         const data = await response.json();
@@ -121,12 +123,12 @@ export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileE
         avatarUrl: finalAvatarUrl,
       });
 
-      toast.success('Profile updated successfully');
+      toast.success(t.Settings.account.profileUpdated);
       logger.info('Profile save completed successfully');
       onOpenChange(false);
     } catch (error) {
       logger.error('Save profile error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to save profile');
+      toast.error(error instanceof Error ? error.message : t.Settings.account.profileUpdateFailed);
     } finally {
       setSaving(false);
     }
@@ -139,8 +141,8 @@ export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileE
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle>Edit Profile</DialogTitle>
-          <DialogDescription>Update your display name and profile picture</DialogDescription>
+          <DialogTitle>{t.Settings.profile.editTitle}</DialogTitle>
+          <DialogDescription>{t.Settings.profile.editDescription}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6 py-4">
@@ -153,11 +155,11 @@ export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileE
 
             <div className="w-full space-y-3">
               <div>
-                <Label htmlFor={avatarUrlId}>Avatar URL</Label>
+                <Label htmlFor={avatarUrlId}>{t.Settings.profile.avatarUrl}</Label>
                 <Input
                   id={avatarUrlId}
                   type="text"
-                  placeholder="https://example.com/avatar.jpg"
+                  placeholder={t.Settings.profile.avatarUrlPlaceholder}
                   value={avatarUrl}
                   onChange={(e) => handleAvatarUrlChange(e.target.value)}
                   className="mt-1.5"
@@ -166,19 +168,19 @@ export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileE
 
               <div className="relative">
                 <div className="flex items-center justify-center">
-                  <span className="text-sm text-muted-foreground">or</span>
+                  <span className="text-sm text-muted-foreground">{t.Settings.profile.or}</span>
                 </div>
               </div>
 
               <div>
-                <Label htmlFor={avatarFileId}>Upload Image</Label>
+                <Label htmlFor={avatarFileId}>{t.Settings.profile.uploadImage}</Label>
                 <div className="mt-1.5">
                   <label
                     htmlFor={avatarFileId}
                     className="flex items-center justify-center gap-2 rounded-md border border-input bg-background px-4 py-2 text-sm hover:bg-accent hover:text-accent-foreground cursor-pointer transition-colors"
                   >
                     <Upload className="h-4 w-4" />
-                    {avatarFile ? avatarFile.name : 'Choose file...'}
+                    {avatarFile ? avatarFile.name : t.Settings.profile.chooseFile}
                   </label>
                   <input
                     id={avatarFileId}
@@ -189,7 +191,7 @@ export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileE
                   />
                 </div>
                 <p className="text-xs text-muted-foreground mt-1.5">
-                  JPEG, PNG, GIF, or WebP (max 5MB)
+                  {t.Settings.profile.fileTypeHint}
                 </p>
               </div>
             </div>
@@ -197,17 +199,15 @@ export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileE
 
           {/* Display Name */}
           <div className="space-y-2">
-            <Label htmlFor={displayNameId}>Display Name</Label>
+            <Label htmlFor={displayNameId}>{t.Settings.profile.displayName}</Label>
             <Input
               id={displayNameId}
               type="text"
-              placeholder="Enter your display name"
+              placeholder={t.Settings.profile.displayNamePlaceholder}
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
             />
-            <p className="text-xs text-muted-foreground">
-              This is how your name will appear in the marketplace
-            </p>
+            <p className="text-xs text-muted-foreground">{t.Settings.profile.displayNameHint}</p>
           </div>
         </div>
 
@@ -218,11 +218,11 @@ export function ProfileEditDialog({ open, onOpenChange, user, onSave }: ProfileE
             onClick={() => onOpenChange(false)}
             disabled={saving}
           >
-            Cancel
+            {t.Common.cancel}
           </Button>
           <Button type="button" onClick={handleSave} disabled={saving || !displayName.trim()}>
             {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Changes
+            {t.Settings.profile.saveChanges}
           </Button>
         </DialogFooter>
       </DialogContent>

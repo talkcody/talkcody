@@ -28,6 +28,7 @@ import {
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { useLocale } from '@/hooks/use-locale';
 import { useProjects } from '@/hooks/use-projects';
 
 const createProjectSchema = z.object({
@@ -48,6 +49,7 @@ interface CreateProjectProps {
 }
 
 export function CreateProject({ children, onProjectCreated }: CreateProjectProps) {
+  const { t } = useLocale();
   const [open, setOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { createProject } = useProjects();
@@ -67,23 +69,13 @@ export function CreateProject({ children, onProjectCreated }: CreateProjectProps
       setIsSubmitting(true);
       await createProject(data);
 
-      toast.success(() => (
-        <div>
-          <p>Project created</p>
-          <p>Project "{data.name}" has been created successfully.</p>
-        </div>
-      ));
+      toast.success(t.Projects.created(data.name));
 
       form.reset();
       setOpen(false);
       onProjectCreated?.();
     } catch (error) {
-      toast.error(() => (
-        <div>
-          <p>Error</p>
-          <p>{error instanceof Error ? error.message : 'Failed to create project'}</p>
-        </div>
-      ));
+      toast.error(error instanceof Error ? error.message : t.Projects.createFailed);
     } finally {
       setIsSubmitting(false);
     }
@@ -102,17 +94,14 @@ export function CreateProject({ children, onProjectCreated }: CreateProjectProps
         {children || (
           <Button>
             <Plus className="mr-2 h-4 w-4" />
-            New Project
+            {t.Projects.createNew}
           </Button>
         )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[600px]">
         <DialogHeader>
-          <DialogTitle>Create New Project</DialogTitle>
-          <DialogDescription>
-            Create a new project to organize your conversations. Projects can have their own context
-            and rules.
-          </DialogDescription>
+          <DialogTitle>{t.Projects.createTitle}</DialogTitle>
+          <DialogDescription>{t.Projects.createDescription}</DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
@@ -122,9 +111,13 @@ export function CreateProject({ children, onProjectCreated }: CreateProjectProps
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Project Name</FormLabel>
+                  <FormLabel>{t.Projects.form.name}</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter project name..." {...field} disabled={isSubmitting} />
+                    <Input
+                      placeholder={t.Projects.form.namePlaceholder}
+                      {...field}
+                      disabled={isSubmitting}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -136,19 +129,17 @@ export function CreateProject({ children, onProjectCreated }: CreateProjectProps
               name="description"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Description</FormLabel>
+                  <FormLabel>{t.Projects.form.description}</FormLabel>
                   <FormControl>
                     <Textarea
                       className="resize-none"
-                      placeholder="Brief description of this project..."
+                      placeholder={t.Projects.form.descriptionPlaceholder}
                       rows={2}
                       {...field}
                       disabled={isSubmitting}
                     />
                   </FormControl>
-                  <FormDescription>
-                    Optional description to help identify this project
-                  </FormDescription>
+                  <FormDescription>{t.Projects.form.descriptionHint}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -159,20 +150,17 @@ export function CreateProject({ children, onProjectCreated }: CreateProjectProps
               name="context"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Project Context</FormLabel>
+                  <FormLabel>{t.Projects.form.context}</FormLabel>
                   <FormControl>
                     <Textarea
                       className="resize-none"
-                      placeholder="Provide context that will be shared with AI assistants in this project..."
+                      placeholder={t.Projects.form.contextPlaceholder}
                       rows={3}
                       {...field}
                       disabled={isSubmitting}
                     />
                   </FormControl>
-                  <FormDescription>
-                    Context information that will be provided to AI assistants in conversations
-                    within this project
-                  </FormDescription>
+                  <FormDescription>{t.Projects.form.contextHint}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -183,19 +171,17 @@ export function CreateProject({ children, onProjectCreated }: CreateProjectProps
               name="rules"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Project Rules</FormLabel>
+                  <FormLabel>{t.Projects.form.rules}</FormLabel>
                   <FormControl>
                     <Textarea
                       className="resize-none"
-                      placeholder="Define specific rules or guidelines for AI assistants in this project..."
+                      placeholder={t.Projects.form.rulesPlaceholder}
                       rows={3}
                       {...field}
                       disabled={isSubmitting}
                     />
                   </FormControl>
-                  <FormDescription>
-                    Specific rules and guidelines that AI assistants should follow in this project
-                  </FormDescription>
+                  <FormDescription>{t.Projects.form.rulesHint}</FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
@@ -208,18 +194,18 @@ export function CreateProject({ children, onProjectCreated }: CreateProjectProps
                 type="button"
                 variant="outline"
               >
-                Cancel
+                {t.Common.cancel}
               </Button>
               <Button disabled={isSubmitting} type="submit">
                 {isSubmitting ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Creating...
+                    {t.Common.loading}
                   </>
                 ) : (
                   <>
                     <Plus className="mr-2 h-4 w-4" />
-                    Create Project
+                    {t.Common.create}
                   </>
                 )}
               </Button>

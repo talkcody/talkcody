@@ -7,10 +7,12 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { UpdateDialog } from '@/components/update-dialog';
+import { useLocale } from '@/hooks/use-locale';
 import { useUpdater } from '@/hooks/use-updater';
 import { logger } from '@/lib/logger';
 
 export function AboutSettings() {
+  const { t } = useLocale();
   const [appVersion, setAppVersion] = useState<string>('');
   const [platformName, setPlatformName] = useState<string>('');
   const [updateDialogOpen, setUpdateDialogOpen] = useState(false);
@@ -81,9 +83,7 @@ export function AboutSettings() {
     if (updater.available) {
       setUpdateDialogOpen(true);
     } else if (!updater.error) {
-      toast.success('You are up to date!', {
-        description: 'You are running the latest version of TalkCody.',
-      });
+      toast.success(t.Settings.about.upToDate);
     }
   };
 
@@ -91,18 +91,18 @@ export function AboutSettings() {
     <>
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">About TalkCody</CardTitle>
-          <CardDescription>Application information and updates</CardDescription>
+          <CardTitle className="text-lg">{t.Settings.about.title}</CardTitle>
+          <CardDescription>{t.Settings.about.description}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {/* Version Information */}
           <div className="space-y-3">
             <div className="flex items-center justify-between py-2">
-              <span className="text-sm text-muted-foreground">Version</span>
-              <span className="text-sm font-medium">{appVersion || 'Loading...'}</span>
+              <span className="text-sm text-muted-foreground">{t.Settings.about.version}</span>
+              <span className="text-sm font-medium">{appVersion || t.Common.loading}</span>
             </div>
             <div className="flex items-center justify-between py-2">
-              <span className="text-sm text-muted-foreground">Platform</span>
+              <span className="text-sm text-muted-foreground">{t.Settings.about.platform}</span>
               <span className="text-sm font-medium">{platformName || 'Loading...'}</span>
             </div>
           </div>
@@ -110,16 +110,15 @@ export function AboutSettings() {
           {/* Update Section */}
           <div className="space-y-4 border-t pt-4">
             <div className="space-y-2">
-              <h4 className="text-sm font-medium">Software Updates</h4>
+              <h4 className="text-sm font-medium">{t.Settings.about.softwareUpdates}</h4>
               <p className="text-xs text-muted-foreground">
-                TalkCody automatically checks for updates daily. You can also manually check for
-                updates.
+                {t.Settings.about.softwareUpdatesDescription}
               </p>
             </div>
 
             {lastCheckTime && (
               <div className="flex items-center justify-between text-xs text-muted-foreground">
-                <span>Last checked:</span>
+                <span>{t.Settings.about.lastChecked}</span>
                 <span>{lastCheckTime}</span>
               </div>
             )}
@@ -133,12 +132,12 @@ export function AboutSettings() {
               {updater.checking ? (
                 <>
                   <RefreshCw className="mr-2 h-4 w-4 animate-spin" />
-                  Checking for Updates...
+                  {t.Settings.about.checkingForUpdates}
                 </>
               ) : (
                 <>
                   <Download className="mr-2 h-4 w-4" />
-                  Check for Updates
+                  {t.Settings.about.checkForUpdates}
                 </>
               )}
             </Button>
@@ -153,7 +152,7 @@ export function AboutSettings() {
 
           {/* Links */}
           <div className="space-y-2 border-t pt-4">
-            <h4 className="text-sm font-medium">Resources</h4>
+            <h4 className="text-sm font-medium">{t.Settings.about.resources}</h4>
             <div className="space-y-1">
               <a
                 href="https://github.com/talkcody/talkcody"
@@ -161,7 +160,7 @@ export function AboutSettings() {
                 rel="noopener noreferrer"
                 className="block text-xs text-muted-foreground hover:text-primary"
               >
-                GitHub Repository
+                {t.Settings.about.githubRepository}
               </a>
               <a
                 href="https://talkcody.com"
@@ -169,7 +168,7 @@ export function AboutSettings() {
                 rel="noopener noreferrer"
                 className="block text-xs text-muted-foreground hover:text-primary"
               >
-                Website
+                {t.Settings.about.website}
               </a>
             </div>
           </div>

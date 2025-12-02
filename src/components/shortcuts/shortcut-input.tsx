@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useLocale } from '@/hooks/use-locale';
 import { cn } from '@/lib/utils';
 import {
   DEFAULT_SHORTCUTS,
@@ -32,6 +33,7 @@ export function ShortcutInput({
   disabled = false,
   className,
 }: ShortcutInputProps) {
+  const { t } = useLocale();
   const [isCapturing, setIsCapturing] = useState(false);
   const [currentKeys, setCurrentKeys] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -76,12 +78,7 @@ export function ShortcutInput({
         const parsedConfig = parseShortcutString(shortcutString);
 
         if (parsedConfig) {
-          const newConfig: ShortcutConfig = {
-            key: parsedConfig.key,
-            modifiers: parsedConfig.modifiers,
-            description: value.description,
-          };
-          onChange(newConfig);
+          onChange(parsedConfig);
         }
 
         setIsCapturing(false);
@@ -102,7 +99,6 @@ export function ShortcutInput({
     const clearedConfig: ShortcutConfig = {
       key: '',
       modifiers: {},
-      description: value.description,
     };
     onChange(clearedConfig);
   };
@@ -169,7 +165,7 @@ export function ShortcutInput({
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>Clear shortcut</p>
+                <p>{t.Settings.shortcuts.clearShortcut}</p>
               </TooltipContent>
             </Tooltip>
           )}
@@ -187,16 +183,13 @@ export function ShortcutInput({
               </Button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>Reset to default</p>
+              <p>{t.Settings.shortcuts.resetToDefault}</p>
             </TooltipContent>
           </Tooltip>
         </div>
       </div>
 
-      <div className="flex items-center justify-between text-xs text-gray-500">
-        <span>{value.description}</span>
-        {isCapturing && <span className="text-blue-600">Press key combination...</span>}
-      </div>
+      {isCapturing && <div className="text-xs text-blue-600">Press key combination...</div>}
 
       {!isValid && !isCapturing && (
         <p className="text-xs text-orange-600">

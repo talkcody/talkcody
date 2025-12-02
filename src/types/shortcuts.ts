@@ -8,7 +8,6 @@ export interface ModifierKeys {
 export interface ShortcutConfig {
   key: string;
   modifiers: ModifierKeys;
-  description: string;
 }
 
 export interface ShortcutSettings {
@@ -30,52 +29,42 @@ export const DEFAULT_SHORTCUTS: ShortcutSettings = {
   globalFileSearch: {
     key: 'o',
     modifiers: { meta: true },
-    description: 'Global File Search',
   },
   globalContentSearch: {
     key: 'g',
     modifiers: { meta: true },
-    description: 'Global Content Search',
   },
   fileSearch: {
     key: 'f',
     modifiers: { meta: true },
-    description: 'Search in File',
   },
   saveFile: {
     key: 's',
     modifiers: { meta: true },
-    description: 'Save File',
   },
   newWindow: {
     key: 'n',
     modifiers: { meta: true, shift: true },
-    description: 'Open New Window',
   },
   openModelSettings: {
     key: 'm',
     modifiers: { meta: true, shift: true },
-    description: 'Open Model Settings',
   },
   toggleTerminal: {
     key: 'j',
     modifiers: { meta: true },
-    description: 'Toggle Terminal',
   },
   nextTerminalTab: {
     key: 'ArrowRight',
     modifiers: { meta: true },
-    description: 'Next Terminal Tab',
   },
   previousTerminalTab: {
     key: 'ArrowLeft',
     modifiers: { meta: true },
-    description: 'Previous Terminal Tab',
   },
   newTerminalTab: {
     key: 't',
     modifiers: { meta: true },
-    description: 'New Terminal Tab',
   },
 };
 
@@ -142,7 +131,6 @@ export function parseShortcutString(shortcutString: string): ShortcutConfig | nu
   return {
     key,
     modifiers,
-    description: '',
   };
 }
 

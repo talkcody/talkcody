@@ -5,7 +5,6 @@ export type ProviderType = 'openai' | 'openai-compatible' | 'custom';
 export interface ProviderDefinition {
   id: string;
   name: string;
-  description: string;
   priority: number;
   apiKeyName: string;
   baseUrl?: string;

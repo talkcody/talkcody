@@ -130,6 +130,14 @@ TalkCody runtime log path:
 ~/Library/Logs/com.talkcody/talkcody.log
 ```
 
+### App data directory
+
+TalkCody app data path:
+
+```
+~/Library/Application Support/com.talkcody
+```
+
 ## AI Code Generation Tips
 
 ### Turso database

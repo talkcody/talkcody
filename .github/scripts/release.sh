@@ -116,55 +116,46 @@ ARTIFACT_FILENAME=$(basename "$ARTIFACT_FILE")
 echo -e "${GREEN}✓${NC} Found artifact: $ARTIFACT_FILENAME"
 echo ""
 
-# Step 2: Create updater bundle
-echo "📦 Step 2/5: Creating updater bundle..."
+# Step 2: Find Tauri-generated updater bundle and signature
+echo "📦 Step 2/5: Finding Tauri-generated updater artifacts..."
 
-# Generate updater bundle filename based on platform
+# Tauri automatically generates updater bundles with minisign signatures
+# when TAURI_SIGNING_PRIVATE_KEY is set and createUpdaterArtifacts: true
+# We need to find these artifacts instead of creating our own
+
 if [ "$PLATFORM" = "linux" ]; then
-    UPDATER_BUNDLE="${BUNDLE_DIR}/${UPDATER_PREFIX}_${VERSION}_${ARCH}.${ARTIFACT_EXT}.tar.gz"
+    # Linux: Tauri generates *.AppImage.tar.gz and *.AppImage.tar.gz.sig
+    UPDATER_BUNDLE=$(find "$BUNDLE_DIR" -name "*.AppImage.tar.gz" -not -name "*.sig" 2>/dev/null | head -n 1)
+    UPDATER_SIG=$(find "$BUNDLE_DIR" -name "*.AppImage.tar.gz.sig" 2>/dev/null | head -n 1)
 elif [ "$PLATFORM" = "windows" ]; then
-    UPDATER_BUNDLE="${BUNDLE_DIR}/${UPDATER_PREFIX}_${VERSION}_windows_${WIN_ARCH}.${ARTIFACT_EXT}.tar.gz"
+    # Windows: Tauri generates either *.nsis.zip or *.msi.zip with corresponding .sig files
+    # First try NSIS bundle (in nsis directory)
+    NSIS_DIR="src-tauri/target/release/bundle/nsis"
+    UPDATER_BUNDLE=$(find "$NSIS_DIR" -name "*.nsis.zip" 2>/dev/null | head -n 1)
+    UPDATER_SIG=$(find "$NSIS_DIR" -name "*.nsis.zip.sig" 2>/dev/null | head -n 1)
+
+    # If no NSIS bundle found, try MSI bundle
+    if [ -z "$UPDATER_BUNDLE" ]; then
+        UPDATER_BUNDLE=$(find "$BUNDLE_DIR" -name "*.msi.zip" 2>/dev/null | head -n 1)
+        UPDATER_SIG=$(find "$BUNDLE_DIR" -name "*.msi.zip.sig" 2>/dev/null | head -n 1)
+    fi
 fi
 
-UPDATER_SIG="${UPDATER_BUNDLE}.sig"
-
-# Create tar.gz of artifact for updater
-cd "$(dirname "$ARTIFACT_FILE")"
-if [ "$PLATFORM" = "linux" ]; then
-    tar -czf "$(basename "$UPDATER_BUNDLE")" "$ARTIFACT_FILENAME"
-elif [ "$PLATFORM" = "windows" ]; then
-    tar -czf "$(basename "$UPDATER_BUNDLE")" "$ARTIFACT_FILENAME"
-fi
-cd - > /dev/null
-
-# Move to expected location if needed
-if [ ! -f "$UPDATER_BUNDLE" ]; then
-    mv "$(dirname "$ARTIFACT_FILE")/$(basename "$UPDATER_BUNDLE")" "$UPDATER_BUNDLE"
+if [ -z "$UPDATER_BUNDLE" ]; then
+    echo -e "${RED}❌ Error: Tauri updater bundle not found${NC}"
+    echo "  Please ensure 'bun run tauri build' was run with TAURI_SIGNING_PRIVATE_KEY set"
+    echo "  and createUpdaterArtifacts: true in tauri.conf.json"
+    exit 1
 fi
 
-echo -e "${GREEN}✓${NC} Created updater bundle: $(basename "$UPDATER_BUNDLE")"
-
-# Sign the updater bundle
-echo "🔐 Signing updater bundle..."
-
-# Save private key to temporary file
-TEMP_KEY_FILE="/tmp/tauri_key_${PLATFORM}_$$.pem"
-printf "%s\\n" "$TAURI_SIGNING_PRIVATE_KEY" > "$TEMP_KEY_FILE"
-chmod 600 "$TEMP_KEY_FILE"
-
-# Generate signature using openssl
-if [ -n "$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" ]; then
-    SIGNATURE=$(openssl dgst -sha256 -sign "$TEMP_KEY_FILE" -passin pass:"$TAURI_SIGNING_PRIVATE_KEY_PASSWORD" "$UPDATER_BUNDLE" | base64 -w 0)
-else
-    SIGNATURE=$(openssl dgst -sha256 -sign "$TEMP_KEY_FILE" "$UPDATER_BUNDLE" | base64 -w 0)
+if [ -z "$UPDATER_SIG" ]; then
+    echo -e "${RED}❌ Error: Tauri updater signature not found${NC}"
+    echo "  Expected signature file alongside: $UPDATER_BUNDLE"
+    exit 1
 fi
 
-echo "$SIGNATURE" > "$UPDATER_SIG"
-
-# Clean up temp key file
-rm -f "$TEMP_KEY_FILE"
-
-echo -e "${GREEN}✓${NC} Signature created: $(basename "$UPDATER_SIG")"
+echo -e "${GREEN}✓${NC} Found updater bundle: $(basename "$UPDATER_BUNDLE")"
+echo -e "${GREEN}✓${NC} Found signature: $(basename "$UPDATER_SIG")"
 echo ""
 
 # Step 3: Generate/update manifest.json

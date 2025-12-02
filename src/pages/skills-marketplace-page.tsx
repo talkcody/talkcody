@@ -29,6 +29,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useTranslation } from '@/hooks/use-locale';
 import { useMarketplaceSkills } from '@/hooks/use-marketplace-skills';
 import { useSkillMutations, useSkills } from '@/hooks/use-skills';
 import { DOC_LINKS } from '@/lib/doc-links';
@@ -95,6 +96,8 @@ export function SkillsMarketplacePage() {
     onContinue: () => void;
     onCancel: () => void;
   } | null>(null);
+
+  const t = useTranslation();
 
   // Use marketplace skills hook (similar to agent marketplace)
   const marketplace = useMarketplaceSkills();
@@ -174,7 +177,7 @@ export function SkillsMarketplacePage() {
     } else {
       refreshLocal();
     }
-    toast.success('Skills refreshed');
+    toast.success(t.Skills.page.refreshed);
   };
 
   const handleSearch = (value: string) => {
@@ -216,11 +219,11 @@ export function SkillsMarketplacePage() {
 
     try {
       await deleteSkill(deletingSkill.id);
-      toast.success('Skill deleted successfully');
+      toast.success(t.Skills.page.deleted);
       refreshLocal();
     } catch (error) {
       logger.error('Failed to delete skill:', error);
-      toast.error('Failed to delete skill');
+      toast.error(t.Skills.page.deleteFailed);
     } finally {
       setDeletingSkill(null);
     }
@@ -256,11 +259,19 @@ export function SkillsMarketplacePage() {
       // If it's a converted Skill, get slug from marketplace metadata
       const slug = 'slug' in skill ? skill.slug : (skill as Skill).marketplace?.slug;
       const marketplaceId =
-        'slug' in skill ? skill.id : (skill as Skill).marketplace!.marketplaceId;
-      const version = 'slug' in skill ? skill.latestVersion : (skill as Skill).marketplace!.version;
+        'slug' in skill ? skill.id : (skill as Skill).marketplace?.marketplaceId;
+      const version = 'slug' in skill ? skill.latestVersion : (skill as Skill).marketplace?.version;
 
       if (!slug) {
         throw new Error('Skill slug is required for installation');
+      }
+
+      if (!marketplaceId) {
+        throw new Error('Skill marketplace ID is required for installation');
+      }
+
+      if (!version) {
+        throw new Error('Skill version is required for installation');
       }
 
       // Work with the skill as Skill type (it's already converted from MarketplaceSkill)
@@ -280,7 +291,7 @@ export function SkillsMarketplacePage() {
           description: convertedSkill.description,
           longDescription: convertedSkill.longDescription,
           author: {
-            name: convertedSkill.marketplace!.author || 'Unknown',
+            name: convertedSkill.marketplace?.author || 'Unknown',
             url: undefined,
           },
           version: version,
@@ -291,8 +302,8 @@ export function SkillsMarketplacePage() {
           packageSize: 0,
           publishedAt: convertedSkill.metadata?.createdAt || Date.now(),
           updatedAt: convertedSkill.metadata?.updatedAt || Date.now(),
-          downloadCount: convertedSkill.marketplace!.downloads || 0,
-          rating: convertedSkill.marketplace!.rating,
+          downloadCount: convertedSkill.marketplace?.downloads || 0,
+          rating: convertedSkill.marketplace?.rating,
           ratingCount: 0,
         },
         onChecksumMismatch: async (expectedChecksum, actualChecksum) => {
@@ -329,11 +340,11 @@ export function SkillsMarketplacePage() {
       // Step 4: Refresh local skills list
       refreshLocal();
 
-      toast.success(`Skill "${convertedSkill.name}" installed successfully`);
+      toast.success(t.Skills.page.installed(convertedSkill.name));
     } catch (error) {
       logger.error('Failed to install skill:', error);
       toast.error(
-        `Failed to install skill: ${error instanceof Error ? error.message : 'Unknown error'}`
+        t.Skills.page.installFailed(error instanceof Error ? error.message : 'Unknown error')
       );
       throw error;
     }
@@ -392,26 +403,24 @@ export function SkillsMarketplacePage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-2xl font-bold">Skills</h1>
+                <h1 className="text-2xl font-bold">{t.Skills.title}</h1>
                 <HelpTooltip
-                  title="Agent Skills"
-                  description="Skills are pre-configured knowledge packages that give AI agents specialized expertise. They include system prompts, workflows, and documentation to help agents perform specific tasks like database queries, code reviews, or documentation writing."
+                  title={t.Skills.page.tooltipTitle}
+                  description={t.Skills.page.tooltipDescription}
                   docUrl={DOC_LINKS.features.skills}
                 />
               </div>
-              <p className="text-sm text-muted-foreground">
-                Discover domain knowledge packages for your projects
-              </p>
+              <p className="text-sm text-muted-foreground">{t.Skills.page.description}</p>
             </div>
           </div>
           <div className="flex gap-2">
             <Button variant="default" size="sm" onClick={handleCreateNew}>
               <Plus className="h-4 w-4 mr-2" />
-              Create New Skill
+              {t.Skills.page.createNew}
             </Button>
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-              Refresh
+              {t.Skills.page.refresh}
             </Button>
           </div>
         </div>
@@ -421,7 +430,7 @@ export function SkillsMarketplacePage() {
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search skills..."
+              placeholder={t.Skills.page.searchPlaceholder}
               value={searchQuery}
               onChange={(e) => handleSearch(e.target.value)}
               className="pl-9"
@@ -433,7 +442,7 @@ export function SkillsMarketplacePage() {
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Categories</SelectItem>
+              <SelectItem value="all">{t.Skills.page.allCategories}</SelectItem>
               {categories.map((category) => (
                 <SelectItem key={category} value={category}>
                   {category}
@@ -450,11 +459,11 @@ export function SkillsMarketplacePage() {
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="name">Name</SelectItem>
-              <SelectItem value="downloads">Downloads</SelectItem>
-              <SelectItem value="rating">Rating</SelectItem>
-              <SelectItem value="recent">Recent</SelectItem>
-              <SelectItem value="updated">Updated</SelectItem>
+              <SelectItem value="name">{t.Skills.page.sortName}</SelectItem>
+              <SelectItem value="downloads">{t.Skills.page.sortDownloads}</SelectItem>
+              <SelectItem value="rating">{t.Skills.page.sortRating}</SelectItem>
+              <SelectItem value="recent">{t.Skills.page.sortRecent}</SelectItem>
+              <SelectItem value="updated">{t.Skills.page.sortUpdated}</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -468,9 +477,9 @@ export function SkillsMarketplacePage() {
       >
         <div className="border-b border-border px-6">
           <TabsList>
-            <TabsTrigger value="local">Local Skills</TabsTrigger>
+            <TabsTrigger value="local">{t.Skills.page.localSkills}</TabsTrigger>
             {/* <TabsTrigger value="featured">Featured</TabsTrigger> */}
-            <TabsTrigger value="all">Remote Skills</TabsTrigger>
+            <TabsTrigger value="all">{t.Skills.page.remoteSkills}</TabsTrigger>
           </TabsList>
         </div>
 
@@ -485,7 +494,9 @@ export function SkillsMarketplacePage() {
               onEdit={handleEdit}
               onDelete={handleDelete}
               onShare={handleShare}
-              emptyMessage="You haven't created any skills yet"
+              emptyMessage={t.Skills.page.noSkillsYet}
+              loadingMessage={t.Skills.page.loading}
+              loadFailedMessage={t.Skills.page.loadFailed}
             />
           </TabsContent>
 
@@ -505,6 +516,9 @@ export function SkillsMarketplacePage() {
               loading={loading}
               error={error}
               onSkillClick={handleSkillClick}
+              emptyMessage={t.Skills.page.noSkillsFound}
+              loadingMessage={t.Skills.page.loading}
+              loadFailedMessage={t.Skills.page.loadFailed}
             />
           </TabsContent>
         </div>
@@ -549,18 +563,18 @@ export function SkillsMarketplacePage() {
       <AlertDialog open={!!deletingSkill} onOpenChange={(open) => !open && setDeletingSkill(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Skill</AlertDialogTitle>
+            <AlertDialogTitle>{t.Skills.page.deleteTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete "{deletingSkill?.name}"? This action cannot be undone.
+              {t.Skills.page.deleteDescription(deletingSkill?.name || '')}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t.Common.cancel}</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleConfirmDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Delete
+              {t.Common.delete}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -589,7 +603,9 @@ function SkillsGrid({
   onEdit,
   onDelete,
   onShare,
-  emptyMessage = 'No skills found',
+  emptyMessage,
+  loadingMessage,
+  loadFailedMessage,
 }: {
   skills: (Skill | MarketplaceSkill)[];
   loading: boolean;
@@ -599,12 +615,14 @@ function SkillsGrid({
   onDelete?: (skill: Skill) => void;
   onShare?: (skill: Skill) => void;
   emptyMessage?: string;
+  loadingMessage?: string;
+  loadFailedMessage?: string;
 }) {
   if (loading) {
     return (
       <div className="p-8 text-center">
         <RefreshCw className="h-8 w-8 mx-auto mb-4 animate-spin text-muted-foreground" />
-        <p className="text-muted-foreground">Loading skills...</p>
+        <p className="text-muted-foreground">{loadingMessage || 'Loading skills...'}</p>
       </div>
     );
   }
@@ -613,7 +631,7 @@ function SkillsGrid({
     return (
       <div className="p-8 text-center">
         <div className="text-destructive mb-4">
-          <p className="font-semibold">Failed to load skills</p>
+          <p className="font-semibold">{loadFailedMessage || 'Failed to load skills'}</p>
           <p className="text-sm text-muted-foreground mt-2">{error.message}</p>
         </div>
       </div>

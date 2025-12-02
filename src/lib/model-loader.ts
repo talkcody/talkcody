@@ -1,6 +1,7 @@
 import modelsDefault from '@talkcody/shared/data/models-config.json';
 import { BaseDirectory, exists, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { logger } from '@/lib/logger';
+import { customModelService } from '@/services/custom-model-service';
 import type { ModelsConfiguration } from '@/types/models';
 
 const MODELS_CACHE_FILENAME = 'models-cache.json';
@@ -15,6 +16,7 @@ class ModelLoader {
 
   /**
    * Load models configuration with fallback chain
+   * Merges server/cached config with user's custom models
    */
   async load(): Promise<ModelsConfiguration> {
     // Return memory cache if available
@@ -22,18 +24,35 @@ class ModelLoader {
       return this.memoryCache;
     }
 
-    // Try to load from file cache
+    // Load server/cached config
+    let serverConfig: ModelsConfiguration;
     try {
-      const config = await this.loadFromFile();
-      this.memoryCache = config;
-      return config;
+      serverConfig = await this.loadFromFile();
     } catch (error) {
       logger.warn('Failed to load models cache file, using default:', error);
-      // Fallback to bundled default
-      const defaultConfig = modelsDefault as ModelsConfiguration;
-      this.memoryCache = defaultConfig;
-      return defaultConfig;
+      serverConfig = modelsDefault as ModelsConfiguration;
     }
+
+    // Load custom models
+    let customConfig: ModelsConfiguration;
+    try {
+      customConfig = await customModelService.getCustomModels();
+    } catch (error) {
+      logger.warn('Failed to load custom models:', error);
+      customConfig = { version: 'custom', models: {} };
+    }
+
+    // Merge configs (custom models take precedence)
+    const mergedConfig: ModelsConfiguration = {
+      version: serverConfig.version,
+      models: {
+        ...serverConfig.models,
+        ...customConfig.models,
+      },
+    };
+
+    this.memoryCache = mergedConfig;
+    return mergedConfig;
   }
 
   /**

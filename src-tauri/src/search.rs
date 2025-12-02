@@ -10,6 +10,11 @@ use std::ffi::OsStr;
 use std::path::{Path};
 use std::sync::{Arc, Mutex};
 
+/// Maximum line length before truncation (in characters)
+const MAX_LINE_LENGTH: usize = 200;
+/// Number of characters to keep around the match when truncating
+const CONTEXT_CHARS: usize = 80;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchMatch {
     pub line_number: u64,
@@ -102,6 +107,70 @@ impl RipgrepSearch {
         false
     }
 
+    /// Find the largest valid char boundary <= index
+    #[inline]
+    fn floor_char_boundary(s: &str, index: usize) -> usize {
+        if index >= s.len() {
+            return s.len();
+        }
+        let mut i = index;
+        while i > 0 && !s.is_char_boundary(i) {
+            i -= 1;
+        }
+        i
+    }
+
+    /// Find the smallest valid char boundary >= index
+    #[inline]
+    fn ceil_char_boundary(s: &str, index: usize) -> usize {
+        if index >= s.len() {
+            return s.len();
+        }
+        let mut i = index;
+        while i < s.len() && !s.is_char_boundary(i) {
+            i += 1;
+        }
+        i
+    }
+
+    /// Truncate a long line while preserving context around the match.
+    /// If the line is shorter than MAX_LINE_LENGTH, returns it unchanged.
+    /// Otherwise, finds the match position and keeps CONTEXT_CHARS characters
+    /// on each side, adding "..." to indicate truncation.
+    fn truncate_line_with_context(line: &str, query: &str) -> String {
+        let trimmed = line.trim_end();
+        if trimmed.len() <= MAX_LINE_LENGTH {
+            return trimmed.to_string();
+        }
+
+        // Find match position (case insensitive)
+        let lower_line = trimmed.to_lowercase();
+        let lower_query = query.to_lowercase();
+
+        if let Some(match_pos) = lower_line.find(&lower_query) {
+            // Calculate range to keep, preserving context around the match
+            let start = match_pos.saturating_sub(CONTEXT_CHARS);
+            let end = (match_pos + query.len() + CONTEXT_CHARS).min(trimmed.len());
+
+            // Ensure we don't cut in the middle of a UTF-8 character
+            let start = Self::floor_char_boundary(trimmed, start);
+            let end = Self::ceil_char_boundary(trimmed, end);
+
+            let mut result = String::new();
+            if start > 0 {
+                result.push_str("...");
+            }
+            result.push_str(&trimmed[start..end]);
+            if end < trimmed.len() {
+                result.push_str("...");
+            }
+            result
+        } else {
+            // If match not found (possibly regex), truncate from the beginning
+            let end = Self::floor_char_boundary(trimmed, MAX_LINE_LENGTH.min(trimmed.len()));
+            format!("{}...", &trimmed[..end])
+        }
+    }
 
     pub fn search_content(&self, query: &str, root_path: &str) -> Result<Vec<SearchResult>, String> {
         if query.is_empty() {
@@ -191,7 +260,7 @@ impl RipgrepSearch {
             let path = entry.path();
             let matcher_clone = Arc::clone(&matcher);
 
-            match self.search_in_file_fast(&*matcher_clone, path, max_matches_per_file) {
+            match self.search_in_file_fast(&*matcher_clone, path, max_matches_per_file, query) {
                 Ok(Some(result)) => {
                     if !result.matches.is_empty() {
                         let mut results_guard = results.lock().unwrap();
@@ -216,7 +285,8 @@ impl RipgrepSearch {
         &self,
         matcher: &RegexMatcher,
         file_path: &Path,
-        max_matches: usize
+        max_matches: usize,
+        query: &str,
     ) -> Result<Option<SearchResult>, String> {
         let mut matches = Vec::with_capacity(max_matches.min(10)); // Pre-allocate reasonable capacity
 
@@ -238,7 +308,7 @@ impl RipgrepSearch {
 
                 matches.push(SearchMatch {
                     line_number: lnum,
-                    line_content: line.trim_end().to_string(),
+                    line_content: Self::truncate_line_with_context(line, query),
                     byte_offset: 0,
                 });
 
@@ -517,5 +587,84 @@ mod tests {
         assert_eq!(search.max_matches_per_file, 5);
         assert!(search.file_types.is_some());
         assert!(search.exclude_dirs.is_some());
+    }
+
+    #[test]
+    fn test_truncate_line_short_line_unchanged() {
+        // Lines shorter than MAX_LINE_LENGTH should not be truncated
+        let short_line = "fn main() { println!(\"Hello, world!\"); }";
+        let result = RipgrepSearch::truncate_line_with_context(short_line, "main");
+        assert_eq!(result, short_line);
+    }
+
+    #[test]
+    fn test_truncate_line_preserves_match_context() {
+        // Create a line longer than MAX_LINE_LENGTH with the match in the middle
+        let prefix = "a".repeat(150);
+        let suffix = "b".repeat(150);
+        let long_line = format!("{}FINDME{}", prefix, suffix);
+
+        let result = RipgrepSearch::truncate_line_with_context(&long_line, "FINDME");
+
+        // Result should contain the match
+        assert!(result.contains("FINDME"), "Result should contain the match");
+        // Result should have truncation markers
+        assert!(result.starts_with("..."), "Should have leading ellipsis");
+        assert!(result.ends_with("..."), "Should have trailing ellipsis");
+        // Result should be shorter than original
+        assert!(result.len() < long_line.len(), "Result should be truncated");
+    }
+
+    #[test]
+    fn test_truncate_line_match_at_beginning() {
+        // Match at the beginning of a long line
+        let suffix = "x".repeat(300);
+        let long_line = format!("FINDME{}", suffix);
+
+        let result = RipgrepSearch::truncate_line_with_context(&long_line, "FINDME");
+
+        // Result should contain the match and not start with ellipsis
+        assert!(result.contains("FINDME"));
+        assert!(!result.starts_with("..."), "Should not have leading ellipsis when match is at start");
+        assert!(result.ends_with("..."), "Should have trailing ellipsis");
+    }
+
+    #[test]
+    fn test_truncate_line_match_at_end() {
+        // Match at the end of a long line
+        let prefix = "x".repeat(300);
+        let long_line = format!("{}FINDME", prefix);
+
+        let result = RipgrepSearch::truncate_line_with_context(&long_line, "FINDME");
+
+        // Result should contain the match and not end with ellipsis
+        assert!(result.contains("FINDME"));
+        assert!(result.starts_with("..."), "Should have leading ellipsis");
+        assert!(!result.ends_with("..."), "Should not have trailing ellipsis when match is at end");
+    }
+
+    #[test]
+    fn test_truncate_line_case_insensitive() {
+        // Test case insensitive matching for truncation
+        let prefix = "a".repeat(150);
+        let suffix = "b".repeat(150);
+        let long_line = format!("{}findme{}", prefix, suffix);
+
+        let result = RipgrepSearch::truncate_line_with_context(&long_line, "FINDME");
+
+        // Should still find the match case-insensitively
+        assert!(result.contains("findme"));
+    }
+
+    #[test]
+    fn test_truncate_line_no_match_fallback() {
+        // When no match is found (e.g., regex pattern), should truncate from beginning
+        let long_line = "x".repeat(300);
+
+        let result = RipgrepSearch::truncate_line_with_context(&long_line, "NOTFOUND");
+
+        // Should truncate from beginning and add ellipsis
+        assert!(result.ends_with("..."));
+        assert!(result.len() <= MAX_LINE_LENGTH + 3); // +3 for "..."
     }
 }

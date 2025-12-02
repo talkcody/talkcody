@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { useLocale } from '@/hooks/use-locale';
 import { useTheme } from '@/hooks/use-theme';
 import { cn } from '@/lib/utils';
 import { NavigationView } from '@/types/navigation';
@@ -22,43 +23,44 @@ interface NavigationSidebarProps {
 
 export function NavigationSidebar({ activeView, onViewChange }: NavigationSidebarProps) {
   const { resolvedTheme, toggleTheme } = useTheme();
+  const { t } = useLocale();
 
   const navigationItems = [
     {
       id: NavigationView.EXPLORER,
       icon: Files,
-      label: 'Explorer',
-      tooltip: 'Browse and open files in your project (⇧⌘E)',
+      label: t.Navigation.explorer,
+      tooltip: `${t.Navigation.explorerTooltip} (⇧⌘E)`,
     },
     {
       id: NavigationView.CHAT,
       icon: MessageSquare,
-      label: 'Chat',
-      tooltip: 'AI chat conversations (⇧⌘C)',
+      label: t.Navigation.chat,
+      tooltip: `${t.Navigation.chatTooltip} (⇧⌘C)`,
     },
     {
       id: NavigationView.PROJECTS,
       icon: FolderOpen,
-      label: 'Projects',
-      tooltip: 'Manage your projects (⇧⌘P)',
+      label: t.Navigation.projects,
+      tooltip: `${t.Navigation.projectsTooltip} (⇧⌘P)`,
     },
     {
       id: NavigationView.AGENTS,
       icon: Bot,
-      label: 'Agents',
-      tooltip: 'Browse marketplace and manage local agents (⇧⌘A)',
+      label: t.Navigation.agents,
+      tooltip: `${t.Navigation.agentsTooltip} (⇧⌘A)`,
     },
     {
       id: NavigationView.SKILLS_MARKETPLACE,
       icon: Zap,
-      label: 'Skills',
-      tooltip: 'Discover and install skills (⇧⌘S)',
+      label: t.Navigation.skills,
+      tooltip: `${t.Navigation.skillsTooltip} (⇧⌘S)`,
     },
     {
       id: NavigationView.MCP_SERVERS,
       icon: Server,
-      label: 'MCP Servers',
-      tooltip: 'Model Context Protocol servers (⇧⌘M)',
+      label: t.Navigation.mcpServers,
+      tooltip: `${t.Navigation.mcpServersTooltip} (⇧⌘M)`,
     },
   ];
 
@@ -124,7 +126,7 @@ export function NavigationSidebar({ activeView, onViewChange }: NavigationSideba
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            Switch to {resolvedTheme === 'light' ? 'dark' : 'light'} mode
+            {t.Navigation.switchTheme(resolvedTheme === 'light' ? 'dark' : 'light')}
           </TooltipContent>
         </Tooltip>
 
@@ -139,7 +141,7 @@ export function NavigationSidebar({ activeView, onViewChange }: NavigationSideba
               <Settings className="h-5 w-5" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right">Application settings</TooltipContent>
+          <TooltipContent side="right">{t.Navigation.settingsTooltip}</TooltipContent>
         </Tooltip>
       </div>
     </div>
