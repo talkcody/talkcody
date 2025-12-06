@@ -128,6 +128,7 @@ pub struct ProxyRequest {
     pub method: String,
     pub headers: HashMap<String, String>,
     pub body: Option<String>,
+    pub request_id: Option<u32>,
 }
 
 #[derive(Debug, Serialize)]
@@ -378,7 +379,7 @@ pub async fn stream_fetch(
     window: tauri::Window,
     request: ProxyRequest,
 ) -> Result<StreamResponse, String> {
-    let request_id = REQUEST_COUNTER.fetch_add(1, Ordering::SeqCst);
+    let request_id = request.request_id.unwrap_or_else(|| REQUEST_COUNTER.fetch_add(1, Ordering::SeqCst));
     // Use request-specific event name to avoid global event broadcasting
     let event_name = format!("stream-response-{}", request_id);
 

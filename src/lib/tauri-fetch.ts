@@ -8,6 +8,7 @@ export interface ProxyRequest {
   method: string;
   headers: Record<string, string>;
   body?: string;
+  request_id?: number;
 }
 
 export interface ProxyResponse {
@@ -141,11 +142,16 @@ function createStreamFetch(): TauriFetchFunction {
     const { url, method, headers, body } = extractRequestParams(input, init);
     const signal = init?.signal;
 
+    // Generate request ID on client side to avoid race conditions
+    // Use a random number between 1 and 1000000 plus timestamp to ensure uniqueness
+    const requestId = Math.floor(Math.random() * 1000000) + (Date.now() % 1000000);
+
     const proxyRequest: ProxyRequest = {
       url,
       method,
       headers,
       body,
+      request_id: requestId,
     };
 
     // Setup streaming infrastructure
@@ -213,16 +219,15 @@ function createStreamFetch(): TauriFetchFunction {
     };
 
     try {
-      // First, invoke stream_fetch to get request_id
-      const response = await invoke<StreamResponse>('stream_fetch', { request: proxyRequest });
-      const { request_id, status, headers: responseHeaders } = response;
-
-      // Now register listener with request-specific event name
-      // This avoids receiving events from other concurrent requests
-      const eventName = `stream-response-${request_id}`;
+      // Register listener BEFORE invoking the command to avoid race conditions
+      const eventName = `stream-response-${requestId}`;
       unlisten = await listen<StreamEvent>(eventName, (event) => {
         processEvent(event.payload);
       });
+
+      // Invoke stream_fetch with the pre-generated request_id
+      const response = await invoke<StreamResponse>('stream_fetch', { request: proxyRequest });
+      const { status, headers: responseHeaders } = response;
 
       // Start the stream timeout
       resetStreamTimeout();
