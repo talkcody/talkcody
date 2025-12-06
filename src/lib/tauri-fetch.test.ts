@@ -435,6 +435,12 @@ describe('tauri-fetch', () => {
     });
 
     it('should invoke stream_fetch and set up event listener', async () => {
+      // Mock random and date to ensure predictable request_id
+      // requestId = Math.floor(Math.random() * 1000000) + (Date.now() % 1000000)
+      // We want requestId = 42
+      const randomSpy = vi.spyOn(Math, 'random').mockReturnValue(0);
+      const dateSpy = vi.spyOn(Date, 'now').mockReturnValue(42);
+
       const streamResponse = {
         request_id: 42,
         status: 200,
@@ -462,6 +468,9 @@ describe('tauri-fetch', () => {
 
       expect(mockListen).toHaveBeenCalledWith('stream-response-42', expect.any(Function));
       expect(response.status).toBe(200);
+
+      randomSpy.mockRestore();
+      dateSpy.mockRestore();
     });
 
     it('should return response with streaming body', async () => {
