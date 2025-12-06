@@ -1,4 +1,4 @@
-import { Loader2, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import { Loader2, Plus, RefreshCw, Trash2, X } from 'lucide-react';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -45,6 +45,7 @@ export function AddCustomModelDialog({
   const [fetchedModels, setFetchedModels] = useState<FetchedModel[]>([]);
   const [selectedModels, setSelectedModels] = useState<Set<string>>(new Set());
   const [manualModelName, setManualModelName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [isFetching, setIsFetching] = useState(false);
   const [showManualInput, setShowManualInput] = useState(false);
@@ -59,6 +60,7 @@ export function AddCustomModelDialog({
       setFetchedModels([]);
       setSelectedModels(new Set());
       setManualModelName('');
+      setSearchQuery('');
       setShowManualInput(false);
     }
   }, [open]);
@@ -70,6 +72,7 @@ export function AddCustomModelDialog({
     setIsFetching(true);
     setFetchedModels([]);
     setSelectedModels(new Set());
+    setSearchQuery('');
 
     try {
       const models = await customModelService.fetchProviderModels(selectedProvider);
@@ -98,6 +101,14 @@ export function AddCustomModelDialog({
     t.Settings.customModelsDialog.noModelsFound,
   ]);
 
+  // Filter models based on search query
+  const filteredModels = fetchedModels.filter((model) => {
+    if (!searchQuery.trim()) return true;
+    const searchTerms = searchQuery.toLowerCase().trim().split(/\s+/);
+    const modelId = model.id.toLowerCase();
+    return searchTerms.every((term) => modelId.includes(term));
+  });
+
   // Toggle model selection
   const toggleModelSelection = (modelId: string) => {
     const newSelection = new Set(selectedModels);
@@ -111,7 +122,11 @@ export function AddCustomModelDialog({
 
   // Select all models
   const selectAllModels = () => {
-    setSelectedModels(new Set(fetchedModels.map((m) => m.id)));
+    const newSelection = new Set(selectedModels);
+    filteredModels.forEach((m) => {
+      newSelection.add(m.id);
+    });
+    setSelectedModels(newSelection);
   };
 
   // Clear all selections
@@ -222,9 +237,29 @@ export function AddCustomModelDialog({
                   </Button>
                 </div>
               </div>
+
+              <div className="relative">
+                <Input
+                  placeholder="Search models..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="h-8 pr-8"
+                />
+                {searchQuery && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchQuery('')}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                    aria-label="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
               <ScrollArea className="h-[200px] rounded-md border p-2">
                 <div className="space-y-2">
-                  {fetchedModels.map((model) => (
+                  {filteredModels.map((model) => (
                     <button
                       key={model.id}
                       type="button"
@@ -243,6 +278,11 @@ export function AddCustomModelDialog({
                       </div>
                     </button>
                   ))}
+                  {filteredModels.length === 0 && (
+                    <div className="text-sm text-muted-foreground text-center py-4">
+                      No models found matching "{searchQuery}"
+                    </div>
+                  )}
                 </div>
               </ScrollArea>
               <div className="text-sm text-muted-foreground">
