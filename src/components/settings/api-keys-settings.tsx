@@ -161,6 +161,7 @@ export function ApiKeysSettings() {
 
   const handleTestConnection = async (providerId: string) => {
     setTestingProvider(providerId);
+    let testedUrl = ''; // Track the URL being tested for error messages
     try {
       logger.info(`Testing connection for ${providerId}...`);
 
@@ -194,13 +195,13 @@ export function ApiKeysSettings() {
         // Test the connection by making a direct API call to check if the server is running
         try {
           // Different endpoints for different local providers
-          const testUrl =
+          testedUrl =
             providerId === 'ollama'
               ? 'http://localhost:11434/api/tags'
               : 'http://localhost:1234/v1/models';
 
           // Use Tauri fetch to go through the HTTP proxy (native fetch is blocked in webview)
-          const response = await simpleFetch(testUrl);
+          const response = await simpleFetch(testedUrl);
           if (!response.ok) {
             throw new Error(
               `${PROVIDER_CONFIGS[providerId]?.name} API returned status: ${response.status}`
@@ -233,6 +234,14 @@ export function ApiKeysSettings() {
       } else {
         // Test connection using /v1/models endpoint (faster and more reliable)
         if (customModelService.supportsModelsFetch(providerId)) {
+          // Get the actual URL that will be tested (including custom base URL if set)
+          const customBaseUrl = await settingsManager.getProviderBaseUrl(providerId);
+          if (customBaseUrl) {
+            testedUrl = customBaseUrl.replace(/\/+$/, '') + '/models';
+          } else {
+            testedUrl = customModelService.getModelsEndpoint(providerId) || '';
+          }
+
           const models = await customModelService.fetchProviderModels(providerId);
           logger.info(`${providerId} connection test successful - found ${models.length} models`);
           toast.success(
@@ -251,7 +260,11 @@ export function ApiKeysSettings() {
       window.dispatchEvent(new CustomEvent('apiKeysUpdated'));
     } catch (error) {
       logger.error(`Failed to test ${providerId} connection:`, error);
-      toast.error(t.Settings.apiKeys.testFailed(PROVIDER_CONFIGS[providerId]?.name || providerId));
+      const providerName = PROVIDER_CONFIGS[providerId]?.name || providerId;
+      const errorMessage = testedUrl
+        ? `${providerName} connection test failed. URL: ${testedUrl}`
+        : t.Settings.apiKeys.testFailed(providerName);
+      toast.error(errorMessage);
     } finally {
       setTestingProvider(null);
     }

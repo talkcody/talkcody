@@ -187,6 +187,15 @@ class CustomModelService {
       throw new Error(`Provider ${providerId} does not support models listing`);
     }
 
+    // Check if user has set a custom base URL (for providers like Anthropic, OpenAI)
+    const customBaseUrl = await settingsManager.getProviderBaseUrl(providerId);
+    if (customBaseUrl) {
+      // Use custom base URL to construct models endpoint
+      // Remove trailing slashes and append /models
+      endpoint = customBaseUrl.replace(/\/+$/, '') + '/models';
+      logger.info(`Using custom base URL for ${providerId}: ${endpoint}`);
+    }
+
     // Get API key for the provider
     const apiKey = settingsManager.getProviderApiKey(providerId);
 
