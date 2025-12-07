@@ -44,6 +44,7 @@ export interface UseConversationsReturn {
     messageId?: string
   ) => Promise<string>;
   updateMessage: (messageId: string, content: string) => Promise<void>;
+  saveAttachment: (messageId: string, attachment: MessageAttachment) => Promise<void>;
   getLatestUserMessageContent: () => Promise<string | null>;
   updateConversationUsage: (
     conversationId: string,
@@ -137,6 +138,7 @@ export function useConversations(
     // Message Operations from messages hook
     saveMessage: messages.saveMessage,
     updateMessage: messages.updateMessage,
+    saveAttachment: messages.saveAttachment,
     getLatestUserMessageContent: messages.getLatestUserMessageContent,
     updateConversationUsage: messages.updateConversationUsage,
 

@@ -14,7 +14,6 @@ import { toast } from 'sonner';
 import { useConversations } from '@/hooks/use-conversations';
 import { useMessages } from '@/hooks/use-messages';
 import { logger } from '@/lib/logger';
-import { supportsImageOutput } from '@/lib/models';
 import { generateId } from '@/lib/utils';
 import { getLocale, type SupportedLocale } from '@/locales';
 import { agentRegistry } from '@/services/agents/agent-registry';
@@ -26,7 +25,6 @@ import type {
   StoredToolContent,
 } from '@/services/database/types';
 import { databaseService } from '@/services/database-service';
-import { imageGenerationService } from '@/services/image-generation-service';
 import { modelService } from '@/services/model-service';
 import { notificationService } from '@/services/notification-service';
 import { previewSystemPrompt } from '@/services/prompt/preview';
@@ -257,6 +255,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
       deleteMessage,
       deleteMessagesFromIndex,
       findMessageIndex,
+      addAttachmentToMessage,
       updateMessageWithNestedTool,
     } = useMessages();
 
@@ -267,6 +266,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
       createConversation,
       saveMessage,
       updateMessage,
+      saveAttachment,
       clearConversation,
       getConversationDetails,
     } = useConversations(conversationId, onConversationStart);
@@ -414,57 +414,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
       abortControllerRef.current = abortController;
 
       try {
-        if (supportsImageOutput(model)) {
-          // Generate image
-          logger.info('Generating image for model:', model);
-
-          const imageMessageId = addMessage('assistant', 'Generating image...', true, agentId);
-          try {
-            const imageAttachment = await imageGenerationService.generateImage(
-              userMessage,
-              model,
-              (attachment) => {
-                // Update message with generated image
-                updateMessageById(imageMessageId, '', false, [attachment]);
-              },
-              (error) => {
-                logger.error('Image generation error:', error);
-                const errorMessage = 'Sorry, I encountered an error while generating the image.';
-                updateMessageById(imageMessageId, errorMessage, false);
-                onError?.(errorMessage);
-              }
-            );
-
-            if (imageAttachment && activeConversationId) {
-              logger.info('Generated image attachment:', imageAttachment.filePath);
-              await saveMessage(activeConversationId, 'assistant', '', 0, agentId, [
-                imageAttachment,
-              ]);
-              onResponseReceived?.(`Generated image for: "${userMessage}"`);
-            }
-          } catch (error) {
-            if (abortController.signal.aborted) return;
-            const errorMessage =
-              error instanceof Error
-                ? error.message
-                : 'Sorry, I encountered an error while generating the image.';
-            setError(errorMessage);
-
-            // Check if there's an assistant message to update
-            const lastAssistantMessage = [...messages]
-              .reverse()
-              .find((msg) => msg.role === 'assistant');
-            if (lastAssistantMessage) {
-              updateMessageById(lastAssistantMessage.id, errorMessage, false);
-            } else {
-              // No assistant message yet, create one to show the error
-              addMessage('assistant', errorMessage, false, agentId);
-            }
-
-            onError?.(errorMessage);
-          }
-        } else {
-          // Generate text response
+        // Generate text response
           const sourceMessages = baseHistory ?? messages;
           const conversationHistory: UIMessage[] = sourceMessages.map((msg) => ({
             id: msg.id,
@@ -558,6 +508,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
               tools,
               isThink: true,
               suppressReasoning: false,
+              agentId,
             },
             {
               onChunk: (chunk: string) => {
@@ -624,6 +575,28 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
               },
               onToolMessage: handleToolMessage,
               onAssistantMessageStart: handleAssistantMessageStart,
+              onAttachment: async (attachment) => {
+                if (abortController.signal.aborted) return;
+                // Add attachment to the current assistant message
+                if (assistantMessageId) {
+                  // 1. Update UI
+                  addAttachmentToMessage(assistantMessageId, attachment);
+
+                  // 2. Persist to database
+                  if (activeConversationId) {
+                    try {
+                      await saveAttachment(assistantMessageId, attachment);
+                      logger.info('Saved attachment to database', {
+                        messageId: assistantMessageId,
+                        attachmentId: attachment.id,
+                        type: attachment.type,
+                      });
+                    } catch (error) {
+                      logger.error('Failed to save attachment to database:', error);
+                    }
+                  }
+                }
+              },
             },
             abortController,
             activeConversationId // Pass conversation ID for logging
@@ -637,7 +610,6 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
               setConversation(updatedConv);
             }
           }
-        }
       } catch (error) {
         if (abortController.signal.aborted) return;
         const errorMessage =

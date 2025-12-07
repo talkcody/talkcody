@@ -317,14 +317,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       const rawSettings = await settingsDb.getBatch(keys);
 
-      logger.info('Loaded raw settings from database', {
-        totalKeys: Object.keys(rawSettings).length,
-        apiKeyKeys: Object.keys(rawSettings).filter((k) => k.startsWith('api_key_')),
-        sampleApiKeys: Object.keys(rawSettings)
-          .filter((k) => k.startsWith('api_key_'))
-          .map((k) => ({ key: k, hasValue: !!rawSettings[k] })),
-      });
-
       // Parse API keys
       const apiKeys: Partial<ApiKeySettings> = {};
       for (const provider of providerRegistry.getAllProviders()) {
@@ -332,12 +324,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         const value = rawSettings[`api_key_${provider.id}`];
         apiKeys[key] = value || undefined;
       }
-
-      logger.info('Parsed API keys', {
-        totalProviders: Object.keys(apiKeys).length,
-        providersWithKeys: Object.keys(apiKeys).filter((k) => apiKeys[k as keyof ApiKeySettings])
-          .length,
-      });
 
       // Parse shortcuts
       const shortcuts: Partial<ShortcutSettings> = {};

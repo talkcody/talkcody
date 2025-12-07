@@ -102,6 +102,20 @@ export function useMessages() {
     return userMessages.length > 0 ? userMessages[userMessages.length - 1] : null;
   }, [messages]);
 
+  // Add an attachment to a message
+  const addAttachmentToMessage = useCallback((messageId: string, attachment: MessageAttachment) => {
+    setMessages((prev) =>
+      prev.map((msg) =>
+        msg.id === messageId
+          ? {
+              ...msg,
+              attachments: [...(msg.attachments || []), attachment],
+            }
+          : msg
+      )
+    );
+  }, []);
+
   // Update nested tool messages for a parent tool
   const updateMessageWithNestedTool = useCallback(
     (parentToolCallId: string, nestedMessage: UIMessage) => {
@@ -189,6 +203,7 @@ export function useMessages() {
     setMessagesFromHistory,
     findMessageIndex,
     getLastUserMessage,
+    addAttachmentToMessage,
     updateMessageWithNestedTool,
   };
 }

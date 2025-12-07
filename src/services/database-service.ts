@@ -241,6 +241,12 @@ export class DatabaseService {
     return this.conversationService.updateMessage(messageId, content);
   }
 
+  async saveAttachment(messageId: string, attachment: MessageAttachment): Promise<void> {
+    await this.ensureInitialized();
+    if (!this.conversationService) throw new Error('Conversation service not initialized');
+    return this.conversationService.saveAttachment(messageId, attachment);
+  }
+
   async getLatestUserMessageContent(conversationId: string): Promise<string | null> {
     await this.ensureInitialized();
     if (!this.conversationService) throw new Error('Conversation service not initialized');

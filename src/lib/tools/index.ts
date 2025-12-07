@@ -45,7 +45,7 @@ export interface ToolMetadata {
   renderDoingUI?: boolean;
 }
 
-interface ToolDefinition {
+export interface ToolDefinition {
   /** Direct reference to the tool */
   tool: ToolWithUI;
   /** Display label for UI */

@@ -205,6 +205,15 @@ export function MessageItem({ message, onRegenerate, onDelete }: MessageItemProp
         try {
           const resultComponent = toolRenderers.renderToolResult(item.output, input);
 
+          // Special case: imageGeneration displays directly without UnifiedToolResult wrapper
+          if (item.toolName === 'imageGeneration') {
+            return (
+              <ToolErrorBoundary key={uniqueKey} toolName={item.toolName}>
+                {resultComponent}
+              </ToolErrorBoundary>
+            );
+          }
+
           return (
             <ToolErrorBoundary key={uniqueKey} toolName={item.toolName}>
               <UnifiedToolResult toolName={item.toolName} input={input} output={item.output}>

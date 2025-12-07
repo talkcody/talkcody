@@ -49,6 +49,7 @@ export interface AgentLoopOptions {
   suppressReasoning?: boolean;
   maxIterations?: number;
   compression?: Partial<CompressionConfig>;
+  agentId?: string; // Agent identifier for special handling (e.g., image-generator)
 }
 
 export interface AgentLoopState {
@@ -69,6 +70,7 @@ export interface AgentLoopCallbacks {
   onStatus?: (status: string) => void;
   onToolMessage?: (message: UIMessage) => void;
   onAssistantMessageStart?: () => void;
+  onAttachment?: (attachment: MessageAttachment) => void;
   onStepFinish?: (result: AgentLoopState) => void | Promise<void>;
   onToolCall?: (toolName: string, args: ToolInput) => void | Promise<void>;
   onToolResult?: (toolName: string, result: ToolOutput) => void | Promise<void>;

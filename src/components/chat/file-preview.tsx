@@ -1,7 +1,21 @@
 // src/components/chat/file-preview.tsx
-import { FileText, Image, X } from 'lucide-react';
+import { convertFileSrc } from '@tauri-apps/api/core';
+import { save } from '@tauri-apps/plugin-dialog';
+import { readFile, writeFile } from '@tauri-apps/plugin-fs';
+import { Download, FileText, Image, X } from 'lucide-react';
+import { useMemo } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
 import { logger } from '@/lib/logger';
+import { getLocale, type SupportedLocale } from '@/locales';
+import { useSettingsStore } from '@/stores/settings-store';
 import type { MessageAttachment } from '@/types/agent';
 
 interface FilePreviewProps {
@@ -11,6 +25,9 @@ interface FilePreviewProps {
 }
 
 export function FilePreview({ attachment, onRemove, showRemove = true }: FilePreviewProps) {
+  const language = useSettingsStore((state) => state.language);
+  const t = useMemo(() => getLocale((language || 'en') as SupportedLocale), [language]);
+
   const formatFileSize = (bytes: number): string => {
     if (bytes === 0) return '0 Bytes';
     const k = 1024;
@@ -28,33 +45,131 @@ export function FilePreview({ attachment, onRemove, showRemove = true }: FilePre
     return FileText; // Default icon
   };
 
-  if (attachment.type === 'image' && attachment.content) {
-    // Image preview
-    const imageSrc = `data:${attachment.mimeType};base64,${attachment.content}`;
+  // Get image source - support both base64 content and file path
+  const getImageSrc = (): string | null => {
+    if (attachment.content) {
+      return `data:${attachment.mimeType};base64,${attachment.content}`;
+    }
+    if (attachment.filePath) {
+      return convertFileSrc(attachment.filePath);
+    }
+    return null;
+  };
+
+  const handleDownload = async () => {
+    try {
+      // Use save dialog to let user choose save location
+      const savePath = await save({
+        defaultPath: attachment.filename,
+        filters: [
+          {
+            name: 'Images',
+            extensions: [attachment.filename.split('.').pop() || 'png'],
+          },
+        ],
+      });
+
+      if (!savePath) {
+        return; // User cancelled
+      }
+
+      // Get image data based on source
+      let imageData: Uint8Array;
+      if (attachment.content) {
+        // base64 content -> Uint8Array
+        const binaryString = atob(attachment.content);
+        imageData = new Uint8Array(binaryString.length);
+        for (let i = 0; i < binaryString.length; i++) {
+          imageData[i] = binaryString.charCodeAt(i);
+        }
+      } else if (attachment.filePath) {
+        // Read from file path
+        imageData = await readFile(attachment.filePath);
+      } else {
+        logger.error('No image data available for download');
+        toast.error(t.Error.generic);
+        return;
+      }
+
+      // Write file
+      await writeFile(savePath, imageData);
+      logger.info('Image downloaded successfully:', savePath);
+      toast.success(t.Toast.success.saved);
+    } catch (error) {
+      logger.error('Failed to download image:', error);
+      toast.error(t.Error.generic);
+    }
+  };
+
+  if (attachment.type === 'image') {
+    const imageSrc = getImageSrc();
+    if (!imageSrc) {
+      // Fallback to file preview if no image source available
+      return null;
+    }
 
     return (
       <div className="relative inline-block">
-        <div className="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900">
-          <img
-            alt={attachment.filename}
-            className="max-h-48 max-w-xs object-contain"
-            src={imageSrc}
-            onError={(e) => logger.error('Image failed to load:', attachment.filename, e)}
-          />
-          {showRemove && onRemove && (
-            <Button
-              className="absolute top-1 right-1 h-6 w-6"
-              onClick={onRemove}
-              size="icon"
-              type="button"
-              variant="destructive"
-            >
-              <X size={12} />
-            </Button>
-          )}
-        </div>
-        <div className="mt-1 max-w-xs truncate text-gray-500 dark:text-gray-400 text-xs">
-          {attachment.filename} ({formatFileSize(attachment.size)})
+        {/* Image with click to enlarge */}
+        <Dialog>
+          <DialogTrigger asChild>
+            <div className="relative overflow-hidden rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 cursor-pointer hover:opacity-90 transition-opacity">
+              <img
+                alt={attachment.filename}
+                className="max-h-48 max-w-xs object-contain"
+                src={imageSrc}
+                onError={(e) => logger.error('Image failed to load:', attachment.filename, e)}
+              />
+              {showRemove && onRemove && (
+                <Button
+                  className="absolute top-1 right-1 h-6 w-6"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onRemove();
+                  }}
+                  size="icon"
+                  type="button"
+                  variant="destructive"
+                >
+                  <X size={12} />
+                </Button>
+              )}
+            </div>
+          </DialogTrigger>
+          <DialogContent className="max-w-fit min-w-4/5">
+            <DialogHeader>
+              <DialogTitle>{attachment.filename}</DialogTitle>
+            </DialogHeader>
+            <div className="flex justify-center">
+              <img
+                src={imageSrc}
+                alt={attachment.filename}
+                className="max-w-full max-h-[70vh] object-contain rounded-lg"
+              />
+            </div>
+            <div className="flex justify-center">
+              <Button variant="outline" size="sm" onClick={handleDownload}>
+                <Download className="size-4 mr-1" />
+                {t.Common.download}
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* Filename and size with action buttons */}
+        <div className="mt-1 flex items-center gap-2">
+          <span className="max-w-xs truncate text-gray-500 dark:text-gray-400 text-xs">
+            {attachment.filename} ({formatFileSize(attachment.size)})
+          </span>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-5 w-5"
+            onClick={handleDownload}
+            title={t.Common.download}
+          >
+            <Download className="size-3" />
+          </Button>
         </div>
       </div>
     );

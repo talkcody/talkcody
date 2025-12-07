@@ -25,6 +25,7 @@ export interface UseConversationMessagesReturn {
     messageId?: string
   ) => Promise<string>;
   updateMessage: (messageId: string, content: string) => Promise<void>;
+  saveAttachment: (messageId: string, attachment: MessageAttachment) => Promise<void>;
   getLatestUserMessageContent: () => Promise<string | null>;
   updateConversationUsage: (
     conversationId: string,
@@ -114,6 +115,20 @@ export function useConversationMessages(): UseConversationMessagesReturn {
     }
   }, []);
 
+  const saveAttachment = useCallback(
+    async (messageId: string, attachment: MessageAttachment) => {
+      try {
+        setError(null);
+        await databaseService.saveAttachment(messageId, attachment);
+      } catch (err) {
+        logger.error('Failed to save attachment:', err);
+        setError('Failed to save attachment');
+        throw err;
+      }
+    },
+    []
+  );
+
   const getLatestUserMessageContent = useCallback(async (): Promise<string | null> => {
     try {
       const conversationId = settingsManager.getCurrentConversationId();
@@ -154,6 +169,7 @@ export function useConversationMessages(): UseConversationMessagesReturn {
     getConversationHistory,
     saveMessage,
     updateMessage,
+    saveAttachment,
     getLatestUserMessageContent,
     updateConversationUsage,
     setError,

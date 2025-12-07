@@ -159,7 +159,7 @@ export class ConversationService {
     }
   }
 
-  private async saveAttachment(messageId: string, attachment: MessageAttachment): Promise<void> {
+  async saveAttachment(messageId: string, attachment: MessageAttachment): Promise<void> {
     const now = Date.now();
 
     await this.db.execute(

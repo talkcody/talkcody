@@ -12,6 +12,7 @@ import { logger } from '@/lib/logger';
 import { MessageTransform } from '@/lib/message-transform';
 import { getContextLength } from '@/lib/models';
 import { getToolSync } from '@/lib/tools';
+import { generateId } from '@/lib/utils';
 import { getLocale, type SupportedLocale } from '@/locales';
 import { modelService } from '@/services/model-service';
 import { modelTypeService } from '@/services/model-type-service';
@@ -24,13 +25,14 @@ import type {
   AgentLoopOptions,
   AgentLoopState,
   CompressionConfig,
+  MessageAttachment,
   UIMessage,
 } from '../../types/agent';
 import { aiPricingService } from '../ai-pricing-service';
 import { aiProviderService } from '../ai-provider-service';
+import { fileService } from '../file-service';
 import { MessageCompactor } from '../message-compactor';
 import { ErrorHandler } from './error-handler';
-import { MessageFilter } from './message-filter';
 import { StreamProcessor } from './stream-processor';
 import { ToolExecutor } from './tool-executor';
 
@@ -85,18 +87,25 @@ export class LLMService {
       onStatus?: (status: string) => void;
       onToolMessage?: (message: UIMessage) => void;
       onAssistantMessageStart?: () => void;
+      onAttachment?: (attachment: MessageAttachment) => void;
     },
     abortController?: AbortController,
     conversationId?: string
   ): Promise<void> {
     // biome-ignore lint/suspicious/noAsyncPromiseExecutor: Complex agent loop requires async Promise executor
     return new Promise<void>(async (resolve, reject) => {
-      const { onChunk, onComplete, onError, onStatus, onToolMessage, onAssistantMessageStart } =
-        callbacks;
+      const {
+        onChunk,
+        onComplete,
+        onError,
+        onStatus,
+        onToolMessage,
+        onAssistantMessageStart,
+        onAttachment,
+      } = callbacks;
 
       logger.info('Starting agent loop', {
         model: options.model,
-        isThink: options.isThink,
         maxIterations: options.maxIterations,
         conversationId: conversationId || 'nested',
       });
@@ -110,7 +119,11 @@ export class LLMService {
           suppressReasoning = false,
           maxIterations = 200,
           compression,
+          agentId,
         } = options;
+
+        const isImageGenerator = agentId === 'image-generator';
+        logger.info('isImageGenerator', { isImageGenerator });
 
         // Merge compression config with defaults
         const compressionConfig: CompressionConfig = {
@@ -178,38 +191,41 @@ export class LLMService {
 
           loopState.currentIteration++;
 
-          // Dynamically filter tools based on current plan mode state
-          // This allows tools to change when plan mode is toggled during the loop
-          // (e.g., when user approves a plan, plan mode becomes false and writeFile/editFile become available)
-          const isPlanModeEnabled = usePlanModeStore.getState().isPlanModeEnabled;
           const filteredTools = { ...tools };
+          let isPlanModeEnabled = false;
+          if (!isImageGenerator) {
+            // Dynamically filter tools based on current plan mode state
+            // This allows tools to change when plan mode is toggled during the loop
+            // (e.g., when user approves a plan, plan mode becomes false and writeFile/editFile become available)
+            isPlanModeEnabled = usePlanModeStore.getState().isPlanModeEnabled;
 
-          if (isPlanModeEnabled) {
-            // In plan mode: remove file modification tools
-            delete filteredTools.writeFile;
-            delete filteredTools.editFile;
-            logger.info('[Plan Mode] Removed writeFile and editFile tools', {
-              iteration: loopState.currentIteration,
-            });
-          } else {
-            // In normal mode: remove plan-specific tools
-            delete filteredTools.exitPlanMode;
-            delete filteredTools.askUserQuestions;
-            logger.info('[Normal Mode] Removed exitPlanMode and askUserQuestions', {
-              iteration: loopState.currentIteration,
-            });
-          }
+            if (isPlanModeEnabled) {
+              // In plan mode: remove file modification tools
+              delete filteredTools.writeFile;
+              delete filteredTools.editFile;
+              logger.info('[Plan Mode] Removed writeFile and editFile tools', {
+                iteration: loopState.currentIteration,
+              });
+            } else {
+              // In normal mode: remove plan-specific tools
+              delete filteredTools.exitPlanMode;
+              delete filteredTools.askUserQuestions;
+              logger.info('[Normal Mode] Removed exitPlanMode and askUserQuestions', {
+                iteration: loopState.currentIteration,
+              });
+            }
 
-          // By default, remove executeSkillScript (only add when needed)
-          delete filteredTools.executeSkillScript;
+            // By default, remove executeSkillScript (only add when needed)
+            delete filteredTools.executeSkillScript;
 
-          // Dynamically add executeSkillScript if skills with scripts have been loaded
-          if (loopState.hasSkillScripts) {
-            filteredTools.executeSkillScript =
-              tools.executeSkillScript || getToolSync('executeSkillScript');
-            logger.info('[Dynamic Tool] Added executeSkillScript for skill script execution', {
-              iteration: loopState.currentIteration,
-            });
+            // Dynamically add executeSkillScript if skills with scripts have been loaded
+            if (loopState.hasSkillScripts) {
+              filteredTools.executeSkillScript =
+                tools.executeSkillScript || getToolSync('executeSkillScript');
+              logger.info('[Dynamic Tool] Added executeSkillScript for skill script execution', {
+                iteration: loopState.currentIteration,
+              });
+            }
           }
 
           const availableTools = Object.keys(filteredTools);
@@ -290,6 +306,7 @@ export class LLMService {
           const requestStartTime = Date.now();
           logger.info('Calling streamText', {
             model,
+            agentId,
             provider: providerModel.provider,
             messageCount: loopState.messages.length,
             iteration: loopState.currentIteration,
@@ -313,8 +330,6 @@ export class LLMService {
             })
           ) as unknown as ToolSet;
 
-          logger.info('request message', loopState.messages);
-
           // Retry loop for handling intermittent OpenRouter streaming errors
           const MAX_STREAM_RETRIES = 3;
           let streamRetryCount = 0;
@@ -330,24 +345,29 @@ export class LLMService {
                 });
               }
 
+              // Disable thinking for image generation agents (image models don't support thinking)
+              const providerOptions = isImageGenerator
+                ? undefined
+                : {
+                    google: {
+                      thinkingConfig: {
+                        thinkingBudget: 8192,
+                        includeThoughts: true,
+                      },
+                    },
+                    anthropic: {
+                      thinking: { type: 'enabled', budgetTokens: 12_000 },
+                    },
+                    openai: {
+                      reasoningEffort: 'low',
+                    },
+                  };
+
               streamResult = streamText({
                 model: providerModel,
                 messages: loopState.messages,
                 stopWhen: stepCountIs(1),
-                providerOptions: {
-                  google: {
-                    thinkingConfig: {
-                      thinkingBudget: 8192,
-                      includeThoughts: true,
-                    },
-                  },
-                  anthropic: {
-                    thinking: { type: 'enabled', budgetTokens: 12_000 },
-                  },
-                  openai: {
-                    reasoningEffort: 'low',
-                  },
-                },
+                providerOptions,
                 onFinish: async ({ finishReason, usage, steps, totalUsage, response, request }) => {
                   const requestDuration = Date.now() - requestStartTime;
 
@@ -376,13 +396,34 @@ export class LLMService {
                     }
                   }
 
+                  // Filter out file content with large base64Data from steps to avoid huge logs
+                  const filteredSteps = steps?.map((step) => {
+                    if (!step.content || !Array.isArray(step.content)) {
+                      return step;
+                    }
+                    const hasFileContent = step.content.some(
+                      (item: { type?: string }) => item.type === 'file'
+                    );
+                    if (hasFileContent) {
+                      return {
+                        ...step,
+                        content: step.content.map((item: { type?: string }) =>
+                          item.type === 'file'
+                            ? { type: 'file', omitted: 'base64Data omitted for logging' }
+                            : item
+                        ),
+                      };
+                    }
+                    return step;
+                  });
+
                   logger.info('onFinish', {
                     finishReason,
                     requestDuration,
                     totalUsage: totalUsage,
                     usage: usage,
                     lastRequestTokens: loopState.lastRequestTokens,
-                    steps: steps,
+                    steps: filteredSteps,
                     request: request
                       ? {
                           body: request.body,
@@ -453,6 +494,47 @@ export class LLMService {
                       streamCallbacks
                     );
                     break;
+                  case 'file': {
+                    // Handle generated files (e.g., images from image generation models)
+                    const file = (delta as { file: { uint8Array: Uint8Array; mediaType: string } })
+                      .file;
+                    if (file && onAttachment) {
+                      try {
+                        // Generate filename based on media type
+                        const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+                        const extension = file.mediaType?.split('/')[1] || 'png';
+                        const filename = `gen-${timestamp}.${extension}`;
+
+                        // Save file to disk
+                        const savedFilePath = await fileService.saveGeneratedImage(
+                          file.uint8Array,
+                          filename
+                        );
+
+                        // Create MessageAttachment
+                        const attachment: MessageAttachment = {
+                          id: generateId(),
+                          type: file.mediaType?.startsWith('image/') ? 'image' : 'file',
+                          filename,
+                          content: '',
+                          filePath: savedFilePath,
+                          mimeType: file.mediaType || 'application/octet-stream',
+                          size: file.uint8Array.length,
+                        };
+
+                        logger.info('Generated file saved as attachment', {
+                          filename,
+                          mediaType: file.mediaType,
+                          size: file.uint8Array.length,
+                        });
+
+                        onAttachment(attachment);
+                      } catch (error) {
+                        logger.error('Failed to save generated file:', error);
+                      }
+                    }
+                    break;
+                  }
                   case 'raw': {
                     // Store raw chunks for post-analysis debugging
                     if (!loopState.rawChunks) {

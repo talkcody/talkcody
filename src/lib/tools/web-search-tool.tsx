@@ -4,7 +4,7 @@ import { SearchToolResult } from '@/components/tools/search-tool-result';
 import { createTool } from '@/lib/create-tool';
 import { logger } from '@/lib/logger';
 import { settingsManager } from '@/stores/settings-store';
-import { googleSearch, openAISearch, TavilySearch } from '../web-search';
+import { googleSearch, TavilySearch } from '../web-search';
 
 export const webSearchTool = createTool({
   name: 'webSearch',
@@ -73,17 +73,6 @@ Query Optimization Guidelines:
       return [
         {
           search_result: result.text,
-        },
-      ];
-    } else if (isGPT5MiniAvailable) {
-      // Use OpenAI Search
-      logger.info('Using OpenAI Search');
-      const result = await openAISearch(query);
-
-      logger.info('openai search result', result);
-      return [
-        {
-          search_result: result,
         },
       ];
     } else {

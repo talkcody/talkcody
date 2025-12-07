@@ -1,6 +1,5 @@
 import { type GoogleGenerativeAIProviderMetadata, google } from '@ai-sdk/google';
-import { openai } from '@ai-sdk/openai';
-import { generateText, stepCountIs } from 'ai';
+import { generateText } from 'ai';
 import { aiProviderService } from '@/services/ai-provider-service';
 import { settingsManager } from '@/stores/settings-store';
 import { logger } from './logger';
@@ -53,32 +52,6 @@ export interface WebSearchSource {
 }
 
 const tavilyUrl = 'https://api.tavily.com/search';
-
-export async function openAISearch(query: string): Promise<string> {
-  logger.info('searchOpenAI:', query);
-
-  try {
-    const providerModel = aiProviderService.getProviderModel(GPT5_MINI);
-    logger.info('Using provider model:', providerModel);
-
-    const result = await generateText({
-      model: providerModel,
-      prompt: query,
-      stopWhen: stepCountIs(10),
-      tools: {
-        web_search: openai.tools.webSearch({}),
-      },
-      toolChoice: { type: 'tool', toolName: 'web_search' },
-    });
-
-    logger.info('searchOpenAI result:', result.text);
-
-    return result.text;
-  } catch (error) {
-    logger.error('search-openai error', error);
-    throw error;
-  }
-}
 
 export interface GoogleSearchResult {
   text: string;

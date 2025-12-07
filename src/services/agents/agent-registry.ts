@@ -55,6 +55,7 @@ class AgentRegistry {
     const { ContextGathererAgent } = await import('./context-gatherer-agent');
     // const { DocumentWriterAgent } = await import('./document-writer-agent');
     const { InitProjectAgent } = await import('./init-project-agent');
+    const { ImageGeneratorAgent } = await import('./image-generator-agent');
 
     // Build planner tools (includes MCP integration)
     const plannerTools = await this.buildPlannerTools();
@@ -69,6 +70,7 @@ class AgentRegistry {
       ContextGathererAgent.getDefinition(),
       // DocumentWriterAgent.getDefinition(),
       InitProjectAgent.getDefinition(),
+      ImageGeneratorAgent.getDefinition(),
     ];
 
     // Load into memory and register UI renderers

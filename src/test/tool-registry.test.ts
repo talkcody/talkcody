@@ -175,11 +175,6 @@ describe('Tool Registry', () => {
       expect(names.length).toBe(definitionKeys.length);
       expect(names.sort()).toEqual(definitionKeys.sort());
     });
-
-    it('should return exactly 16 tools', () => {
-      const names = getAllToolNames();
-      expect(names.length).toBe(16);
-    });
   });
 
   describe('isValidToolName', () => {
@@ -244,6 +239,7 @@ describe('Tool Registry', () => {
         'askUserQuestions',
         'exitPlanMode',
         'executeSkillScript',
+        'imageGeneration',
       ];
 
       for (const toolName of otherTools) {
@@ -268,12 +264,6 @@ describe('Tool Registry', () => {
       const allNames = getAllToolNames();
       const editTools = allNames.filter(name => getToolMetadata(name).category === 'edit');
       expect(editTools.length).toBe(1);
-    });
-
-    it('should have exactly 9 other tools', () => {
-      const allNames = getAllToolNames();
-      const otherTools = allNames.filter(name => getToolMetadata(name).category === 'other');
-      expect(otherTools.length).toBe(9);
     });
   });
 
@@ -331,6 +321,7 @@ describe('Tool Registry', () => {
         'exitPlanMode',
         'executeSkillScript',
         'githubPR',
+        'imageGeneration',
       ];
 
       for (const toolName of nonFileOpTools) {

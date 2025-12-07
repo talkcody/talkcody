@@ -275,6 +275,7 @@ export class CodeReviewAgent {
       readFile: getToolSync('readFile'),
       glob: getToolSync('glob'),
       codeSearch: getToolSync('codeSearch'),
+      bashTool: getToolSync('bash'),
       githubPR: getToolSync('githubPR'),
       getSkill: getToolSync('getSkill'),
     };
