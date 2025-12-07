@@ -206,3 +206,31 @@ vi.mock('../stores/todo-store', () => ({
     })),
   },
 }));
+
+// jsdom may not provide a clear() implementation; ensure a working localStorage polyfill exists.
+if (!globalThis.localStorage || typeof globalThis.localStorage.clear !== 'function') {
+  const store = new Map<string, string>();
+  const memoryStorage: Storage = {
+    get length() {
+      return store.size;
+    },
+    clear: () => {
+      store.clear();
+    },
+    getItem: (key: string) => (store.has(key) ? store.get(key)! : null),
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+    removeItem: (key: string) => {
+      store.delete(key);
+    },
+    setItem: (key: string, value: string) => {
+      store.set(String(key), String(value));
+    },
+  };
+
+  Object.defineProperty(globalThis, 'localStorage', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: memoryStorage,
+  });
+}
