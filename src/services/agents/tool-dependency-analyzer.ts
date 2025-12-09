@@ -5,6 +5,8 @@ import { logger } from '@/lib/logger';
 import { getToolMetadata, type ToolCategory } from '@/lib/tools';
 import type { ToolCallInfo } from './tool-executor';
 
+export const MAX_PARALLEL_SUBAGENTS = 5;
+
 /**
  * Execution group - a set of tools that can be executed together
  */
@@ -13,6 +15,8 @@ export interface ExecutionGroup {
   id: string;
   /** Whether tools in this group can run concurrently */
   concurrent: boolean;
+  /** Optional max concurrency cap for the group */
+  maxConcurrency?: number;
   /** Tool calls in this group */
   tools: ToolCallInfo[];
   /** Target files for file operations (if applicable) */
@@ -128,28 +132,21 @@ export class ToolDependencyAnalyzer {
   private categorizeToolCalls(
     toolCalls: ToolCallInfo[]
   ): Record<ToolCategory | 'read', ToolCallInfo[]> {
-    const categorized: Record<string, ToolCallInfo[]> = {
-      read: [],
-      write: [],
-      edit: [],
-      other: [],
-    };
-
-    for (const toolCall of toolCalls) {
-      const metadata = getToolMetadata(toolCall.toolName);
-      const category = categorized[metadata.category];
-      if (category) {
-        category.push(toolCall);
-      }
-    }
-
-    return categorized as Record<ToolCategory | 'read', ToolCallInfo[]>;
+    return toolCalls.reduce<Record<ToolCategory | 'read', ToolCallInfo[]>>(
+      (acc, toolCall) => {
+        const category = getToolMetadata(toolCall.toolName).category;
+        acc[category].push(toolCall);
+        return acc;
+      },
+      { read: [], write: [], edit: [], other: [] }
+    );
   }
 
   /**
    * Create read stage - all read operations run in parallel
    */
   private createReadStage(readTools: ToolCallInfo[]): ExecutionStage {
+    const targetFiles = this.collectTargets(readTools);
     return {
       name: 'read-stage',
       description: `Reading ${readTools.length} file(s) and gathering context`,
@@ -158,6 +155,7 @@ export class ToolDependencyAnalyzer {
           id: 'read-group-all',
           concurrent: true,
           tools: readTools,
+          targetFiles: targetFiles.length > 0 ? targetFiles : undefined,
           reason: 'All read operations can run in parallel',
         },
       ],
@@ -169,19 +167,13 @@ export class ToolDependencyAnalyzer {
    * Edit/write tools require user review, so they must be executed one at a time
    */
   private createWriteEditStage(writeEditTools: ToolCallInfo[]): ExecutionStage {
-    // Group by target file to maintain logical ordering
-    const fileGroups = new Map<string, ToolCallInfo[]>();
+    const groupedByFile = new Map<string, ToolCallInfo[]>();
     const noFileTools: ToolCallInfo[] = [];
 
     for (const toolCall of writeEditTools) {
-      const metadata = getToolMetadata(toolCall.toolName);
-      const targetFile = metadata.getTargetFile?.(toolCall.input);
-
-      if (targetFile) {
-        if (!fileGroups.has(targetFile)) {
-          fileGroups.set(targetFile, []);
-        }
-        fileGroups.get(targetFile)?.push(toolCall);
+      const target = this.extractTargets(toolCall)[0];
+      if (target) {
+        groupedByFile.set(target, [...(groupedByFile.get(target) ?? []), toolCall]);
       } else {
         noFileTools.push(toolCall);
       }
@@ -189,34 +181,18 @@ export class ToolDependencyAnalyzer {
 
     const groups: ExecutionGroup[] = [];
 
-    // All write/edit operations must run sequentially because they require user review
-    // Collect all file tools in order
-    const allFileTools: ToolCallInfo[] = [];
-    const targetFiles: string[] = [];
-
-    for (const [file, tools] of fileGroups.entries()) {
-      allFileTools.push(...tools);
-      if (!targetFiles.includes(file)) {
-        targetFiles.push(file);
-      }
-    }
-
-    // Add all file tools as a single sequential group
-    if (allFileTools.length > 0) {
-      const fileCount = fileGroups.size;
+    if (groupedByFile.size > 0) {
+      const groupedTools = Array.from(groupedByFile.values()).flat();
+      const targetFiles = Array.from(groupedByFile.keys());
       groups.push({
         id: 'write-edit-group-sequential',
-        concurrent: false, // Must run sequentially for user review
-        tools: allFileTools,
+        concurrent: false,
+        tools: groupedTools,
         targetFiles,
-        reason:
-          fileCount === 1
-            ? `Operations on ${allFileTools.length} file(s) require sequential user review`
-            : `Operations on ${fileCount} file(s) require sequential user review`,
+        reason: `Operations on ${targetFiles.length} file(s) require sequential user review`,
       });
     }
 
-    // Tools without file targets run serially
     if (noFileTools.length > 0) {
       groups.push({
         id: 'write-edit-group-no-file',
@@ -238,25 +214,70 @@ export class ToolDependencyAnalyzer {
    */
   private createOtherStage(otherTools: ToolCallInfo[], tools: ToolSet): ExecutionStage {
     const groups: ExecutionGroup[] = [];
-    let currentGroup: ExecutionGroup | null = null;
+    let currentConcurrentGroup: ExecutionGroup | null = null;
     let groupCounter = 0;
 
-    // Group consecutive tools with same canConcurrent value
     for (const toolCall of otherTools) {
-      const tool = tools[toolCall.toolName] as any;
-      const canConcurrent = tool?.canConcurrent ?? false;
+      const metadata = getToolMetadata(toolCall.toolName);
+      const tool = tools[toolCall.toolName] as { canConcurrent?: boolean } | undefined;
+      const canConcurrent = tool?.canConcurrent ?? metadata.canConcurrent ?? false;
+      const concurrencySource = tool?.canConcurrent !== undefined ? 'tool' : 'metadata';
+      const targets = this.extractTargets(toolCall);
+      const isCallAgent = toolCall.toolName === 'callAgent';
+      const hasTargets = targets.length > 0;
+      const missingTargets = isCallAgent && !hasTargets;
+      const effectiveConcurrent = canConcurrent && !missingTargets;
 
-      if (!currentGroup || currentGroup.concurrent !== canConcurrent) {
-        currentGroup = {
+      if (!effectiveConcurrent) {
+        const reason = missingTargets
+          ? 'callAgent without declared targets; running sequentially for safety'
+          : `Tool marked as non-concurrent (${concurrencySource})`;
+        groups.push({
           id: `other-group-${++groupCounter}`,
-          concurrent: canConcurrent,
-          tools: [],
-          reason: canConcurrent ? 'Tools marked as concurrent' : 'Tools must run sequentially',
-        };
-        groups.push(currentGroup);
+          concurrent: false,
+          tools: [toolCall],
+          targetFiles: hasTargets ? targets : undefined,
+          reason,
+        });
+        currentConcurrentGroup = null;
+        continue;
       }
 
-      currentGroup.tools.push(toolCall);
+      const hasConflict: boolean = Boolean(
+        currentConcurrentGroup?.concurrent &&
+          targets.length > 0 &&
+          (currentConcurrentGroup.targetFiles || []).some((target) => targets.includes(target))
+      );
+
+      if (!currentConcurrentGroup || !currentConcurrentGroup.concurrent || hasConflict) {
+        const reason: string = hasConflict
+          ? `Concurrent tool with conflicting declared targets; starting new group (${concurrencySource})`
+          : targets.length > 0
+            ? `Concurrent tools with declared targets (${concurrencySource})`
+            : `Tools marked as concurrent (${concurrencySource})`;
+
+        currentConcurrentGroup = {
+          id: `other-group-${++groupCounter}`,
+          concurrent: true,
+          tools: [toolCall],
+          targetFiles: targets.length > 0 ? targets : undefined,
+          maxConcurrency: isCallAgent ? MAX_PARALLEL_SUBAGENTS : undefined,
+          reason,
+        };
+        groups.push(currentConcurrentGroup);
+        continue;
+      }
+
+      currentConcurrentGroup.tools.push(toolCall);
+      if (targets.length > 0) {
+        currentConcurrentGroup.targetFiles = this.mergeTargets(
+          currentConcurrentGroup.targetFiles,
+          targets
+        );
+      }
+      if (isCallAgent) {
+        currentConcurrentGroup.maxConcurrency = MAX_PARALLEL_SUBAGENTS;
+      }
     }
 
     return {
@@ -278,6 +299,7 @@ export class ToolDependencyAnalyzer {
         groups: stage.groups.map((group) => ({
           id: group.id,
           concurrent: group.concurrent,
+          maxConcurrency: group.maxConcurrency,
           toolCount: group.tools.length,
           tools: group.tools.map((t) => t.toolName),
           reason: group.reason,
@@ -285,5 +307,51 @@ export class ToolDependencyAnalyzer {
         })),
       })),
     });
+  }
+
+  /**
+   * Extract declared targets from a tool call, combining tool metadata and input hints
+   */
+  private extractTargets(toolCall: ToolCallInfo): string[] {
+    const metadata = getToolMetadata(toolCall.toolName);
+    const targets = new Set<string>();
+
+    const addTargets = (values: string | string[] | null | undefined) => {
+      if (!values) return;
+      const items = Array.isArray(values) ? values : [values];
+      for (const value of items) {
+        const trimmed = value?.trim?.();
+        if (trimmed && trimmed.length > 0) {
+          targets.add(trimmed);
+        }
+      }
+    };
+
+    addTargets(metadata.getTargetFile?.(toolCall.input));
+    const inputTargets = (toolCall.input as { targets?: unknown })?.targets;
+    addTargets(
+      Array.isArray(inputTargets)
+        ? (inputTargets as unknown as string[])
+        : typeof inputTargets === 'string'
+          ? [inputTargets]
+          : null
+    );
+
+    return Array.from(targets);
+  }
+
+  /**
+   * Merge and deduplicate targets
+   */
+  private mergeTargets(existing: string[] | undefined, additional: string[]): string[] {
+    const merged = new Set<string>([...(existing || []), ...additional]);
+    return Array.from(merged);
+  }
+
+  /**
+   * Collect unique targets from a list of tool calls
+   */
+  private collectTargets(toolCalls: ToolCallInfo[]): string[] {
+    return Array.from(new Set(toolCalls.flatMap((toolCall) => this.extractTargets(toolCall))));
   }
 }

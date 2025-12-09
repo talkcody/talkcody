@@ -1,3 +1,4 @@
+import type { ToolSet } from 'ai';
 import type { AgentDefinition } from '@/types/agent';
 import { ModelType } from '@/types/model-types';
 
@@ -63,6 +64,8 @@ Creating 5 new components. Making all write calls at once:
 - Include original user request
 
 Call the \`context-gatherer\` agent via \`callAgent\` tool for complex information gathering that requires multiple tool uses and analysis.
+
+**Parallel callAgent usage:** When subtasks are independent (different files/modules/tests), issue multiple \`callAgent\` tool calls in the SAME response to run in parallel. For each call, include a clear subtask description and a \`targets\` array so conflicts can be avoided. Do NOT spawn one agent per todo; only delegate focused, non-overlapping work.
 
 **When to use the context-gatherer agent:**
 - Need to explore and understand complex code patterns
@@ -238,7 +241,7 @@ export class PlannerAgent {
 
   static readonly VERSION = '2.1.0';
 
-  static getDefinition(tools: Record<string, any>): AgentDefinition {
+  static getDefinition(tools: ToolSet): AgentDefinition {
     return {
       id: 'planner',
       name: 'Code Planner',

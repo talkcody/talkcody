@@ -39,8 +39,8 @@ export interface ToolMetadata {
   canConcurrent: boolean;
   /** Whether this tool operates on files */
   fileOperation: boolean;
-  /** Extract target file path from tool input (for file operations) */
-  getTargetFile?: (input: any) => string | null;
+  /** Extract target file path(s) from tool input for dependency analysis */
+  getTargetFile?: (input: Record<string, unknown>) => string | string[] | null;
   /** Whether to render "doing" UI for this tool. Set to false for fast operations to avoid UI flash. Default: true */
   renderDoingUI?: boolean;
 }
@@ -51,9 +51,7 @@ export interface ToolDefinition {
   /** Display label for UI */
   label: string;
   /** Tool metadata for dependency analysis */
-  metadata: Omit<ToolMetadata, 'getTargetFile'> & {
-    getTargetFile?: (input: Record<string, unknown>) => string | null;
-  };
+  metadata: ToolMetadata;
 }
 
 /**
@@ -177,9 +175,22 @@ export const TOOL_DEFINITIONS = {
     label: 'Call Agent',
     metadata: {
       category: 'other' as ToolCategory,
-      canConcurrent: false,
+      canConcurrent: true,
       fileOperation: false,
       renderDoingUI: true,
+      getTargetFile: (input) => {
+        const targets = (input as { targets?: unknown })?.targets;
+        if (Array.isArray(targets)) {
+          return targets
+            .map((t) => (typeof t === 'string' ? t.trim() : null))
+            .filter((t): t is string => !!t && t.length > 0);
+        }
+        if (typeof targets === 'string') {
+          const trimmed = targets.trim();
+          return trimmed.length > 0 ? trimmed : null;
+        }
+        return null;
+      },
     },
   },
   todoWrite: {
