@@ -49,6 +49,7 @@ For simple edits, single-file fixes, or direct queries:
 
 ## 2. Plan Mode (Complex Tasks)
 If the task involves multiple files, architectural changes, or high ambiguity, you MUST enter **Plan Mode**.
+If the <env> section indicates Plan Mode is enabled, you MUST follow the Plan Mode workflow below and present a plan via ExitPlanMode before any modifications.
 
 **Phase A: Discovery (Read-Only)**
 - Use \`ReadFile\`, \`Grep\`, \`ListFiles\`, or \`callAgentV2\` to map the territory.
