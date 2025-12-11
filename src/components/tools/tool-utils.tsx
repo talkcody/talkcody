@@ -44,6 +44,7 @@ export function formatToolDetails(toolName: string, input?: Record<string, unkno
       return '';
 
     case 'callAgent':
+    case 'callAgentV2':
       if (input.agentId) {
         const agentInfo = `agent: ${String(input.agentId)}`;
         if (input.task) {

@@ -23,6 +23,7 @@ vi.mock('@/lib/tools', () => ({
     'listFiles',
     'bash',
     'callAgent',
+    'callAgentV2',
     'todoWrite',
     'webSearch',
     'webFetch',
@@ -131,6 +132,9 @@ describe('ToolNameNormalizer', () => {
       expect(normalizeToolName('call Agent')).toBe('callAgent');
       expect(normalizeToolName('Call Agent')).toBe('callAgent');
       expect(normalizeToolName('callagent')).toBe('callAgent');
+      expect(normalizeToolName('callAgentV2 Tool')).toBe('callAgentV2');
+      expect(normalizeToolName('CallAgentV2')).toBe('callAgentV2');
+      expect(normalizeToolName('call agent v2')).toBe('callAgentV2');
     });
 
     it('should normalize todo write variations', () => {

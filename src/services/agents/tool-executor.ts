@@ -254,8 +254,11 @@ export class ToolExecutor {
               ? { value: parsedInput }
               : {};
 
-        // Pass special parameters to callAgent tool
-        if (toolCall.toolName === 'callAgent') {
+        const isCallAgentTool =
+          toolCall.toolName === 'callAgent' || toolCall.toolName === 'callAgentV2';
+
+        // Pass special parameters to callAgent tools
+        if (isCallAgentTool) {
           const callAgentArgs: CallAgentArgs =
             typeof toolArgs === 'object' && toolArgs !== null ? (toolArgs as CallAgentArgs) : {};
           if (abortController) {

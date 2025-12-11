@@ -42,7 +42,7 @@ import { MAX_PARALLEL_SUBAGENTS } from './tool-dependency-analyzer';
 import { ToolExecutor, type ToolCallInfo } from './tool-executor';
 import type { UIMessage } from '@/types/agent';
 
-describe('ToolExecutor callAgent nested tool routing', () => {
+describe('ToolExecutor callAgentV2 nested tool routing', () => {
   it('forwards nested tool messages with parentToolCallId', async () => {
     const executor = new ToolExecutor();
     const onToolMessage = vi.fn();
@@ -64,14 +64,14 @@ describe('ToolExecutor callAgent nested tool routing', () => {
     const toolCalls: ToolCallInfo[] = [
       {
         toolCallId: 'call-123',
-        toolName: 'callAgent',
+        toolName: 'callAgentV2',
         input: {},
       },
     ];
 
     await executor.executeToolCall(toolCalls[0], {
       tools: {
-        callAgent: { execute: callAgentExecute, canConcurrent: true },
+        callAgentV2: { execute: callAgentExecute, canConcurrent: true },
       },
       loopState: {
         messages: [],
@@ -93,7 +93,7 @@ describe('ToolExecutor callAgent nested tool routing', () => {
     expect(forwardedNested?.parentToolCallId).toBe('call-123');
   });
 
-  it('caps concurrent callAgent executions to the configured max', async () => {
+  it('caps concurrent callAgentV2 executions to the configured max', async () => {
     const executor = new ToolExecutor();
     const onToolMessage = vi.fn();
     const abortController = new AbortController();
@@ -102,7 +102,7 @@ describe('ToolExecutor callAgent nested tool routing', () => {
       length: MAX_PARALLEL_SUBAGENTS + 2,
     }).map((_, index) => ({
       toolCallId: `call-${index}`,
-      toolName: 'callAgent',
+      toolName: 'callAgentV2',
       input: {},
     }));
 
@@ -126,7 +126,7 @@ describe('ToolExecutor callAgent nested tool routing', () => {
       },
       {
         tools: {
-          callAgent: { execute: callAgentExecute, canConcurrent: true },
+          callAgentV2: { execute: callAgentExecute, canConcurrent: true },
         },
         loopState: {
           messages: [],

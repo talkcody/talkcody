@@ -79,7 +79,6 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
   ) => {
     const [input, setInput] = useState('');
     const chatInputRef = useRef<ChatInputRef>(null);
-    const activeConversationIdRef = useRef<string | undefined>(undefined);
     // Ref to track the currently displayed conversationId (from props) for background task UI isolation
     const displayedConversationIdRef = useRef<string | undefined>(conversationId);
     const language = useSettingsStore((state) => state.language);
@@ -229,9 +228,6 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
         logger.error('No conversation ID available');
         return;
       }
-
-      // Store conversation ID in ref for handleToolMessage to access
-      activeConversationIdRef.current = activeConversationId;
 
       // Add user message with attachments only if not skipping
       let userChatMessage: UIMessage;

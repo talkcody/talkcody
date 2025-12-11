@@ -223,14 +223,15 @@ export class ToolDependencyAnalyzer {
       const canConcurrent = tool?.canConcurrent ?? metadata.canConcurrent ?? false;
       const concurrencySource = tool?.canConcurrent !== undefined ? 'tool' : 'metadata';
       const targets = this.extractTargets(toolCall);
-      const isCallAgent = toolCall.toolName === 'callAgent';
+      const isCallAgent = toolCall.toolName === 'callAgent' || toolCall.toolName === 'callAgentV2';
+      const targetsRequired = toolCall.toolName === 'callAgentV2';
       const hasTargets = targets.length > 0;
-      const missingTargets = isCallAgent && !hasTargets;
+      const missingTargets = targetsRequired && !hasTargets;
       const effectiveConcurrent = canConcurrent && !missingTargets;
 
       if (!effectiveConcurrent) {
         const reason = missingTargets
-          ? 'callAgent without declared targets; running sequentially for safety'
+          ? 'callAgentV2 without declared targets; running sequentially for safety'
           : `Tool marked as non-concurrent (${concurrencySource})`;
         groups.push({
           id: `other-group-${++groupCounter}`,

@@ -199,11 +199,13 @@ describe('Agent Registry - Auto-load Behavior', () => {
     // Don't call loadAllAgents() explicitly
     // The registry should auto-load when we call get()
     const agent = await agentRegistry.get('planner');
+    const plannerV2 = await agentRegistry.get('planner-v2');
 
     // Should find the planner agent (system agent loaded from code)
     expect(agent).toBeDefined();
     expect(agent?.id).toBe('planner');
     expect(agent?.name).toBe('Code Planner');
+    expect(plannerV2?.id).toBe('planner-v2');
   });
 
   it('should auto-load agents when getWithResolvedTools() is called before loadAllAgents()', async () => {

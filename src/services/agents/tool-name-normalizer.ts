@@ -101,6 +101,12 @@ export function normalizeToolName(toolName: string): string | null {
     CALLAGENT: 'callAgent',
     callAgentTool: 'callAgent',
     CallAgentTool: 'callAgent',
+    callAgentV2: 'callAgentV2',
+    CallAgentV2: 'callAgentV2',
+    callagentv2: 'callAgentV2',
+    CALLAGENTV2: 'callAgentV2',
+    callAgentV2Tool: 'callAgentV2',
+    CallAgentV2Tool: 'callAgentV2',
 
     // Todo write variations
     todoWrite: 'todoWrite',

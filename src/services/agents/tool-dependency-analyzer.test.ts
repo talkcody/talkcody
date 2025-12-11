@@ -32,7 +32,7 @@ vi.mock('@/lib/error-utils', () => ({
 vi.mock('@/lib/tools', () => ({
   getToolMetadata: vi.fn((toolName: string) => ({
     category: toolName === 'readFile' ? 'read' : 'other',
-    canConcurrent: toolName !== 'non-concurrent',
+    canConcurrent: toolName !== 'non-concurrent' && toolName !== 'callAgent',
     fileOperation: false,
     renderDoingUI: true,
     getTargetFile: (input: any) => {
@@ -50,14 +50,14 @@ import type { ToolCallInfo } from './tool-executor';
 const analyzer = new ToolDependencyAnalyzer();
 
 const concurrentCallAgentTool = {
-  callAgent: { canConcurrent: true },
+  callAgentV2: { canConcurrent: true },
 } as const;
 
-describe('ToolDependencyAnalyzer - callAgent targets and concurrency', () => {
-  it('keeps callAgent tool calls with disjoint targets in a single concurrent group', () => {
+describe('ToolDependencyAnalyzer - callAgentV2 targets and concurrency', () => {
+  it('keeps callAgentV2 tool calls with disjoint targets in a single concurrent group', () => {
     const toolCalls: ToolCallInfo[] = [
-      { toolCallId: 'call-1', toolName: 'callAgent', input: { targets: ['src/a.ts'] } },
-      { toolCallId: 'call-2', toolName: 'callAgent', input: { targets: ['src/b.ts'] } },
+      { toolCallId: 'call-1', toolName: 'callAgentV2', input: { targets: ['src/a.ts'] } },
+      { toolCallId: 'call-2', toolName: 'callAgentV2', input: { targets: ['src/b.ts'] } },
     ];
 
     const plan = analyzer.analyzeDependencies(toolCalls, concurrentCallAgentTool as any);
@@ -72,10 +72,10 @@ describe('ToolDependencyAnalyzer - callAgent targets and concurrency', () => {
     );
   });
 
-  it('splits callAgent tool calls with overlapping targets into separate groups', () => {
+  it('splits callAgentV2 tool calls with overlapping targets into separate groups', () => {
     const toolCalls: ToolCallInfo[] = [
-      { toolCallId: 'call-3', toolName: 'callAgent', input: { targets: ['src/shared.ts'] } },
-      { toolCallId: 'call-4', toolName: 'callAgent', input: { targets: ['src/shared.ts'] } },
+      { toolCallId: 'call-3', toolName: 'callAgentV2', input: { targets: ['src/shared.ts'] } },
+      { toolCallId: 'call-4', toolName: 'callAgentV2', input: { targets: ['src/shared.ts'] } },
     ];
 
     const plan = analyzer.analyzeDependencies(toolCalls, concurrentCallAgentTool as any);
@@ -87,10 +87,10 @@ describe('ToolDependencyAnalyzer - callAgent targets and concurrency', () => {
     expect(otherStage?.groups[1].reason).toContain('conflicting declared targets');
   });
 
-  it('runs callAgent tool calls without targets sequentially for safety', () => {
+  it('runs callAgentV2 tool calls without targets sequentially for safety', () => {
     const toolCalls: ToolCallInfo[] = [
-      { toolCallId: 'call-5', toolName: 'callAgent', input: {} },
-      { toolCallId: 'call-6', toolName: 'callAgent', input: {} },
+      { toolCallId: 'call-5', toolName: 'callAgentV2', input: {} },
+      { toolCallId: 'call-6', toolName: 'callAgentV2', input: {} },
     ];
 
     const plan = analyzer.analyzeDependencies(toolCalls, concurrentCallAgentTool as any);
@@ -103,13 +103,13 @@ describe('ToolDependencyAnalyzer - callAgent targets and concurrency', () => {
 
   it('uses metadata canConcurrent when tool definition lacks the flag', () => {
     const toolCalls: ToolCallInfo[] = [
-      { toolCallId: 'call-7', toolName: 'callAgent', input: { targets: ['src/a.ts'] } },
-      { toolCallId: 'call-8', toolName: 'callAgent', input: { targets: ['src/b.ts'] } },
+      { toolCallId: 'call-7', toolName: 'callAgentV2', input: { targets: ['src/a.ts'] } },
+      { toolCallId: 'call-8', toolName: 'callAgentV2', input: { targets: ['src/b.ts'] } },
     ];
 
     const plan = analyzer.analyzeDependencies(
       toolCalls,
-      { callAgent: { execute: async () => ({}) } } as any
+      { callAgentV2: { execute: async () => ({}) } } as any
     );
     const otherStage = plan.stages.find((stage) => stage.name === 'other-stage');
 

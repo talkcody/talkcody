@@ -25,6 +25,7 @@ describe('Tool Registry', () => {
         'editFile',
         'bash',
         'callAgent',
+        'callAgentV2',
         'todoWrite',
         'webSearch',
         'webFetch',
@@ -140,6 +141,7 @@ describe('Tool Registry', () => {
         editFile: 'Edit File',
         bash: 'Bash',
         callAgent: 'Call Agent',
+        callAgentV2: 'Call Agent v2',
         todoWrite: 'Todo',
         webSearch: 'Web Search',
         webFetch: 'Web Fetch',
@@ -184,6 +186,7 @@ describe('Tool Registry', () => {
       expect(isValidToolName('bash')).toBe(true);
       expect(isValidToolName('editFile')).toBe(true);
       expect(isValidToolName('callAgent')).toBe(true);
+      expect(isValidToolName('callAgentV2')).toBe(true);
     });
 
     it('should return false for invalid tool names', () => {

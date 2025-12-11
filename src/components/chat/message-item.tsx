@@ -91,7 +91,7 @@ function MessageItemComponent({ message, onRegenerate, onDelete }: MessageItemPr
         );
       }
 
-      const isCallAgent = item.toolName === 'callAgent';
+      const isCallAgent = item.toolName === 'callAgent' || item.toolName === 'callAgentV2';
       const toolRenderers = getToolUIRenderers(item.toolName);
       // Generate unique key using toolCallId and type
       const uniqueKey = `${item.toolCallId}-${item.type}`;

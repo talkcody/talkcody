@@ -48,6 +48,7 @@ class AgentRegistry {
 
     // Import all system agent classes
     const { PlannerAgent } = await import('./code-planner-agent');
+    const { PlannerAgentV2 } = await import('./code-planner-agent-v2');
     // const { CodingAgent } = await import('./coding-agent');
     const { CodeReviewAgent } = await import('./code-review-agent');
     const { GeneralAgent } = await import('./general-agent');
@@ -59,10 +60,12 @@ class AgentRegistry {
 
     // Build planner tools (includes MCP integration)
     const plannerTools = await this.buildPlannerTools();
+    const plannerToolsV2 = await this.buildPlannerTools(true);
 
     // Get all system agent definitions
     const systemAgents = [
       PlannerAgent.getDefinition(plannerTools),
+      PlannerAgentV2.getDefinition(plannerToolsV2),
       // CodingAgent.getDefinition(),
       CodeReviewAgent.getDefinition(),
       GeneralAgent.getDefinition(),
@@ -114,13 +117,16 @@ class AgentRegistry {
     logger.info(`loadPersistentAgents: Loaded ${dbAgents.length} user agents from database`);
   }
 
-  private async buildPlannerTools(): Promise<Record<string, unknown>> {
+  private async buildPlannerTools(useCallAgentV2 = false): Promise<Record<string, unknown>> {
     try {
       const { mergeWithMCPTools } = await import('@/lib/mcp/multi-mcp-adapter');
       const { getTool } = await import('@/lib/tools');
 
+      const callAgentToolName = (useCallAgentV2 ? 'callAgentV2' : 'callAgent') as
+        | 'callAgent'
+        | 'callAgentV2';
       const bash = await getTool('bash');
-      const callAgent = await getTool('callAgent');
+      const callAgent = await getTool(callAgentToolName);
       const readFile = await getTool('readFile');
       const codeSearch = await getTool('codeSearch');
       const glob = await getTool('glob');
@@ -151,9 +157,12 @@ class AgentRegistry {
 
       const { getTool } = await import('@/lib/tools');
 
+      const callAgentToolName = (useCallAgentV2 ? 'callAgentV2' : 'callAgent') as
+        | 'callAgent'
+        | 'callAgentV2';
       // Get all required tools from centralized registry
       const bash = await getTool('bash');
-      const callAgent = await getTool('callAgent');
+      const callAgent = await getTool(callAgentToolName);
       const readFile = await getTool('readFile');
       const codeSearch = await getTool('codeSearch');
       const glob = await getTool('glob');
@@ -681,6 +690,7 @@ class AgentRegistry {
     try {
       // Rebuild planner tools with fresh MCP connections
       const plannerTools = await this.buildPlannerTools();
+      const plannerToolsV2 = await this.buildPlannerTools(true);
 
       // Update PlannerAgent's tools
       const plannerAgent = this.systemAgents.get('planner');
@@ -688,6 +698,12 @@ class AgentRegistry {
         const convertedTools = convertToolsForAI(plannerTools);
         this.systemAgents.set('planner', { ...plannerAgent, tools: convertedTools });
         logger.info('refreshMCPTools: Updated PlannerAgent tools');
+      }
+      const plannerAgentV2 = this.systemAgents.get('planner-v2');
+      if (plannerAgentV2) {
+        const convertedTools = convertToolsForAI(plannerToolsV2);
+        this.systemAgents.set('planner-v2', { ...plannerAgentV2, tools: convertedTools });
+        logger.info('refreshMCPTools: Updated PlannerAgentV2 tools');
       }
 
       logger.info('refreshMCPTools: MCP tools refreshed successfully');
