@@ -91,6 +91,7 @@ export class ImageGeneratorAgent {
       version: ImageGeneratorAgent.VERSION,
       systemPrompt: ImageGeneratorPrompt,
       tools: selectedTools,
+      role: 'content-modification',
       dynamicPrompt: {
         enabled: false,
         providers: [],

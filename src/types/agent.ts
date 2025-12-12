@@ -112,6 +112,20 @@ export type DynamicPromptConfig = {
   providerSettings?: Record<string, unknown>;
 };
 
+/**
+ * Agent role classification based on primary function
+ */
+export type AgentRole =
+  | 'information-gathering' // Primarily reads and analyzes existing content
+  | 'content-modification'; // Primarily creates, edits, or deletes content (includes mixed operations)
+
+/**
+ * Execution phase types for better semantic naming
+ */
+export type ExecutionPhase =
+  | 'read-stage' // Information gathering phase
+  | 'write-edit-stage'; // Content modification phase
+
 export interface AgentDefinition {
   id: string;
   name: string;
@@ -127,4 +141,5 @@ export interface AgentDefinition {
   dynamicPrompt?: DynamicPromptConfig;
   defaultSkills?: string[]; // array of skill IDs
   isBeta?: boolean; // if true, show beta badge in UI
+  role?: AgentRole; // Primary function classification for dependency analysis
 }

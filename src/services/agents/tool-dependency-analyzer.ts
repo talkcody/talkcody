@@ -5,8 +5,6 @@ import { logger } from '@/lib/logger';
 import { getToolMetadata, type ToolCategory } from '@/lib/tools';
 import type { ToolCallInfo } from './tool-executor';
 
-export const MAX_PARALLEL_SUBAGENTS = 5;
-
 /**
  * Execution group - a set of tools that can be executed together
  */
@@ -54,21 +52,18 @@ export interface ExecutionPlan {
 
 /**
  * ToolDependencyAnalyzer analyzes tool calls and creates an optimized execution plan
- * that maximizes parallelism while respecting dependencies
+ * Handles regular tools with read -> write/edit -> other execution phases
  */
 export class ToolDependencyAnalyzer {
   /**
-   * Analyze tool calls and generate an optimized execution plan
+   * Analyze tool calls and generate an execution plan
    *
    * Strategy:
-   * 1. Group tools by category (read, write, edit, other)
-   * 2. Create execution stages based on dependencies
-   * 3. Within each stage, maximize parallelism where appropriate:
-   *    - All read operations run in parallel
-   *    - Write/edit operations run sequentially (require user review)
-   *    - Other operations run based on their canConcurrent flag
+   * 1. Categorize tools by type (read, write, edit, other)
+   * 2. Phase 1: Read operations (parallel)
+   * 3. Phase 2: Write/Edit operations (sequential for user review)
+   * 4. Phase 3: Other operations (based on canConcurrent flag)
    */
-  // TODO: Write/edit operations to different files run in parallel
   analyzeDependencies(toolCalls: ToolCallInfo[], tools: ToolSet): ExecutionPlan {
     if (toolCalls.length === 0) {
       return {
@@ -82,24 +77,24 @@ export class ToolDependencyAnalyzer {
       };
     }
 
-    // Step 1: Categorize all tool calls
+    // Categorize tools by their category
     const categorized = this.categorizeToolCalls(toolCalls);
 
-    // Step 2: Build execution stages
+    // Build execution stages
     const stages: ExecutionStage[] = [];
 
-    // Stage 1: Read operations (all parallel)
+    // Phase 1: Read operations
     if (categorized.read.length > 0) {
       stages.push(this.createReadStage(categorized.read));
     }
 
-    // Stage 2: Write and Edit operations (parallel by file)
+    // Phase 2: Write/Edit operations
     const writeEditTools = [...categorized.write, ...categorized.edit];
     if (writeEditTools.length > 0) {
       stages.push(this.createWriteEditStage(writeEditTools));
     }
 
-    // Stage 3: Other operations (based on canConcurrent)
+    // Phase 3: Other operations
     if (categorized.other.length > 0) {
       stages.push(this.createOtherStage(categorized.other, tools));
     }
@@ -223,22 +218,14 @@ export class ToolDependencyAnalyzer {
       const canConcurrent = tool?.canConcurrent ?? metadata.canConcurrent ?? false;
       const concurrencySource = tool?.canConcurrent !== undefined ? 'tool' : 'metadata';
       const targets = this.extractTargets(toolCall);
-      const isCallAgent = toolCall.toolName === 'callAgent' || toolCall.toolName === 'callAgentV2';
-      const targetsRequired = toolCall.toolName === 'callAgentV2';
-      const hasTargets = targets.length > 0;
-      const missingTargets = targetsRequired && !hasTargets;
-      const effectiveConcurrent = canConcurrent && !missingTargets;
 
-      if (!effectiveConcurrent) {
-        const reason = missingTargets
-          ? 'callAgentV2 without declared targets; running sequentially for safety'
-          : `Tool marked as non-concurrent (${concurrencySource})`;
+      if (!canConcurrent) {
         groups.push({
           id: `other-group-${++groupCounter}`,
           concurrent: false,
           tools: [toolCall],
-          targetFiles: hasTargets ? targets : undefined,
-          reason,
+          targetFiles: targets.length > 0 ? targets : undefined,
+          reason: `Tool marked as non-concurrent (${concurrencySource})`,
         });
         currentConcurrentGroup = null;
         continue;
@@ -262,7 +249,6 @@ export class ToolDependencyAnalyzer {
           concurrent: true,
           tools: [toolCall],
           targetFiles: targets.length > 0 ? targets : undefined,
-          maxConcurrency: isCallAgent ? MAX_PARALLEL_SUBAGENTS : undefined,
           reason,
         };
         groups.push(currentConcurrentGroup);
@@ -275,9 +261,6 @@ export class ToolDependencyAnalyzer {
           currentConcurrentGroup.targetFiles,
           targets
         );
-      }
-      if (isCallAgent) {
-        currentConcurrentGroup.maxConcurrency = MAX_PARALLEL_SUBAGENTS;
       }
     }
 

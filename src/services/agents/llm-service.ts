@@ -62,7 +62,6 @@ import { ToolExecutor } from './tool-executor';
 
 export class LLMService {
   private readonly messageCompactor: MessageCompactor;
-  private readonly streamProcessor: StreamProcessor;
   private readonly toolExecutor: ToolExecutor;
   private readonly errorHandler: ErrorHandler;
   /** Task ID for this LLM service instance (used for parallel task execution) */
@@ -99,7 +98,6 @@ export class LLMService {
   constructor(taskId?: string) {
     this.taskId = taskId;
     this.messageCompactor = new MessageCompactor(this);
-    this.streamProcessor = new StreamProcessor();
     this.toolExecutor = new ToolExecutor();
     this.errorHandler = new ErrorHandler();
   }
@@ -214,9 +212,10 @@ export class LLMService {
           trimAssistantWhitespace: true,
         });
 
-        // Reset stream processor for new agent loop to ensure clean state
-        // This prevents content from previous conversations leaking into new ones
-        this.streamProcessor.fullReset();
+        // Create a new StreamProcessor instance for each agent loop
+        // This ensures nested agent calls (e.g., callAgentV2) don't interfere with parent agent's state
+        // Previously, using a shared instance caused tool call ID mismatches when nested agents reset the processor
+        const streamProcessor = new StreamProcessor();
 
         while (!loopState.isComplete && loopState.currentIteration < maxIterations) {
           // Check for abort signal
@@ -277,7 +276,7 @@ export class LLMService {
           // Reset stream processor state for new iteration
           // Use resetState() instead of resetCurrentStepText() to ensure isAnswering flag is also reset
           // This is critical for multi-iteration scenarios (e.g., text -> tool call -> text)
-          this.streamProcessor.resetState();
+          streamProcessor.resetState();
 
           // Check if message compression is needed
           if (
@@ -408,7 +407,7 @@ export class LLMService {
             try {
               // Reset stream processor state before each attempt
               if (streamRetryCount > 0) {
-                this.streamProcessor.resetState();
+                streamProcessor.resetState();
                 logger.info(`Stream retry attempt ${streamRetryCount}/${MAX_STREAM_RETRIES}`, {
                   iteration: loopState.currentIteration,
                 });
@@ -530,15 +529,15 @@ export class LLMService {
 
                 switch (delta.type) {
                   case 'text-start':
-                    this.streamProcessor.processTextStart(streamCallbacks);
+                    streamProcessor.processTextStart(streamCallbacks);
                     break;
                   case 'text-delta':
                     if (delta.text) {
-                      this.streamProcessor.processTextDelta(delta.text, streamCallbacks);
+                      streamProcessor.processTextDelta(delta.text, streamCallbacks);
                     }
                     break;
                   case 'tool-call':
-                    this.streamProcessor.processToolCall(
+                    streamProcessor.processToolCall(
                       {
                         toolCallId: delta.toolCallId,
                         toolName: delta.toolName,
@@ -548,14 +547,14 @@ export class LLMService {
                     );
                     break;
                   case 'reasoning-start':
-                    this.streamProcessor.processReasoningStart(
+                    streamProcessor.processReasoningStart(
                       (delta as { id: string }).id,
                       streamCallbacks
                     );
                     break;
                   case 'reasoning-delta':
                     if (delta.text) {
-                      this.streamProcessor.processReasoningDelta(
+                      streamProcessor.processReasoningDelta(
                         (delta as { id: string }).id || 'default',
                         delta.text,
                         streamContext,
@@ -564,7 +563,7 @@ export class LLMService {
                     }
                     break;
                   case 'reasoning-end':
-                    this.streamProcessor.processReasoningEnd(
+                    streamProcessor.processReasoningEnd(
                       (delta as { id: string }).id,
                       streamCallbacks
                     );
@@ -619,7 +618,7 @@ export class LLMService {
                     break;
                   }
                   case 'error': {
-                    this.streamProcessor.markError();
+                    streamProcessor.markError();
 
                     const errorHandlerOptions = {
                       model,
@@ -650,7 +649,7 @@ export class LLMService {
                     }
 
                     // Check for too many consecutive errors
-                    const consecutiveErrors = this.streamProcessor.getConsecutiveToolErrors();
+                    const consecutiveErrors = streamProcessor.getConsecutiveToolErrors();
                     if (
                       this.errorHandler.shouldStopOnConsecutiveErrors(
                         consecutiveErrors,
@@ -696,8 +695,8 @@ export class LLMService {
           }
 
           // Get processed data from stream processor
-          const toolCalls = this.streamProcessor.getToolCalls();
-          const hasError = this.streamProcessor.hasError();
+          const toolCalls = streamProcessor.getToolCalls();
+          const hasError = streamProcessor.hasError();
 
           // Process tool calls manually
           // Check if we should finish the loop
@@ -800,7 +799,7 @@ export class LLMService {
             }
 
             // Build combined assistant message with text/reasoning AND tool calls
-            const assistantContent = this.streamProcessor.getAssistantContent();
+            const assistantContent = streamProcessor.getAssistantContent();
             const toolCallParts = toolCalls.map((tc) => ({
               type: 'tool-call' as const,
               toolCallId: tc.toolCallId,
@@ -826,14 +825,14 @@ export class LLMService {
                 toolName: toolCall.toolName,
                 output: {
                   type: 'text' as const,
-                  value: typeof result === 'string' ? result : JSON.stringify(result),
+                  value: typeof result === 'string' ? result : JSON.stringify(result, null, 2),
                 },
               })),
             };
             loopState.messages.push(toolResultMessage);
           } else {
             // No tool calls - only add assistant message if there's text/reasoning content
-            const assistantContent = this.streamProcessor.getAssistantContent();
+            const assistantContent = streamProcessor.getAssistantContent();
             if (assistantContent.length > 0) {
               const assistantMessage: AssistantModelMessage = {
                 role: 'assistant',
@@ -851,7 +850,7 @@ export class LLMService {
           totalIterations: loopState.currentIteration,
           finalFinishReason: loopState.lastFinishReason,
         });
-        const fullText = this.streamProcessor.getFullText();
+        const fullText = streamProcessor.getFullText();
         onComplete?.(fullText);
         resolve();
       } catch (error) {

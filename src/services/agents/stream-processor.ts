@@ -224,7 +224,12 @@ export class StreamProcessor {
     toolCall: { toolCallId: string; toolName: string; input: unknown },
     callbacks: StreamProcessorCallbacks
   ): void {
-    logger.info('will call tool:', toolCall);
+    logger.info('Processing tool call:', {
+      toolCallId: toolCall.toolCallId,
+      toolName: toolCall.toolName,
+      inputType: typeof toolCall.input,
+      inputSize: JSON.stringify(toolCall.input).length,
+    });
 
     // Decode HTML entities in tool call input
     const decodedToolCall = {
@@ -241,7 +246,10 @@ export class StreamProcessor {
     );
 
     if (isDuplicate) {
-      logger.info('Skipping duplicate tool call:', decodedToolCall.toolCallId);
+      logger.info('Skipping duplicate tool call:', {
+        toolCallId: decodedToolCall.toolCallId,
+        toolName: decodedToolCall.toolName,
+      });
       return;
     }
 

@@ -150,6 +150,7 @@ export class InitProjectAgent {
       tools: selectedTools,
       hidden: true,
       isDefault: true,
+      role: 'content-modification',
       dynamicPrompt: {
         enabled: true,
         providers: ['env', 'agents_md'],

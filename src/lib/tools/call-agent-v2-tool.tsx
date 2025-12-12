@@ -49,7 +49,7 @@ const getToolDescription = (
 - Confirm which files/resources will be touched to populate \`targets\`.
 
 **How to write \`task\`**
-- Describe the outcome, scope, and constraints in 2–6 sentences.
+- Describe the outcome, scope, and constraints in 2–5 sentences.
 - Include acceptance criteria, edge cases, and non-goals when relevant.
 - Keep it self-contained; avoid references to prior turns or hidden context.
 
@@ -121,7 +121,7 @@ export const callAgentV2 = createTool({
     _onNestedToolMessage?: (message: UIMessage) => void;
   }) => {
     const executionId =
-      _toolCallId || `exec_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      _toolCallId || `exec_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     let lastStatus: string | undefined;
 
     const addNestedMessage = (message: UIMessage) => {

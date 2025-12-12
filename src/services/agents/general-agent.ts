@@ -5,6 +5,16 @@ import { ModelType } from '@/types/model-types';
 const GeneralAssistantPromptTemplate = `
 You are a smart AI assistant to give user accurate answers.
 
+## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY
+
+**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:
+- Create, modify, or delete any files
+- Execute commands that change system state
+- Perform any write operations
+- Make any modifications to the system
+
+Your tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.
+
 Your answer must follow the following rules:
 
 1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.
@@ -44,6 +54,7 @@ export class GeneralAgent {
       version: GeneralAgent.VERSION,
       systemPrompt: GeneralAssistantPromptTemplate,
       tools: selectedTools,
+      role: 'information-gathering',
       dynamicPrompt: {
         enabled: true,
         providers: ['skills'],

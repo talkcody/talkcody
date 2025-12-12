@@ -38,7 +38,7 @@ vi.mock('@/lib/tools', () => ({
   })),
 }));
 
-import { MAX_PARALLEL_SUBAGENTS } from './tool-dependency-analyzer';
+import { MAX_PARALLEL_SUBAGENTS } from './agent-dependency-analyzer';
 import { ToolExecutor, type ToolCallInfo } from './tool-executor';
 import type { UIMessage } from '@/types/agent';
 

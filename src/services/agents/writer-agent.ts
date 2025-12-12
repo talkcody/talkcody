@@ -34,6 +34,7 @@ export class WriterAgent {
       version: WriterAgent.VERSION,
       systemPrompt: WritingAssistantPromptTemplate,
       tools: {},
+      role: 'content-modification',
       dynamicPrompt: {
         enabled: true,
         providers: ['skills'],

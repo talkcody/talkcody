@@ -7,11 +7,13 @@ import type { Tracer } from '@/lib/tracer';
 import { decodeObjectHtmlEntities, generateId } from '@/lib/utils';
 import type { AgentLoopState, UIMessage } from '@/types/agent';
 import type { ToolInput } from '@/types/tool';
+import type { AgentExecutionGroup, AgentExecutionStage } from './agent-dependency-analyzer';
 import {
-  type ExecutionGroup,
-  type ExecutionStage,
-  ToolDependencyAnalyzer,
-} from './tool-dependency-analyzer';
+  DependencyAnalyzer,
+  isAgentExecutionPlan,
+  type UnifiedExecutionPlan,
+} from './dependency-analyzer';
+import type { ExecutionGroup, ExecutionStage } from './tool-dependency-analyzer';
 import { isValidToolName, normalizeToolName } from './tool-name-normalizer';
 
 export interface ToolCallInfo {
@@ -39,10 +41,10 @@ type CallAgentArgs = Record<string, unknown> & {
  * ToolExecutor handles tool execution and grouping
  */
 export class ToolExecutor {
-  private readonly dependencyAnalyzer: ToolDependencyAnalyzer;
+  private readonly dependencyAnalyzer: DependencyAnalyzer;
 
   constructor() {
-    this.dependencyAnalyzer = new ToolDependencyAnalyzer();
+    this.dependencyAnalyzer = new DependencyAnalyzer();
   }
 
   /**
@@ -109,19 +111,20 @@ export class ToolExecutor {
     onStatus?: (status: string) => void
   ): Promise<Array<{ toolCall: ToolCallInfo; result: unknown }>> {
     // Generate execution plan using dependency analyzer
-    const plan = this.dependencyAnalyzer.analyzeDependencies(toolCalls, options.tools);
+    const plan = await this.dependencyAnalyzer.analyzeDependencies(toolCalls, options.tools);
 
     logger.info('Executing with smart concurrency', {
-      totalTools: plan.summary.totalTools,
-      totalStages: plan.summary.totalStages,
-      totalGroups: plan.summary.totalGroups,
-      concurrentGroups: plan.summary.concurrentGroups,
+      totalTools: this.getTotalTools(plan),
+      totalStages: this.getTotalStages(plan),
+      totalGroups: this.getTotalGroups(plan),
+      concurrentGroups: this.getConcurrentGroups(plan),
     });
 
     // Execute all stages sequentially
     const allResults: Array<{ toolCall: ToolCallInfo; result: unknown }> = [];
 
-    for (const stage of plan.stages) {
+    const stages = this.getStages(plan);
+    for (const stage of stages) {
       onStatus?.(`${stage.description}`);
 
       const stageResults = await this.executeStage(stage, options, onStatus);
@@ -138,10 +141,60 @@ export class ToolExecutor {
   }
 
   /**
+   * Get total tools from unified execution plan
+   */
+  private getTotalTools(plan: UnifiedExecutionPlan): number {
+    if (isAgentExecutionPlan(plan)) {
+      return plan.summary.totalAgents;
+    }
+    return plan.summary.totalTools;
+  }
+
+  /**
+   * Get total stages from unified execution plan
+   */
+  private getTotalStages(plan: UnifiedExecutionPlan): number {
+    if (isAgentExecutionPlan(plan)) {
+      return plan.stages.length;
+    }
+    return plan.summary.totalStages;
+  }
+
+  /**
+   * Get total groups from unified execution plan
+   */
+  private getTotalGroups(plan: UnifiedExecutionPlan): number {
+    if (isAgentExecutionPlan(plan)) {
+      return plan.summary.totalGroups;
+    }
+    return plan.summary.totalGroups;
+  }
+
+  /**
+   * Get concurrent groups from unified execution plan
+   */
+  private getConcurrentGroups(plan: UnifiedExecutionPlan): number {
+    if (isAgentExecutionPlan(plan)) {
+      return plan.summary.concurrentGroups;
+    }
+    return plan.summary.concurrentGroups;
+  }
+
+  /**
+   * Get stages from unified execution plan
+   */
+  private getStages(plan: UnifiedExecutionPlan): (ExecutionStage | AgentExecutionStage)[] {
+    if (isAgentExecutionPlan(plan)) {
+      return plan.stages;
+    }
+    return plan.stages;
+  }
+
+  /**
    * Execute a single stage (which may contain multiple groups)
    */
   private async executeStage(
-    stage: ExecutionStage,
+    stage: ExecutionStage | AgentExecutionStage,
     options: ToolExecutionOptions,
     onStatus?: (status: string) => void
   ): Promise<Array<{ toolCall: ToolCallInfo; result: unknown }>> {
@@ -154,14 +207,18 @@ export class ToolExecutor {
 
     // Execute all groups in this stage sequentially
     for (const group of stage.groups) {
+      const tools = this.getToolsFromGroup(group);
+      const maxConcurrency = this.getMaxConcurrencyFromGroup(group);
+
       logger.info(`Executing group: ${group.id}`, {
         concurrent: group.concurrent,
-        toolCount: group.tools.length,
-        toolNames: group.tools.map((tool) => tool.toolName),
-        toolCallIds: group.tools.map((tool) => tool.toolCallId),
-        maxConcurrency: group.maxConcurrency,
+        toolCount: tools.length,
+        toolNames: tools.map((tool) => tool.toolName),
+        toolCallIds: tools.map((tool) => tool.toolCallId),
+        maxConcurrency: maxConcurrency,
         reason: group.reason,
         targetFiles: group.targetFiles,
+        groupType: 'tools' in group ? 'regular' : 'agent',
       });
 
       const groupResults = await this.executeToolGroup(group, options, onStatus);
@@ -328,7 +385,7 @@ export class ToolExecutor {
         // Create tool-result message after execution
         if (onToolMessage) {
           const toolResultMessage: UIMessage = {
-            id: `tool-${toolCall.toolName}-${generateId(6)}`, // Use unique ID with tool name prefix
+            id: `${toolCall.toolCallId}-result`, // Use consistent ID based on toolCallId
             role: 'tool',
             content: [
               {
@@ -383,14 +440,42 @@ export class ToolExecutor {
    * Used internally by executeStage for executing groups
    */
   private async executeToolGroup(
-    group: ExecutionGroup,
+    group: ExecutionGroup | AgentExecutionGroup,
     options: ToolExecutionOptions,
     onStatus?: (status: string) => void
   ): Promise<Array<{ toolCall: ToolCallInfo; result: unknown }>> {
-    if (group.concurrent && group.tools.length > 1) {
-      return this.executeConcurrentTools(group.tools, options, onStatus, group.maxConcurrency);
+    // Extract tools from either ExecutionGroup or AgentExecutionGroup
+    const tools = this.getToolsFromGroup(group);
+    const maxConcurrency = this.getMaxConcurrencyFromGroup(group);
+
+    if (group.concurrent && tools.length > 1) {
+      return this.executeConcurrentTools(tools, options, onStatus, maxConcurrency);
     } else {
-      return this.executeSequentialTools(group.tools, options, onStatus);
+      return this.executeSequentialTools(tools, options, onStatus);
+    }
+  }
+
+  /**
+   * Extract tools from either ExecutionGroup or AgentExecutionGroup
+   */
+  private getToolsFromGroup(group: ExecutionGroup | AgentExecutionGroup): ToolCallInfo[] {
+    if ('tools' in group) {
+      return group.tools;
+    } else {
+      return group.agentCalls;
+    }
+  }
+
+  /**
+   * Extract maxConcurrency from either ExecutionGroup or AgentExecutionGroup
+   */
+  private getMaxConcurrencyFromGroup(
+    group: ExecutionGroup | AgentExecutionGroup
+  ): number | undefined {
+    if ('tools' in group) {
+      return group.maxConcurrency;
+    } else {
+      return group.maxConcurrency;
     }
   }
 
