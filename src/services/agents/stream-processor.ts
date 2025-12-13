@@ -228,7 +228,10 @@ export class StreamProcessor {
       toolCallId: toolCall.toolCallId,
       toolName: toolCall.toolName,
       inputType: typeof toolCall.input,
-      inputSize: JSON.stringify(toolCall.input).length,
+      inputSize: (() => {
+        const json = JSON.stringify(toolCall.input);
+        return typeof json === 'string' ? json.length : 0;
+      })(),
     });
 
     // Decode HTML entities in tool call input

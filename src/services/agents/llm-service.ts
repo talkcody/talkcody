@@ -541,7 +541,9 @@ export class LLMService {
                       {
                         toolCallId: delta.toolCallId,
                         toolName: delta.toolName,
-                        input: delta.input,
+                        input:
+                          (delta as { input?: unknown; args?: unknown }).input ??
+                          (delta as { input?: unknown; args?: unknown }).args,
                       },
                       streamCallbacks
                     );

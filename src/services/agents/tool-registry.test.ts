@@ -26,6 +26,43 @@ vi.mock('@/lib/tool-adapter', () => ({
   convertToolsForAI: vi.fn((tools) => tools),
 }));
 
+vi.mock('@/lib/tools', () => {
+  const TOOL_NAMES = ['todoWrite', 'readFile', 'writeFile'] as const;
+
+  const isValidToolName = (toolName: string): toolName is (typeof TOOL_NAMES)[number] =>
+    (TOOL_NAMES as readonly string[]).includes(toolName);
+
+  return {
+    loadAllTools: vi.fn(async () => {
+      return {
+        todoWrite: { name: 'todoWrite' },
+        readFile: { name: 'readFile' },
+        writeFile: { name: 'writeFile' },
+      };
+    }),
+    isValidToolName,
+    getToolMetadata: vi.fn((_toolName: string) => ({
+      category: 'other',
+      canConcurrent: false,
+      fileOperation: false,
+    })),
+    getToolLabel: vi.fn((toolName: string) => {
+      if (toolName === 'todoWrite') return 'Todo';
+      if (toolName === 'readFile') return 'Read File';
+      if (toolName === 'writeFile') return 'Write File';
+      return toolName;
+    }),
+    getToolsForUISync: vi.fn(() => {
+      return TOOL_NAMES.map((id) => ({
+        id,
+        label: id === 'todoWrite' ? 'Todo' : id,
+        ref: { name: id },
+        isBeta: false,
+      }));
+    }),
+  };
+});
+
 vi.mock('@/lib/mcp/multi-mcp-adapter', () => ({
   multiMCPAdapter: {
     getAdaptedTool: vi.fn(),

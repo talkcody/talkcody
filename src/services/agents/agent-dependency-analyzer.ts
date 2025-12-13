@@ -454,7 +454,9 @@ export class AgentDependencyAnalyzer {
    * Validate that all calls are agent calls
    */
   private validateAgentCalls(toolCalls: ToolCallInfo[]): void {
-    const nonAgentCalls = toolCalls.filter((call) => call.toolName !== 'callAgentV2');
+    const nonAgentCalls = toolCalls.filter(
+      (call) => call.toolName !== 'callAgentV2' && call.toolName !== 'callAgent'
+    );
 
     if (nonAgentCalls.length > 0) {
       throw new Error(

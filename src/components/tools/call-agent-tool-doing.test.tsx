@@ -1,4 +1,4 @@
-import { act, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { useNestedToolsStore } from '@/stores/nested-tools-store';
 import type { ToolMessageContent, UIMessage } from '@/types/agent';
@@ -98,11 +98,13 @@ describe('CallAgentToolDoing Component', () => {
 
     rerender(<CallAgentToolDoing {...defaultProps} />);
 
-    // Should render all nested tools
+    // Collapsed summary only shows the current tool; expand to see full list
+    fireEvent.click(screen.getByText(/Agent is using tools:/i));
+
     await waitFor(() => {
-      expect(screen.getByText(/bash/i)).toBeInTheDocument();
-      expect(screen.getByText(/read/i)).toBeInTheDocument();
-      expect(screen.getByText(/write/i)).toBeInTheDocument();
+      expect(screen.queryAllByText(/bash/i).length).toBeGreaterThan(0);
+      expect(screen.queryAllByText(/read/i).length).toBeGreaterThan(0);
+      expect(screen.queryAllByText(/write/i).length).toBeGreaterThan(0);
     });
   });
 
@@ -163,10 +165,12 @@ describe('CallAgentToolDoing Component', () => {
     });
     rerender(<CallAgentToolDoing {...defaultProps} />);
 
-    // Should now show both tools
+    // Collapsed summary only shows the current tool; expand to see full list
+    fireEvent.click(screen.getByText(/Agent is using tools:/i));
+
     await waitFor(() => {
-      expect(screen.getByText(/bash/i)).toBeInTheDocument();
-      expect(screen.getByText(/read/i)).toBeInTheDocument();
+      expect(screen.queryAllByText(/bash/i).length).toBeGreaterThan(0);
+      expect(screen.queryAllByText(/read/i).length).toBeGreaterThan(0);
     });
   });
 });

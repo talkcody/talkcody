@@ -89,6 +89,19 @@ export function renderNestedToolsList(
     completedColor?: string;
   }
 ) {
+  return <NestedToolsList nestedTools={nestedTools} options={options} />;
+}
+
+function NestedToolsList({
+  nestedTools,
+  options,
+}: {
+  nestedTools: UIMessage[];
+  options?: {
+    pendingColor?: string;
+    completedColor?: string;
+  };
+}) {
   const [isExpanded, setIsExpanded] = useState(false);
 
   if (nestedTools.length === 0) return null;
