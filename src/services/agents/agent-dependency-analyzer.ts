@@ -75,7 +75,7 @@ export interface AgentExecutionPlan {
 
 /**
  * AgentDependencyAnalyzer handles pure agent delegation scenarios
- * Optimized for callAgent/callAgentV2 tools with role-based scheduling
+ * Optimized for callAgentV2 tools with role-based scheduling
  */
 export class AgentDependencyAnalyzer {
   /**
@@ -454,9 +454,7 @@ export class AgentDependencyAnalyzer {
    * Validate that all calls are agent calls
    */
   private validateAgentCalls(toolCalls: ToolCallInfo[]): void {
-    const nonAgentCalls = toolCalls.filter(
-      (call) => call.toolName !== 'callAgent' && call.toolName !== 'callAgentV2'
-    );
+    const nonAgentCalls = toolCalls.filter((call) => call.toolName !== 'callAgentV2');
 
     if (nonAgentCalls.length > 0) {
       throw new Error(
