@@ -78,7 +78,9 @@ coverage/
 scripts/*
 !scripts/build-and-notarize.sh
 !scripts/release.sh
-design/
+# Design documents (ignore most, keep specific files)
+design/*
+!design/multi-agent-parallel-execution.md
 .wrangler/
 
 # Turso database files (local mode)
