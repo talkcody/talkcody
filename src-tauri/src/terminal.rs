@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 use tauri::{AppHandle, Emitter};
-use log::{error, info};
+use log::{error, info, warn};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct PtySpawnResult {
@@ -27,35 +27,133 @@ lazy_static::lazy_static! {
     static ref PTY_SESSIONS: PtyRegistry = Arc::new(Mutex::new(HashMap::new()));
 }
 
-fn get_default_shell() -> String {
+/// Windows shell configurations: (command, version_args, shell_args)
+#[cfg(target_os = "windows")]
+const WINDOWS_SHELLS: &[(&str, &[&str], &[&str])] = &[
+    ("pwsh", &["--version"], &["-NoLogo", "-NoExit"]),
+    ("powershell", &["-Version"], &["-NoLogo", "-NoExit"]),
+    ("cmd.exe", &["/?"], &[]),
+];
+
+/// Check if a shell command is available and working
+#[cfg(target_os = "windows")]
+fn check_shell_available(cmd: &str, args: &[&str]) -> bool {
+    match std::process::Command::new(cmd).args(args).output() {
+        Ok(output) => {
+            if output.status.success() {
+                true
+            } else {
+                warn!(
+                    "{} found but returned error status: {:?}",
+                    cmd, output.status
+                );
+                false
+            }
+        }
+        Err(e) => {
+            info!("{} not available: {}", cmd, e);
+            false
+        }
+    }
+}
+
+/// Get default shell based on user preference or auto-detection
+fn get_default_shell(preferred_shell: Option<&str>) -> String {
     #[cfg(target_os = "windows")]
     {
-        // Prefer PowerShell over cmd.exe for better experience
-        // Check for PowerShell Core (pwsh) first, then Windows PowerShell
-        if std::process::Command::new("pwsh")
-            .arg("--version")
-            .output()
-            .is_ok()
-        {
-            info!("Detected PowerShell Core (pwsh)");
-            return "pwsh".to_string();
+        // If user specified a shell, try to use it
+        if let Some(shell) = preferred_shell {
+            if shell != "auto" {
+                info!("Using user-preferred shell: {}", shell);
+                return shell.to_string();
+            }
         }
-        if std::process::Command::new("powershell")
-            .arg("-Version")
-            .output()
-            .is_ok()
-        {
-            info!("Detected Windows PowerShell");
-            return "powershell".to_string();
+
+        // Auto-detect: prefer PowerShell Core > Windows PowerShell > cmd.exe
+        for (cmd, version_args, _) in WINDOWS_SHELLS {
+            if check_shell_available(cmd, version_args) {
+                info!("Detected shell: {}", cmd);
+                return cmd.to_string();
+            }
         }
-        // Fallback to cmd.exe
-        info!("Falling back to cmd.exe");
+
+        // Final fallback
+        warn!("No shell detected, falling back to COMSPEC or cmd.exe");
         std::env::var("COMSPEC").unwrap_or_else(|_| "cmd.exe".to_string())
     }
+
     #[cfg(not(target_os = "windows"))]
     {
+        // If user specified a shell, try to use it
+        if let Some(shell) = preferred_shell {
+            if shell != "auto" {
+                info!("Using user-preferred shell: {}", shell);
+                return shell.to_string();
+            }
+        }
+
         std::env::var("SHELL").unwrap_or_else(|_| "/bin/bash".to_string())
     }
+}
+
+/// Get shell arguments based on shell type
+#[cfg(target_os = "windows")]
+fn get_shell_args(shell: &str) -> Vec<&'static str> {
+    for (cmd, _, args) in WINDOWS_SHELLS {
+        if shell.contains(cmd) {
+            return args.to_vec();
+        }
+    }
+    // Default: no args for unknown shells
+    vec![]
+}
+
+/// Try to spawn shells in order, falling back to next shell if one fails
+#[cfg(target_os = "windows")]
+fn spawn_with_fallback(
+    slave: &Box<dyn portable_pty::PtySlave>,
+    cwd: Option<&str>,
+) -> Result<(String, Box<dyn portable_pty::Child + Send + Sync>), String> {
+    let mut last_error = String::new();
+
+    for (shell_cmd, version_args, shell_args) in WINDOWS_SHELLS {
+        // First check if shell is available
+        if !check_shell_available(shell_cmd, version_args) {
+            info!("Shell {} not available, trying next...", shell_cmd);
+            continue;
+        }
+
+        info!("Attempting to spawn shell: {}", shell_cmd);
+        let mut cmd = CommandBuilder::new(*shell_cmd);
+
+        if let Some(cwd_path) = cwd {
+            cmd.cwd(cwd_path);
+        }
+
+        if !shell_args.is_empty() {
+            cmd.args(*shell_args);
+            info!("Added shell args: {:?}", shell_args);
+        }
+
+        match slave.spawn_command(cmd) {
+            Ok(child) => {
+                info!("Successfully spawned shell: {}", shell_cmd);
+                return Ok((shell_cmd.to_string(), child));
+            }
+            Err(e) => {
+                warn!("Failed to spawn shell '{}': {}, trying next...", shell_cmd, e);
+                last_error = format!("Failed to spawn shell '{}': {}", shell_cmd, e);
+            }
+        }
+    }
+
+    // All shells failed
+    error!("All shell spawn attempts failed. Last error: {}", last_error);
+    Err(format!(
+        "Failed to spawn any shell. Tried: {:?}. Last error: {}",
+        WINDOWS_SHELLS.iter().map(|(cmd, _, _)| *cmd).collect::<Vec<_>>(),
+        last_error
+    ))
 }
 
 #[tauri::command]
@@ -64,6 +162,7 @@ pub async fn pty_spawn(
     cwd: Option<String>,
     cols: Option<u16>,
     rows: Option<u16>,
+    preferred_shell: Option<String>,
 ) -> Result<PtySpawnResult, String> {
     info!("Spawning new PTY session");
 
@@ -79,48 +178,66 @@ pub async fn pty_spawn(
         .openpty(pty_size)
         .map_err(|e| format!("Failed to open PTY: {}", e))?;
 
-    let shell = get_default_shell();
-    info!("Spawning shell: {}", shell);
-    let mut cmd = CommandBuilder::new(&shell);
-
-    // Set working directory if provided
-    if let Some(ref cwd_path) = cwd {
-        info!("Setting working directory: {}", cwd_path);
-        cmd.cwd(cwd_path);
-    }
-
-    // For Windows shells, add appropriate arguments
+    // Try to spawn shell with fallback mechanism on Windows
     #[cfg(target_os = "windows")]
-    {
-        if shell.contains("pwsh") || shell.contains("powershell") {
-            // PowerShell: disable logo banner, keep session open
-            cmd.args(&["-NoLogo", "-NoExit"]);
-            info!("Added PowerShell args: -NoLogo -NoExit");
-        }
-        // cmd.exe doesn't need special arguments
-    }
+    let (shell, child) = {
+        let preferred = preferred_shell.as_deref();
 
-    // For Unix shells, use login shell to load environment
+        // If user specified a specific shell (not auto), try only that shell
+        if let Some(shell) = preferred {
+            if shell != "auto" {
+                info!("Attempting user-specified shell: {}", shell);
+                let mut cmd = CommandBuilder::new(shell);
+                if let Some(ref cwd_path) = cwd {
+                    cmd.cwd(cwd_path);
+                }
+                let args = get_shell_args(shell);
+                if !args.is_empty() {
+                    cmd.args(&args);
+                    info!("Added shell args: {:?}", args);
+                }
+                let child = pair.slave.spawn_command(cmd).map_err(|e| {
+                    error!("Failed to spawn user-specified shell '{}': {}", shell, e);
+                    format!("Failed to spawn shell '{}': {}", shell, e)
+                })?;
+                (shell.to_string(), child)
+            } else {
+                // Auto mode: try shells in order with fallback
+                spawn_with_fallback(&pair.slave, cwd.as_deref())?
+            }
+        } else {
+            // No preference: auto mode
+            spawn_with_fallback(&pair.slave, cwd.as_deref())?
+        }
+    };
+
     #[cfg(not(target_os = "windows"))]
-    {
+    let (shell, child) = {
+        let shell = get_default_shell(preferred_shell.as_deref());
+        info!("Spawning shell: {}", shell);
+        let mut cmd = CommandBuilder::new(&shell);
+
+        if let Some(ref cwd_path) = cwd {
+            info!("Setting working directory: {}", cwd_path);
+            cmd.cwd(cwd_path);
+        }
+
         // Check if shell is zsh and disable PROMPT_SP (partial line marker)
         if shell.contains("zsh") {
-            // Use -o option to disable prompt_sp before -l
             cmd.args(&["-o", "no_prompt_sp", "-l"]);
         } else {
             cmd.arg("-l");
         }
-    }
 
-    let child = pair
-        .slave
-        .spawn_command(cmd)
-        .map_err(|e| {
+        let child = pair.slave.spawn_command(cmd).map_err(|e| {
             error!("Failed to spawn shell '{}': {}", shell, e);
             format!("Failed to spawn shell: {}", e)
         })?;
 
-    info!("Shell spawned successfully");
+        (shell, child)
+    };
+
+    info!("Shell '{}' spawned successfully", shell);
 
     let pty_id = uuid::Uuid::new_v4().to_string();
     let writer = pair.master.take_writer().map_err(|e| format!("Failed to take writer: {}", e))?;

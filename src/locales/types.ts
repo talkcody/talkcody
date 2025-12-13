@@ -380,6 +380,12 @@ export interface LocaleDefinition {
       githubRepository: string;
       website: string;
     };
+    terminal: {
+      title: string;
+      description: string;
+      defaultShell: string;
+      shellHint: string;
+    };
   };
 
   Agents: {

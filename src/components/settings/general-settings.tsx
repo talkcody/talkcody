@@ -1,4 +1,5 @@
 import { invoke } from '@tauri-apps/api/core';
+import { platform } from '@tauri-apps/plugin-os';
 import {
   AlertCircle,
   AlertTriangle,
@@ -8,6 +9,7 @@ import {
   Moon,
   Settings,
   Sun,
+  Terminal,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -15,6 +17,13 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Switch } from '@/components/ui/switch';
 import { LINT_SUPPORTED_LANGUAGES_DISPLAY } from '@/constants/lint';
@@ -22,17 +31,34 @@ import { useLocale } from '@/hooks/use-locale';
 import { useTheme } from '@/hooks/use-theme';
 import type { SupportedLocale } from '@/locales';
 import { useLintStore } from '@/stores/lint-store';
+import { useSettingsStore } from '@/stores/settings-store';
 
 interface RuntimeStatus {
   bun_available: boolean;
   node_available: boolean;
 }
 
+// Shell options for Windows
+const SHELL_OPTIONS = [
+  { value: 'auto', label: 'Auto', description: 'Automatically detect best shell' },
+  { value: 'pwsh', label: 'PowerShell Core', description: 'Modern cross-platform PowerShell' },
+  { value: 'powershell', label: 'Windows PowerShell', description: 'Built-in Windows PowerShell' },
+  { value: 'cmd', label: 'CMD', description: 'Windows Command Prompt' },
+] as const;
+
 export function GeneralSettings() {
   const { locale, t, setLocale, supportedLocales } = useLocale();
   const { resolvedTheme, toggleTheme } = useTheme();
   const { settings, updateSettings } = useLintStore();
   const [runtimeStatus, setRuntimeStatus] = useState<RuntimeStatus | null>(null);
+  const [isWindows, setIsWindows] = useState(false);
+  const terminalShell = useSettingsStore((state) => state.terminal_shell);
+  const setTerminalShell = useSettingsStore((state) => state.setTerminalShell);
+
+  useEffect(() => {
+    // Detect Windows platform
+    setIsWindows(platform() === 'windows');
+  }, []);
 
   useEffect(() => {
     invoke<RuntimeStatus>('check_lint_runtime')
@@ -214,6 +240,51 @@ export function GeneralSettings() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Terminal Settings - Windows Only */}
+      {isWindows && (
+        <Card>
+          <CardHeader>
+            <div className="flex items-center gap-2">
+              <Terminal className="h-5 w-5" />
+              <CardTitle className="text-lg">{t.Settings.terminal?.title || 'Terminal'}</CardTitle>
+            </div>
+            <CardDescription>
+              {t.Settings.terminal?.description ||
+                'Configure default shell for the integrated terminal'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">
+                {t.Settings.terminal?.defaultShell || 'Default Shell'}
+              </Label>
+              <Select
+                value={terminalShell || 'auto'}
+                onValueChange={(value) => setTerminalShell(value)}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select shell" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SHELL_OPTIONS.map((option) => (
+                    <SelectItem key={option.value} value={option.value}>
+                      <div className="flex flex-col">
+                        <span>{option.label}</span>
+                        <span className="text-xs text-muted-foreground">{option.description}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                {t.Settings.terminal?.shellHint ||
+                  'Changes will take effect on the next terminal session.'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }

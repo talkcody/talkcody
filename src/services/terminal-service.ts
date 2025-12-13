@@ -3,6 +3,7 @@ import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import type { Terminal } from '@xterm/xterm';
 import stripAnsi from 'strip-ansi';
 import { logger } from '@/lib/logger';
+import { settingsManager } from '@/stores/settings-store';
 import { type TerminalSession, useTerminalStore } from '@/stores/terminal-store';
 
 interface PtySpawnResult {
@@ -85,12 +86,15 @@ class TerminalService {
 
   async createTerminal(cwd?: string, cols = 80, rows = 24): Promise<TerminalSession> {
     try {
-      logger.info('Creating new terminal', { cwd, cols, rows });
+      // Get user's preferred shell from settings
+      const preferredShell = settingsManager.getTerminalShell();
+      logger.info('Creating new terminal', { cwd, cols, rows, preferredShell });
 
       const result = await invoke<PtySpawnResult>('pty_spawn', {
         cwd,
         cols,
         rows,
+        preferredShell: preferredShell === 'auto' ? null : preferredShell,
       });
 
       const session: TerminalSession = {

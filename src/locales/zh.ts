@@ -381,6 +381,12 @@ const zh: LocaleDefinition = {
       githubRepository: 'GitHub 仓库',
       website: '网站',
     },
+    terminal: {
+      title: 'Windows 终端',
+      description: '配置集成终端的默认 Shell',
+      defaultShell: '默认 Shell',
+      shellHint: '更改将在下次打开终端时生效。仅限 Windows。',
+    },
   },
 
   Agents: {

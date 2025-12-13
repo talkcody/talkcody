@@ -54,6 +54,9 @@ interface SettingsState {
   // What's New
   last_seen_version: string;
 
+  // Terminal Settings
+  terminal_shell: string; // 'auto' | 'pwsh' | 'powershell' | 'cmd' | custom path
+
   // Internal state
   loading: boolean;
   error: Error | null;
@@ -123,6 +126,10 @@ interface SettingsActions {
   setLastSeenVersion: (version: string) => Promise<void>;
   getLastSeenVersion: () => string;
 
+  // Terminal Settings
+  setTerminalShell: (shell: string) => Promise<void>;
+  getTerminalShell: () => string;
+
   // Convenience getters
   getModel: () => string;
   getAgentId: () => string;
@@ -156,6 +163,7 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
   apiKeys: {} as ApiKeySettings,
   shortcuts: DEFAULT_SHORTCUTS,
   last_seen_version: '',
+  terminal_shell: 'auto',
 };
 
 // Database persistence layer
@@ -318,6 +326,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         'model_type_transcription',
         'onboarding_completed',
         'last_seen_version',
+        'terminal_shell',
       ];
 
       // Add API key keys
@@ -695,6 +704,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     return get().last_seen_version;
   },
 
+  // Terminal Settings
+  setTerminalShell: async (shell: string) => {
+    await settingsDb.set('terminal_shell', shell);
+    set({ terminal_shell: shell });
+  },
+
+  getTerminalShell: () => {
+    return get().terminal_shell || 'auto';
+  },
+
   // Convenience getters
   getModel: () => {
     return get().model;
@@ -823,6 +842,8 @@ export const settingsManager = {
   // What's New
   setLastSeenVersion: (version: string) => useSettingsStore.getState().setLastSeenVersion(version),
   getLastSeenVersion: () => useSettingsStore.getState().getLastSeenVersion(),
+  setTerminalShell: (shell: string) => useSettingsStore.getState().setTerminalShell(shell),
+  getTerminalShell: () => useSettingsStore.getState().getTerminalShell(),
 };
 
 // Export settingsDb for direct database access (used by ThemeProvider before store initialization)

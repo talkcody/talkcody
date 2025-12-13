@@ -389,6 +389,12 @@ const en: LocaleDefinition = {
       githubRepository: 'GitHub Repository',
       website: 'Website',
     },
+    terminal: {
+      title: 'Windows Terminal',
+      description: 'Configure default shell for the integrated terminal',
+      defaultShell: 'Default Shell',
+      shellHint: 'Changes will take effect on the next terminal session. Windows only.',
+    },
   },
 
   Agents: {
