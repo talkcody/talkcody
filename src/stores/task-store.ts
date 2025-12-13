@@ -494,9 +494,19 @@ export const useTaskStore = create<TaskState>()(
             if (!messages) return state;
 
             const newMessages = new Map(state.messages);
-            const updatedMessages = messages.map((msg) =>
-              'isStreaming' in msg && msg.isStreaming ? { ...msg, isStreaming: false } : msg
-            );
+            const updatedMessages = messages.map((msg) => {
+              // Clear both isStreaming and renderDoingUI flags
+              const updates: Partial<UIMessage> = {};
+
+              if ('isStreaming' in msg && msg.isStreaming) {
+                updates.isStreaming = false;
+              }
+              if ('renderDoingUI' in msg && msg.renderDoingUI) {
+                updates.renderDoingUI = false;
+              }
+
+              return Object.keys(updates).length > 0 ? { ...msg, ...updates } : msg;
+            });
             newMessages.set(taskId, updatedMessages);
             return { messages: newMessages };
           },
