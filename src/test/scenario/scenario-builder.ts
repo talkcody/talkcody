@@ -17,6 +17,12 @@
 
 import type { AgentTrace } from '../evaluation/trace-recorder';
 
+function nowMs(): number {
+  return typeof performance !== 'undefined' && typeof performance.now === 'function'
+    ? performance.now()
+    : Date.now();
+}
+
 // ============================================
 // Type Definitions
 // ============================================
@@ -266,7 +272,7 @@ export class ScenarioBuilder {
    * Execute scenario
    */
   async run(config: AgentConfig): Promise<ScenarioResult> {
-    const startTime = Date.now();
+    const startTime = nowMs();
     const results: StepResult[] = [];
     const state: ScenarioState = {
       output: '',
@@ -277,11 +283,11 @@ export class ScenarioBuilder {
     const { timeout = 30000, stopOnFirstFailure = true } = config;
 
     for (const step of this.steps) {
-      const stepStartTime = Date.now();
+      const stepStartTime = nowMs();
 
       try {
         const result = await this.executeStep(step, state, config, timeout);
-        result.duration = Date.now() - stepStartTime;
+        result.duration = Math.max(0, Math.ceil(nowMs() - stepStartTime));
         results.push(result);
 
         if (!result.passed && stopOnFirstFailure) {
@@ -292,7 +298,7 @@ export class ScenarioBuilder {
           step,
           passed: false,
           error: error instanceof Error ? error.message : String(error),
-          duration: Date.now() - stepStartTime,
+          duration: Math.max(0, Math.ceil(nowMs() - stepStartTime)),
         });
 
         if (stopOnFirstFailure) {
@@ -308,7 +314,7 @@ export class ScenarioBuilder {
       success,
       steps: results,
       trace: state.trace,
-      duration: Date.now() - startTime,
+      duration: Math.max(0, Math.ceil(nowMs() - startTime)),
       errorSummary:
         failedSteps.length > 0
           ? failedSteps.map((s) => s.error ?? 'Unknown error').join('; ')

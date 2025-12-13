@@ -433,7 +433,7 @@ describe('ScenarioBuilder', () => {
   describe('wait step', () => {
     it('should wait specified time', async () => {
       const config = createMockAgentConfig();
-      const startTime = Date.now();
+      const startTime = performance.now();
 
       await scenario()
         .user('Test')
@@ -441,7 +441,7 @@ describe('ScenarioBuilder', () => {
         .wait(100)
         .run(config);
 
-      const elapsed = Date.now() - startTime;
+      const elapsed = Math.ceil(performance.now() - startTime);
       expect(elapsed).toBeGreaterThanOrEqual(100);
     });
   });
