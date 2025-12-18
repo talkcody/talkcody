@@ -235,9 +235,23 @@ export class StreamProcessor {
     });
 
     // Decode HTML entities in tool call input
+    let decodedInput = decodeObjectHtmlEntities(toolCall.input);
+
+    // Parse JSON string input to object (some providers like MiniMax return input as JSON string)
+    if (typeof decodedInput === 'string') {
+      try {
+        decodedInput = JSON.parse(decodedInput);
+      } catch {
+        // If parsing fails, keep as string (might be intentional string parameter)
+        logger.debug('Tool call input is not valid JSON, keeping as string', {
+          toolName: toolCall.toolName,
+        });
+      }
+    }
+
     const decodedToolCall = {
       ...toolCall,
-      input: decodeObjectHtmlEntities(toolCall.input),
+      input: decodedInput,
     };
 
     // Check for duplicate tool calls

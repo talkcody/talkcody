@@ -4,7 +4,11 @@
 
 import { logger } from '@/lib/logger';
 import { settingsManager } from '@/stores/settings-store';
-import { DEFAULT_MODELS_BY_TYPE, MODEL_TYPE_SETTINGS_KEYS, ModelType } from '@/types/model-types';
+import {
+  DEFAULT_MODELS_BY_TYPE,
+  MODEL_TYPE_SETTINGS_KEYS,
+  type ModelType,
+} from '@/types/model-types';
 import { modelService } from './model-service';
 
 export class ModelTypeService {
@@ -80,51 +84,6 @@ export class ModelTypeService {
     }
 
     return DEFAULT_MODELS_BY_TYPE[modelType];
-  }
-
-  /**
-   * Get the configured model for a specific model type
-   * Returns undefined if no model is configured
-   */
-  async getConfiguredModel(modelType: ModelType): Promise<string | undefined> {
-    const settingsKey = MODEL_TYPE_SETTINGS_KEYS[modelType];
-    const configuredModel = await settingsManager.get(settingsKey);
-
-    if (configuredModel && typeof configuredModel === 'string' && configuredModel.trim()) {
-      return configuredModel;
-    }
-
-    return undefined;
-  }
-
-  /**
-   * Set the model for a specific model type
-   */
-  async setModelForType(modelType: ModelType, modelIdentifier: string): Promise<void> {
-    const settingsKey = MODEL_TYPE_SETTINGS_KEYS[modelType];
-    await settingsManager.set(settingsKey, modelIdentifier);
-  }
-
-  /**
-   * Get all configured model types
-   */
-  async getAllConfiguredModels(): Promise<Record<ModelType, string>> {
-    const result: Record<string, string> = {};
-
-    for (const modelType of Object.values(ModelType)) {
-      const model = await this.resolveModelType(modelType);
-      result[modelType] = model;
-    }
-
-    return result as Record<ModelType, string>;
-  }
-
-  /**
-   * Check if a model type has a configured model (not using default)
-   */
-  async hasConfiguredModel(modelType: ModelType): Promise<boolean> {
-    const configured = await this.getConfiguredModel(modelType);
-    return configured !== undefined;
   }
 
   /**

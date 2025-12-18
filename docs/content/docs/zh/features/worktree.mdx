@@ -1,0 +1,155 @@
+---
+title: 基于 Worktree 的 Task 并行
+description: 使用 Git Worktree 为并行任务提供文件隔离，避免多个 AI 任务同时修改文件产生冲突
+icon: GitBranch
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+
+## 什么是 Worktree？
+
+Worktree（工作树）是一个让您的 AI 任务在独立目录中工作的功能。当您同时运行多个任务时，每个任务都有自己的「工作空间」，避免相互干扰。
+
+<Callout type="info">
+Worktree 基于 Git 的原生功能构建，允许同一个仓库拥有多个工作目录，每个目录可以检出不同的分支。
+</Callout>
+
+<Callout type="warn">
+**只读任务不需要开启 Worktree！** 只有当任务需要修改文件时，才需要启用 Worktree 来隔离变更。例如：代码搜索、问题分析、代码审查等只读操作可以安全地并行执行，无需 Worktree 隔离。
+</Callout>
+
+## 为什么需要 Worktree？
+
+当您同时让 AI 处理多个任务时，可能会遇到以下问题：
+
+| 场景 | 没有 Worktree | 有 Worktree |
+|------|---------------|-------------|
+| 任务 A 修改 config.ts | 直接修改主目录文件 | 在 pool-0 目录修改 |
+| 任务 B 也修改 config.ts | 覆盖任务 A 的修改 | 在 pool-1 目录修改 |
+| 最终结果 | 只保留最后一次修改 | 两个任务的修改都保留，可分别合并 |
+
+## 工作原理
+
+TalkCody 使用 **Worktree 池** 来管理并行任务：
+
+- **池大小**：最多 3 个 Worktree（pool-0, pool-1, pool-2）
+- **目录位置**：`~/.talkcody/项目名/pool-{0,1,2}/`（可在设置中自定义）
+- **分支命名**：`talkcody-pool-0`、`talkcody-pool-1`、`talkcody-pool-2`
+- **自动分配**：新任务自动获取可用的 Worktree
+
+<Callout type="tip">
+这些目录和分支由 TalkCody 自动管理，您无需手动创建或删除。
+</Callout>
+
+## 如何启用 Worktree
+
+<Steps>
+
+<Step>
+### 找到 Worktree 开关
+
+在聊天输入框下方的工具栏中，找到「Worktree」开关。
+</Step>
+
+<Step>
+### 启用功能
+
+点击开关启用 Worktree 功能。启用后，当有多个任务并行运行时，系统会自动为新任务分配隔离的工作目录。
+</Step>
+
+</Steps>
+
+<Callout type="info">
+Worktree 只在有其他任务正在运行时才会激活。如果只有一个任务，它将直接在主项目目录中工作，不会创建额外的 Worktree。
+</Callout>
+
+## 日常使用场景
+
+### 正常工作流程
+
+<Steps>
+
+<Step>
+### 启动第一个任务
+
+第一个任务直接在主项目目录中工作，不使用 Worktree。
+</Step>
+
+<Step>
+### 启动第二个任务
+
+系统检测到已有任务在运行，自动为新任务分配一个 Worktree（如 pool-0）。
+</Step>
+
+<Step>
+### 任务完成后处理变更
+
+当 Worktree 中有未提交的变更时，系统会提示您选择处理方式。
+</Step>
+
+</Steps>
+
+### 处理未提交的变更
+
+当检测到 Worktree 有未提交的变更时，会弹出对话框显示：
+
+- **修改的文件**：已存在且被修改的文件
+- **新增的文件**：新创建的文件
+- **删除的文件**：被删除的文件
+
+您可以选择以下三种处理方式：
+
+| 操作 | 说明 | 适用场景 |
+|------|------|----------|
+| 「Discard」放弃更改 | 删除所有未提交的变更并重置工作树 | 当您不再需要这些变更时 |
+| 「Sync」同步主分支 | 将主分支最新代码同步到工作树 | 需要继续在此工作树上工作时 |
+| 「Merge」合并到主分支 | 将工作树的变更合并到主分支 | 任务完成，希望保留变更时 |
+
+<Callout type="warn">
+「Discard」操作会永久删除未提交的变更，此操作不可恢复。请确保您不再需要这些变更后再执行此操作。
+</Callout>
+
+### 冲突处理
+
+当合并（Merge）或同步（Sync）时发生冲突，对话框会显示冲突的文件列表。您需要：
+
+1. 在编辑器中打开冲突文件
+2. 手动解决冲突标记（`<<<<<<<`、`=======`、`>>>>>>>`）
+3. 保存文件后重试操作
+
+<Callout type="warn">
+如果您决定放弃解决冲突，可以在终端中执行：
+- 合并冲突：`git merge --abort`
+- 同步冲突：`git rebase --abort`
+</Callout>
+
+## 常见问题
+
+### Worktree 会占用额外的磁盘空间吗？
+
+会占用一定空间，但 Git Worktree 使用共享的 Git 对象库，实际增加的空间主要是工作目录中的文件副本。对于大多数项目，每个 Worktree 占用的额外空间约等于项目源代码的大小。
+
+### 我可以手动删除 `~/.talkcody` 目录吗？
+
+不建议手动删除。请确保所有相关任务都已完成，让 TalkCody 自动清理。如果您确实需要手动清理，请先在终端中执行 `git worktree prune` 命令。
+
+### 如何自定义 Worktree 目录位置？
+
+您可以在「设置 → 通用 → Worktree 设置」中修改 Worktree 根目录。点击文件夹图标选择您偏好的目录，或点击「重置」按钮恢复默认路径。
+
+### 为什么我启用了 Worktree 但任务没有使用隔离目录？
+
+Worktree 只在有多个任务并行运行时才会激活。如果只有一个任务在运行，它会直接使用主项目目录。这是设计上的优化，避免单任务场景下创建不必要的 Worktree。
+
+### 最多支持多少个并行任务使用 Worktree？
+
+Worktree 池大小为 3，这意味着最多有 3 个任务可以同时使用隔离的工作目录。
+
+### 任务完成后 Worktree 会自动清理吗？
+
+如果 Worktree 中没有未提交的变更，系统会在任务完成后自动释放该 Worktree 供后续任务使用。如果有未提交的变更，您需要手动选择处理方式（放弃、同步或合并）。
+
+### Worktree 功能需要特别的 Git 版本吗？
+
+Git Worktree 是 Git 2.5+ 的特性。大多数现代操作系统预装的 Git 版本都已支持此功能。您可以通过 `git --version` 命令检查您的 Git 版本。

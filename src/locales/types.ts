@@ -108,6 +108,17 @@ export interface LocaleDefinition {
     };
     planMode: {
       label: string;
+      title: string;
+      description: string;
+      learnMore: string;
+      enabledTooltip: string;
+      disabledTooltip: string;
+    };
+    worktree: {
+      label: string;
+      title: string;
+      description: string;
+      learnMore: string;
       enabledTooltip: string;
       disabledTooltip: string;
     };
@@ -387,6 +398,15 @@ export interface LocaleDefinition {
       defaultShell: string;
       shellHint: string;
     };
+    worktree: {
+      title: string;
+      description: string;
+      rootPath: string;
+      selectDirectory: string;
+      customPathHint: string;
+      defaultPathHint: string;
+      pathPreview: string;
+    };
   };
 
   Agents: {
@@ -525,6 +545,9 @@ export interface LocaleDefinition {
 
   FileChanges: {
     codeReviewMessage: string;
+    reviewTooltip: string;
+    commitTooltip: string;
+    mergeTooltip: string;
   };
 
   Skills: {
@@ -1042,6 +1065,40 @@ export interface LocaleDefinition {
     fixed: string;
     removed: string;
     releasedOn: (date: string) => string;
+  };
+
+  Worktree: {
+    conflictDialog: {
+      title: string;
+      description: string;
+      changesCount: (count: number) => string;
+      modifiedFiles: string;
+      addedFiles: string;
+      deletedFiles: string;
+      worktreePath: string;
+      actions: {
+        discard: string;
+        discardDescription: string;
+        merge: string;
+        mergeDescription: string;
+        sync: string;
+        syncDescription: string;
+        cancel: string;
+      };
+      mergeConflict: {
+        title: string;
+        description: string;
+        conflictFiles: string;
+        resolveManually: string;
+      };
+      syncConflict: {
+        title: string;
+        description: string;
+        conflictFiles: string;
+        resolveManually: string;
+      };
+      processing: string;
+    };
   };
 
   Lint: {

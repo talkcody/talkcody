@@ -1,5 +1,4 @@
-import { ArrowDown, ArrowUp, FileSearch, Plus, Search, SquareTerminal, Zap } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
+import { ArrowDown, ArrowUp, FileSearch, Plus, Search, SquareTerminal } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/use-locale';
@@ -11,7 +10,6 @@ import {
   useToolbarState,
 } from '@/hooks/use-toolbar-state';
 import { useExecutionStore } from '@/stores/execution-store';
-import { usePlanModeStore } from '@/stores/plan-mode-store';
 import { ChatHistory } from './chat-history';
 import { ProjectDropdown } from './project-dropdown';
 
@@ -52,7 +50,6 @@ export function ChatToolbar({
   onOpenContentSearch,
 }: ChatToolbarProps) {
   const t = useTranslation();
-  const { isPlanModeEnabled } = usePlanModeStore();
   const isMaxReached = useExecutionStore((state) => state.isMaxReached());
   const { modelName, cost, inputTokens, outputTokens, contextUsage } = useToolbarState();
 
@@ -82,43 +79,6 @@ export function ChatToolbar({
             </span>
           </div>
         )}
-
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Badge variant={isPlanModeEnabled ? 'default' : 'secondary'} className="text-xs">
-              {isPlanModeEnabled ? (
-                <>
-                  <svg
-                    className="mr-1 h-3 w-3"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    role="img"
-                    aria-label="Plan mode icon"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
-                    />
-                  </svg>
-                  {t.Chat.toolbar.planMode}
-                </>
-              ) : (
-                <>
-                  <Zap className="mr-1 h-3 w-3" />
-                  {t.Chat.toolbar.actMode}
-                </>
-              )}
-            </Badge>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>
-              {isPlanModeEnabled ? t.Chat.toolbar.planModeTooltip : t.Chat.toolbar.actModeTooltip}
-            </p>
-          </TooltipContent>
-        </Tooltip>
 
         {(cost > 0 || inputTokens > 0 || outputTokens > 0) && (
           <div className="flex items-center gap-1.5 rounded-md bg-emerald-100 px-2 py-1 dark:bg-emerald-900/30">

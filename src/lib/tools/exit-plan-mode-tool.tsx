@@ -12,18 +12,35 @@ const inputSchema = z.strictObject({
   plan: z.string().min(1).describe('The implementation plan in Markdown format'),
 });
 
+interface ToolContext {
+  taskId?: string;
+}
+
 /**
  * Execute function that pauses and waits for user to review the plan
  */
-async function executeExitPlanMode(params: z.infer<typeof inputSchema>): Promise<PlanReviewResult> {
+async function executeExitPlanMode(
+  params: z.infer<typeof inputSchema>,
+  context?: ToolContext
+): Promise<PlanReviewResult> {
   const { plan } = params;
+  const taskId = context?.taskId;
+
+  if (!taskId) {
+    logger.error('[ExitPlanMode] taskId is required but not provided');
+    return {
+      action: 'reject this plan, do not implement it',
+      feedback: 'Internal error: taskId is required for exitPlanMode',
+    };
+  }
+
   // Create a Promise that will be resolved when user reviews the plan
   return new Promise<PlanReviewResult>((resolve) => {
-    logger.info('[ExitPlanMode] Creating Promise and setting pending plan');
+    logger.info('[ExitPlanMode] Creating Promise and setting pending plan', { taskId });
 
-    // Store the plan and resolver in the store
+    // Store the plan and resolver in the store with taskId
     // The UI component will call approvePlan or rejectPlan which will resolve this Promise
-    usePlanModeStore.getState().setPendingPlan(plan, resolve);
+    usePlanModeStore.getState().setPendingPlan(taskId, plan, resolve);
   });
 }
 
@@ -96,15 +113,15 @@ The user can:
 - Edit the plan before approval
 - Reject the plan with feedback for you to revise
 
-IMPORTANT: Do NOT make any file modifications until the plan is approved. 
+IMPORTANT: Do NOT make any file modifications until the plan is approved.
 You could only use this tool when plan mode is enabled.`,
   inputSchema,
   canConcurrent: false,
   hidden: true,
   execute: executeExitPlanMode,
 
-  renderToolDoing: (params: z.infer<typeof inputSchema>) => {
-    return <PlanReviewCard planContent={params.plan} />;
+  renderToolDoing: (params: z.infer<typeof inputSchema>, context?: ToolContext) => {
+    return <PlanReviewCard planContent={params.plan} taskId={context?.taskId} />;
   },
 
   renderToolResult: (result: PlanReviewResult, { plan }) => {

@@ -1,6 +1,16 @@
 import { ChevronLeft, ChevronRight, Plus, Search } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
@@ -14,6 +24,7 @@ import { useProjects } from '@/hooks/use-projects';
 import { useTasks } from '@/hooks/use-tasks';
 import { cn } from '@/lib/utils';
 import { useExecutionStore } from '@/stores/execution-store';
+import { useWorktreeStore } from '@/stores/worktree-store';
 import { TaskList } from './task-list';
 
 interface ChatHistorySidebarProps {
@@ -35,6 +46,16 @@ export function ChatHistorySidebar({
   // Use selectors to avoid re-rendering on every streaming chunk
   const runningTaskIds = useExecutionStore(useShallow((state) => state.getRunningTaskIds()));
   const isMaxReached = useExecutionStore((state) => state.isMaxReached());
+
+  // Get worktree info function
+  const getWorktreeForTask = useWorktreeStore((state) => state.getWorktreeForTask);
+
+  // Worktree deletion confirmation state
+  const [deleteConfirmation, setDeleteConfirmation] = useState<{
+    taskId: string;
+    changesCount: number;
+    message: string;
+  } | null>(null);
 
   const {
     tasks,
@@ -70,6 +91,30 @@ export function ChatHistorySidebar({
     onNewChat();
   };
 
+  // Handle task deletion with worktree confirmation
+  const handleDeleteTask = async (taskId: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    const result = await deleteTask(taskId);
+    if (result.requiresConfirmation && result.changesCount && result.message) {
+      setDeleteConfirmation({
+        taskId,
+        changesCount: result.changesCount,
+        message: result.message,
+      });
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (deleteConfirmation) {
+      await deleteTask(deleteConfirmation.taskId, { force: true });
+      setDeleteConfirmation(null);
+    }
+  };
+
+  const handleCancelDelete = () => {
+    setDeleteConfirmation(null);
+  };
+
   const filteredTasks = tasks.filter((task) =>
     task.title.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -81,7 +126,6 @@ export function ChatHistorySidebar({
         isCollapsed ? 'w-12' : 'w-64'
       )}
     >
-      {/* Toggle Button */}
       <Button
         className="absolute top-3 -right-3 z-10 h-6 w-6 rounded-full border bg-white p-0 shadow-sm dark:bg-gray-800"
         onClick={() => setIsCollapsed(!isCollapsed)}
@@ -96,7 +140,7 @@ export function ChatHistorySidebar({
           {/* Header */}
           <div className="border-b p-3">
             <div className="mb-2 flex items-center justify-between">
-              <h4 className="font-medium text-sm">Chat History</h4>
+              <h4 className="font-medium text-sm">Task History</h4>
               <Button
                 className="h-6 px-2 text-xs"
                 disabled={isMaxReached}
@@ -139,7 +183,6 @@ export function ChatHistorySidebar({
             </div>
           </div>
 
-          {/* Tasks List */}
           <div className="flex-1 overflow-auto">
             <TaskList
               tasks={filteredTasks}
@@ -147,9 +190,10 @@ export function ChatHistorySidebar({
               editingId={editingId}
               editingTitle={editingTitle}
               loading={loading}
+              getWorktreeForTask={getWorktreeForTask}
               onCancelEdit={cancelEditing}
               onTaskSelect={handleTaskSelect}
-              onDeleteTask={deleteTask}
+              onDeleteTask={handleDeleteTask}
               onSaveEdit={finishEditing}
               onStartEditing={startEditing}
               onTitleChange={setEditingTitle}
@@ -166,6 +210,25 @@ export function ChatHistorySidebar({
           </div>
         </>
       )}
+
+      {/* Worktree deletion confirmation dialog */}
+      <AlertDialog open={!!deleteConfirmation} onOpenChange={() => setDeleteConfirmation(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Task with Uncommitted Changes?</AlertDialogTitle>
+            <AlertDialogDescription>{deleteConfirmation?.message}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={handleCancelDelete}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleConfirmDelete}
+            >
+              Delete Anyway
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

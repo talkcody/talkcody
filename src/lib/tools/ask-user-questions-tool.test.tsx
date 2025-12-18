@@ -291,20 +291,24 @@ describe('askUserQuestionsTool', () => {
       };
 
       // Execute the tool (it returns a Promise that won't resolve until user submits)
+      // Note: execute now accepts optional context with taskId, defaults to 'default'
       const executePromise = askUserQuestionsTool.execute?.(input);
 
       // Wait for next tick to ensure setPendingQuestions is called
       await new Promise((resolve) => setTimeout(resolve, 0));
 
       // Verify setPendingQuestions was called
+      // New signature: (taskId, questions, resolver)
       expect(mockStoreState.setPendingQuestions).toHaveBeenCalledTimes(1);
       expect(mockStoreState.setPendingQuestions).toHaveBeenCalledWith(
+        'default', // taskId defaults to 'default' when no context is provided
         input.questions,
         expect.any(Function)
       );
 
       // Simulate user submitting answers by calling the resolver
-      const resolver = (mockStoreState.setPendingQuestions as any).mock.calls[0][1];
+      // Resolver is now the third argument (index 2)
+      const resolver = (mockStoreState.setPendingQuestions as any).mock.calls[0][2];
       const mockAnswers: AskUserQuestionsOutput = {
         q1: { selectedOptions: ['Red'], customText: undefined },
       };

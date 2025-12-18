@@ -2,7 +2,7 @@
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
 import type { ChatStatus } from 'ai';
-import { FileIcon, Image, Plus } from 'lucide-react';
+import { ExternalLink, FileIcon, Image, Plus } from 'lucide-react';
 import {
   type ChangeEventHandler,
   forwardRef,
@@ -20,18 +20,21 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Switch } from '@/components/ui/switch';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useFileUpload } from '@/hooks/use-file-upload';
 import { useLocale } from '@/hooks/use-locale';
 import { useAppSettings } from '@/hooks/use-settings';
 import { useVoiceInput } from '@/hooks/use-voice-input';
+import { getDocLinks } from '@/lib/doc-links';
 import { logger } from '@/lib/logger';
 import { generateId } from '@/lib/utils';
 import { fileUploadService } from '@/services/file-upload-service';
 import { repositoryService } from '@/services/repository-service';
 import { usePlanModeStore } from '@/stores/plan-mode-store';
 import { modelService, useProviderStore } from '@/stores/provider-store';
+import { useWorktreeStore } from '@/stores/worktree-store';
 import type { MessageAttachment } from '@/types/agent';
 import type { Command } from '@/types/command';
 import {
@@ -87,6 +90,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     const { t } = useLocale();
     const { loading: settingsLoading } = useAppSettings();
     const { isPlanModeEnabled, togglePlanMode } = usePlanModeStore();
+
+    // Global worktree toggle (like plan mode)
+    const { isWorktreeEnabled, toggleWorktreeMode } = useWorktreeStore();
 
     const [attachments, setAttachments] = useState<MessageAttachment[]>([]);
     const { uploadImage, uploadFile, isUploading } = useFileUpload();
@@ -889,8 +895,8 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     </TooltipContent>
                   </Tooltip>
                   <AgentSelector disabled={isLoading} />
-                  <Tooltip>
-                    <TooltipTrigger asChild>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
                       <div className="flex items-center gap-2 rounded-md border-input bg-background px-3 py-1.5">
                         <span className="text-xs font-medium">{t.Chat.planMode.label}</span>
                         <Switch
@@ -899,15 +905,54 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                           disabled={isLoading}
                         />
                       </div>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>
-                        {isPlanModeEnabled
-                          ? t.Chat.planMode.enabledTooltip
-                          : t.Chat.planMode.disabledTooltip}
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="top" className="w-72">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">{t.Chat.planMode.title}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {t.Chat.planMode.description}
+                        </p>
+                        <a
+                          href={getDocLinks().features.planMode}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          {t.Chat.planMode.learnMore}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
+                  <HoverCard>
+                    <HoverCardTrigger asChild>
+                      <div className="flex items-center gap-2 rounded-md border-input bg-background px-3 py-1.5">
+                        <span className="text-xs font-medium">{t.Chat.worktree.label}</span>
+                        <Switch
+                          checked={isWorktreeEnabled}
+                          onCheckedChange={toggleWorktreeMode}
+                          disabled={isLoading}
+                        />
+                      </div>
+                    </HoverCardTrigger>
+                    <HoverCardContent side="top" className="w-72">
+                      <div className="space-y-2">
+                        <h4 className="font-medium text-sm">{t.Chat.worktree.title}</h4>
+                        <p className="text-xs text-muted-foreground">
+                          {t.Chat.worktree.description}
+                        </p>
+                        <a
+                          href={getDocLinks().features.worktree}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        >
+                          {t.Chat.worktree.learnMore}
+                          <ExternalLink className="h-3 w-3" />
+                        </a>
+                      </div>
+                    </HoverCardContent>
+                  </HoverCard>
                 </PromptInputTools>
                 <div className="flex items-center gap-1">
                   <VoiceInputButton

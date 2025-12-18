@@ -18,6 +18,7 @@ import { useGlobalFileSearch } from '@/hooks/use-global-file-search';
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts';
 import { useRepositoryWatcher } from '@/hooks/use-repository-watcher';
 import { useTasks } from '@/hooks/use-tasks';
+import { useWorktreeConflict } from '@/hooks/use-worktree-conflict';
 import { logger } from '@/lib/logger';
 import { databaseService } from '@/services/database-service';
 import type { LintDiagnostic } from '@/services/lint-service';
@@ -29,6 +30,7 @@ import { useProjectStore } from '@/stores/project-store';
 import { useRepositoryStore } from '@/stores/repository-store';
 import { settingsManager } from '@/stores/settings-store';
 import { useTerminalStore } from '@/stores/terminal-store';
+import { useWorktreeStore } from '@/stores/worktree-store';
 import { ChatBox, type ChatBoxRef } from './chat-box';
 import { ChatPanelHeader } from './chat-panel-header';
 import { DiagnosticsPanel } from './diagnostics/diagnostics-panel';
@@ -41,6 +43,7 @@ import { GitStatusBar } from './git/git-status-bar';
 import { GlobalContentSearch } from './search/global-content-search';
 import { GlobalFileSearch } from './search/global-file-search';
 import { TerminalPanel } from './terminal/terminal-panel';
+import { WorktreeConflictDialog } from './worktree/worktree-conflict-dialog';
 
 export function RepositoryLayout() {
   const emptyRepoPanelId = useId();
@@ -114,6 +117,9 @@ export function RepositoryLayout() {
   // Project store actions
   const refreshProjects = useProjectStore((state) => state.refreshProjects);
 
+  // Worktree store actions
+  const initializeWorktree = useWorktreeStore((state) => state.initialize);
+
   const chatBoxRef = useRef<ChatBoxRef>(null);
 
   const handleAddFileToChat = async (filePath: string, fileContent: string) => {
@@ -125,6 +131,20 @@ export function RepositoryLayout() {
   };
 
   const { currentTaskId, selectTask, startNewChat } = useTasks();
+
+  // Worktree conflict handling
+  const {
+    conflictData,
+    isProcessing: isWorktreeProcessing,
+    mergeResult,
+    syncResult,
+    checkForConflicts,
+    discardChanges,
+    mergeToMain,
+    syncFromMain,
+    cancelOperation,
+    resetState: resetWorktreeState,
+  } = useWorktreeConflict();
 
   // Removed isSpecOpen state as it's replaced by mode system
 
@@ -226,10 +246,42 @@ export function RepositoryLayout() {
     }
   }, [rootPath, initializeGit, clearGitState]);
 
-  // New conversation handling
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
+    const hasConflict = await checkForConflicts();
+    if (hasConflict) {
+      return;
+    }
     startNewChat();
     setIsHistoryOpen(false);
+  };
+
+  // Handle discard and continue with new chat
+  const handleDiscardAndContinue = async () => {
+    await discardChanges();
+    resetWorktreeState();
+    startNewChat();
+    setIsHistoryOpen(false);
+  };
+
+  // Handle merge and continue with new chat
+  const handleMergeAndContinue = async () => {
+    const result = await mergeToMain();
+    if (result.success) {
+      resetWorktreeState();
+      startNewChat();
+      setIsHistoryOpen(false);
+    }
+    // If there are conflicts, the dialog will show them
+  };
+
+  // Handle sync from main (user wants to keep working with latest main changes)
+  const handleSyncFromMain = async () => {
+    const result = await syncFromMain();
+    if (result.success) {
+      // Sync successful - dialog will close, user can continue working
+      resetWorktreeState();
+    }
+    // If there are conflicts, the dialog will show them
   };
 
   const handleHistoryTaskSelect = (taskId: string) => {
@@ -262,6 +314,11 @@ export function RepositoryLayout() {
         // If project has root_path, open the repository
         if (project.root_path) {
           await openRepository(project.root_path, projectId);
+
+          // Initialize worktree store for this project
+          initializeWorktree().catch((error) => {
+            logger.warn('[RepositoryLayout] Failed to initialize worktree store:', error);
+          });
         } else {
           // If project has no root_path, close current repository to clear the UI
           closeRepository();
@@ -607,6 +664,7 @@ export function RepositoryLayout() {
                       selectedFile={hasRepository ? currentFile?.path || null : null}
                       onFileSelect={selectFile}
                       onAddFileToChat={handleAddFileToChat}
+                      checkForConflicts={checkForConflicts}
                     />
                   </div>
                 </div>
@@ -638,6 +696,20 @@ export function RepositoryLayout() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <WorktreeConflictDialog
+        open={!!conflictData}
+        worktreePath={conflictData?.worktreePath ?? ''}
+        changes={conflictData?.changes ?? null}
+        isProcessing={isWorktreeProcessing}
+        mergeResult={mergeResult}
+        syncResult={syncResult}
+        onDiscard={handleDiscardAndContinue}
+        onMerge={handleMergeAndContinue}
+        onSync={handleSyncFromMain}
+        onCancel={cancelOperation}
+        onClose={resetWorktreeState}
+      />
     </>
   );
 }

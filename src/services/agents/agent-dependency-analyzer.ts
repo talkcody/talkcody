@@ -1,9 +1,8 @@
 // src/services/agents/agent-dependency-analyzer.ts
 
-import type { ToolSet } from 'ai';
 import { logger } from '@/lib/logger';
 import { getToolMetadata } from '@/lib/tools';
-import type { AgentRole, ExecutionPhase } from '@/types/agent';
+import type { AgentRole, AgentToolSet, ExecutionPhase } from '@/types/agent';
 import { getMaxParallelSubagents, isParallelExecutionEnabled } from './agent-execution-config';
 import type { ToolCallInfo } from './tool-executor';
 
@@ -95,7 +94,7 @@ export class AgentDependencyAnalyzer {
    */
   async analyzeDependencies(
     agentCalls: ToolCallInfo[],
-    tools: ToolSet
+    tools: AgentToolSet
   ): Promise<AgentExecutionPlan> {
     if (agentCalls.length === 0) {
       return {
@@ -215,7 +214,7 @@ export class AgentDependencyAnalyzer {
   /**
    * Infer agent role from tools when explicit role is not defined
    */
-  private inferAgentRole(agentTools: ToolSet, agentId: string): AgentRole {
+  private inferAgentRole(agentTools: AgentToolSet, agentId: string): AgentRole {
     const toolNames = Object.keys(agentTools);
 
     // Special case for known agents

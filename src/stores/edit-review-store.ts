@@ -9,11 +9,10 @@ import { logger } from '@/lib/logger';
  * Manages the state for inline edit review functionality.
  * This store is used to display edit previews inline in the chat message
  * instead of in a popup dialog.
+ *
+ * IMPORTANT: This store supports multiple concurrent pending edits,
+ * keyed by taskId to allow multiple tasks to have pending edits simultaneously.
  */
-
-// ============================================================================
-// Types (moved from review-state-manager.ts)
-// ============================================================================
 
 export interface PendingEdit {
   id: string;
@@ -52,28 +51,30 @@ interface EditCallbacks {
   onAllowAll?: () => Promise<{ success: boolean; message: string }>;
 }
 
+/**
+ * Entry for a single pending edit, stored per taskId
+ */
+export interface PendingEditEntry {
+  pendingEdit: PendingEdit;
+  editId: string;
+  callbacks: EditCallbacks;
+  editResolver: (result: FileEditReviewResult) => void;
+}
+
 // ============================================================================
 // Store State and Actions
 // ============================================================================
 
 interface EditReviewState {
-  /** Current edit waiting for user review */
-  pendingEdit: PendingEdit | null;
-
-  /** Unique ID for the pending edit */
-  editId: string | null;
-
-  /** Callbacks for the current edit */
-  callbacks: EditCallbacks | null;
-
-  /** Function to resolve the Promise when user reviews the edit */
-  editResolver: ((result: FileEditReviewResult) => void) | null;
+  /** Map of pending edits, keyed by taskId */
+  pendingEdits: Map<string, PendingEditEntry>;
 
   /**
    * Set pending edit with all required data
    * Called by edit-file-tool's execute function
    */
   setPendingEdit: (
+    taskId: string,
     editId: string,
     pendingEdit: PendingEdit,
     callbacks: EditCallbacks,
@@ -81,65 +82,78 @@ interface EditReviewState {
   ) => void;
 
   /**
-   * Approve the current edit
+   * Get pending edit entry for a specific task
+   */
+  getPendingEdit: (taskId: string) => PendingEditEntry | null;
+
+  /**
+   * Approve the edit for a specific task
    * Executes the onApprove callback and resolves the Promise
    */
-  approveEdit: () => Promise<void>;
+  approveEdit: (taskId: string) => Promise<void>;
 
   /**
-   * Reject the current edit with feedback
+   * Reject the edit for a specific task with feedback
    * Executes the onReject callback and resolves the Promise
    */
-  rejectEdit: (feedback: string) => Promise<void>;
+  rejectEdit: (taskId: string, feedback: string) => Promise<void>;
 
   /**
-   * Allow all edits in this conversation
+   * Allow all edits in a specific task's conversation
    * Executes the onAllowAll callback and resolves the Promise
    */
-  allowAllEdit: () => Promise<void>;
+  allowAllEdit: (taskId: string) => Promise<void>;
 
   /**
-   * Clear pending edit and resolver
+   * Clear pending edit for a specific task
    */
-  clearPendingEdit: () => void;
+  clearPendingEdit: (taskId: string) => void;
 }
 
 export const useEditReviewStore = create<EditReviewState>()(
   devtools(
     (set, get) => ({
-      pendingEdit: null,
-      editId: null,
-      callbacks: null,
-      editResolver: null,
+      pendingEdits: new Map(),
 
-      setPendingEdit: (editId, pendingEdit, callbacks, resolver) => {
+      setPendingEdit: (taskId, editId, pendingEdit, callbacks, resolver) => {
         logger.info('[EditReviewStore] Setting pending edit', {
+          taskId,
           editId,
           filePath: pendingEdit.filePath,
           operation: pendingEdit.operation,
         });
 
         set(
-          {
-            editId,
-            pendingEdit,
-            callbacks,
-            editResolver: resolver,
+          (state) => {
+            const newMap = new Map(state.pendingEdits);
+            newMap.set(taskId, {
+              pendingEdit,
+              editId,
+              callbacks,
+              editResolver: resolver,
+            });
+            return { pendingEdits: newMap };
           },
           false,
           'setPendingEdit'
         );
       },
 
-      approveEdit: async () => {
-        const { editId, callbacks, editResolver } = get();
+      getPendingEdit: (taskId) => {
+        return get().pendingEdits.get(taskId) || null;
+      },
 
-        if (!editId || !callbacks || !editResolver) {
-          logger.error('[EditReviewStore] No pending edit to approve');
-          throw new Error('No pending edit to approve');
+      approveEdit: async (taskId) => {
+        const entry = get().pendingEdits.get(taskId);
+
+        if (!entry) {
+          logger.error('[EditReviewStore] No pending edit to approve', { taskId });
+          throw new Error(`No pending edit for task ${taskId}`);
         }
 
-        logger.info('[EditReviewStore] Approving edit', { editId });
+        const { editId, callbacks, editResolver } = entry;
+
+        logger.info('[EditReviewStore] Approving edit', { taskId, editId });
 
         try {
           // Execute the onApprove callback
@@ -152,13 +166,12 @@ export const useEditReviewStore = create<EditReviewState>()(
             approved: true,
           });
 
-          // Clear state after resolving
+          // Clear state for this task after resolving
           set(
-            {
-              pendingEdit: null,
-              editId: null,
-              callbacks: null,
-              editResolver: null,
+            (state) => {
+              const newMap = new Map(state.pendingEdits);
+              newMap.delete(taskId);
+              return { pendingEdits: newMap };
             },
             false,
             'approveEdit'
@@ -173,13 +186,12 @@ export const useEditReviewStore = create<EditReviewState>()(
             approved: false,
           });
 
-          // Clear state
+          // Clear state for this task
           set(
-            {
-              pendingEdit: null,
-              editId: null,
-              callbacks: null,
-              editResolver: null,
+            (state) => {
+              const newMap = new Map(state.pendingEdits);
+              newMap.delete(taskId);
+              return { pendingEdits: newMap };
             },
             false,
             'approveEdit-error'
@@ -189,15 +201,17 @@ export const useEditReviewStore = create<EditReviewState>()(
         }
       },
 
-      rejectEdit: async (feedback: string) => {
-        const { editId, callbacks, editResolver } = get();
+      rejectEdit: async (taskId, feedback) => {
+        const entry = get().pendingEdits.get(taskId);
 
-        if (!editId || !callbacks || !editResolver) {
-          logger.error('[EditReviewStore] No pending edit to reject');
-          throw new Error('No pending edit to reject');
+        if (!entry) {
+          logger.error('[EditReviewStore] No pending edit to reject', { taskId });
+          throw new Error(`No pending edit for task ${taskId}`);
         }
 
-        logger.info('[EditReviewStore] Rejecting edit', { editId, feedback });
+        const { editId, callbacks, editResolver } = entry;
+
+        logger.info('[EditReviewStore] Rejecting edit', { taskId, editId, feedback });
 
         try {
           // Execute the onReject callback
@@ -211,13 +225,12 @@ export const useEditReviewStore = create<EditReviewState>()(
             feedback,
           });
 
-          // Clear state after resolving
+          // Clear state for this task after resolving
           set(
-            {
-              pendingEdit: null,
-              editId: null,
-              callbacks: null,
-              editResolver: null,
+            (state) => {
+              const newMap = new Map(state.pendingEdits);
+              newMap.delete(taskId);
+              return { pendingEdits: newMap };
             },
             false,
             'rejectEdit'
@@ -232,13 +245,12 @@ export const useEditReviewStore = create<EditReviewState>()(
             approved: false,
           });
 
-          // Clear state
+          // Clear state for this task
           set(
-            {
-              pendingEdit: null,
-              editId: null,
-              callbacks: null,
-              editResolver: null,
+            (state) => {
+              const newMap = new Map(state.pendingEdits);
+              newMap.delete(taskId);
+              return { pendingEdits: newMap };
             },
             false,
             'rejectEdit-error'
@@ -248,20 +260,22 @@ export const useEditReviewStore = create<EditReviewState>()(
         }
       },
 
-      allowAllEdit: async () => {
-        const { editId, callbacks, editResolver } = get();
+      allowAllEdit: async (taskId) => {
+        const entry = get().pendingEdits.get(taskId);
 
-        if (!editId || !callbacks || !editResolver) {
-          logger.error('[EditReviewStore] No pending edit to allow all');
-          throw new Error('No pending edit to allow all');
+        if (!entry) {
+          logger.error('[EditReviewStore] No pending edit to allow all', { taskId });
+          throw new Error(`No pending edit for task ${taskId}`);
         }
 
+        const { editId, callbacks, editResolver } = entry;
+
         if (!callbacks.onAllowAll) {
-          logger.error('[EditReviewStore] No onAllowAll callback registered');
+          logger.error('[EditReviewStore] No onAllowAll callback registered', { taskId });
           throw new Error('No onAllowAll callback registered');
         }
 
-        logger.info('[EditReviewStore] Allowing all edits', { editId });
+        logger.info('[EditReviewStore] Allowing all edits', { taskId, editId });
 
         try {
           // Execute the onAllowAll callback
@@ -274,13 +288,12 @@ export const useEditReviewStore = create<EditReviewState>()(
             approved: true,
           });
 
-          // Clear state after resolving
+          // Clear state for this task after resolving
           set(
-            {
-              pendingEdit: null,
-              editId: null,
-              callbacks: null,
-              editResolver: null,
+            (state) => {
+              const newMap = new Map(state.pendingEdits);
+              newMap.delete(taskId);
+              return { pendingEdits: newMap };
             },
             false,
             'allowAllEdit'
@@ -295,13 +308,12 @@ export const useEditReviewStore = create<EditReviewState>()(
             approved: false,
           });
 
-          // Clear state
+          // Clear state for this task
           set(
-            {
-              pendingEdit: null,
-              editId: null,
-              callbacks: null,
-              editResolver: null,
+            (state) => {
+              const newMap = new Map(state.pendingEdits);
+              newMap.delete(taskId);
+              return { pendingEdits: newMap };
             },
             false,
             'allowAllEdit-error'
@@ -311,15 +323,14 @@ export const useEditReviewStore = create<EditReviewState>()(
         }
       },
 
-      clearPendingEdit: () => {
-        logger.info('[EditReviewStore] Clearing pending edit');
+      clearPendingEdit: (taskId) => {
+        logger.info('[EditReviewStore] Clearing pending edit', { taskId });
 
         set(
-          {
-            pendingEdit: null,
-            editId: null,
-            callbacks: null,
-            editResolver: null,
+          (state) => {
+            const newMap = new Map(state.pendingEdits);
+            newMap.delete(taskId);
+            return { pendingEdits: newMap };
           },
           false,
           'clearPendingEdit'

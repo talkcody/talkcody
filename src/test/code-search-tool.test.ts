@@ -7,6 +7,7 @@ const mockInvoke = vi.hoisted(() => vi.fn());
 const mockIsAbsolute = vi.hoisted(() => vi.fn());
 const mockJoin = vi.hoisted(() => vi.fn());
 const mockGetValidatedWorkspaceRoot = vi.hoisted(() => vi.fn());
+const mockGetEffectiveWorkspaceRoot = vi.hoisted(() => vi.fn());
 
 vi.mock('@tauri-apps/api/core', () => ({
   invoke: mockInvoke,
@@ -19,6 +20,7 @@ vi.mock('@tauri-apps/api/path', () => ({
 
 vi.mock('@/services/workspace-root-service', () => ({
   getValidatedWorkspaceRoot: mockGetValidatedWorkspaceRoot,
+  getEffectiveWorkspaceRoot: mockGetEffectiveWorkspaceRoot,
 }));
 
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -36,6 +38,7 @@ describe('codeSearch Tool', () => {
     mockJoin.mockImplementation(async (...paths: string[]) => path.join(...paths));
     // Default project root
     mockGetValidatedWorkspaceRoot.mockResolvedValue(PROJECT_ROOT);
+    mockGetEffectiveWorkspaceRoot.mockResolvedValue(PROJECT_ROOT);
   });
 
   // Helper function to normalize the result
@@ -482,6 +485,7 @@ describe('codeSearch Tool', () => {
 
     it('should return error when project root is not set and relative path provided', async () => {
       mockGetValidatedWorkspaceRoot.mockResolvedValue(null);
+      mockGetEffectiveWorkspaceRoot.mockResolvedValue(null);
 
       const result = await codeSearch.execute?.({
         pattern: 'test',

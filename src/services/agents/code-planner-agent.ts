@@ -1,5 +1,4 @@
-import type { ToolSet } from 'ai';
-import type { AgentDefinition } from '@/types/agent';
+import type { AgentDefinition, AgentToolSet } from '@/types/agent';
 import { ModelType } from '@/types/model-types';
 
 const PlannerPrompt = `
@@ -217,7 +216,7 @@ export class PlannerAgent {
 
   static readonly VERSION = '1.0.0';
 
-  static getDefinition(tools: ToolSet): AgentDefinition {
+  static getDefinition(tools: AgentToolSet): AgentDefinition {
     return {
       id: 'planner',
       name: 'Code Planner',

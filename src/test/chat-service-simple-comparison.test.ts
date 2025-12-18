@@ -1,6 +1,6 @@
 // src/test/chat-service-simple-comparison.test.ts
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { llmService } from '@/services/agents/llm-service';
+import { createLLMService, type LLMService } from '@/services/agents/llm-service';
 import type { UIMessage } from '@/types/agent';
 
 // Mock all dependencies
@@ -67,6 +67,7 @@ vi.mock('@/stores/settings-store', () => ({
 
 vi.mock('@/services/workspace-root-service', () => ({
   getValidatedWorkspaceRoot: vi.fn().mockResolvedValue('/test/path'),
+  getEffectiveWorkspaceRoot: vi.fn().mockResolvedValue('/test/path'),
 }));
 
 vi.mock('@/services/ai-pricing-service', () => ({
@@ -103,11 +104,15 @@ describe('ChatService Methods Simple Comparison', () => {
   ];
 
   let mockStreamText: any;
+  let llmService: LLMService;
 
   beforeEach(async () => {
     vi.clearAllMocks();
     const aiModule = await import('ai');
     mockStreamText = vi.mocked(aiModule.streamText);
+
+    // Create a new LLMService instance for each test
+    llmService = createLLMService('test-task-id');
   });
 
   it('should demonstrate that runAgent can replace streamChat functionality', async () => {

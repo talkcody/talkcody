@@ -15,6 +15,7 @@ import {
   resolveProviderModelName,
 } from '@/lib/provider-utils';
 import { PROVIDER_CONFIGS, PROVIDERS_WITH_CODING_PLAN } from '@/providers/provider_config';
+import { modelSyncService } from '@/services/model-sync-service';
 import type { ProviderDefinition } from '@/types';
 import type { AvailableModel } from '@/types/api-keys';
 import type { CustomProviderConfig } from '@/types/custom-provider';
@@ -88,11 +89,18 @@ async function loadApiKeys(): Promise<Record<string, string | undefined>> {
 }
 
 async function loadBaseUrls(): Promise<Map<string, string>> {
-  const { settingsManager } = await import('@/stores/settings-store');
-  const baseUrls = new Map<string, string>();
+  const { settingsDb } = await import('@/stores/settings-store');
+  await settingsDb.initialize();
 
-  for (const providerId of Object.keys(PROVIDER_CONFIGS)) {
-    const baseUrl = await settingsManager.getProviderBaseUrl(providerId);
+  const providerIds = Object.keys(PROVIDER_CONFIGS);
+
+  // Batch query all base URLs in a single database call
+  const keys = providerIds.map((id) => `base_url_${id}`);
+  const values = await settingsDb.getBatch(keys);
+
+  const baseUrls = new Map<string, string>();
+  for (const providerId of providerIds) {
+    const baseUrl = values[`base_url_${providerId}`];
     if (baseUrl) {
       baseUrls.set(providerId, baseUrl);
     }
@@ -102,14 +110,18 @@ async function loadBaseUrls(): Promise<Map<string, string>> {
 }
 
 async function loadUseCodingPlanSettings(): Promise<Map<string, boolean>> {
-  const { settingsManager } = await import('@/stores/settings-store');
-  const settings = new Map<string, boolean>();
+  const { settingsDb } = await import('@/stores/settings-store');
+  await settingsDb.initialize();
 
-  // Load useCodingPlan settings for providers that support it
+  // Batch query all coding plan settings in a single database call
+  const keys = PROVIDERS_WITH_CODING_PLAN.map((id) => `use_coding_plan_${id}`);
+  const values = await settingsDb.getBatch(keys);
+
+  const settings = new Map<string, boolean>();
   for (const providerId of PROVIDERS_WITH_CODING_PLAN) {
-    const useCodingPlan = await settingsManager.getProviderUseCodingPlan(providerId);
-    if (useCodingPlan !== undefined) {
-      settings.set(providerId, useCodingPlan);
+    const value = values[`use_coding_plan_${providerId}`];
+    if (value !== undefined && value !== '') {
+      settings.set(providerId, value === 'true');
     }
   }
 
@@ -175,6 +187,11 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
 
       // Ensure models are loaded first
       await ensureModelsInitialized();
+
+      // Initialize model sync service (non-blocking, for hot-reload)
+      modelSyncService.initialize().catch((err) => {
+        logger.warn('[ProviderStore] Model sync initialization failed:', err);
+      });
 
       // Load all data in parallel
       const [apiKeys, baseUrls, useCodingPlanSettings, customProviders, customModels] =
@@ -504,7 +521,10 @@ export const modelService = {
   isModelAvailableSync: (modelIdentifier: string) =>
     useProviderStore.getState().isModelAvailable(modelIdentifier),
 
-  refreshModels: () => useProviderStore.getState().refresh(),
+  refreshModels: async () => {
+    await useProviderStore.getState().refresh();
+    return modelSyncService.manualRefresh();
+  },
 
   // Methods that need agent/settings integration - import dynamically to avoid cycles
   getCurrentModel: async () => {
@@ -570,8 +590,6 @@ export const modelService = {
   },
 
   getAllProviders: () => PROVIDER_CONFIGS,
-
-  getSyncStatus: () => ({ isChecking: false, hasBackgroundSync: false }),
 
   getModelWithProvider: async (modelKey: string) => {
     const modelConfig = MODEL_CONFIGS[modelKey as keyof typeof MODEL_CONFIGS];

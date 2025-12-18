@@ -5,7 +5,7 @@ import { GlobDoing } from '@/components/tools/glob-doing';
 import { GlobResult } from '@/components/tools/glob-result';
 import { createTool } from '@/lib/create-tool';
 import { logger } from '@/lib/logger';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 
 const inputSchema = z.strictObject({
   pattern: z.string().describe('The glob pattern to match files against'),
@@ -33,13 +33,13 @@ export const globTool = createTool({
   description: DESCRIPTION,
   inputSchema,
   canConcurrent: true,
-  execute: async ({ pattern, path }) => {
+  execute: async ({ pattern, path }, context) => {
     try {
       let searchPath = path;
       let cachedProjectRoot: string | null = null;
       const resolveProjectRoot = async () => {
         if (cachedProjectRoot === null) {
-          cachedProjectRoot = await getValidatedWorkspaceRoot();
+          cachedProjectRoot = await getEffectiveWorkspaceRoot(context?.taskId);
         }
         return cachedProjectRoot;
       };

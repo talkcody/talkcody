@@ -10,14 +10,17 @@
  * - New chat button when under concurrent limit
  */
 
-import { LoaderCircle, Plus, Square } from 'lucide-react';
+import { GitBranch, LoaderCircle, Plus, Square } from 'lucide-react';
 import { memo, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { Button } from '@/components/ui/button';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { useTranslation } from '@/hooks/use-locale';
 import { useCanStartNewExecution, useRunningTaskIds } from '@/hooks/use-task';
 import { cn } from '@/lib/utils';
 import { useTaskStore } from '@/stores/task-store';
+import { useWorktreeStore } from '@/stores/worktree-store';
+import type { WorktreeInfo } from '@/types/worktree';
 
 interface RunningTasksTabsProps {
   /** Currently displayed task ID */
@@ -37,16 +40,18 @@ const TaskTab = memo(function TaskTab({
   taskId,
   title,
   isSelected,
+  worktreeInfo,
   onSelect,
   onStop,
 }: {
   taskId: string;
   title: string;
   isSelected: boolean;
+  worktreeInfo?: WorktreeInfo | null;
   onSelect: () => void;
   onStop: () => void;
 }) {
-  return (
+  const tabContent = (
     <div
       className={cn(
         'group relative flex cursor-pointer items-center gap-1.5 rounded-md border px-2.5 py-1 text-sm transition-colors',
@@ -67,6 +72,7 @@ const TaskTab = memo(function TaskTab({
     >
       {/* Running indicator */}
       <LoaderCircle className="h-3 w-3 flex-shrink-0 animate-spin text-blue-500" />
+      {worktreeInfo && <GitBranch className="h-3 w-3 flex-shrink-0 text-green-500" />}
 
       {/* Title */}
       <span className="max-w-[120px] truncate">{title}</span>
@@ -90,6 +96,33 @@ const TaskTab = memo(function TaskTab({
       </Button>
     </div>
   );
+
+  // Wrap with HoverCard if worktreeInfo exists
+  if (worktreeInfo) {
+    return (
+      <HoverCard>
+        <HoverCardTrigger asChild>{tabContent}</HoverCardTrigger>
+        <HoverCardContent side="top" className="w-auto max-w-sm p-2">
+          <div className="space-y-1 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Branch:</span>
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono">
+                {worktreeInfo.branch}
+              </code>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Path:</span>
+              <code className="break-all rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                {worktreeInfo.path}
+              </code>
+            </div>
+          </div>
+        </HoverCardContent>
+      </HoverCard>
+    );
+  }
+
+  return tabContent;
 });
 
 export const RunningTasksTabs = memo(function RunningTasksTabs({
@@ -105,6 +138,9 @@ export const RunningTasksTabs = memo(function RunningTasksTabs({
   // Get tasks Map from store
   const tasksMap = useTaskStore(useShallow((state) => state.tasks));
 
+  // Get worktree info function
+  const getWorktreeForTask = useWorktreeStore((state) => state.getWorktreeForTask);
+
   // Build task info array with memoization
   const runningTasks = useMemo(() => {
     return runningTaskIds.map((taskId) => {
@@ -112,9 +148,10 @@ export const RunningTasksTabs = memo(function RunningTasksTabs({
       return {
         taskId,
         title: task?.title || 'Untitled',
+        worktreeInfo: getWorktreeForTask(taskId),
       };
     });
-  }, [runningTaskIds, tasksMap]);
+  }, [runningTaskIds, tasksMap, getWorktreeForTask]);
 
   // Don't render if no running tasks
   if (runningTasks.length === 0) {
@@ -124,10 +161,11 @@ export const RunningTasksTabs = memo(function RunningTasksTabs({
   return (
     <div className="flex items-center gap-1.5 border-b bg-muted/30 px-3 py-1.5">
       {/* Running tasks tabs */}
-      {runningTasks.map(({ taskId, title }) => (
+      {runningTasks.map(({ taskId, title, worktreeInfo }) => (
         <TaskTab
           key={taskId}
           isSelected={taskId === currentTaskId}
+          worktreeInfo={worktreeInfo}
           onSelect={() => onSelectTask(taskId)}
           onStop={() => onStopTask(taskId)}
           taskId={taskId}

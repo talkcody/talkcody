@@ -33,6 +33,7 @@ interface SettingsState {
   ai_completion_enabled: boolean;
   get_context_tool_model: string;
   is_plan_mode_enabled: boolean;
+  is_worktree_mode_enabled: boolean;
 
   // Project Settings
   project: string;
@@ -56,6 +57,9 @@ interface SettingsState {
 
   // Terminal Settings
   terminal_shell: string; // 'auto' | 'pwsh' | 'powershell' | 'cmd' | custom path
+
+  // Worktree Settings
+  worktree_root_path: string; // Custom worktree root path (empty = use default ~/.talkcody)
 
   // Internal state
   loading: boolean;
@@ -83,6 +87,7 @@ interface SettingsActions {
   setAICompletionEnabled: (enabled: boolean) => Promise<void>;
   setGetContextToolModel: (model: string) => Promise<void>;
   setPlanModeEnabled: (enabled: boolean) => Promise<void>;
+  setWorktreeModeEnabled: (enabled: boolean) => Promise<void>;
 
   // Project Settings
   setProject: (project: string) => Promise<void>;
@@ -130,6 +135,10 @@ interface SettingsActions {
   setTerminalShell: (shell: string) => Promise<void>;
   getTerminalShell: () => string;
 
+  // Worktree Settings
+  setWorktreeRootPath: (path: string) => Promise<void>;
+  getWorktreeRootPath: () => string;
+
   // Convenience getters
   getModel: () => string;
   getAgentId: () => string;
@@ -139,6 +148,7 @@ interface SettingsActions {
   getCurrentRootPath: () => string;
   getAICompletionEnabled: () => boolean;
   getPlanModeEnabled: () => boolean;
+  getWorktreeModeEnabled: () => boolean;
 }
 
 type SettingsStore = SettingsState & SettingsActions;
@@ -153,6 +163,7 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
   ai_completion_enabled: false,
   get_context_tool_model: GROK_CODE_FAST,
   is_plan_mode_enabled: false,
+  is_worktree_mode_enabled: false,
   project: DEFAULT_PROJECT,
   current_task_id: '',
   current_root_path: '',
@@ -164,6 +175,7 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
   shortcuts: DEFAULT_SHORTCUTS,
   last_seen_version: '',
   terminal_shell: 'auto',
+  worktree_root_path: '',
 };
 
 // Database persistence layer
@@ -224,12 +236,18 @@ class SettingsDatabase {
     };
 
     const now = Date.now();
-    for (const [key, value] of Object.entries(defaultSettings)) {
-      await this.db.execute(
-        'INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES ($1, $2, $3)',
-        [key, value, now]
-      );
-    }
+    const entries = Object.entries(defaultSettings);
+
+    // Batch insert all defaults in a single query for better performance
+    const placeholders = entries
+      .map((_, i) => `($${i * 3 + 1}, $${i * 3 + 2}, $${i * 3 + 3})`)
+      .join(', ');
+    const values = entries.flatMap(([key, value]) => [key, value, now]);
+
+    await this.db.execute(
+      `INSERT OR IGNORE INTO settings (key, value, updated_at) VALUES ${placeholders}`,
+      values
+    );
   }
 
   async get(key: string): Promise<string> {
@@ -327,6 +345,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         'onboarding_completed',
         'last_seen_version',
         'terminal_shell',
+        'worktree_root_path',
       ];
 
       // Add API key keys
@@ -379,6 +398,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         ai_completion_enabled: rawSettings.ai_completion_enabled === 'true',
         get_context_tool_model: rawSettings.get_context_tool_model || GROK_CODE_FAST,
         is_plan_mode_enabled: rawSettings.is_plan_mode_enabled === 'true',
+        is_worktree_mode_enabled: rawSettings.is_worktree_mode_enabled === 'true',
         project: rawSettings.project || DEFAULT_PROJECT,
         current_task_id: rawSettings.current_task_id || '',
         current_root_path: rawSettings.current_root_path || '',
@@ -389,6 +409,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         apiKeys: apiKeys as ApiKeySettings,
         shortcuts: shortcuts as ShortcutSettings,
         last_seen_version: rawSettings.last_seen_version || '',
+        worktree_root_path: rawSettings.worktree_root_path || '',
         loading: false,
         isInitialized: true,
       });
@@ -478,6 +499,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setPlanModeEnabled: async (enabled: boolean) => {
     await settingsDb.set('is_plan_mode_enabled', enabled.toString());
     set({ is_plan_mode_enabled: enabled });
+  },
+
+  setWorktreeModeEnabled: async (enabled: boolean) => {
+    await settingsDb.set('is_worktree_mode_enabled', enabled.toString());
+    set({ is_worktree_mode_enabled: enabled });
   },
 
   // Project Settings
@@ -714,6 +740,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     return get().terminal_shell || 'auto';
   },
 
+  // Worktree Settings
+  setWorktreeRootPath: async (path: string) => {
+    await settingsDb.set('worktree_root_path', path);
+    set({ worktree_root_path: path });
+  },
+
+  getWorktreeRootPath: () => {
+    return get().worktree_root_path || '';
+  },
+
   // Convenience getters
   getModel: () => {
     return get().model;
@@ -746,6 +782,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   getPlanModeEnabled: () => {
     return get().is_plan_mode_enabled;
   },
+
+  getWorktreeModeEnabled: () => {
+    return get().is_worktree_mode_enabled;
+  },
 }));
 
 // Export singleton for non-React usage (backward compatibility)
@@ -772,6 +812,8 @@ export const settingsManager = {
   setAICompletionEnabled: (enabled: boolean) =>
     useSettingsStore.getState().setAICompletionEnabled(enabled),
   setPlanModeEnabled: (enabled: boolean) => useSettingsStore.getState().setPlanModeEnabled(enabled),
+  setWorktreeModeEnabled: (enabled: boolean) =>
+    useSettingsStore.getState().setWorktreeModeEnabled(enabled),
 
   getModel: () => useSettingsStore.getState().getModel(),
   getAgentId: () => useSettingsStore.getState().getAgentId(),
@@ -781,6 +823,7 @@ export const settingsManager = {
   getCurrentRootPath: () => useSettingsStore.getState().getCurrentRootPath(),
   getAICompletionEnabled: () => useSettingsStore.getState().getAICompletionEnabled(),
   getPlanModeEnabled: () => useSettingsStore.getState().getPlanModeEnabled(),
+  getWorktreeModeEnabled: () => useSettingsStore.getState().getWorktreeModeEnabled(),
 
   // API Keys
   setApiKeys: (apiKeys: ApiKeySettings) => useSettingsStore.getState().setApiKeys(apiKeys),
@@ -843,6 +886,10 @@ export const settingsManager = {
   getLastSeenVersion: () => useSettingsStore.getState().getLastSeenVersion(),
   setTerminalShell: (shell: string) => useSettingsStore.getState().setTerminalShell(shell),
   getTerminalShell: () => useSettingsStore.getState().getTerminalShell(),
+
+  // Worktree Settings
+  setWorktreeRootPath: (path: string) => useSettingsStore.getState().setWorktreeRootPath(path),
+  getWorktreeRootPath: () => useSettingsStore.getState().getWorktreeRootPath(),
 };
 
 // Export settingsDb for direct database access (used by ThemeProvider before store initialization)

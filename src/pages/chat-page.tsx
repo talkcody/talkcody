@@ -3,7 +3,9 @@ import { RunningTasksTabs } from '@/components/chat/running-tasks-tabs';
 import { ChatBox } from '@/components/chat-box';
 import { ChatHistorySidebar } from '@/components/chat-history-sidebar';
 import { ChatToolbar } from '@/components/chat-toolbar';
+import { WorktreeConflictDialog } from '@/components/worktree/worktree-conflict-dialog';
 import { useTasks } from '@/hooks/use-tasks';
+import { useWorktreeConflict } from '@/hooks/use-worktree-conflict';
 import { logger } from '@/lib/logger';
 import { databaseService } from '@/services/database-service';
 import { executionService } from '@/services/execution-service';
@@ -15,6 +17,20 @@ export function ChatOnlyPage() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
 
   const { currentTaskId, selectTask, startNewChat } = useTasks();
+
+  // Worktree conflict handling
+  const {
+    conflictData,
+    isProcessing,
+    mergeResult,
+    syncResult,
+    checkForConflicts,
+    discardChanges,
+    mergeToMain,
+    syncFromMain,
+    cancelOperation,
+    resetState,
+  } = useWorktreeConflict();
 
   const rootPath = useRepositoryStore((state) => state.rootPath);
   const openFiles = useRepositoryStore((state) => state.openFiles);
@@ -59,9 +75,44 @@ export function ChatOnlyPage() {
     loadProjectForRootPath();
   }, [rootPath]);
 
-  const handleNewChat = () => {
+  const handleNewChat = async () => {
+    // Check for worktree conflicts before creating new chat
+    const hasConflict = await checkForConflicts();
+    if (hasConflict) {
+      // Dialog will be shown, don't proceed with new chat yet
+      return;
+    }
     startNewChat();
     setIsHistoryOpen(false);
+  };
+
+  // Handle discard and continue with new chat
+  const handleDiscardAndContinue = async () => {
+    await discardChanges();
+    resetState();
+    startNewChat();
+    setIsHistoryOpen(false);
+  };
+
+  // Handle merge and continue with new chat
+  const handleMergeAndContinue = async () => {
+    const result = await mergeToMain();
+    if (result.success) {
+      resetState();
+      startNewChat();
+      setIsHistoryOpen(false);
+    }
+    // If there are conflicts, the dialog will show them
+  };
+
+  // Handle sync from main (user wants to keep working with latest main changes)
+  const handleSyncFromMain = async () => {
+    const result = await syncFromMain();
+    if (result.success) {
+      // Sync successful - dialog will close, user can continue working
+      resetState();
+    }
+    // If there are conflicts, the dialog will show them
   };
 
   const handleHistoryTaskSelect = (taskId: string) => {
@@ -151,6 +202,21 @@ export function ChatOnlyPage() {
           />
         </div>
       </div>
+
+      {/* Worktree conflict dialog */}
+      <WorktreeConflictDialog
+        open={!!conflictData}
+        worktreePath={conflictData?.worktreePath ?? ''}
+        changes={conflictData?.changes ?? null}
+        isProcessing={isProcessing}
+        mergeResult={mergeResult}
+        syncResult={syncResult}
+        onDiscard={handleDiscardAndContinue}
+        onMerge={handleMergeAndContinue}
+        onSync={handleSyncFromMain}
+        onCancel={cancelOperation}
+        onClose={resetState}
+      />
     </div>
   );
 }

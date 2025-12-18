@@ -1,14 +1,14 @@
 import type { ReactElement } from 'react';
 import type { z } from 'zod';
 import { timedMethod } from '@/lib/timer';
-import type { ToolWithUI } from '@/types/tool';
+import type { ToolExecuteContext, ToolRenderContext, ToolWithUI } from '@/types/tool';
 
 interface CreateToolOptions {
   name: string;
   description: string;
   inputSchema: z.ZodSchema;
-  execute: (params: any) => Promise<any>;
-  renderToolDoing: (params: any) => ReactElement;
+  execute: (params: any, context: ToolExecuteContext) => Promise<any>;
+  renderToolDoing: (params: any, context?: ToolRenderContext) => ReactElement;
   renderToolResult: (result: any, params: any) => ReactElement;
   canConcurrent: boolean;
   hidden?: boolean;

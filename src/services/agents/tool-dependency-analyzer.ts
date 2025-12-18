@@ -1,8 +1,8 @@
 // src/services/agents/tool-dependency-analyzer.ts
 
-import type { ToolSet } from 'ai';
 import { logger } from '@/lib/logger';
 import { getToolMetadata, type ToolCategory } from '@/lib/tools';
+import type { AgentToolSet } from '@/types/agent';
 import type { ToolCallInfo } from './tool-executor';
 
 /**
@@ -64,7 +64,7 @@ export class ToolDependencyAnalyzer {
    * 3. Phase 2: Write/Edit operations (sequential for user review)
    * 4. Phase 3: Other operations (based on canConcurrent flag)
    */
-  analyzeDependencies(toolCalls: ToolCallInfo[], tools: ToolSet): ExecutionPlan {
+  analyzeDependencies(toolCalls: ToolCallInfo[], tools: AgentToolSet): ExecutionPlan {
     if (toolCalls.length === 0) {
       return {
         stages: [],
@@ -207,7 +207,7 @@ export class ToolDependencyAnalyzer {
   /**
    * Create other stage - based on canConcurrent flag
    */
-  private createOtherStage(otherTools: ToolCallInfo[], tools: ToolSet): ExecutionStage {
+  private createOtherStage(otherTools: ToolCallInfo[], tools: AgentToolSet): ExecutionStage {
     const groups: ExecutionGroup[] = [];
     let currentConcurrentGroup: ExecutionGroup | null = null;
     let groupCounter = 0;

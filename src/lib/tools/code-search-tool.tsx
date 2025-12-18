@@ -5,7 +5,7 @@ import { GenericToolDoing } from '@/components/tools/generic-tool-doing';
 import { GenericToolResult } from '@/components/tools/generic-tool-result';
 import { createTool } from '@/lib/create-tool';
 import { logger } from '@/lib/logger';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 
 export interface CodeSearchResult {
   success: boolean;
@@ -28,7 +28,7 @@ Use this to find code patterns, function definitions, variable usage, or any tex
       .describe('File extensions to search (e.g., ["ts", "tsx", "js"])'),
   }),
   canConcurrent: true,
-  execute: async ({ pattern, path, file_types }): Promise<CodeSearchResult> => {
+  execute: async ({ pattern, path, file_types }, context): Promise<CodeSearchResult> => {
     try {
       // Validate required parameters before calling Rust command
       if (!path || path.trim() === '') {
@@ -43,7 +43,7 @@ Use this to find code patterns, function definitions, variable usage, or any tex
       // Resolve relative paths to absolute paths
       let searchPath = path;
       if (!(await isAbsolute(searchPath))) {
-        const projectRoot = await getValidatedWorkspaceRoot();
+        const projectRoot = await getEffectiveWorkspaceRoot(context?.taskId);
         if (!projectRoot) {
           return {
             success: false,

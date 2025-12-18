@@ -1,6 +1,13 @@
 import type { ModelMessage, ToolSet } from 'ai';
 import type { ModelType } from './model-types';
-import type { ToolInput, ToolOutput } from './tool';
+import type { ToolInput, ToolOutput, ToolWithUI } from './tool';
+
+/**
+ * Custom tool set type that accepts our ToolWithUI objects.
+ * This is used for AgentDefinition.tools which stores ToolWithUI instances.
+ * When passed to the AI SDK, these are converted appropriately.
+ */
+export type AgentToolSet = Record<string, ToolWithUI>;
 
 export interface UIMessage {
   id: string;
@@ -15,6 +22,7 @@ export interface UIMessage {
   parentToolCallId?: string; // For nested tool messages - indicates this message belongs to a parent tool
   nestedTools?: UIMessage[]; // For parent tools - stores nested tool messages
   renderDoingUI?: boolean; // For tool-call messages - indicates whether UI should render "doing" state
+  taskId?: string; // Task ID for tools that need to identify their execution context (e.g., exitPlanMode)
 }
 
 export interface ToolMessageContent {
@@ -45,8 +53,9 @@ export interface AgentLoopOptions {
   messages: UIMessage[];
   model: string;
   systemPrompt?: string;
-  tools?: ToolSet;
+  tools?: AgentToolSet;
   isThink?: boolean;
+  isSubagent?: boolean;
   suppressReasoning?: boolean;
   maxIterations?: number;
   compression?: Partial<CompressionConfig>;
@@ -132,7 +141,7 @@ export interface AgentDefinition {
   description?: string;
   modelType: ModelType; // Model type category (main_model, small_model, etc.)
   systemPrompt: string | (() => Promise<string>) | (() => string);
-  tools?: ToolSet;
+  tools?: AgentToolSet;
   hidden?: boolean; // if true, not shown to users
   rules?: string;
   outputFormat?: string;

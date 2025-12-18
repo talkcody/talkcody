@@ -56,19 +56,30 @@ export class AIProviderService {
 
       this.lastApiKeysUpdate = now;
 
-      // Load base URLs and useCodingPlan settings for all providers
+      // Load base URLs and useCodingPlan settings for all providers using batch queries
       this.baseUrls.clear();
       this.useCodingPlanSettings.clear();
-      for (const provider of providerRegistry.getAllProviders()) {
-        const baseUrl = await settingsManager.getProviderBaseUrl(provider.id);
-        if (baseUrl) {
-          this.baseUrls.set(provider.id, baseUrl);
-        }
 
-        // Load useCodingPlan setting for providers that support it
-        if (PROVIDERS_WITH_CODING_PLAN.includes(provider.id)) {
-          const useCodingPlan = await settingsManager.getProviderUseCodingPlan(provider.id);
-          this.useCodingPlanSettings.set(provider.id, useCodingPlan);
+      const allProviders = providerRegistry.getAllProviders();
+      const providerIds = allProviders.map((p) => p.id);
+
+      // Batch query all base URLs
+      const baseUrlKeys = providerIds.map((id) => `base_url_${id}`);
+      const baseUrlValues = await settingsManager.getBatch(baseUrlKeys);
+      for (const providerId of providerIds) {
+        const baseUrl = baseUrlValues[`base_url_${providerId}`];
+        if (baseUrl) {
+          this.baseUrls.set(providerId, baseUrl);
+        }
+      }
+
+      // Batch query all useCodingPlan settings
+      const codingPlanKeys = PROVIDERS_WITH_CODING_PLAN.map((id) => `use_coding_plan_${id}`);
+      const codingPlanValues = await settingsManager.getBatch(codingPlanKeys);
+      for (const providerId of PROVIDERS_WITH_CODING_PLAN) {
+        const value = codingPlanValues[`use_coding_plan_${providerId}`];
+        if (value !== undefined && value !== '') {
+          this.useCodingPlanSettings.set(providerId, value === 'true');
         }
       }
     } catch (error) {

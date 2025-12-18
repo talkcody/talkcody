@@ -7,11 +7,12 @@ import type { PendingEdit } from '@/stores/edit-review-store';
 import { useEditReviewStore } from '@/stores/edit-review-store';
 
 interface FileEditReviewCardProps {
+  taskId: string;
   editId: string;
   pendingEdit: PendingEdit;
 }
 
-export function FileEditReviewCard({ editId, pendingEdit }: FileEditReviewCardProps) {
+export function FileEditReviewCard({ taskId, editId, pendingEdit }: FileEditReviewCardProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [submitted, setSubmitted] = useState(false);
 
@@ -22,11 +23,11 @@ export function FileEditReviewCard({ editId, pendingEdit }: FileEditReviewCardPr
     if (isProcessing) return;
 
     setIsProcessing(true);
-    logger.info('[FileEditReviewCard] User approved edit', { editId });
+    logger.info('[FileEditReviewCard] User approved edit', { taskId, editId });
 
     try {
-      // Call the store method which will execute the callback and resolve the Promise
-      await approveEdit();
+      // Call the store method with taskId
+      await approveEdit(taskId);
 
       // Mark as submitted
       setSubmitted(true);
@@ -42,11 +43,11 @@ export function FileEditReviewCard({ editId, pendingEdit }: FileEditReviewCardPr
     if (isProcessing) return;
 
     setIsProcessing(true);
-    logger.info('[FileEditReviewCard] User rejected edit', { editId, feedback });
+    logger.info('[FileEditReviewCard] User rejected edit', { taskId, editId, feedback });
 
     try {
-      // Call the store method which will execute the callback and resolve the Promise
-      await rejectEdit(feedback);
+      // Call the store method with taskId
+      await rejectEdit(taskId, feedback);
 
       // Mark as submitted
       setSubmitted(true);
@@ -62,11 +63,11 @@ export function FileEditReviewCard({ editId, pendingEdit }: FileEditReviewCardPr
     if (isProcessing) return;
 
     setIsProcessing(true);
-    logger.info('[FileEditReviewCard] User allowed all edits', { editId });
+    logger.info('[FileEditReviewCard] User allowed all edits', { taskId, editId });
 
     try {
-      // Call the store method which will execute the callback and resolve the Promise
-      await allowAllEdit();
+      // Call the store method with taskId
+      await allowAllEdit(taskId);
 
       // Mark as submitted
       setSubmitted(true);

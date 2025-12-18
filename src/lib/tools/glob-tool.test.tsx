@@ -3,13 +3,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { invoke } from '@tauri-apps/api/core';
 import { isAbsolute, join } from '@tauri-apps/api/path';
 import { globTool } from './glob-tool';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 
 // Get the mocked functions
 const mockInvoke = vi.mocked(invoke);
 const mockIsAbsolute = vi.mocked(isAbsolute);
 const mockJoin = vi.mocked(join);
-const mockGetValidatedWorkspaceRoot = vi.mocked(getValidatedWorkspaceRoot);
+const mockGetEffectiveWorkspaceRoot = vi.mocked(getEffectiveWorkspaceRoot);
 
 // Use Node.js path.isAbsolute for realistic behavior validation
 // This ensures our mock matches real behavior
@@ -22,7 +22,7 @@ describe('globTool', () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    mockGetValidatedWorkspaceRoot.mockResolvedValue(PROJECT_ROOT);
+    mockGetEffectiveWorkspaceRoot.mockResolvedValue(PROJECT_ROOT);
     mockInvoke.mockResolvedValue([]);
     // Use realistic isAbsolute behavior based on Node.js path module
     useRealisticIsAbsoluteMock();
@@ -171,7 +171,7 @@ describe('globTool', () => {
 
   describe('error handling', () => {
     it('should return error when project root is not set and no path provided', async () => {
-      mockGetValidatedWorkspaceRoot.mockResolvedValue(null);
+      mockGetEffectiveWorkspaceRoot.mockResolvedValue(null);
 
       const result = await globTool.execute({ pattern: '**/*.ts' });
 
@@ -179,7 +179,7 @@ describe('globTool', () => {
     });
 
     it('should return error when project root is not set and relative path provided', async () => {
-      mockGetValidatedWorkspaceRoot.mockResolvedValue(null);
+      mockGetEffectiveWorkspaceRoot.mockResolvedValue(null);
 
       const result = await globTool.execute({ pattern: '**/*.ts', path: 'src' });
 

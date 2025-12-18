@@ -15,9 +15,14 @@ import { logger } from '@/lib/logger';
 import { mapStoredMessagesToUI } from '@/lib/message-mapper';
 import { generateConversationTitle, generateId } from '@/lib/utils';
 import { databaseService } from '@/services/database-service';
+import { useEditReviewStore } from '@/stores/edit-review-store';
 import { useExecutionStore } from '@/stores/execution-store';
+import { useFileChangesStore } from '@/stores/file-changes-store';
+import { usePlanModeStore } from '@/stores/plan-mode-store';
 import { settingsManager } from '@/stores/settings-store';
 import { useTaskStore } from '@/stores/task-store';
+import { useUserQuestionStore } from '@/stores/user-question-store';
+import { useWorktreeStore } from '@/stores/worktree-store';
 import type { Task, TaskSettings } from '@/types';
 import type { UIMessage } from '@/types/agent';
 
@@ -62,6 +67,24 @@ class TaskService {
 
     // 3. Notify callback
     options?.onTaskStart?.(taskId, title);
+
+    // 4. Acquire worktree if enabled and other tasks are running
+    const runningTaskIds = useExecutionStore.getState().getRunningTaskIds();
+    logger.info('[TaskService] createTask checking worktree', {
+      taskId,
+      runningTaskIds,
+      count: runningTaskIds.length,
+    });
+    if (runningTaskIds.length > 0) {
+      try {
+        const worktreePath = await useWorktreeStore
+          .getState()
+          .acquireForTask(taskId, runningTaskIds);
+        logger.info('[TaskService] Acquired worktree for task', { taskId, worktreePath });
+      } catch (error) {
+        logger.warn('[TaskService] Failed to acquire worktree:', error);
+      }
+    }
 
     return taskId;
   }
@@ -157,15 +180,53 @@ class TaskService {
    * Delete a task
    */
   async deleteTask(taskId: string): Promise<void> {
-    // 1. Remove from store
+    logger.info('[TaskService] Deleting task and cleaning up all related state', { taskId });
+
+    // 1. Release worktree if task is using one
+    const worktreeState = useWorktreeStore.getState();
+    if (worktreeState.isTaskUsingWorktree(taskId)) {
+      try {
+        await worktreeState.releaseForTask(taskId);
+        logger.info('[TaskService] Released worktree for deleted task', { taskId });
+      } catch (error) {
+        logger.warn('[TaskService] Failed to release worktree, continuing with deletion', error);
+        // Continue with deletion even if worktree release fails
+      }
+    }
+
+    // 2. Clean up all task-related state from various stores
+    // This prevents memory leaks and stale state when tasks are deleted
+    try {
+      // Clean up edit review state (pending file edits)
+      useEditReviewStore.getState().clearPendingEdit(taskId);
+
+      // Clean up user question state (pending questions)
+      useUserQuestionStore.getState().clearQuestions(taskId);
+
+      // Clean up file changes state
+      useFileChangesStore.getState().clearTask(taskId);
+
+      // Clean up plan mode state (pending plans)
+      usePlanModeStore.getState().clearPendingPlan(taskId);
+
+      // Clean up execution state (only if not running)
+      useExecutionStore.getState().cleanupExecution(taskId);
+
+      logger.info('[TaskService] Cleaned up all related stores for task', { taskId });
+    } catch (error) {
+      logger.warn('[TaskService] Error during store cleanup, continuing with deletion', error);
+      // Continue with deletion even if cleanup fails
+    }
+
+    // 3. Remove from task store
     useTaskStore.getState().removeTask(taskId);
 
-    // 2. Delete from database
+    // 4. Delete from database
     try {
       await databaseService.deleteTask(taskId);
-      logger.info('[TaskService] Task deleted', { taskId });
+      logger.info('[TaskService] Task deleted from database', { taskId });
     } catch (error) {
-      logger.error('[TaskService] Failed to delete task:', error);
+      logger.error('[TaskService] Failed to delete task from database:', error);
       throw error;
     }
   }

@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
 import { FileEditReviewCard } from '@/components/tools/file-edit-review-card';
 import { GenericToolDoing } from '@/components/tools/generic-tool-doing';
-import { useEditReviewStore } from '@/stores/edit-review-store';
+import { type PendingEditEntry, useEditReviewStore } from '@/stores/edit-review-store';
 
 interface WriteFileToolDoingProps {
   file_path: string;
+  taskId: string;
 }
 
 /**
@@ -14,41 +15,26 @@ interface WriteFileToolDoingProps {
  * switches between showing the inline review card (when a pending write exists)
  * and the generic "doing" status (when no review is pending).
  *
- * Uses local state + useEffect to force re-renders when store changes
+ * Uses taskId to look up the correct pending edit from the Map,
+ * allowing multiple concurrent tasks to have independent pending edits.
  */
-export function WriteFileToolDoing({ file_path }: WriteFileToolDoingProps) {
-  // Subscribe to the store using the hook (reactive)
-  const storePendingEdit = useEditReviewStore((state) => state.pendingEdit);
-  const storeEditId = useEditReviewStore((state) => state.editId);
+export function WriteFileToolDoing({ file_path, taskId }: WriteFileToolDoingProps) {
+  // Subscribe to the store's pendingEdits Map (reactive)
+  const pendingEdits = useEditReviewStore((state) => state.pendingEdits);
 
   // Use local state to ensure component re-renders when store updates
-  const [pendingEdit, setPendingEdit] = useState(storePendingEdit);
-  const [editId, setEditId] = useState(storeEditId);
+  const [entry, setEntry] = useState<PendingEditEntry | null>(pendingEdits.get(taskId) || null);
 
-  // Update local state when store changes
+  // Update local state when store changes or taskId changes
   useEffect(() => {
-    setPendingEdit(storePendingEdit);
-    setEditId(storeEditId);
-  }, [storePendingEdit, storeEditId]);
+    setEntry(pendingEdits.get(taskId) || null);
+  }, [pendingEdits, taskId]);
 
-  // Poll the store periodically as a fallback
-  useEffect(() => {
-    const interval = setInterval(() => {
-      const currentPendingEdit = useEditReviewStore.getState().pendingEdit;
-      const currentEditId = useEditReviewStore.getState().editId;
-
-      if (currentPendingEdit !== pendingEdit || currentEditId !== editId) {
-        setPendingEdit(currentPendingEdit);
-        setEditId(currentEditId);
-      }
-    }, 100); // Check every 100ms
-
-    return () => clearInterval(interval);
-  }, [pendingEdit, editId]);
-
-  // If there's a pending write for this file, show the inline review card
-  if (pendingEdit && editId && pendingEdit.filePath === file_path) {
-    return <FileEditReviewCard editId={editId} pendingEdit={pendingEdit} />;
+  // If there's a pending write for this file and task, show the inline review card
+  if (entry && entry.pendingEdit.filePath === file_path) {
+    return (
+      <FileEditReviewCard taskId={taskId} editId={entry.editId} pendingEdit={entry.pendingEdit} />
+    );
   }
 
   // Otherwise, show the generic "doing" status

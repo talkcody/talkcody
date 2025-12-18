@@ -1,11 +1,16 @@
 import { tool } from 'ai';
-import type { ToolInput, ToolOutput, ToolWithUI } from '@/types/tool';
+import type { ToolExecuteContext, ToolInput, ToolOutput, ToolWithUI } from '@/types/tool';
+
+// Context passed to tool UI renderers
+export interface ToolUIContext {
+  taskId?: string;
+}
 
 // Global registry to store UI renderers for tools
 const toolUIRegistry = new Map<
   string,
   {
-    renderToolDoing: (params: ToolInput) => React.ReactElement;
+    renderToolDoing: (params: ToolInput, context?: ToolUIContext) => React.ReactElement;
     renderToolResult: (result: ToolOutput, params: ToolInput) => React.ReactElement;
   }
 >();
@@ -25,20 +30,26 @@ export function registerToolUIRenderers(toolWithUI: ToolWithUI, keyName: string)
 export function convertToolForAI(toolWithUI: ToolWithUI, keyName: string) {
   registerToolUIRenderers(toolWithUI, keyName);
 
-  // Return vercel ai library compatible tool
-  return Object.defineProperty(
-    tool({
-      description: toolWithUI.description,
-      inputSchema: toolWithUI.inputSchema,
-      execute: toolWithUI.execute,
-    }),
-    'description',
-    {
-      get: () => toolWithUI.description,
-      enumerable: true,
-      configurable: true,
-    }
-  );
+  // Use vercel ai's tool() for proper schema handling and JSON schema conversion
+  // Don't provide execute - ToolExecutor will use the original execute with context
+  const vercelTool = tool({
+    description: toolWithUI.description,
+    inputSchema: toolWithUI.inputSchema as any,
+  });
+
+  // Preserve ToolWithUI properties so ToolExecutor.isToolWithUI() returns true
+  // and uses the correct execute signature with context
+  const adaptedTool = vercelTool as typeof vercelTool & Partial<ToolWithUI>;
+  (adaptedTool as any).renderToolDoing = toolWithUI.renderToolDoing;
+  (adaptedTool as any).renderToolResult = toolWithUI.renderToolResult;
+  // Add execute with the original that accepts (params, context)
+  (adaptedTool as any).execute = toolWithUI.execute;
+
+  return Object.defineProperty(adaptedTool, 'description', {
+    get: () => toolWithUI.description,
+    enumerable: true,
+    configurable: true,
+  });
 }
 
 /**
@@ -56,14 +67,6 @@ export function convertToolsForAI(tools: Record<string, unknown>) {
 
   for (const [key, toolObj] of Object.entries(tools)) {
     if (toolObj && typeof toolObj === 'object') {
-      // logger.info('[ToolAdapter] Processing tool:', key, {
-      //   hasRenderToolDoing: 'renderToolDoing' in toolObj,
-      //   hasRenderToolResult: 'renderToolResult' in toolObj,
-      //   hasExecute: 'execute' in toolObj,
-      //   hasInputSchema: 'inputSchema' in toolObj,
-      //   isInRegistry: toolUIRegistry.has(key)
-      // });
-
       // Check if it's a ToolWithUI
       if ('renderToolDoing' in toolObj && 'renderToolResult' in toolObj) {
         // logger.info('[ToolAdapter] Tool has UI renderers, registering:', key);

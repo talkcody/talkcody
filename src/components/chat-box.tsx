@@ -23,11 +23,12 @@ import { databaseService } from '@/services/database-service';
 import { executionService } from '@/services/execution-service';
 import { messageService } from '@/services/message-service';
 import { previewSystemPrompt } from '@/services/prompt/preview';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import { useExecutionStore } from '@/stores/execution-store';
 import { modelService } from '@/stores/provider-store';
 import { settingsManager, useSettingsStore } from '@/stores/settings-store';
 import { useTaskStore } from '@/stores/task-store';
+import { useWorktreeStore } from '@/stores/worktree-store';
 import type { MessageAttachment, UIMessage } from '@/types/agent';
 import type { Command, CommandContext, CommandResult } from '@/types/command';
 import { Task, TaskContent, TaskScrollButton } from './ai-elements/task';
@@ -49,6 +50,7 @@ interface ChatBoxProps {
   showModeSelection?: boolean;
   onAddFileToChat?: (filePath: string, fileContent: string) => Promise<void>;
   onFileSelect?: (filePath: string) => void;
+  checkForConflicts?: () => Promise<boolean>;
 }
 
 export interface ChatBoxRef {
@@ -70,6 +72,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
       onDiffApplied,
       onFileSelect: _onFileSelect,
       onAddFileToChat: _onAddFileToChat,
+      checkForConflicts,
     },
     ref
   ) => {
@@ -271,13 +274,37 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
             : agent.systemPrompt
           : undefined;
 
+        // Acquire worktree for existing tasks before building system prompt
+        // (New tasks are handled in taskService.createTask)
+        if (!isNewTask && activeTaskId) {
+          const runningTaskIds = executionService
+            .getRunningTaskIds()
+            .filter((id) => id !== activeTaskId);
+          if (runningTaskIds.length > 0) {
+            try {
+              await useWorktreeStore.getState().acquireForTask(activeTaskId, runningTaskIds);
+              logger.info('[ChatBox] Acquired worktree for existing task', {
+                taskId: activeTaskId,
+              });
+            } catch (error) {
+              logger.warn('[ChatBox] Failed to acquire worktree:', error);
+            }
+          }
+        }
+
         // If dynamic prompt is enabled for this agent, compose it with providers
         if (agent?.dynamicPrompt?.enabled) {
           try {
-            const root = await getValidatedWorkspaceRoot();
+            const root = await getEffectiveWorkspaceRoot(activeTaskId);
+            logger.info('[ChatBox] Building system prompt with workspaceRoot', {
+              activeTaskId,
+              isNewTask,
+              workspaceRoot: root,
+            });
             const { finalSystemPrompt } = await previewSystemPrompt({
               agent: agent,
               workspaceRoot: root,
+              taskId: activeTaskId,
             });
             systemPrompt = finalSystemPrompt;
           } catch (e) {
@@ -342,6 +369,14 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
 
     const handleRegenerate = async (messageId: string) => {
       if (isLoading) return;
+
+      // Check for worktree conflicts before regenerating
+      if (checkForConflicts) {
+        const hasConflict = await checkForConflicts();
+        if (hasConflict) {
+          return;
+        }
+      }
 
       const messageIndex = findMessageIndex(messageId);
       if (messageIndex === -1) return;

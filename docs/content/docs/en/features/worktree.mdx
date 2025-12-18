@@ -1,0 +1,155 @@
+---
+title: Worktree-Based Parallel Tasks
+description: Use Git Worktree to provide file isolation for parallel tasks, preventing conflicts when multiple AI tasks modify files simultaneously
+icon: GitBranch
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Steps, Step } from 'fumadocs-ui/components/steps';
+
+## What is Worktree?
+
+Worktree is a feature that allows your AI tasks to work in isolated directories. When running multiple tasks simultaneously, each task has its own "workspace" to avoid interference.
+
+<Callout type="info">
+Worktree is built on Git's native functionality, which allows the same repository to have multiple working directories, each capable of checking out different branches.
+</Callout>
+
+<Callout type="warn">
+**Read-only tasks don't need Worktree!** Only enable Worktree when tasks need to modify files. For example, code search, issue analysis, and code review can safely run in parallel without Worktree isolation.
+</Callout>
+
+## Why Worktree?
+
+When having AI handle multiple tasks simultaneously, you might encounter these issues:
+
+| Scenario | Without Worktree | With Worktree |
+|----------|------------------|---------------|
+| Task A modifies config.ts | Directly modifies main directory file | Modifies in pool-0 directory |
+| Task B also modifies config.ts | Overwrites Task A's changes | Modifies in pool-1 directory |
+| Final result | Only the last modification is preserved | Both tasks' changes are preserved and can be merged separately |
+
+## How It Works
+
+TalkCody uses a **Worktree Pool** to manage parallel tasks:
+
+- **Pool size**: Up to 3 Worktrees (pool-0, pool-1, pool-2)
+- **Directory location**: `~/.talkcody/project-name/pool-{0,1,2}/` (customizable in settings)
+- **Branch naming**: `talkcody-pool-0`, `talkcody-pool-1`, `talkcody-pool-2`
+- **Auto-assignment**: New tasks automatically get an available Worktree
+
+<Callout type="tip">
+These directories and branches are automatically managed by TalkCody. You don't need to create or delete them manually.
+</Callout>
+
+## How to Enable Worktree
+
+<Steps>
+
+<Step>
+### Find the Worktree Toggle
+
+In the toolbar below the chat input box, find the "Worktree" toggle.
+</Step>
+
+<Step>
+### Enable the Feature
+
+Click the toggle to enable Worktree. Once enabled, the system will automatically assign isolated working directories to new tasks when multiple tasks are running in parallel.
+</Step>
+
+</Steps>
+
+<Callout type="info">
+Worktree only activates when other tasks are running. If there's only one task, it will work directly in the main project directory without creating additional Worktrees.
+</Callout>
+
+## Daily Use Scenarios
+
+### Normal Workflow
+
+<Steps>
+
+<Step>
+### Start the First Task
+
+The first task works directly in the main project directory without using Worktree.
+</Step>
+
+<Step>
+### Start the Second Task
+
+The system detects that a task is already running and automatically assigns a Worktree (e.g., pool-0) to the new task.
+</Step>
+
+<Step>
+### Handle Changes After Task Completion
+
+When there are uncommitted changes in the Worktree, the system will prompt you to choose how to handle them.
+</Step>
+
+</Steps>
+
+### Handling Uncommitted Changes
+
+When uncommitted changes are detected in a Worktree, a dialog will display:
+
+- **Modified files**: Existing files that have been modified
+- **New files**: Newly created files
+- **Deleted files**: Files that have been deleted
+
+You can choose from three options:
+
+| Action | Description | Use Case |
+|--------|-------------|----------|
+| "Discard" | Delete all uncommitted changes and reset the worktree | When you no longer need these changes |
+| "Sync" | Sync the latest code from main branch to the worktree | When you need to continue working in this worktree |
+| "Merge" | Merge worktree changes to main branch | When task is complete and you want to keep the changes |
+
+<Callout type="warn">
+The "Discard" action will permanently delete uncommitted changes. This operation cannot be undone. Make sure you no longer need these changes before executing.
+</Callout>
+
+### Conflict Resolution
+
+When conflicts occur during Merge or Sync operations, the dialog will show a list of conflicting files. You need to:
+
+1. Open the conflicting files in your editor
+2. Manually resolve conflict markers (`<<<<<<<`, `=======`, `>>>>>>>`)
+3. Save the files and retry the operation
+
+<Callout type="warn">
+If you decide to abandon conflict resolution, you can run in the terminal:
+- Merge conflict: `git merge --abort`
+- Sync conflict: `git rebase --abort`
+</Callout>
+
+## FAQ
+
+### Does Worktree take up extra disk space?
+
+Yes, it takes up some space, but Git Worktree uses a shared Git object database. The actual additional space is mainly the file copies in the working directory. For most projects, each Worktree takes up extra space roughly equal to the project's source code size.
+
+### Can I manually delete the `~/.talkcody` directory?
+
+Not recommended. Please ensure all related tasks are completed and let TalkCody clean up automatically. If you really need to clean up manually, first run `git worktree prune` in the terminal.
+
+### How do I customize the Worktree directory location?
+
+You can modify the Worktree root directory in "Settings → General → Worktree Settings". Click the folder icon to select your preferred directory, or click the "Reset" button to restore the default path.
+
+### Why isn't my task using an isolated directory even though I enabled Worktree?
+
+Worktree only activates when multiple tasks are running in parallel. If only one task is running, it will use the main project directory directly. This is a design optimization to avoid creating unnecessary Worktrees for single-task scenarios.
+
+### How many parallel tasks can use Worktree at most?
+
+The Worktree pool size is 3, meaning up to 3 tasks can use isolated working directories simultaneously.
+
+### Will Worktrees be automatically cleaned up after tasks complete?
+
+If there are no uncommitted changes in the Worktree, the system will automatically release it for subsequent tasks after the task completes. If there are uncommitted changes, you need to manually choose how to handle them (discard, sync, or merge).
+
+### Does Worktree require a specific Git version?
+
+Git Worktree is a feature of Git 2.5+. Most modern operating systems come with Git versions that already support this feature. You can check your Git version with `git --version`.

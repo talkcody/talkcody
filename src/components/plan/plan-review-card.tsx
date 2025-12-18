@@ -9,9 +9,10 @@ import { usePlanModeStore } from '@/stores/plan-mode-store';
 
 interface PlanReviewCardProps {
   planContent: string;
+  taskId?: string;
 }
 
-export function PlanReviewCard({ planContent }: PlanReviewCardProps) {
+export function PlanReviewCard({ planContent, taskId }: PlanReviewCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(planContent);
   const [showFeedbackInput, setShowFeedbackInput] = useState(false);
@@ -22,9 +23,13 @@ export function PlanReviewCard({ planContent }: PlanReviewCardProps) {
   const { approvePlan, rejectPlan } = usePlanModeStore();
 
   const handleApprove = () => {
+    if (!taskId) {
+      console.error('[PlanReviewCard] taskId is required for approval');
+      return;
+    }
     // If content was edited, pass the edited version
     const finalContent = isEditing && editedContent !== planContent ? editedContent : undefined;
-    approvePlan(finalContent);
+    approvePlan(taskId, finalContent);
     setSubmitted(true);
   };
 
@@ -35,8 +40,13 @@ export function PlanReviewCard({ planContent }: PlanReviewCardProps) {
       return;
     }
 
+    if (!taskId) {
+      console.error('[PlanReviewCard] taskId is required for rejection');
+      return;
+    }
+
     // Submit rejection with feedback
-    rejectPlan(feedback.trim() || undefined);
+    rejectPlan(taskId, feedback.trim() || undefined);
     setSubmitted(true);
   };
 

@@ -363,3 +363,246 @@ describe('tool-executor - callAgent toolCallId passing', () => {
     expect(executeArgs.data).toBe('[invalid json');
   });
 });
+
+describe('tool-executor - taskId context passing for worktree', () => {
+  let toolExecutor: ToolExecutor;
+  let mockLoopState: AgentLoopState;
+  let mockOnToolMessage: any;
+
+  beforeEach(() => {
+    toolExecutor = new ToolExecutor();
+    mockOnToolMessage = vi.fn();
+    mockLoopState = {
+      messages: [],
+      currentIteration: 0,
+      isComplete: false,
+    };
+  });
+
+  describe('isToolWithUI type guard', () => {
+    it('should return true for tools with renderToolDoing and renderToolResult', () => {
+      const toolWithUI = {
+        name: 'testTool',
+        execute: vi.fn(),
+        renderToolDoing: () => null,
+        renderToolResult: () => null,
+      };
+      // Access private method via any cast for testing
+      expect((toolExecutor as any).isToolWithUI(toolWithUI)).toBe(true);
+    });
+
+    it('should return false for plain tools without UI methods', () => {
+      const plainTool = {
+        name: 'testTool',
+        execute: vi.fn(),
+      };
+      expect((toolExecutor as any).isToolWithUI(plainTool)).toBe(false);
+    });
+
+    it('should return false for null', () => {
+      expect((toolExecutor as any).isToolWithUI(null)).toBe(false);
+    });
+
+    it('should return false for undefined', () => {
+      expect((toolExecutor as any).isToolWithUI(undefined)).toBe(false);
+    });
+
+    it('should return false for non-object types', () => {
+      expect((toolExecutor as any).isToolWithUI('string')).toBe(false);
+      expect((toolExecutor as any).isToolWithUI(123)).toBe(false);
+      expect((toolExecutor as any).isToolWithUI(true)).toBe(false);
+    });
+
+    it('should return false for tools with only renderToolDoing', () => {
+      const partialTool = {
+        name: 'testTool',
+        execute: vi.fn(),
+        renderToolDoing: () => null,
+      };
+      expect((toolExecutor as any).isToolWithUI(partialTool)).toBe(false);
+    });
+
+    it('should return false for tools with only renderToolResult', () => {
+      const partialTool = {
+        name: 'testTool',
+        execute: vi.fn(),
+        renderToolResult: () => null,
+      };
+      expect((toolExecutor as any).isToolWithUI(partialTool)).toBe(false);
+    });
+  });
+
+  describe('executeTool helper', () => {
+    it('should pass context to ToolWithUI tools', async () => {
+      const mockExecute = vi.fn().mockResolvedValue('result');
+      const toolWithUI = {
+        name: 'testTool',
+        execute: mockExecute,
+        renderToolDoing: () => null,
+        renderToolResult: () => null,
+      };
+      const context = { taskId: 'task-123' };
+
+      await (toolExecutor as any).executeTool(toolWithUI, { path: '/test' }, context);
+
+      expect(mockExecute).toHaveBeenCalledWith({ path: '/test' }, context);
+    });
+
+    it('should NOT pass context to plain tools', async () => {
+      const mockExecute = vi.fn().mockResolvedValue('result');
+      const plainTool = {
+        name: 'testTool',
+        execute: mockExecute,
+      };
+      const context = { taskId: 'task-123' };
+
+      await (toolExecutor as any).executeTool(plainTool, { path: '/test' }, context);
+
+      // Plain tools should only receive the args, not the context
+      expect(mockExecute).toHaveBeenCalledWith({ path: '/test' });
+    });
+  });
+
+  describe('taskId propagation to tools', () => {
+    it('should pass taskId from options to ToolWithUI execute context', async () => {
+      const mockExecute = vi.fn().mockResolvedValue({ success: true });
+      const toolWithUI = {
+        name: 'testTool',
+        description: 'Test tool',
+        inputSchema: z.object({ path: z.string() }),
+        execute: mockExecute,
+        renderToolDoing: () => null,
+        renderToolResult: () => null,
+      };
+
+      const toolCall = {
+        toolCallId: 'call_test_taskId',
+        toolName: 'testTool',
+        input: { path: '/test/path' },
+      };
+
+      await toolExecutor.executeToolCall(toolCall, {
+        tools: { testTool: toolWithUI },
+        loopState: mockLoopState,
+        model: 'test-model',
+        onToolMessage: mockOnToolMessage,
+        taskId: 'task-456',
+      });
+
+      expect(mockExecute).toHaveBeenCalledTimes(1);
+      // Verify context with taskId was passed as second argument
+      expect(mockExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/test/path' }),
+        expect.objectContaining({ taskId: 'task-456' })
+      );
+    });
+
+    it('should pass undefined taskId when not provided in options', async () => {
+      const mockExecute = vi.fn().mockResolvedValue({ success: true });
+      const toolWithUI = {
+        name: 'testTool',
+        description: 'Test tool',
+        inputSchema: z.object({ path: z.string() }),
+        execute: mockExecute,
+        renderToolDoing: () => null,
+        renderToolResult: () => null,
+      };
+
+      const toolCall = {
+        toolCallId: 'call_test_no_taskId',
+        toolName: 'testTool',
+        input: { path: '/test/path' },
+      };
+
+      await toolExecutor.executeToolCall(toolCall, {
+        tools: { testTool: toolWithUI },
+        loopState: mockLoopState,
+        model: 'test-model',
+        onToolMessage: mockOnToolMessage,
+        // no taskId provided
+      });
+
+      expect(mockExecute).toHaveBeenCalledTimes(1);
+      // Verify context with undefined taskId was passed
+      expect(mockExecute).toHaveBeenCalledWith(
+        expect.objectContaining({ path: '/test/path' }),
+        expect.objectContaining({ taskId: undefined })
+      );
+    });
+
+    it('should NOT pass context to non-ToolWithUI tools even when taskId is provided', async () => {
+      const mockExecute = vi.fn().mockResolvedValue({ success: true });
+      const plainTool: ToolSet = {
+        plainTool: {
+          description: 'Plain tool without UI',
+          inputSchema: z.object({ command: z.string() }),
+          execute: mockExecute,
+        },
+      };
+
+      const toolCall = {
+        toolCallId: 'call_plain_tool',
+        toolName: 'plainTool',
+        input: { command: 'ls -la' },
+      };
+
+      await toolExecutor.executeToolCall(toolCall, {
+        tools: plainTool,
+        loopState: mockLoopState,
+        model: 'test-model',
+        onToolMessage: mockOnToolMessage,
+        taskId: 'task-789',
+      });
+
+      expect(mockExecute).toHaveBeenCalledTimes(1);
+      // Plain tools should receive args without context
+      const callArgs = mockExecute.mock.calls[0];
+      expect(callArgs.length).toBe(1); // Only args, no context
+      expect(callArgs[0]).toEqual(expect.objectContaining({ command: 'ls -la' }));
+    });
+
+    it('should pass different taskIds to different tool calls', async () => {
+      const mockExecute = vi.fn().mockResolvedValue({ success: true });
+      const toolWithUI = {
+        name: 'readFile',
+        description: 'Read file tool',
+        inputSchema: z.object({ path: z.string() }),
+        execute: mockExecute,
+        renderToolDoing: () => null,
+        renderToolResult: () => null,
+      };
+
+      // First call with task-A
+      await toolExecutor.executeToolCall(
+        { toolCallId: 'call_1', toolName: 'readFile', input: { path: '/file1.txt' } },
+        {
+          tools: { readFile: toolWithUI },
+          loopState: mockLoopState,
+          model: 'test-model',
+          onToolMessage: mockOnToolMessage,
+          taskId: 'task-A',
+        }
+      );
+
+      // Second call with task-B
+      await toolExecutor.executeToolCall(
+        { toolCallId: 'call_2', toolName: 'readFile', input: { path: '/file2.txt' } },
+        {
+          tools: { readFile: toolWithUI },
+          loopState: mockLoopState,
+          model: 'test-model',
+          onToolMessage: mockOnToolMessage,
+          taskId: 'task-B',
+        }
+      );
+
+      expect(mockExecute).toHaveBeenCalledTimes(2);
+
+      // Verify first call received task-A
+      expect(mockExecute.mock.calls[0][1]).toEqual({ taskId: 'task-A' });
+
+      // Verify second call received task-B
+      expect(mockExecute.mock.calls[1][1]).toEqual({ taskId: 'task-B' });
+    });
+  });
+});

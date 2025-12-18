@@ -5,7 +5,7 @@ import { ListFilesDoing } from '@/components/tools/list-files-doing';
 import { ListFilesResult } from '@/components/tools/list-files-result';
 import { createTool } from '@/lib/create-tool';
 import { logger } from '@/lib/logger';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 
 export const listFiles = createTool({
   name: 'listFiles',
@@ -19,11 +19,12 @@ The directory path must be absolute.`,
     max_depth: z.number().optional().describe('Maximum depth for recursive listing (default: 3)'),
   }),
   canConcurrent: true,
-  execute: async ({ directory_path, max_depth = 3 }) => {
+  execute: async ({ directory_path, max_depth = 3 }, context) => {
     try {
+      logger.info('listFiles: Executing with parameters:', { directory_path, max_depth });
       let absolutePath = directory_path;
       if (!(await isAbsolute(directory_path))) {
-        const projectRoot = await getValidatedWorkspaceRoot();
+        const projectRoot = await getEffectiveWorkspaceRoot(context?.taskId);
         if (!projectRoot) {
           return 'Error: Project root path not set. Please set a project root path first.';
         }

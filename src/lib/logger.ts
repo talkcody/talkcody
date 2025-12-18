@@ -44,12 +44,20 @@ export const logger = {
     return tauriWarn(formattedMessage);
   },
 
-  error: (message: string, errorObj?: Error | unknown, ...args: any[]) => {
-    const errorMessage = errorObj instanceof Error ? errorObj.message : String(errorObj || '');
-    const allArgs = errorMessage ? [errorMessage, ...args] : args;
+  error: (message: string, ...args: any[]) => {
     const formattedMessage =
-      allArgs.length > 0
-        ? `${message} ${allArgs.map((arg) => (typeof arg === 'object' ? JSON.stringify(arg) : String(arg))).join(' ')}`
+      args.length > 0
+        ? `${message} ${args
+            .map((arg) => {
+              if (arg instanceof Error) {
+                return `${arg.name}: ${arg.message}${arg.stack ? `\n${arg.stack}` : ''}`;
+              }
+              if (typeof arg === 'object') {
+                return JSON.stringify(arg, null, '\t');
+              }
+              return String(arg);
+            })
+            .join(' ')}`
         : message;
     return tauriError(formattedMessage);
   },

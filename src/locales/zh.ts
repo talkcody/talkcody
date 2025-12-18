@@ -64,7 +64,7 @@ const zh: LocaleDefinition = {
     copied: '已复制！',
     newChat: '新对话',
     clearHistory: '清除历史',
-    chatHistory: '对话历史',
+    chatHistory: 'Task 历史',
     searchConversations: '搜索对话...',
     searchTasks: '搜索任务...',
     emptyState: {
@@ -110,8 +110,19 @@ const zh: LocaleDefinition = {
     },
     planMode: {
       label: '计划模式',
+      title: '计划模式',
+      description: '启用后，AI 会先创建详细计划供您审批，然后再进行任何更改。',
+      learnMore: '了解更多',
       enabledTooltip: '计划模式：AI 会先创建计划供您审批',
       disabledTooltip: '执行模式：AI 会直接执行任务',
+    },
+    worktree: {
+      label: 'Worktree',
+      title: 'Git Worktree',
+      description: '为并行任务启用隔离的 git worktree，允许多个任务同时运行而不会产生冲突。',
+      learnMore: '了解更多',
+      enabledTooltip: '并行任务使用隔离的 worktree。点击禁用。',
+      disabledTooltip: '启用 worktree 隔离以支持并行任务。点击启用。',
     },
     commands: {
       hint: '/ 命令',
@@ -388,6 +399,15 @@ const zh: LocaleDefinition = {
       defaultShell: '默认 Shell',
       shellHint: '更改将在下次打开终端时生效。仅限 Windows。',
     },
+    worktree: {
+      title: 'Worktree 设置',
+      description: '配置 worktree 目录的存储位置',
+      rootPath: 'Worktree 根目录',
+      selectDirectory: '选择目录',
+      customPathHint: '正在使用自定义路径。点击重置以使用默认路径。',
+      defaultPathHint: '正在使用默认路径：{path}',
+      pathPreview: '示例 worktree 路径：',
+    },
   },
 
   Agents: {
@@ -527,6 +547,9 @@ const zh: LocaleDefinition = {
 
   FileChanges: {
     codeReviewMessage: '请调用 code review agent，review 当前的代码变动。',
+    reviewTooltip: 'AI 将审查变更的文件，检查 bug、问题并提供改进建议',
+    commitTooltip: '使用 AI 生成的提交信息提交所有变更',
+    mergeTooltip: '将 worktree 的变更合并回主分支',
   },
 
   Skills: {
@@ -1050,6 +1073,40 @@ const zh: LocaleDefinition = {
     fixed: '修复',
     removed: '移除',
     releasedOn: (date) => `发布于 ${date}`,
+  },
+
+  Worktree: {
+    conflictDialog: {
+      title: '检测到未提交的更改',
+      description: '工作树中存在未提交的更改，需要在创建新任务前处理。',
+      changesCount: (count) => `${count} 个文件有更改`,
+      modifiedFiles: '修改的文件',
+      addedFiles: '新增的文件',
+      deletedFiles: '删除的文件',
+      worktreePath: '工作树路径',
+      actions: {
+        discard: '放弃更改',
+        discardDescription: '删除所有未提交的更改并重置工作树',
+        merge: '合并到主分支',
+        mergeDescription: '将更改合并到主分支',
+        sync: '同步主分支',
+        syncDescription: '将主分支最新代码同步到工作树，继续工作',
+        cancel: '取消',
+      },
+      mergeConflict: {
+        title: '合并冲突',
+        description: '合并存在冲突，需要手动解决。',
+        conflictFiles: '冲突文件',
+        resolveManually: '请在编辑器中解决冲突后重试。',
+      },
+      syncConflict: {
+        title: '同步冲突',
+        description: '同步存在冲突，需要手动解决。',
+        conflictFiles: '冲突文件',
+        resolveManually: '请在编辑器中解决冲突。可以使用 git rebase --abort 中止同步。',
+      },
+      processing: '处理中...',
+    },
   },
 
   Lint: {

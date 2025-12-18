@@ -39,8 +39,8 @@ The command will be executed in the current working directory.`,
     command: z.string().describe('The bash command to execute'),
   }),
   canConcurrent: false,
-  execute: async ({ command }): Promise<BashResult> => {
-    return await bashExecutor.execute(command);
+  execute: async ({ command }, context): Promise<BashResult> => {
+    return await bashExecutor.execute(command, context.taskId);
   },
   renderToolDoing: ({ command }) => <BashToolDoing command={command} />,
   renderToolResult: (result) => (

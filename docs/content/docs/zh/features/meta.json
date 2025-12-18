@@ -2,5 +2,5 @@
   "title": "功能",
   "icon": "Sparkles",
   "defaultOpen": true,
-  "pages": [ "ai-agents", "tools", "skills", "mcp-servers", "plan-mode", "coding-plan", "web-search", "voice-input", "code-lint",  "terminal", "multi-window", "search"]
+  "pages": [ "ai-agents", "tools", "skills", "mcp-servers", "plan-mode", "worktree", "coding-plan", "web-search", "voice-input", "code-lint",  "terminal", "multi-window", "search"]
 }

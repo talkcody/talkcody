@@ -1,16 +1,16 @@
 // src/services/agents/error-handler.ts
-import { InvalidToolInputError, NoSuchToolError, type ToolSet, type UserModelMessage } from 'ai';
+import { InvalidToolInputError, NoSuchToolError, type UserModelMessage } from 'ai';
 import {
   createErrorContext,
   createHttpStatusError,
   extractAndFormatError,
 } from '@/lib/error-utils';
 import { logger } from '@/lib/logger';
-import type { AgentLoopState } from '@/types/agent';
+import type { AgentLoopState, AgentToolSet } from '@/types/agent';
 
 export interface ErrorHandlerOptions {
   model: string;
-  tools: ToolSet;
+  tools: AgentToolSet;
   loopState: AgentLoopState;
   onError?: (error: Error) => void;
 }

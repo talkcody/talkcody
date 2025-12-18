@@ -1,5 +1,6 @@
 import { MessageSquare } from 'lucide-react';
 import type { Task } from '@/services/database-service';
+import type { WorktreeInfo } from '@/types/worktree';
 import { TaskItem } from './task-item';
 
 interface TaskListProps {
@@ -10,6 +11,8 @@ interface TaskListProps {
   editingTitle: string;
   /** IDs of currently running tasks */
   runningTaskIds?: string[];
+  /** Function to get worktree info for a task */
+  getWorktreeForTask?: (taskId: string) => WorktreeInfo | null;
   onTaskSelect: (taskId: string) => void;
   onDeleteTask: (taskId: string, e?: React.MouseEvent) => void;
   onStartEditing: (task: Task, e?: React.MouseEvent) => void;
@@ -25,6 +28,7 @@ export function TaskList({
   editingId,
   editingTitle,
   runningTaskIds = [],
+  getWorktreeForTask,
   onTaskSelect,
   onDeleteTask,
   onStartEditing,
@@ -62,6 +66,7 @@ export function TaskList({
             isEditing={editingId === task.id}
             isRunning={runningTaskIds.includes(task.id)}
             isSelected={currentTaskId === task.id}
+            worktreeInfo={getWorktreeForTask?.(task.id)}
             onCancelEdit={onCancelEdit}
             onDelete={onDeleteTask}
             onSaveEdit={onSaveEdit}

@@ -21,6 +21,8 @@ export function getDocLinks() {
       agents: `${BASE_URL}/features/ai-agents`,
       mcpServers: `${BASE_URL}/features/mcp-servers`,
       models: `${BASE_URL}/configuration/model-settings`,
+      planMode: `${BASE_URL}/features/plan-mode`,
+      worktree: `${BASE_URL}/features/worktree`,
     },
 
     // Configuration

@@ -2,7 +2,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { isAbsolute, join } from '@tauri-apps/api/path';
 import { logger } from '@/lib/logger';
 import { isPathWithinProjectDirectory } from '@/lib/utils/path-security';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 
 // Result from Rust backend execute_user_shell command
 interface TauriShellResult {
@@ -27,15 +27,14 @@ export interface BashResult {
 }
 
 // List of dangerous command patterns that should be blocked
+// Note: rm -rf is NOT blocked here - it's validated by validateRmCommand() which checks:
+// 1. Workspace root exists
+// 2. Directory is inside a Git repository
+// 3. All target paths are within workspace
 const DANGEROUS_PATTERNS = [
-  // File system destruction - Enhanced rm detection (not limited to absolute paths)
-  /\brm\s+-[rf]/, // rm -r, rm -f, rm -rf (any path)
+  // File system destruction - rm patterns that are always dangerous
   /\brm\s+.*\*/, // rm with wildcards
-  /\brm\s+\./, // rm . (current directory paths)
-  /rm\s+.*-[rf]+.*\//, // rm with recursive or force flags on directories
-  /rm\s+.*--recursive/,
-  /rm\s+.*--force/,
-  /rm\s+-[rf]{2}/, // rm -rf or rm -fr
+  /\brm\b.*\s\.(?:\/)?(?:\s|$)/, // rm . or rm -rf . (current directory)
   /rmdir\s+.*-.*r/, // rmdir with recursive
 
   // Other file deletion commands
@@ -417,8 +416,10 @@ export class BashExecutor {
 
   /**
    * Execute a bash command safely
+   * @param command - The bash command to execute
+   * @param taskId - The task ID for workspace root resolution
    */
-  async execute(command: string): Promise<BashResult> {
+  async execute(command: string, taskId: string): Promise<BashResult> {
     try {
       // Safety check
       const dangerCheck = this.isDangerousCommand(command);
@@ -433,7 +434,7 @@ export class BashExecutor {
       }
 
       this.logger.info('Executing bash command:', command);
-      const rootPath = await getValidatedWorkspaceRoot();
+      const rootPath = await getEffectiveWorkspaceRoot(taskId);
 
       // Validate rm command paths
       const rmValidation = await this.validateRmCommand(command, rootPath || null);

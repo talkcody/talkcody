@@ -135,6 +135,10 @@ fn spawn_with_fallback(
             cmd.cwd(cwd_path);
         }
 
+        // Set TERM environment variable to enable color support
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
+
         if !shell_args.is_empty() {
             cmd.args(*shell_args);
             info!("Added shell args: {:?}", shell_args);
@@ -196,6 +200,9 @@ pub async fn pty_spawn(
                 if let Some(ref cwd_path) = cwd {
                     cmd.cwd(cwd_path);
                 }
+                // Set TERM environment variable to enable color support
+                cmd.env("TERM", "xterm-256color");
+                cmd.env("COLORTERM", "truecolor");
                 let args = get_shell_args(shell);
                 if !args.is_empty() {
                     cmd.args(&args);
@@ -226,6 +233,11 @@ pub async fn pty_spawn(
             info!("Setting working directory: {}", cwd_path);
             cmd.cwd(cwd_path);
         }
+
+        // Set TERM environment variable to enable color support
+        // This is critical for production builds launched from GUI (not terminal)
+        cmd.env("TERM", "xterm-256color");
+        cmd.env("COLORTERM", "truecolor");
 
         // Check if shell is zsh and disable PROMPT_SP (partial line marker)
         if shell.contains("zsh") {

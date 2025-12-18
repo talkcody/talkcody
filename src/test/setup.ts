@@ -134,6 +134,7 @@ vi.mock('../stores/settings-store', () => ({
 
 vi.mock('@/services/workspace-root-service', () => ({
   getValidatedWorkspaceRoot: vi.fn().mockResolvedValue('/test/root'),
+  getEffectiveWorkspaceRoot: vi.fn().mockResolvedValue('/test/root'),
 }));
 
 // Mock ResizeObserver

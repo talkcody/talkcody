@@ -5,6 +5,16 @@ import type { z } from 'zod';
 export type ToolInput = Record<string, unknown>;
 export type ToolOutput = unknown;
 
+// Context passed to tool execute function
+export interface ToolExecuteContext {
+  taskId: string;
+}
+
+// Context passed to tool rendering functions (subset of execute context)
+export interface ToolRenderContext {
+  taskId?: string;
+}
+
 export interface ToolWithUI<
   TInput extends ToolInput = ToolInput,
   TOutput extends ToolOutput = ToolOutput,
@@ -12,8 +22,8 @@ export interface ToolWithUI<
   name: string;
   description: string;
   inputSchema: z.ZodSchema<TInput>;
-  execute: (params: TInput) => Promise<TOutput>;
-  renderToolDoing: (params: TInput) => ReactElement;
+  execute: (params: TInput, context: ToolExecuteContext) => Promise<TOutput>;
+  renderToolDoing: (params: TInput, context?: ToolRenderContext) => ReactElement;
   renderToolResult: (result: TOutput, params: TInput) => ReactElement;
   canConcurrent: boolean;
   /** Whether to hide this tool from the UI tool selector */

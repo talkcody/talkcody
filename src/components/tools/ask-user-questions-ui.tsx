@@ -12,9 +12,10 @@ import type { AskUserQuestionsOutput, Question } from '@/types/user-question';
 
 interface AskUserQuestionsUIProps {
   questions: Question[];
+  taskId: string;
 }
 
-export function AskUserQuestionsUI({ questions }: AskUserQuestionsUIProps) {
+export function AskUserQuestionsUI({ questions, taskId }: AskUserQuestionsUIProps) {
   const [submitted, setSubmitted] = useState(false);
   const [answers, setAnswers] = useState<Record<string, { options: string[]; text: string }>>(
     () => {
@@ -88,8 +89,8 @@ export function AskUserQuestionsUI({ questions }: AskUserQuestionsUIProps) {
       }
     }
 
-    // Submit to store
-    submitAnswers(output);
+    // Submit to store with taskId
+    submitAnswers(taskId, output);
     setSubmitted(true);
   };
 

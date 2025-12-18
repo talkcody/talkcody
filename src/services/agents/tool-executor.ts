@@ -1,12 +1,11 @@
 // src/services/agents/tool-executor.ts
-import type { ToolSet } from 'ai';
 import { createErrorContext, extractAndFormatError } from '@/lib/error-utils';
 import { logger } from '@/lib/logger';
 import { getToolMetadata } from '@/lib/tools';
 import type { Tracer } from '@/lib/tracer';
-import { decodeObjectHtmlEntities, generateId } from '@/lib/utils';
-import type { AgentLoopState, UIMessage } from '@/types/agent';
-import type { ToolInput } from '@/types/tool';
+import { decodeObjectHtmlEntities } from '@/lib/utils';
+import type { AgentLoopState, AgentToolSet, UIMessage } from '@/types/agent';
+import type { ToolExecuteContext, ToolInput, ToolWithUI } from '@/types/tool';
 import type { AgentExecutionGroup, AgentExecutionStage } from './agent-dependency-analyzer';
 import {
   DependencyAnalyzer,
@@ -23,9 +22,10 @@ export interface ToolCallInfo {
 }
 
 export interface ToolExecutionOptions {
-  tools: ToolSet;
+  tools: AgentToolSet;
   loopState: AgentLoopState;
   model: string;
+  taskId: string;
   abortController?: AbortController;
   onToolMessage?: (message: UIMessage) => void;
   tracer?: Tracer;
@@ -116,6 +116,35 @@ export class ToolExecutor {
   }
 
   /**
+   * Check if tool is a ToolWithUI (has UI rendering capabilities)
+   */
+  private isToolWithUI(tool: unknown): tool is ToolWithUI {
+    return (
+      typeof tool === 'object' &&
+      tool !== null &&
+      'renderToolDoing' in tool &&
+      'renderToolResult' in tool
+    );
+  }
+
+  /**
+   * Execute a tool with appropriate context handling
+   * ToolWithUI tools receive context, other tools do not
+   */
+  private async executeTool(
+    tool: { execute: (args: unknown) => Promise<unknown> },
+    args: unknown,
+    context: ToolExecuteContext
+  ): Promise<unknown> {
+    if (this.isToolWithUI(tool)) {
+      // ToolWithUI tools support context parameter
+      return tool.execute(args as ToolInput, context);
+    }
+    // Standard tools (e.g., vercel ai tools) don't support context
+    return tool.execute(args);
+  }
+
+  /**
    * Execute tool calls with smart concurrency analysis
    * This method automatically analyzes dependencies and maximizes parallelism
    */
@@ -132,6 +161,7 @@ export class ToolExecutor {
       totalStages: this.getTotalStages(plan),
       totalGroups: this.getTotalGroups(plan),
       concurrentGroups: this.getConcurrentGroups(plan),
+      taskId: options.taskId,
     });
 
     // Execute all stages sequentially
@@ -260,6 +290,7 @@ export class ToolExecutor {
     logger.info('Starting tool execution', {
       toolName: toolCall.toolName,
       toolCallId: toolCall.toolCallId,
+      task: options.taskId,
     });
 
     try {
@@ -371,6 +402,8 @@ export class ToolExecutor {
             nestedTools: [],
             // Add metadata flag so UI knows whether to render
             renderDoingUI: toolMetadata.renderDoingUI,
+            // Pass taskId for tools that need execution context (e.g., exitPlanMode)
+            taskId: options.taskId,
           };
 
           onToolMessage(toolCallMessage);
@@ -384,7 +417,7 @@ export class ToolExecutor {
           );
         }
 
-        const toolResult = await tool.execute(toolArgs);
+        const toolResult = await this.executeTool(tool, toolArgs, { taskId: options.taskId });
         const toolDuration = Date.now() - toolStartTime;
 
         logger.info('Tool execution completed', {
@@ -412,6 +445,7 @@ export class ToolExecutor {
             timestamp: new Date(),
             toolCallId: toolCall.toolCallId,
             toolName: toolCall.toolName,
+            taskId: options.taskId,
           };
           onToolMessage(toolResultMessage);
           logger.info('[ToolExecutor] ✅ Tool-result message sent successfully');
@@ -580,7 +614,7 @@ export class ToolExecutor {
    */
   private handleToolNotFound(
     toolCall: ToolCallInfo,
-    tools: ToolSet,
+    tools: AgentToolSet,
     model: string,
     loopState: AgentLoopState
   ): unknown {

@@ -1,4 +1,3 @@
-import type { ToolSet } from 'ai';
 import { logger } from '@/lib/logger';
 import { isMCPTool, multiMCPAdapter } from '@/lib/mcp/multi-mcp-adapter';
 import { convertToolsForAI } from '@/lib/tool-adapter';
@@ -10,6 +9,7 @@ import {
   loadAllTools,
   type ToolName,
 } from '@/lib/tools';
+import type { AgentToolSet } from '@/types/agent';
 
 // Re-export for backward compatibility
 export { isValidToolName } from '@/lib/tools';
@@ -97,9 +97,9 @@ export const TOOL_REGISTRY: Record<
  *   - A Record<string, any> where keys are tool names
  *   - An array of tool names
  *   - A JSON string representation of the above
- * @returns A properly formatted ToolSet for use with Vercel AI SDK
+ * @returns A properly formatted AgentToolSet for use with agents
  */
-export async function restoreToolsFromConfig(toolsConfig: unknown): Promise<ToolSet> {
+export async function restoreToolsFromConfig(toolsConfig: unknown): Promise<AgentToolSet> {
   if (!toolsConfig) {
     return {};
   }

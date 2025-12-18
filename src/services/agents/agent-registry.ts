@@ -1,11 +1,10 @@
-import type { ToolSet } from 'ai';
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { multiMCPAdapter } from '@/lib/mcp/multi-mcp-adapter';
 import { convertToolsForAI } from '@/lib/tool-adapter';
 import { type ToolOverride, useToolOverrideStore } from '@/stores/tool-override-store';
 import type { Agent, CreateAgentData, UpdateAgentData } from '@/types';
-import type { AgentDefinition, DynamicPromptConfig } from '@/types/agent';
+import type { AgentDefinition, AgentToolSet, DynamicPromptConfig } from '@/types/agent';
 import { agentDatabaseService } from '../agent-database-service';
 import { agentService } from '../database/agent-service';
 import { filterToolSetForAgent, isToolAllowedForAgent } from './agent-tool-access';
@@ -24,7 +23,7 @@ class AgentRegistry {
     if (removedToolIds.length === 0) return agent;
 
     logger.warn(`Removed restricted tools from agent '${agent.id}':`, removedToolIds);
-    return { ...agent, tools: tools as ToolSet };
+    return { ...agent, tools: tools as AgentToolSet };
   }
 
   async loadAllAgents(): Promise<void> {
@@ -121,7 +120,7 @@ class AgentRegistry {
     logger.info(`loadPersistentAgents: Loaded ${dbAgents.length} user agents from database`);
   }
 
-  private async buildPlannerTools(): Promise<ToolSet> {
+  private async buildPlannerTools(): Promise<AgentToolSet> {
     try {
       const { mergeWithMCPTools } = await import('@/lib/mcp/multi-mcp-adapter');
       const { getTool } = await import('@/lib/tools');
@@ -152,7 +151,7 @@ class AgentRegistry {
         getSkill,
         exitPlanMode,
         askUserQuestions,
-      })) as ToolSet;
+      })) as AgentToolSet;
     } catch (error) {
       logger.error('buildPlannerTools: Failed to load MCP tools, using local tools only:', error);
 
@@ -185,7 +184,7 @@ class AgentRegistry {
         getSkill,
         exitPlanMode,
         askUserQuestions,
-      } as ToolSet;
+      } as AgentToolSet;
     }
   }
 
@@ -383,8 +382,8 @@ class AgentRegistry {
    * Resolve MCP tools in a tool set at runtime
    * This converts MCP tool placeholders to actual MCP tools
    */
-  async resolveToolsWithMCP(tools: ToolSet): Promise<ToolSet> {
-    const resolvedTools: ToolSet = {};
+  async resolveToolsWithMCP(tools: AgentToolSet): Promise<AgentToolSet> {
+    const resolvedTools: AgentToolSet = {};
 
     for (const [toolName, tool] of Object.entries(tools)) {
       if (tool && typeof tool === 'object' && (tool as any)._isMCPTool) {
@@ -398,12 +397,17 @@ class AgentRegistry {
         } catch (error) {
           logger.warn(`Failed to resolve MCP tool '${mcpToolName}' for '${toolName}':`, error);
           // Keep the placeholder tool but mark it as unavailable
+          // Cast as any since this is a fallback placeholder that won't be used for UI rendering
           resolvedTools[toolName] = {
+            name: toolName,
             description: `MCP tool '${mcpToolName}' is not available`,
             inputSchema: z.object({}),
             execute: async () => {
               throw new Error(`MCP tool '${mcpToolName}' is not available: ${error}`);
             },
+            renderToolDoing: () => null as any,
+            renderToolResult: () => null as any,
+            canConcurrent: false,
           };
         }
       } else {
@@ -424,7 +428,7 @@ class AgentRegistry {
     override: ToolOverride
   ): Promise<AgentDefinition> {
     const currentTools = agent.tools || {};
-    const modifiedTools: ToolSet = { ...currentTools };
+    const modifiedTools: AgentToolSet = { ...currentTools };
 
     // Remove tools that are in the removedTools set
     for (const toolId of override.removedTools) {
@@ -526,9 +530,9 @@ class AgentRegistry {
   }
 
   private async dbAgentToDefinition(dbAgent: Agent): Promise<AgentDefinition> {
-    let tools: ToolSet = {};
+    let tools: AgentToolSet = {};
     try {
-      // Use the tool restoration function to properly convert stored tools back to ToolSet
+      // Use the tool restoration function to properly convert stored tools back to AgentToolSet
       tools = await restoreToolsFromConfig(dbAgent.tools_config);
       // logger.info(
       //   `Restored tools for agent ${dbAgent.id}:`,
@@ -540,7 +544,7 @@ class AgentRegistry {
 
     const filtered = filterToolSetForAgent(dbAgent.id, tools);
     if (filtered.removedToolIds.length > 0) {
-      tools = filtered.tools as ToolSet;
+      tools = filtered.tools as AgentToolSet;
       logger.warn(
         `dbAgentToDefinition: Removed restricted tools from agent '${dbAgent.id}':`,
         filtered.removedToolIds

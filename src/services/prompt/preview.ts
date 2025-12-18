@@ -9,6 +9,7 @@ export async function previewSystemPrompt(opts: {
   agent: AgentDefinition;
   workspaceRoot: string;
   extraVariables?: Record<string, string>;
+  taskId?: string;
 }): Promise<PromptBuildResult> {
   const providers = defaultProviderRegistry.buildProviders(
     opts.agent.dynamicPrompt?.providers || [],
@@ -19,5 +20,6 @@ export async function previewSystemPrompt(opts: {
     agent: opts.agent,
     extraVariables: opts.extraVariables,
     workspaceRoot: opts.workspaceRoot,
+    taskId: opts.taskId,
   });
 }

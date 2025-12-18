@@ -6,7 +6,7 @@ import { createTool } from '@/lib/create-tool';
 import { logger } from '@/lib/logger';
 import { repositoryService } from '@/services/repository-service';
 import { normalizeFilePath } from '@/services/repository-utils';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 
 interface LineExtractionResult {
   success: boolean;
@@ -127,9 +127,9 @@ The file path should be an absolute path.`,
       .describe('Number of lines to read from start_line. If not specified, reads to end of file'),
   }),
   canConcurrent: true,
-  execute: async ({ file_path, start_line, line_count }) => {
+  execute: async ({ file_path, start_line, line_count }, context) => {
     try {
-      const rootPath = await getValidatedWorkspaceRoot();
+      const rootPath = await getEffectiveWorkspaceRoot(context.taskId);
       if (!rootPath) {
         return {
           success: false,
@@ -138,6 +138,11 @@ The file path should be an absolute path.`,
           message: 'Project root path is not set.',
         };
       }
+      logger.info('readFile: Normalizing file path. taskId:', {
+        file_path,
+        rootPath,
+        contextTaskId: context.taskId,
+      });
       file_path = await normalizeFilePath(rootPath, file_path);
 
       // Check if file exists before attempting to read it

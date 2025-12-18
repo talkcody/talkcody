@@ -27,11 +27,11 @@ interface PlanModeState {
   /** Global plan mode toggle - affects all conversations */
   isPlanModeEnabled: boolean;
 
-  /** Current plan waiting for user review */
-  pendingPlan: PendingPlan | null;
+  /** Pending plans per task (taskId -> PendingPlan) */
+  pendingPlans: Map<string, PendingPlan>;
 
-  /** Function to resolve the Promise when user reviews the plan */
-  planResolver: ((result: PlanReviewResult) => void) | null;
+  /** Resolvers per task (taskId -> resolver function) */
+  planResolvers: Map<string, (result: PlanReviewResult) => void>;
 
   /**
    * Initialize plan mode state from settings store
@@ -49,35 +49,44 @@ interface PlanModeState {
   setPlanMode: (enabled: boolean) => void;
 
   /**
-   * Set pending plan and resolver function
+   * Set pending plan and resolver function for a specific task
    * Called by ExitPlanMode tool's execute function
    */
-  setPendingPlan: (plan: string, resolver: (result: PlanReviewResult) => void) => void;
+  setPendingPlan: (
+    taskId: string,
+    plan: string,
+    resolver: (result: PlanReviewResult) => void
+  ) => void;
 
   /**
-   * Approve the current plan (optionally with edits)
+   * Approve the plan for a specific task (optionally with edits)
    * Called by UI when user clicks Approve
    */
-  approvePlan: (editedPlan?: string) => void;
+  approvePlan: (taskId: string, editedPlan?: string) => void;
 
   /**
-   * Reject the current plan with optional feedback
+   * Reject the plan for a specific task with optional feedback
    * Called by UI when user clicks Reject
    */
-  rejectPlan: (feedback?: string) => void;
+  rejectPlan: (taskId: string, feedback?: string) => void;
 
   /**
-   * Clear pending plan and resolver
+   * Clear pending plan and resolver for a specific task
    */
-  clearPendingPlan: () => void;
+  clearPendingPlan: (taskId: string) => void;
+
+  /**
+   * Get pending plan for a specific task
+   */
+  getPendingPlan: (taskId: string) => PendingPlan | null;
 }
 
 export const usePlanModeStore = create<PlanModeState>()(
   devtools(
     (set, get) => ({
       isPlanModeEnabled: false,
-      pendingPlan: null,
-      planResolver: null,
+      pendingPlans: new Map(),
+      planResolvers: new Map(),
 
       initialize: () => {
         // Load initial state from settings store
@@ -120,38 +129,48 @@ export const usePlanModeStore = create<PlanModeState>()(
           });
       },
 
-      setPendingPlan: (plan, resolver) => {
+      setPendingPlan: (taskId, plan, resolver) => {
         const planId = `plan_${Date.now()}`;
 
         logger.info('[PlanModeStore] Setting pending plan', {
+          taskId,
           planId,
           planLength: plan.length,
           planPreview: plan.substring(0, 100),
         });
 
         set(
-          {
-            pendingPlan: {
+          (state) => {
+            const newPendingPlans = new Map(state.pendingPlans);
+            const newPlanResolvers = new Map(state.planResolvers);
+            newPendingPlans.set(taskId, {
               planId,
               content: plan,
               timestamp: new Date(),
-            },
-            planResolver: resolver,
+            });
+            newPlanResolvers.set(taskId, resolver);
+            return {
+              pendingPlans: newPendingPlans,
+              planResolvers: newPlanResolvers,
+            };
           },
           false,
           'setPendingPlan'
         );
       },
 
-      approvePlan: (editedPlan) => {
-        const { pendingPlan, planResolver } = get();
+      approvePlan: (taskId, editedPlan) => {
+        const { pendingPlans, planResolvers } = get();
+        const pendingPlan = pendingPlans.get(taskId);
+        const planResolver = planResolvers.get(taskId);
 
         if (!pendingPlan) {
-          logger.error('[PlanModeStore] No pending plan to approve');
+          logger.error('[PlanModeStore] No pending plan to approve', { taskId });
           return;
         }
 
         logger.info('[PlanModeStore] Approving plan', {
+          taskId,
           planId: pendingPlan.planId,
           wasEdited: !!editedPlan,
         });
@@ -163,14 +182,20 @@ export const usePlanModeStore = create<PlanModeState>()(
           });
 
           // Exit plan mode after approval so AI can execute the plan
-          logger.info('[PlanModeStore] Exiting plan mode after plan approval');
+          logger.info('[PlanModeStore] Exiting plan mode after plan approval', { taskId });
 
-          // Clear state and disable plan mode after resolving
+          // Clear state for this task and disable plan mode after resolving
           set(
-            {
-              pendingPlan: null,
-              planResolver: null,
-              isPlanModeEnabled: false,
+            (state) => {
+              const newPendingPlans = new Map(state.pendingPlans);
+              const newPlanResolvers = new Map(state.planResolvers);
+              newPendingPlans.delete(taskId);
+              newPlanResolvers.delete(taskId);
+              return {
+                pendingPlans: newPendingPlans,
+                planResolvers: newPlanResolvers,
+                isPlanModeEnabled: false,
+              };
             },
             false,
             'approvePlan'
@@ -187,19 +212,22 @@ export const usePlanModeStore = create<PlanModeState>()(
               );
             });
         } else {
-          logger.error('[PlanModeStore] No resolver found when approving plan');
+          logger.error('[PlanModeStore] No resolver found when approving plan', { taskId });
         }
       },
 
-      rejectPlan: (feedback) => {
-        const { pendingPlan, planResolver } = get();
+      rejectPlan: (taskId, feedback) => {
+        const { pendingPlans, planResolvers } = get();
+        const pendingPlan = pendingPlans.get(taskId);
+        const planResolver = planResolvers.get(taskId);
 
         if (!pendingPlan) {
-          logger.error('[PlanModeStore] No pending plan to reject');
+          logger.error('[PlanModeStore] No pending plan to reject', { taskId });
           return;
         }
 
         logger.info('[PlanModeStore] Rejecting plan', {
+          taskId,
           planId: pendingPlan.planId,
           hasFeedback: !!feedback,
           feedbackLength: feedback?.length || 0,
@@ -211,31 +239,47 @@ export const usePlanModeStore = create<PlanModeState>()(
             feedback,
           });
 
-          // Clear state after resolving
+          // Clear state for this task after resolving
           set(
-            {
-              pendingPlan: null,
-              planResolver: null,
+            (state) => {
+              const newPendingPlans = new Map(state.pendingPlans);
+              const newPlanResolvers = new Map(state.planResolvers);
+              newPendingPlans.delete(taskId);
+              newPlanResolvers.delete(taskId);
+              return {
+                pendingPlans: newPendingPlans,
+                planResolvers: newPlanResolvers,
+              };
             },
             false,
             'rejectPlan'
           );
         } else {
-          logger.error('[PlanModeStore] No resolver found when rejecting plan');
+          logger.error('[PlanModeStore] No resolver found when rejecting plan', { taskId });
         }
       },
 
-      clearPendingPlan: () => {
-        logger.info('[PlanModeStore] Clearing pending plan');
+      clearPendingPlan: (taskId) => {
+        logger.info('[PlanModeStore] Clearing pending plan', { taskId });
 
         set(
-          {
-            pendingPlan: null,
-            planResolver: null,
+          (state) => {
+            const newPendingPlans = new Map(state.pendingPlans);
+            const newPlanResolvers = new Map(state.planResolvers);
+            newPendingPlans.delete(taskId);
+            newPlanResolvers.delete(taskId);
+            return {
+              pendingPlans: newPendingPlans,
+              planResolvers: newPlanResolvers,
+            };
           },
           false,
           'clearPendingPlan'
         );
+      },
+
+      getPendingPlan: (taskId) => {
+        return get().pendingPlans.get(taskId) || null;
       },
     }),
     {

@@ -8,6 +8,29 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 TalkCody 的所有重要更新都记录在这里。
 
+## [0.1.19] - 2025-12-18
+
+### 新增
+
+- 多 Agent 并行执行（实验版本），支持多个 Agent 同时执行任务
+- 基于 Git Worktree 的 Task 并行执行（实验版本），支持多个 Task 在独立工作目录中并行运行
+- 一键 Git Commit：在文件变更摘要中新增 Commit 按钮，AI 自动生成提交信息
+- 一键 Code Review：在文件变更摘要中新增 Review 按钮，一键调用 Code Review Agent
+
+### 优化
+
+- 优化 MCP 工具选择按钮
+- 优化本地 Agent 加载性能
+- 改进 Edit File 工具
+- 改进 Bash 工具的危险命令检测
+- 优化 Context Compaction 逻辑
+- 优化 AI 请求的重试策略
+
+### 修复
+
+- 修复 Windows 终端的 bug
+- 修复 全局内容搜索空格直接退出的 bug
+
 ## [0.1.18] - 2025-12-13
 
 ### 新增

@@ -5,9 +5,10 @@ import { createTool } from '@/lib/create-tool';
 import { generateId } from '@/lib/utils';
 import { getNestedAgentTimeoutMs } from '@/services/agents/agent-execution-config';
 import { previewSystemPrompt } from '@/services/prompt/preview';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import { useNestedToolsStore } from '@/stores/nested-tools-store';
 import type { AgentDefinition, UIMessage } from '@/types/agent';
+import type { ToolExecuteContext } from '@/types/tool';
 import { logger } from '../logger';
 
 // Tool description - detailed parallelism strategy is in planner's system prompt
@@ -43,22 +44,25 @@ export const callAgent = createTool({
       ),
   }),
   canConcurrent: true,
-  execute: async ({
-    agentId,
-    task,
-    context,
-    _abortController,
-    _toolCallId,
-    _onNestedToolMessage,
-  }: {
-    agentId: string;
-    task: string;
-    user_input?: string;
-    context?: string;
-    _abortController?: AbortController;
-    _toolCallId?: string;
-    _onNestedToolMessage?: (message: UIMessage) => void;
-  }) => {
+  execute: async (
+    {
+      agentId,
+      task,
+      context,
+      _abortController,
+      _toolCallId,
+      _onNestedToolMessage,
+    }: {
+      agentId: string;
+      task: string;
+      user_input?: string;
+      context?: string;
+      _abortController?: AbortController;
+      _toolCallId?: string;
+      _onNestedToolMessage?: (message: UIMessage) => void;
+    },
+    toolContext: ToolExecuteContext
+  ) => {
     const executionId =
       _toolCallId || `exec_${Date.now()}_${Math.random().toString(36).substring(2, 11)}`;
     let lastStatus: string | undefined;
@@ -156,25 +160,36 @@ export const callAgent = createTool({
 
       if (agent?.dynamicPrompt?.enabled) {
         try {
-          const root = await getValidatedWorkspaceRoot();
-          const { finalSystemPrompt } = await previewSystemPrompt({ agent, workspaceRoot: root });
+          const root = await getEffectiveWorkspaceRoot(toolContext?.taskId);
+          const { finalSystemPrompt } = await previewSystemPrompt({
+            agent: agent,
+            workspaceRoot: root,
+            taskId: toolContext?.taskId,
+          });
           systemPrompt = finalSystemPrompt;
         } catch (error) {
           logger.warn('callAgent: dynamic prompt failed; using static', error);
         }
       }
 
-      const { llmService } = await import('@/services/agents/llm-service');
+      // Create a task-specific LLMService instance for nested agent calls
+      const { createLLMService } = await import('@/services/agents/llm-service');
+      if (!toolContext?.taskId) {
+        throw new Error('taskId is required for callAgent tool');
+      }
+      const nestedLlmService = createLLMService(toolContext.taskId);
       let fullText = '';
 
       // Run the agent loop with timeout protection to prevent infinite loops
-      const agentLoopPromise = llmService.runAgentLoop(
+      // Pass parent's taskId so nested agent tools use the correct worktree path
+      const agentLoopPromise = nestedLlmService.runAgentLoop(
         {
           messages,
           model: resolvedModel,
           systemPrompt,
           tools: agent.tools,
           suppressReasoning: true,
+          isSubagent: true,
         },
         {
           onChunk: (chunk) => {

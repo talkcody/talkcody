@@ -1,7 +1,7 @@
 // src/services/agents/dependency-analyzer.ts
 
-import type { ToolSet } from 'ai';
 import { logger } from '@/lib/logger';
+import type { AgentToolSet } from '@/types/agent';
 import { AgentDependencyAnalyzer, type AgentExecutionPlan } from './agent-dependency-analyzer';
 import { type ExecutionPlan, ToolDependencyAnalyzer } from './tool-dependency-analyzer';
 import type { ToolCallInfo } from './tool-executor';
@@ -41,7 +41,7 @@ export class DependencyAnalyzer {
    */
   async analyzeDependencies(
     toolCalls: ToolCallInfo[],
-    tools: ToolSet
+    tools: AgentToolSet
   ): Promise<UnifiedExecutionPlan> {
     if (toolCalls.length === 0) {
       return {

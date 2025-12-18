@@ -4,6 +4,7 @@ import { AskUserQuestionsUI } from '@/components/tools/ask-user-questions-ui';
 import { createTool } from '@/lib/create-tool';
 import { logger } from '@/lib/logger';
 import { useUserQuestionStore } from '@/stores/user-question-store';
+import type { ToolExecuteContext, ToolRenderContext } from '@/types/tool';
 import type { AskUserQuestionsOutput } from '@/types/user-question';
 
 // Zod schema for question option
@@ -38,11 +39,14 @@ const inputSchema = z.strictObject({
  * Execute function that pauses and waits for user input
  */
 async function executeAskUserQuestions(
-  params: z.infer<typeof inputSchema>
+  params: z.infer<typeof inputSchema>,
+  context?: ToolExecuteContext
 ): Promise<AskUserQuestionsOutput> {
   const { questions } = params;
+  const taskId = context?.taskId || 'default';
 
   logger.info('[AskUserQuestions] Executing with questions:', {
+    taskId,
     questionCount: questions.length,
     questionIds: questions.map((q) => q.id),
   });
@@ -56,11 +60,11 @@ async function executeAskUserQuestions(
 
   // Create a Promise that will be resolved when user submits answers
   return new Promise<AskUserQuestionsOutput>((resolve) => {
-    logger.info('[AskUserQuestions] Creating Promise and setting pending questions');
+    logger.info('[AskUserQuestions] Creating Promise and setting pending questions', { taskId });
 
-    // Store the questions and resolver in the store
+    // Store the questions and resolver in the store with taskId
     // The UI component will call submitAnswers which will resolve this Promise
-    useUserQuestionStore.getState().setPendingQuestions(questions, resolve);
+    useUserQuestionStore.getState().setPendingQuestions(taskId, questions, resolve);
   });
 }
 
@@ -88,8 +92,9 @@ You could only use this tool when plan mode is enabled.`,
   hidden: true,
   execute: executeAskUserQuestions,
 
-  renderToolDoing: (params: z.infer<typeof inputSchema>) => {
-    return <AskUserQuestionsUI questions={params.questions} />;
+  renderToolDoing: (params: z.infer<typeof inputSchema>, context?: ToolRenderContext) => {
+    const taskId = context?.taskId || 'default';
+    return <AskUserQuestionsUI questions={params.questions} taskId={taskId} />;
   },
 
   renderToolResult: (result: AskUserQuestionsOutput, params: z.infer<typeof inputSchema>) => {

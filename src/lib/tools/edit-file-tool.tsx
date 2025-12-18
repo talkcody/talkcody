@@ -8,7 +8,7 @@ import { notificationService } from '@/services/notification-service';
 import { repositoryService } from '@/services/repository-service';
 import { normalizeFilePath } from '@/services/repository-utils';
 import { TaskManager } from '@/services/task-manager';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import {
   type FileEditReviewResult,
   type PendingEdit,
@@ -229,9 +229,9 @@ Best practice workflow:
       ),
   }),
   canConcurrent: false,
-  execute: async ({ file_path, edits, review_mode = true }) => {
+  execute: async ({ file_path, edits, review_mode = true }, context) => {
     try {
-      const rootPath = await getValidatedWorkspaceRoot();
+      const rootPath = await getEffectiveWorkspaceRoot(context?.taskId);
       if (!rootPath) {
         return {
           success: false,
@@ -239,6 +239,9 @@ Best practice workflow:
           message: 'Project root path is not set.',
         };
       }
+      logger.info(
+        `editFile: rootPath=${rootPath}, file_path=${file_path}, taskId=${context?.taskId}`
+      );
       const fullPath = await normalizeFilePath(rootPath, file_path);
 
       // Security check: Ensure file path is within the current project directory
@@ -334,7 +337,10 @@ Best practice workflow:
       );
 
       // Check if auto-approve is enabled for this task
-      const taskId = settingsManager.getCurrentTaskId();
+      const taskId = context?.taskId;
+      if (!taskId) {
+        throw new Error('taskId is required for editFile tool');
+      }
       const settingsJson = await TaskManager.getTaskSettings(taskId);
 
       if (settingsJson) {
@@ -443,7 +449,10 @@ Best practice workflow:
 
             // Store the pending edit, callbacks, and resolver in the store
             // The UI component (FileEditReviewCard) will call the store methods which will resolve this Promise
-            useEditReviewStore.getState().setPendingEdit(editId, pendingEdit, callbacks, resolve);
+            // Pass taskId to support concurrent pending edits for multiple tasks
+            useEditReviewStore
+              .getState()
+              .setPendingEdit(taskId, editId, pendingEdit, callbacks, resolve);
           });
 
           // Type guard to ensure reviewResult has the expected structure
@@ -499,8 +508,7 @@ Best practice workflow:
         const successMessage = `Successfully applied ${edits.length} edit${edits.length > 1 ? 's' : ''} to ${file_path} (${totalOccurrences} total replacement${totalOccurrences > 1 ? 's' : ''})`;
         logger.info(successMessage);
 
-        // Track the file change
-        const taskId = settingsManager.getCurrentTaskId();
+        // Track the file change (taskId was validated earlier)
         useFileChangesStore
           .getState()
           .addChange(taskId, file_path, 'edit', currentContent, finalContent);
@@ -534,9 +542,9 @@ Best practice workflow:
     }
   },
 
-  renderToolDoing: ({ file_path, edits }) => {
+  renderToolDoing: ({ file_path, edits }, context) => {
     // Use the responsive wrapper component that subscribes to the store
-    return <EditFileToolDoing file_path={file_path} edits={edits} />;
+    return <EditFileToolDoing file_path={file_path} edits={edits} taskId={context?.taskId || ''} />;
   },
 
   renderToolResult: (result) => {

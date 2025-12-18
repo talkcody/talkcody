@@ -1,4 +1,4 @@
-import { Calendar, Edit2, Hash, LoaderCircle, MoreVertical, Trash2 } from 'lucide-react';
+import { Calendar, Edit2, GitBranch, Hash, LoaderCircle, MoreVertical, Trash2 } from 'lucide-react';
 import { memo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
@@ -7,9 +7,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Input } from '@/components/ui/input';
 import { formatDate } from '@/lib/utils';
 import type { Task } from '@/services/database-service';
+import type { WorktreeInfo } from '@/types/worktree';
 
 interface TaskItemProps {
   task: Task;
@@ -18,6 +20,8 @@ interface TaskItemProps {
   editingTitle: string;
   /** Whether this task is currently running */
   isRunning?: boolean;
+  /** Worktree info if this task is using a worktree */
+  worktreeInfo?: WorktreeInfo | null;
   onSelect: (taskId: string) => void;
   onDelete: (taskId: string, e?: React.MouseEvent) => void;
   onStartEditing: (task: Task, e?: React.MouseEvent) => void;
@@ -32,6 +36,7 @@ export const TaskItem = memo(function TaskItem({
   isEditing,
   editingTitle,
   isRunning = false,
+  worktreeInfo,
   onSelect,
   onDelete,
   onStartEditing,
@@ -87,7 +92,7 @@ export const TaskItem = memo(function TaskItem({
     );
   }
 
-  return (
+  const cardContent = (
     <div
       className={`group w-full cursor-pointer rounded-md border bg-background p-3 text-left hover:bg-accent/50 ${isSelected ? 'border-blue-200 bg-blue-50 dark:border-blue-600 dark:bg-blue-950' : 'border-border'}
             `}
@@ -107,6 +112,7 @@ export const TaskItem = memo(function TaskItem({
             {isRunning && (
               <LoaderCircle className="h-3 w-3 flex-shrink-0 animate-spin text-blue-500" />
             )}
+            {worktreeInfo && <GitBranch className="h-3 w-3 flex-shrink-0 text-green-500" />}
           </div>
           <div className="flex items-center gap-3 text-muted-foreground text-xs">
             <div className="flex items-center gap-1">
@@ -158,4 +164,31 @@ export const TaskItem = memo(function TaskItem({
       </div>
     </div>
   );
+
+  // Wrap with HoverCard if worktreeInfo exists
+  if (worktreeInfo) {
+    return (
+      <HoverCard>
+        <HoverCardTrigger asChild>{cardContent}</HoverCardTrigger>
+        <HoverCardContent side="right" className="w-auto max-w-sm p-2">
+          <div className="space-y-1 text-xs">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Branch:</span>
+              <code className="rounded bg-muted px-1.5 py-0.5 font-mono">
+                {worktreeInfo.branch}
+              </code>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground">Path:</span>
+              <code className="break-all rounded bg-muted px-1.5 py-0.5 font-mono text-[10px]">
+                {worktreeInfo.path}
+              </code>
+            </div>
+          </div>
+        </HoverCardContent>
+      </HoverCard>
+    );
+  }
+
+  return cardContent;
 });

@@ -5,8 +5,9 @@ const { mockInvoke } = vi.hoisted(() => ({
   mockInvoke: vi.fn(),
 }));
 
-const { mockGetValidatedWorkspaceRoot } = vi.hoisted(() => ({
+const { mockGetValidatedWorkspaceRoot, mockGetEffectiveWorkspaceRoot } = vi.hoisted(() => ({
   mockGetValidatedWorkspaceRoot: vi.fn(),
+  mockGetEffectiveWorkspaceRoot: vi.fn(),
 }));
 
 const { mockIsPathWithinProjectDirectory } = vi.hoisted(() => ({
@@ -28,6 +29,7 @@ vi.mock('@/lib/utils/path-security', () => ({
 
 vi.mock('@/services/workspace-root-service', () => ({
   getValidatedWorkspaceRoot: mockGetValidatedWorkspaceRoot,
+  getEffectiveWorkspaceRoot: mockGetEffectiveWorkspaceRoot,
 }));
 
 // Mock the logger
@@ -68,10 +70,12 @@ describe('BashExecutor', () => {
   beforeEach(() => {
     mockInvoke.mockClear();
     mockGetValidatedWorkspaceRoot.mockClear();
+    mockGetEffectiveWorkspaceRoot.mockClear();
     mockIsPathWithinProjectDirectory.mockClear();
 
     // Default: workspace root is set and it's a git repository
     mockGetValidatedWorkspaceRoot.mockResolvedValue('/test/root');
+    mockGetEffectiveWorkspaceRoot.mockResolvedValue('/test/root');
 
     // Default: paths within /test/root are allowed
     mockIsPathWithinProjectDirectory.mockImplementation((targetPath: string, rootPath: string) => {
@@ -489,22 +493,24 @@ MARKER`);
       });
 
       it('should still block dangerous command before heredoc', async () => {
+        // rm -rf / is now validated by validateRmCommand() which blocks because / is outside workspace
         const result = await bashExecutor.execute(`rm -rf / && cat << EOF
 safe content
 EOF`);
         expect(result.success).toBe(false);
-        expect(result.message).toContain('blocked');
+        expect(result.message).toContain('outside the workspace');
       });
 
       it('should block dangerous command AFTER heredoc', async () => {
         // This is the critical security fix - commands after heredoc must be checked
+        // rm -rf / is now validated by validateRmCommand() which checks git repo first,
+        // then blocks because / is outside workspace
         const result = await bashExecutor.execute(`cat << EOF > file.txt
 safe content
 EOF
 rm -rf /`);
         expect(result.success).toBe(false);
-        expect(result.message).toContain('blocked');
-        expect(mockInvoke).not.toHaveBeenCalled();
+        expect(result.message).toContain('outside the workspace');
       });
 
       it('should block dangerous chained command after heredoc', async () => {
@@ -605,39 +611,15 @@ echo "done"`);
     });
 
     describe('rm dangerous patterns', () => {
-      it('should block rm -rf /', async () => {
-        const result = await bashExecutor.execute('rm -rf /');
-        expect(result.success).toBe(false);
-        expect(result.message).toContain('Command blocked');
-        expect(mockInvoke).not.toHaveBeenCalled();
-      });
-
-      it('should block rm -rf .', async () => {
+      it('should block rm -rf . (current directory pattern)', async () => {
         const result = await bashExecutor.execute('rm -rf .');
         expect(result.success).toBe(false);
-        expect(mockInvoke).not.toHaveBeenCalled();
-      });
-
-      it('should block rm -r with any path', async () => {
-        const result = await bashExecutor.execute('rm -r folder');
-        expect(result.success).toBe(false);
+        expect(result.message).toContain('dangerous pattern');
         expect(mockInvoke).not.toHaveBeenCalled();
       });
 
       it('should block rm with wildcards', async () => {
         const result = await bashExecutor.execute('rm *.txt');
-        expect(result.success).toBe(false);
-        expect(mockInvoke).not.toHaveBeenCalled();
-      });
-
-      it('should block rm --recursive', async () => {
-        const result = await bashExecutor.execute('rm --recursive folder/');
-        expect(result.success).toBe(false);
-        expect(mockInvoke).not.toHaveBeenCalled();
-      });
-
-      it('should block rm --force', async () => {
-        const result = await bashExecutor.execute('rm --force file.txt');
         expect(result.success).toBe(false);
         expect(mockInvoke).not.toHaveBeenCalled();
       });
@@ -802,21 +784,16 @@ echo "done"`);
     });
 
     describe('dangerous chained commands', () => {
-      it('should block dangerous command after safe command', async () => {
-        const result = await bashExecutor.execute('ls && rm -rf /');
-        expect(result.success).toBe(false);
-        expect(mockInvoke).not.toHaveBeenCalled();
-      });
-
       it('should block dangerous command with ;', async () => {
         const result = await bashExecutor.execute('pwd; shutdown now');
         expect(result.success).toBe(false);
         expect(mockInvoke).not.toHaveBeenCalled();
       });
 
-      it('should block dangerous command with ||', async () => {
+      it('should block rm -rf . in chained command (current directory pattern)', async () => {
         const result = await bashExecutor.execute('false || rm -rf .');
         expect(result.success).toBe(false);
+        expect(result.message).toContain('dangerous pattern');
         expect(mockInvoke).not.toHaveBeenCalled();
       });
     });
@@ -1038,6 +1015,7 @@ echo "done"`);
     describe('rm blocked when no workspace root', () => {
       beforeEach(() => {
         mockGetValidatedWorkspaceRoot.mockResolvedValue(null);
+        mockGetEffectiveWorkspaceRoot.mockResolvedValue(null);
       });
 
       it('should block rm when no workspace root is set', async () => {
@@ -1077,17 +1055,31 @@ echo "done"`);
       });
     });
 
-    describe('rm with flags (still blocked by dangerous patterns)', () => {
-      it('should block rm -rf even within workspace', async () => {
+    describe('rm with flags in git workspace', () => {
+      it('should allow rm -rf within workspace in git repo', async () => {
         const result = await bashExecutor.execute('rm -rf src/');
-        expect(result.success).toBe(false);
-        expect(result.message).toContain('Command blocked');
+        expect(result.success).toBe(true);
       });
 
-      it('should block rm -r even within workspace', async () => {
+      it('should allow rm -r within workspace in git repo', async () => {
         const result = await bashExecutor.execute('rm -r folder');
+        expect(result.success).toBe(true);
+      });
+
+      it('should allow rm --recursive within workspace in git repo', async () => {
+        const result = await bashExecutor.execute('rm --recursive folder/');
+        expect(result.success).toBe(true);
+      });
+
+      it('should allow rm --force within workspace in git repo', async () => {
+        const result = await bashExecutor.execute('rm --force file.txt');
+        expect(result.success).toBe(true);
+      });
+
+      it('should block rm -rf with path outside workspace', async () => {
+        const result = await bashExecutor.execute('rm -rf /etc/');
         expect(result.success).toBe(false);
-        expect(result.message).toContain('Command blocked');
+        expect(result.message).toContain('outside the workspace');
       });
 
       it('should block rm with wildcards even within workspace', async () => {
@@ -1100,6 +1092,7 @@ echo "done"`);
     describe('non-rm commands should not be affected', () => {
       it('should allow ls when no workspace root', async () => {
         mockGetValidatedWorkspaceRoot.mockResolvedValue(null);
+        mockGetEffectiveWorkspaceRoot.mockResolvedValue(null);
         const result = await bashExecutor.execute('ls -la');
         expect(result.success).toBe(true);
       });
@@ -1117,6 +1110,7 @@ echo "done"`);
 
       it('should allow mkdir anywhere', async () => {
         mockGetValidatedWorkspaceRoot.mockResolvedValue(null);
+        mockGetEffectiveWorkspaceRoot.mockResolvedValue(null);
         const result = await bashExecutor.execute('mkdir new-folder');
         expect(result.success).toBe(true);
       });

@@ -13,7 +13,6 @@
  * - All callbacks route through MessageService for persistence
  */
 
-import type { ToolSet } from 'ai';
 import { logger } from '@/lib/logger';
 import { createLLMService, type LLMService } from '@/services/agents/llm-service';
 import { messageService } from '@/services/message-service';
@@ -21,7 +20,8 @@ import { notificationService } from '@/services/notification-service';
 import { TaskManager } from '@/services/task-manager';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useTaskStore } from '@/stores/task-store';
-import type { UIMessage } from '@/types/agent';
+import { useWorktreeStore } from '@/stores/worktree-store';
+import type { AgentToolSet, UIMessage } from '@/types/agent';
 
 /**
  * Configuration for starting an execution
@@ -31,7 +31,7 @@ export interface ExecutionConfig {
   messages: UIMessage[];
   model: string;
   systemPrompt?: string;
-  tools?: ToolSet;
+  tools?: AgentToolSet;
   agentId?: string;
   isNewTask?: boolean;
   userMessage?: string;
@@ -65,7 +65,22 @@ class ExecutionService {
       throw execError;
     }
 
-    // 2. Create independent LLMService instance for this task
+    // 2. Try to acquire worktree for parallel execution (if enabled and needed)
+    const runningTaskIds = this.getRunningTaskIds().filter((id) => id !== taskId);
+    try {
+      const worktreePath = await useWorktreeStore.getState().acquireForTask(taskId, runningTaskIds);
+      if (worktreePath) {
+        logger.info('[ExecutionService] Task using worktree', { taskId, worktreePath });
+      }
+    } catch (worktreeError) {
+      // Log warning but continue - task will work in main project directory
+      logger.warn(
+        '[ExecutionService] Worktree acquisition failed, using main project',
+        worktreeError
+      );
+    }
+
+    // 3. Create independent LLMService instance for this task
     const llmService = createLLMService(taskId);
     this.llmServiceInstances.set(taskId, llmService);
 
@@ -73,7 +88,7 @@ class ExecutionService {
     let streamedContent = '';
 
     try {
-      // 3. Run agent loop with callbacks that route through services
+      // 4. Run agent loop with callbacks that route through services
       await llmService.runAgentLoop(
         {
           messages,
@@ -161,8 +176,7 @@ class ExecutionService {
             }
           },
         },
-        abortController,
-        taskId
+        abortController
       );
     } catch (error) {
       if (!abortController.signal.aborted) {

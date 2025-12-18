@@ -18,6 +18,7 @@ vi.mock('@/stores/settings-store', () => ({
 
 vi.mock('@/services/workspace-root-service', () => ({
   getValidatedWorkspaceRoot: vi.fn().mockResolvedValue('/test/root'),
+  getEffectiveWorkspaceRoot: vi.fn().mockResolvedValue('/test/root'),
 }));
 
 // Mock the logger
@@ -38,6 +39,9 @@ const _dummyToolCallOptions = {
   toolCallId: 'test-id',
   messages: [],
 };
+
+// Context required by execute function
+const testContext = { taskId: 'test-task-id' };
 
 // Helper to create a mock shell result
 function createMockShellResult(overrides: {
@@ -73,7 +77,7 @@ describe('bashTool', () => {
     if (!bashTool.execute) {
       throw new Error('bashTool.execute is not defined');
     }
-    const result = (await bashTool.execute({ command: 'ls -l' })) as BashResult;
+    const result = (await bashTool.execute({ command: 'ls -l' }, testContext)) as BashResult;
 
     expect(result.success).toBe(true);
     expect(result.output).toBe('test output');
@@ -96,7 +100,7 @@ describe('bashTool', () => {
     }
     const result = (await bashTool.execute({
       command: 'cat non_existent_file',
-    })) as BashResult;
+    }, testContext)) as BashResult;
 
     expect(result.success).toBe(false);
     expect(result.error).toBe('error output');
@@ -108,7 +112,7 @@ describe('bashTool', () => {
     }
     const result = (await bashTool.execute({
       command: 'rm -rf /',
-    })) as BashResult;
+    }, testContext)) as BashResult;
 
     expect(result.success).toBe(false);
     expect(result.message).toContain('Command blocked');
@@ -123,7 +127,7 @@ describe('bashTool', () => {
     }
     const result = (await bashTool.execute({
       command: 'sudo shutdown now',
-    })) as BashResult;
+    }, testContext)) as BashResult;
     expect(result.success).toBe(false);
     expect(result.message).toContain('Command blocked');
   });
@@ -138,7 +142,7 @@ describe('bashTool', () => {
     }
     const result = (await bashTool.execute({
       command: 'echo "remove this line"',
-    })) as BashResult;
+    }, testContext)) as BashResult;
     expect(result.success).toBe(true);
   });
 
@@ -148,7 +152,7 @@ describe('bashTool', () => {
     }
     const result = (await bashTool.execute({
       command: 'echo "test" > /dev/sda',
-    })) as BashResult;
+    }, testContext)) as BashResult;
     expect(result.success).toBe(false);
     expect(result.message).toContain('Command blocked');
   });
@@ -159,7 +163,7 @@ describe('bashTool', () => {
     }
     const result = (await bashTool.execute({
       command: 'ls && rm -rf /',
-    })) as BashResult;
+    }, testContext)) as BashResult;
     expect(result.success).toBe(false);
     expect(result.message).toContain('Command blocked');
   });
@@ -172,7 +176,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'rm -rf .',
-      })) as BashResult;
+      }, testContext)) as BashResult;
       expect(result.success).toBe(false);
       expect(result.message).toContain('Command blocked');
     });
@@ -183,7 +187,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'rm -r folder',
-      })) as BashResult;
+      }, testContext)) as BashResult;
       expect(result.success).toBe(false);
       expect(result.message).toContain('Command blocked');
     });
@@ -194,7 +198,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'rm *.txt',
-      })) as BashResult;
+      }, testContext)) as BashResult;
       expect(result.success).toBe(false);
       expect(result.message).toContain('Command blocked');
     });
@@ -205,7 +209,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'find . -name "*.log" -delete',
-      })) as BashResult;
+      }, testContext)) as BashResult;
       expect(result.success).toBe(false);
       expect(result.message).toContain('Command blocked');
     });
@@ -216,7 +220,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'git clean -fd',
-      })) as BashResult;
+      }, testContext)) as BashResult;
       expect(result.success).toBe(false);
       expect(result.message).toContain('Command blocked');
     });
@@ -227,7 +231,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'git reset --hard',
-      })) as BashResult;
+      }, testContext)) as BashResult;
       expect(result.success).toBe(false);
       expect(result.message).toContain('Command blocked');
     });
@@ -238,7 +242,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'unlink file.txt',
-      })) as BashResult;
+      }, testContext)) as BashResult;
       expect(result.success).toBe(false);
       expect(result.message).toContain('Command blocked');
     });
@@ -249,7 +253,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'shred -u secret.txt',
-      })) as BashResult;
+      }, testContext)) as BashResult;
       expect(result.success).toBe(false);
       expect(result.message).toContain('Command blocked');
     });
@@ -260,7 +264,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'find . -type f -exec rm {} \\;',
-      })) as BashResult;
+      }, testContext)) as BashResult;
       expect(result.success).toBe(false);
       expect(result.message).toContain('Command blocked');
     });
@@ -271,7 +275,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'mv important.txt /dev/null',
-      })) as BashResult;
+      }, testContext)) as BashResult;
       expect(result.success).toBe(false);
       expect(result.message).toContain('Command blocked');
     });
@@ -294,7 +298,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'bun run dev',
-      })) as BashResult;
+      }, testContext)) as BashResult;
 
       expect(result.success).toBe(true);
       expect(result.idle_timed_out).toBe(true);
@@ -319,7 +323,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'long-running-command',
-      })) as BashResult;
+      }, testContext)) as BashResult;
 
       expect(result.success).toBe(true);
       expect(result.idle_timed_out).toBe(false);
@@ -341,7 +345,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'npm run serve',
-      })) as BashResult;
+      }, testContext)) as BashResult;
 
       expect(result.pid).toBe(54321);
       expect(result.idle_timed_out).toBe(true);
@@ -362,7 +366,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'echo hello',
-      })) as BashResult;
+      }, testContext)) as BashResult;
 
       expect(result.success).toBe(true);
       expect(result.idle_timed_out).toBe(false);
@@ -386,7 +390,7 @@ describe('bashTool', () => {
       }
       const result = (await bashTool.execute({
         command: 'node server.js',
-      })) as BashResult;
+      }, testContext)) as BashResult;
 
       expect(result.success).toBe(true);
       expect(result.idle_timed_out).toBe(true);

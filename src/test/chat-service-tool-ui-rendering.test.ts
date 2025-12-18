@@ -3,7 +3,7 @@
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { llmService } from '@/services/agents/llm-service';
+import { createLLMService, type LLMService } from '@/services/agents/llm-service';
 import type { UIMessage } from '@/types/agent';
 
 // Mock dependencies
@@ -70,6 +70,7 @@ vi.mock('@/stores/settings-store', () => ({
 
 vi.mock('@/services/workspace-root-service', () => ({
   getValidatedWorkspaceRoot: vi.fn().mockResolvedValue('/test/path'),
+  getEffectiveWorkspaceRoot: vi.fn().mockResolvedValue('/test/path'),
 }));
 
 vi.mock('@/services/ai-pricing-service', () => ({
@@ -123,6 +124,7 @@ describe('ChatService Tool UI Rendering', () => {
 
   let mockStreamText: any;
   let _mockGetToolUIRenderers: any;
+  let llmService: LLMService;
 
   beforeEach(async () => {
     vi.clearAllMocks();
@@ -132,6 +134,9 @@ describe('ChatService Tool UI Rendering', () => {
 
     const toolAdapterModule = await import('@/lib/tool-adapter');
     _mockGetToolUIRenderers = vi.mocked(toolAdapterModule.getToolUIRenderers);
+
+    // Create a new LLMService instance for each test
+    llmService = createLLMService('test-task-id');
   });
 
   it('should send tool-call message when tool call starts', async () => {

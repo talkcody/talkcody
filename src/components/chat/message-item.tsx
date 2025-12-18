@@ -162,7 +162,10 @@ function MessageItemComponent({
             _toolCallId: item.toolCallId,
           };
 
-          const doingComponent = toolRenderers.renderToolDoing(inputWithExtras);
+          // Pass context with taskId for tools that need execution context (e.g., exitPlanMode)
+          const doingComponent = toolRenderers.renderToolDoing(inputWithExtras, {
+            taskId: message.taskId,
+          });
 
           return (
             <ToolErrorBoundary key={uniqueKey} toolName={item.toolName}>
@@ -331,6 +334,11 @@ export const MessageItem = memo(MessageItemComponent, (prevProps, nextProps) => 
   // Allow re-render for streaming messages
   if (nextProps.message.isStreaming || prevProps.message.isStreaming) {
     return false; // false = needs re-render
+  }
+
+  // Allow re-render when renderDoingUI changes (for stopping generation)
+  if (prevProps.message.renderDoingUI !== nextProps.message.renderDoingUI) {
+    return false;
   }
 
   // Re-render if isLastAssistantInTurn changed (affects Actions visibility)

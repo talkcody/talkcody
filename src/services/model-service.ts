@@ -311,20 +311,6 @@ export class ModelService {
   }
 
   /**
-   * Manually refresh models from remote API
-   */
-  async refreshModels(): Promise<boolean> {
-    return await modelSyncService.manualRefresh();
-  }
-
-  /**
-   * Get model sync status
-   */
-  getSyncStatus(): { isChecking: boolean; hasBackgroundSync: boolean } {
-    return modelSyncService.getStatus();
-  }
-
-  /**
    * Get the current model for the active agent
    * @returns Model identifier in format "modelKey@provider" or empty string if not configured
    */

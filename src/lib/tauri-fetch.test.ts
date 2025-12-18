@@ -24,11 +24,15 @@ vi.mock('./logger', () => ({
 
 // Import after mocks are set up
 import type { ProxyResponse } from './tauri-fetch';
+import { logger } from './logger';
+
+const mockLogger = logger as { warn: Mock; error: Mock; info: Mock };
 
 describe('tauri-fetch', () => {
   beforeEach(() => {
+    // Ensure real timers (fake timers from previous tests may interfere)
+    vi.useRealTimers();
     vi.clearAllMocks();
-    vi.resetModules();
     // Reset mock implementations
     mockInvoke.mockReset();
     mockListen.mockImplementation(() => Promise.resolve(mockUnlisten));
@@ -223,12 +227,13 @@ describe('tauri-fetch', () => {
     });
 
     it('should throw error when invoke fails', async () => {
-      mockInvoke.mockRejectedValue(new Error('Network error'));
+      // Use non-network error to avoid retry logic
+      mockInvoke.mockRejectedValue(new Error('Invalid API key'));
 
       const { simpleFetch } = await import('./tauri-fetch');
 
       await expect(simpleFetch('https://api.example.com/data')).rejects.toThrow(
-        'Simple fetch failed: Error: Network error'
+        'Simple fetch failed: Error: Invalid API key'
       );
     });
 
@@ -508,12 +513,13 @@ describe('tauri-fetch', () => {
     });
 
     it('should throw error when stream_fetch fails', async () => {
-      mockInvoke.mockRejectedValue(new Error('Connection refused'));
+      // Use non-network error to avoid retry logic
+      mockInvoke.mockRejectedValue(new Error('Invalid credentials'));
 
       const { streamFetch } = await import('./tauri-fetch');
 
       await expect(streamFetch('https://api.example.com/stream')).rejects.toThrow(
-        'Tauri stream fetch failed: Error: Connection refused'
+        'Tauri stream fetch failed: Error: Invalid credentials'
       );
     });
 
@@ -613,6 +619,384 @@ describe('tauri-fetch', () => {
       const { streamFetch } = await import('./tauri-fetch');
       // TauriFetchFunction should accept RequestInfo | URL and optional RequestInit
       expect(typeof streamFetch).toBe('function');
+    });
+  });
+
+  describe('isNetworkError', () => {
+    it('should return true for "error sending request" message', async () => {
+      const { isNetworkError } = await import('./tauri-fetch');
+
+      expect(isNetworkError(new Error('error sending request for url'))).toBe(true);
+      expect(isNetworkError({ message: 'Error sending request to server' })).toBe(true);
+    });
+
+    it('should return true for "error decoding response" message', async () => {
+      const { isNetworkError } = await import('./tauri-fetch');
+
+      expect(isNetworkError(new Error('error decoding response body'))).toBe(true);
+    });
+
+    it('should return true for "Load failed" message', async () => {
+      const { isNetworkError } = await import('./tauri-fetch');
+
+      expect(isNetworkError(new Error('Load failed'))).toBe(true);
+      expect(isNetworkError({ message: 'load failed' })).toBe(true);
+    });
+
+    it('should return true for "network error" message', async () => {
+      const { isNetworkError } = await import('./tauri-fetch');
+
+      expect(isNetworkError(new Error('Network error occurred'))).toBe(true);
+    });
+
+    it('should return true for "connection refused" message', async () => {
+      const { isNetworkError } = await import('./tauri-fetch');
+
+      expect(isNetworkError(new Error('Connection refused'))).toBe(true);
+    });
+
+    it('should return true for "connection reset" message', async () => {
+      const { isNetworkError } = await import('./tauri-fetch');
+
+      expect(isNetworkError(new Error('Connection reset by peer'))).toBe(true);
+    });
+
+    it('should return true for "socket hang up" message', async () => {
+      const { isNetworkError } = await import('./tauri-fetch');
+
+      expect(isNetworkError(new Error('socket hang up'))).toBe(true);
+    });
+
+    it('should return false for non-network errors', async () => {
+      const { isNetworkError } = await import('./tauri-fetch');
+
+      expect(isNetworkError(new Error('Invalid JSON'))).toBe(false);
+      expect(isNetworkError(new Error('Permission denied'))).toBe(false);
+      expect(isNetworkError(new Error('File not found'))).toBe(false);
+    });
+
+    it('should return false for null/undefined', async () => {
+      const { isNetworkError } = await import('./tauri-fetch');
+
+      expect(isNetworkError(null)).toBe(false);
+      expect(isNetworkError(undefined)).toBe(false);
+    });
+
+    it('should handle string errors', async () => {
+      const { isNetworkError } = await import('./tauri-fetch');
+
+      expect(isNetworkError('error sending request')).toBe(true);
+      expect(isNetworkError('some other error')).toBe(false);
+    });
+  });
+
+  describe('simpleFetch network retry', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should retry on network error and succeed', async () => {
+      const mockResponse: ProxyResponse = {
+        status: 200,
+        headers: {},
+        body: '{"success": true}',
+      };
+
+      // First call fails with network error, second call succeeds
+      mockInvoke
+        .mockRejectedValueOnce(new Error('error sending request for url'))
+        .mockResolvedValueOnce(mockResponse);
+
+      const { simpleFetch } = await import('./tauri-fetch');
+
+      const fetchPromise = simpleFetch('https://api.example.com/data');
+
+      // Advance timer for the first retry delay
+      await vi.advanceTimersByTimeAsync(1000);
+
+      const response = await fetchPromise;
+
+      expect(response.status).toBe(200);
+      expect(mockInvoke).toHaveBeenCalledTimes(2);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Network error, retrying in 1000ms'),
+        expect.any(Object)
+      );
+    });
+
+    it('should retry multiple times before succeeding', async () => {
+      const mockResponse: ProxyResponse = {
+        status: 200,
+        headers: {},
+        body: '{"success": true}',
+      };
+
+      // First two calls fail, third succeeds
+      mockInvoke
+        .mockRejectedValueOnce(new Error('error sending request'))
+        .mockRejectedValueOnce(new Error('connection refused'))
+        .mockResolvedValueOnce(mockResponse);
+
+      const { simpleFetch } = await import('./tauri-fetch');
+
+      const fetchPromise = simpleFetch('https://api.example.com/data');
+
+      // Advance timers for retries
+      await vi.advanceTimersByTimeAsync(1000); // First retry
+      await vi.advanceTimersByTimeAsync(2000); // Second retry
+
+      const response = await fetchPromise;
+
+      expect(response.status).toBe(200);
+      expect(mockInvoke).toHaveBeenCalledTimes(3);
+    });
+
+    it('should throw after max retries exceeded', async () => {
+      // All calls fail with network error
+      mockInvoke.mockRejectedValue(new Error('error sending request for url'));
+
+      const { simpleFetch } = await import('./tauri-fetch');
+
+      const fetchPromise = simpleFetch('https://api.example.com/data');
+
+      // Attach error handler to prevent unhandled rejection
+      let caughtError: Error | undefined;
+      fetchPromise.catch((e) => {
+        caughtError = e;
+      });
+
+      // Advance timers for all retries
+      await vi.advanceTimersByTimeAsync(1000); // First retry
+      await vi.advanceTimersByTimeAsync(2000); // Second retry
+      await vi.advanceTimersByTimeAsync(4000); // Third retry
+
+      // Wait for the promise to settle
+      await vi.runAllTimersAsync();
+
+      expect(caughtError).toBeDefined();
+      expect(caughtError?.message).toContain('Simple fetch failed');
+
+      // Initial attempt + 3 retries = 4 calls
+      expect(mockInvoke).toHaveBeenCalledTimes(4);
+    });
+
+    it('should not retry for non-network errors', async () => {
+      mockInvoke.mockRejectedValue(new Error('Invalid API key'));
+
+      const { simpleFetch } = await import('./tauri-fetch');
+
+      await expect(simpleFetch('https://api.example.com/data')).rejects.toThrow(
+        'Simple fetch failed'
+      );
+
+      // Should only try once, no retries
+      expect(mockInvoke).toHaveBeenCalledTimes(1);
+    });
+
+    it('should use exponential backoff delays', async () => {
+      const mockResponse: ProxyResponse = {
+        status: 200,
+        headers: {},
+        body: '{}',
+      };
+
+      // All calls fail until the last one
+      mockInvoke
+        .mockRejectedValueOnce(new Error('error sending request'))
+        .mockRejectedValueOnce(new Error('error sending request'))
+        .mockRejectedValueOnce(new Error('error sending request'))
+        .mockResolvedValueOnce(mockResponse);
+
+      const { simpleFetch } = await import('./tauri-fetch');
+
+      const fetchPromise = simpleFetch('https://api.example.com/data');
+
+      // First retry after 1000ms
+      await vi.advanceTimersByTimeAsync(1000);
+      // Second retry after 2000ms
+      await vi.advanceTimersByTimeAsync(2000);
+      // Third retry after 4000ms
+      await vi.advanceTimersByTimeAsync(4000);
+
+      await fetchPromise;
+
+      expect(mockLogger.warn).toHaveBeenNthCalledWith(
+        1,
+        expect.stringContaining('retrying in 1000ms'),
+        expect.any(Object)
+      );
+      expect(mockLogger.warn).toHaveBeenNthCalledWith(
+        2,
+        expect.stringContaining('retrying in 2000ms'),
+        expect.any(Object)
+      );
+      expect(mockLogger.warn).toHaveBeenNthCalledWith(
+        3,
+        expect.stringContaining('retrying in 4000ms'),
+        expect.any(Object)
+      );
+    });
+  });
+
+  describe('streamFetch network retry', () => {
+    beforeEach(() => {
+      vi.useFakeTimers();
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('should retry on network error and succeed', async () => {
+      const streamResponse = {
+        request_id: 1,
+        status: 200,
+        headers: {},
+      };
+
+      // First call fails with network error, second call succeeds
+      mockInvoke
+        .mockRejectedValueOnce(new Error('error sending request for url'))
+        .mockResolvedValueOnce(streamResponse);
+
+      const { streamFetch } = await import('./tauri-fetch');
+
+      const fetchPromise = streamFetch('https://api.example.com/stream');
+
+      // Advance timer for the first retry delay
+      await vi.advanceTimersByTimeAsync(1000);
+
+      const response = await fetchPromise;
+
+      expect(response.status).toBe(200);
+      expect(mockInvoke).toHaveBeenCalledTimes(2);
+      expect(mockLogger.warn).toHaveBeenCalledWith(
+        expect.stringContaining('Network error, retrying in 1000ms'),
+        expect.any(Object)
+      );
+    });
+
+    it('should throw after max retries exceeded', async () => {
+      // All calls fail with network error
+      mockInvoke.mockRejectedValue(new Error('error decoding response body'));
+
+      const { streamFetch } = await import('./tauri-fetch');
+
+      const fetchPromise = streamFetch('https://api.example.com/stream');
+
+      // Attach error handler to prevent unhandled rejection
+      let caughtError: Error | undefined;
+      fetchPromise.catch((e) => {
+        caughtError = e;
+      });
+
+      // Advance timers for all retries
+      await vi.advanceTimersByTimeAsync(1000);
+      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(4000);
+
+      // Wait for the promise to settle
+      await vi.runAllTimersAsync();
+
+      expect(caughtError).toBeDefined();
+      expect(caughtError?.message).toContain('Tauri stream fetch failed');
+
+      // Initial attempt + 3 retries = 4 calls
+      expect(mockInvoke).toHaveBeenCalledTimes(4);
+    });
+
+    it('should not retry for non-network errors', async () => {
+      mockInvoke.mockRejectedValue(new Error('Unauthorized'));
+
+      const { streamFetch } = await import('./tauri-fetch');
+
+      await expect(streamFetch('https://api.example.com/stream')).rejects.toThrow(
+        'Tauri stream fetch failed'
+      );
+
+      // Should only try once, no retries
+      expect(mockInvoke).toHaveBeenCalledTimes(1);
+    });
+
+    it('should generate new request_id for each retry attempt', async () => {
+      const streamResponse = {
+        request_id: 999,
+        status: 200,
+        headers: {},
+      };
+
+      // First call fails, second succeeds
+      mockInvoke
+        .mockRejectedValueOnce(new Error('connection refused'))
+        .mockResolvedValueOnce(streamResponse);
+
+      const { streamFetch } = await import('./tauri-fetch');
+
+      const fetchPromise = streamFetch('https://api.example.com/stream');
+
+      // Advance timer for the first retry delay
+      await vi.advanceTimersByTimeAsync(1000);
+
+      await fetchPromise;
+
+      // Each call should have a different request_id
+      const firstCallRequestId = (mockInvoke.mock.calls[0] as unknown[])[1];
+      const secondCallRequestId = (mockInvoke.mock.calls[1] as unknown[])[1];
+
+      expect(firstCallRequestId).not.toEqual(secondCallRequestId);
+    });
+
+    it('should set up new event listener for each retry attempt', async () => {
+      const streamResponse = {
+        request_id: 1,
+        status: 200,
+        headers: {},
+      };
+
+      // First call fails, second succeeds
+      mockInvoke
+        .mockRejectedValueOnce(new Error('network error'))
+        .mockResolvedValueOnce(streamResponse);
+
+      const { streamFetch } = await import('./tauri-fetch');
+
+      const fetchPromise = streamFetch('https://api.example.com/stream');
+
+      // Advance timer for the first retry delay
+      await vi.advanceTimersByTimeAsync(1000);
+
+      await fetchPromise;
+
+      // Listen should be called twice (once for each attempt)
+      expect(mockListen).toHaveBeenCalledTimes(2);
+    });
+
+    it('should cleanup resources on failed attempt before retry', async () => {
+      const streamResponse = {
+        request_id: 1,
+        status: 200,
+        headers: {},
+      };
+
+      mockInvoke
+        .mockRejectedValueOnce(new Error('connection reset'))
+        .mockResolvedValueOnce(streamResponse);
+
+      const { streamFetch } = await import('./tauri-fetch');
+
+      const fetchPromise = streamFetch('https://api.example.com/stream');
+
+      // Advance timer for the first retry delay
+      await vi.advanceTimersByTimeAsync(1000);
+
+      await fetchPromise;
+
+      // Unlisten should be called when cleaning up the failed attempt
+      expect(mockUnlisten).toHaveBeenCalled();
     });
   });
 });

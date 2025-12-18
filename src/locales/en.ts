@@ -64,7 +64,7 @@ const en: LocaleDefinition = {
     copied: 'Copied!',
     newChat: 'New Chat',
     clearHistory: 'Clear History',
-    chatHistory: 'Chat History',
+    chatHistory: 'Task History',
     searchConversations: 'Search conversations...',
     searchTasks: 'Search tasks...',
     emptyState: {
@@ -112,8 +112,21 @@ const en: LocaleDefinition = {
     },
     planMode: {
       label: 'Plan Mode',
+      title: 'Plan Mode',
+      description:
+        'When enabled, AI will create a detailed plan for your approval before making any changes.',
+      learnMore: 'Learn more',
       enabledTooltip: 'Plan Mode: AI will create a plan for approval first',
       disabledTooltip: 'Act Mode: AI will execute tasks directly',
+    },
+    worktree: {
+      label: 'Worktree',
+      title: 'Git Worktree',
+      description:
+        'Enable isolated git worktrees for parallel tasks, allowing multiple tasks to run simultaneously without conflicts.',
+      learnMore: 'Learn more',
+      enabledTooltip: 'Parallel tasks use isolated worktrees. Click to disable.',
+      disabledTooltip: 'Enable worktree isolation for parallel tasks. Click to enable.',
     },
     commands: {
       hint: '/ for commands',
@@ -396,6 +409,15 @@ const en: LocaleDefinition = {
       defaultShell: 'Default Shell',
       shellHint: 'Changes will take effect on the next terminal session. Windows only.',
     },
+    worktree: {
+      title: 'Worktree Settings',
+      description: 'Configure where worktree directories are stored',
+      rootPath: 'Worktree Root Directory',
+      selectDirectory: 'Select Worktree Directory',
+      customPathHint: 'Using custom path. Click reset to use default.',
+      defaultPathHint: 'Using default path: {path}',
+      pathPreview: 'Example worktree path:',
+    },
   },
 
   Agents: {
@@ -541,6 +563,9 @@ const en: LocaleDefinition = {
 
   FileChanges: {
     codeReviewMessage: 'Please use the code review agent to review the current code changes.',
+    reviewTooltip: 'AI will review changed files for bugs, issues, and improvements',
+    commitTooltip: 'Commit all changes with an AI-generated commit message',
+    mergeTooltip: 'Merge worktree changes back to the main branch',
   },
 
   Skills: {
@@ -1072,6 +1097,42 @@ const en: LocaleDefinition = {
     fixed: 'Fixed',
     removed: 'Removed',
     releasedOn: (date) => `Released on ${date}`,
+  },
+
+  Worktree: {
+    conflictDialog: {
+      title: 'Uncommitted Changes Detected',
+      description:
+        'The worktree has uncommitted changes that need to be handled before creating a new task.',
+      changesCount: (count) => `${count} file(s) changed`,
+      modifiedFiles: 'Modified Files',
+      addedFiles: 'Added Files',
+      deletedFiles: 'Deleted Files',
+      worktreePath: 'Worktree Path',
+      actions: {
+        discard: 'Discard Changes',
+        discardDescription: 'Remove all uncommitted changes and reset the worktree',
+        merge: 'Merge to Main',
+        mergeDescription: 'Merge changes to the main branch',
+        sync: 'Sync from Main',
+        syncDescription: 'Rebase main branch changes into worktree and keep working',
+        cancel: 'Cancel',
+      },
+      mergeConflict: {
+        title: 'Merge Conflict',
+        description: 'The merge has conflicts that need to be resolved manually.',
+        conflictFiles: 'Conflicted Files',
+        resolveManually: 'Please resolve conflicts in your editor and then try again.',
+      },
+      syncConflict: {
+        title: 'Sync Conflict',
+        description: 'The sync has conflicts that need to be resolved manually.',
+        conflictFiles: 'Conflicted Files',
+        resolveManually:
+          'Please resolve conflicts in your editor. You can abort the rebase with git rebase --abort.',
+      },
+      processing: 'Processing...',
+    },
   },
 
   Lint: {

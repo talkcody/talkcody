@@ -1,5 +1,5 @@
 {
-  "version": "2025-12-13T06:19:25.529Z",
+  "version": "2025-12-18T04:56:44.086Z",
   "models": {
     "gpt-5-nano": {
       "name": "GPT-5 Nano",
@@ -160,6 +160,26 @@
         "input": "0.0000003",
         "output": "0.0000025",
         "cachedInput": "0.00000003"
+      },
+      "context_length": 1048576
+    },
+    "gemini-3-flash": {
+      "name": "Gemini 3 Flash",
+      "imageInput": true,
+      "providers": [
+        "google",
+        "aiGateway",
+        "openRouter"
+      ],
+      "providerMappings": {
+        "google": "gemini-3-flash-preview",
+        "aiGateway": "google/gemini-3-flash",
+        "openRouter": "google/gemini-3-flash-preview"
+      },
+      "pricing": {
+        "input": "0.0000005",
+        "output": "0.000003",
+        "cachedInput": "0.00000005"
       },
       "context_length": 1048576
     },

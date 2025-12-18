@@ -2,96 +2,122 @@
 import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { logger } from '@/lib/logger';
-import type { AskUserQuestionsOutput, Question, QuestionAnswer } from '@/types/user-question';
+import type { AskUserQuestionsOutput, Question } from '@/types/user-question';
 
 /**
  * User Question Store
  *
  * Manages the state for AskUserQuestions tool.
  * Provides a mechanism to pause tool execution and wait for user input.
+ *
+ * IMPORTANT: This store supports multiple concurrent pending questions,
+ * keyed by taskId to allow multiple tasks to have pending questions simultaneously.
  */
-interface UserQuestionState {
-  /** Current questions waiting for user answers */
-  pendingQuestions: Question[];
 
-  /** Function to resolve the Promise when user submits answers */
-  resolver: ((answers: AskUserQuestionsOutput) => void) | null;
+/**
+ * Entry for a single pending question set, stored per taskId
+ */
+interface PendingQuestionEntry {
+  pendingQuestions: Question[];
+  resolver: (answers: AskUserQuestionsOutput) => void;
+}
+
+interface UserQuestionState {
+  /** Map of pending questions, keyed by taskId */
+  pendingQuestions: Map<string, PendingQuestionEntry>;
 
   /**
-   * Set pending questions and the resolver function
+   * Set pending questions and the resolver function for a specific task
    * Called by the tool's execute function
    */
   setPendingQuestions: (
+    taskId: string,
     questions: Question[],
     resolver: (answers: AskUserQuestionsOutput) => void
   ) => void;
 
   /**
-   * Submit user's answers
-   * Called by the UI component when user clicks submit
+   * Get pending questions for a specific task
    */
-  submitAnswers: (answers: AskUserQuestionsOutput) => void;
+  getPendingQuestions: (taskId: string) => PendingQuestionEntry | null;
 
   /**
-   * Clear pending questions and resolver
+   * Submit user's answers for a specific task
+   * Called by the UI component when user clicks submit
    */
-  clearQuestions: () => void;
+  submitAnswers: (taskId: string, answers: AskUserQuestionsOutput) => void;
+
+  /**
+   * Clear pending questions and resolver for a specific task
+   */
+  clearQuestions: (taskId: string) => void;
 }
 
 export const useUserQuestionStore = create<UserQuestionState>()(
   devtools(
     (set, get) => ({
-      pendingQuestions: [],
-      resolver: null,
+      pendingQuestions: new Map(),
 
-      setPendingQuestions: (questions, resolver) => {
+      setPendingQuestions: (taskId, questions, resolver) => {
         logger.info('[UserQuestionStore] Setting pending questions', {
+          taskId,
           questionCount: questions.length,
           questionIds: questions.map((q) => q.id),
         });
 
         set(
-          {
-            pendingQuestions: questions,
-            resolver,
+          (state) => {
+            const newMap = new Map(state.pendingQuestions);
+            newMap.set(taskId, {
+              pendingQuestions: questions,
+              resolver,
+            });
+            return { pendingQuestions: newMap };
           },
           false,
           'setPendingQuestions'
         );
       },
 
-      submitAnswers: (answers) => {
-        const { resolver } = get();
+      getPendingQuestions: (taskId) => {
+        return get().pendingQuestions.get(taskId) || null;
+      },
+
+      submitAnswers: (taskId, answers) => {
+        const entry = get().pendingQuestions.get(taskId);
 
         logger.info('[UserQuestionStore] Submitting answers', {
+          taskId,
           answerCount: Object.keys(answers).length,
           questionIds: Object.keys(answers),
         });
 
-        if (resolver) {
-          resolver(answers);
+        if (entry) {
+          entry.resolver(answers);
 
-          // Clear state after resolving
+          // Clear state for this task after resolving
           set(
-            {
-              pendingQuestions: [],
-              resolver: null,
+            (state) => {
+              const newMap = new Map(state.pendingQuestions);
+              newMap.delete(taskId);
+              return { pendingQuestions: newMap };
             },
             false,
             'submitAnswers'
           );
         } else {
-          logger.error('[UserQuestionStore] No resolver found when submitting answers');
+          logger.error('[UserQuestionStore] No pending questions found for task', { taskId });
         }
       },
 
-      clearQuestions: () => {
-        logger.info('[UserQuestionStore] Clearing questions');
+      clearQuestions: (taskId) => {
+        logger.info('[UserQuestionStore] Clearing questions', { taskId });
 
         set(
-          {
-            pendingQuestions: [],
-            resolver: null,
+          (state) => {
+            const newMap = new Map(state.pendingQuestions);
+            newMap.delete(taskId);
+            return { pendingQuestions: newMap };
           },
           false,
           'clearQuestions'

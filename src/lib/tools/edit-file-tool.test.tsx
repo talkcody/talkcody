@@ -11,10 +11,17 @@ vi.mock('@/services/notification-service', () => ({
 
 // Create a mock store that works both as a hook and with getState()
 vi.mock('@/stores/edit-review-store', () => {
+  // Use a real Map for pendingEdits
+  const mockPendingEdits = new Map();
+
   const mockStoreState = {
-    pendingEdit: null,
-    editId: null,
+    pendingEdits: mockPendingEdits,
     setPendingEdit: vi.fn(),
+    getPendingEdit: vi.fn(),
+    approveEdit: vi.fn(),
+    rejectEdit: vi.fn(),
+    allowAllEdit: vi.fn(),
+    clearPendingEdit: vi.fn(),
   };
 
   const mockUseEditReviewStore = vi.fn((selector) => {
@@ -39,6 +46,9 @@ import { TaskManager } from '@/services/task-manager';
 import { notificationService } from '@/services/notification-service';
 import { useEditReviewStore } from '@/stores/edit-review-store';
 
+// Context required by execute function
+const testContext = { taskId: 'conv-123' };
+
 describe('editFile tool', () => {
   const mockRepositoryService = repositoryService as any;
   const mockTaskManager = TaskManager as any;
@@ -56,8 +66,7 @@ describe('editFile tool', () => {
 
     // Reset the mock store state
     const state = getMockStoreState();
-    state.pendingEdit = null;
-    state.editId = null;
+    state.pendingEdits.clear();
     state.setPendingEdit = vi.fn();
   });
 
@@ -152,7 +161,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const old = "value";', new_string: 'const old = "new";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(true);
     });
@@ -162,7 +171,7 @@ describe('editFile tool', () => {
         file_path: '/etc/passwd',
         edits: [{ old_string: 'root', new_string: 'admin' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('Security');
@@ -173,7 +182,7 @@ describe('editFile tool', () => {
         file_path: '../../../etc/passwd',
         edits: [{ old_string: 'root', new_string: 'admin' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('Security');
@@ -181,15 +190,15 @@ describe('editFile tool', () => {
 
     it('should handle missing workspace root', async () => {
       // Import locally to mock just for this test
-      const { getValidatedWorkspaceRoot } = await import('@/services/workspace-root-service');
-      const mockGetValidatedWorkspaceRoot = getValidatedWorkspaceRoot as any;
-      mockGetValidatedWorkspaceRoot.mockResolvedValueOnce(null);
+      const { getEffectiveWorkspaceRoot } = await import('@/services/workspace-root-service');
+      const mockGetEffectiveWorkspaceRoot = getEffectiveWorkspaceRoot as any;
+      mockGetEffectiveWorkspaceRoot.mockResolvedValueOnce(null);
 
       const result = await editFile.execute({
         file_path: 'src/file.ts',
         edits: [{ old_string: 'old', new_string: 'new' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('Project root path is not set');
@@ -210,7 +219,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value = "test";', new_string: 'const value = "updated";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(mockRepositoryService.readFileWithCache).toHaveBeenCalled();
       expect(result.success).toBe(true);
@@ -223,7 +232,7 @@ describe('editFile tool', () => {
         file_path: 'src/nonexistent.ts',
         edits: [{ old_string: 'old', new_string: 'new' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('File not found');
@@ -239,7 +248,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value = "test";', new_string: 'const value = "updated";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(mockRepositoryService.writeFile).toHaveBeenCalledWith(
         expect.stringContaining('file.ts'),
@@ -257,7 +266,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value = "test";', new_string: 'const value = "updated";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('Permission denied');
@@ -279,7 +288,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: '  return "old";', new_string: '  return "new";' }],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(true);
         expect(result.message).toContain('Successfully applied 1 edit');
@@ -293,7 +302,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: '  return "nonexistent";', new_string: '  return "new";' }],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(false);
         expect(result.message).toContain('Could not find exact match');
@@ -308,7 +317,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: 'return "value"', new_string: 'return "new"' }],
           review_mode: false,
-        });
+        }, testContext);
 
         // Smart matching will successfully find and replace this
         expect(result.success).toBe(true);
@@ -330,7 +339,7 @@ describe('editFile tool', () => {
             { old_string: 'const c = 3;', new_string: 'const c = 30;' },
           ],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(true);
         expect(result.message).toContain('Successfully applied 3 edits');
@@ -348,7 +357,7 @@ describe('editFile tool', () => {
             { old_string: 'const b = 2;', new_string: 'const b = 20;' },
           ],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(false);
         expect(result.message).toContain('Edit 1 failed');
@@ -366,7 +375,7 @@ describe('editFile tool', () => {
             { old_string: 'const c = 3;', new_string: 'const c = 30;' },
           ],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(false);
         expect(result.message).toContain('Edit 2 failed');
@@ -382,7 +391,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: '', new_string: 'new' }],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(false);
         expect(result.message).toContain('old_string cannot be empty');
@@ -399,7 +408,7 @@ describe('editFile tool', () => {
             { old_string: 'const value = "test";', new_string: 'const value = "new";' },
           ],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(false);
         expect(result.message).toContain('Duplicate edit blocks detected');
@@ -413,7 +422,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: 'const value = "test";', new_string: 'const value = "test";' }],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(false);
         expect(result.message).toContain('No changes needed');
@@ -437,7 +446,7 @@ describe('editFile tool', () => {
             },
           ],
           review_mode: false,
-        });
+        }, testContext);
 
         // Should succeed, not fail with "identical" error
         expect(result.success).toBe(true);
@@ -458,7 +467,7 @@ describe('editFile tool', () => {
             },
           ],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(true);
         expect(result.message).not.toContain('identical');
@@ -472,7 +481,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(false);
         expect(result.message).toContain('At least one edit block is required');
@@ -486,7 +495,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(false);
       });
@@ -499,7 +508,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: '   ', new_string: 'new' }],
           review_mode: false,
-        });
+        }, testContext);
 
         expect(result.success).toBe(false);
         expect(result.message).toContain('old_string cannot be empty');
@@ -521,7 +530,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: '  return "value";', new_string: '  return "new";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(true);
     });
@@ -536,7 +545,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'return "value";', new_string: 'return "new";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       // Smart matching should find the trimmed match
       expect(mockRepositoryService.writeFile).toHaveBeenCalled();
@@ -552,7 +561,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: '  return "value";', new_string: '  return "new";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       // Should normalize tabs to spaces
       expect(mockRepositoryService.writeFile).toHaveBeenCalled();
@@ -569,7 +578,7 @@ describe('editFile tool', () => {
           { old_string: 'function test() {\\n  return "value";', new_string: 'function test() {\n  return "new";' },
         ],
         review_mode: false,
-      });
+      }, testContext);
 
       // Smart normalization will convert \\n to \n and successfully match
       expect(result.success).toBe(true);
@@ -584,7 +593,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'function calcuate()', new_string: 'function calculate()' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('Could not find exact match');
@@ -598,7 +607,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value1\nconst value2 = 999;', new_string: 'const value1 = 999;' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('Found similar text');
@@ -613,7 +622,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const a = 1;', new_string: 'const a = 10;' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(true);
     });
@@ -627,7 +636,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const a = 1;', new_string: 'const a = 10;' }],
         review_mode: false,
-      });
+      }, testContext);
 
       // Should succeed and replace only first occurrence
       expect(result.success).toBe(true);
@@ -649,7 +658,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
           review_mode: true,
-        });
+        }, testContext);
 
         expect(result.success).toBe(true);
         expect(result.message).toContain('Auto-approved');
@@ -668,7 +677,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
           review_mode: true,
-        });
+        }, testContext);
 
         expect(getMockStoreState().setPendingEdit).not.toHaveBeenCalled();
       });
@@ -684,8 +693,8 @@ describe('editFile tool', () => {
         const mockSetPendingEdit = vi.fn();
         getMockStoreState().setPendingEdit = mockSetPendingEdit;
 
-        // Mock to immediately resolve with approval
-        mockSetPendingEdit.mockImplementation((editId, pendingEdit, callbacks, resolver) => {
+        // Mock to immediately resolve with approval - new signature: (taskId, editId, pendingEdit, callbacks, resolver)
+        mockSetPendingEdit.mockImplementation((taskId, editId, pendingEdit, callbacks, resolver) => {
           // Simulate immediate approval
           setTimeout(() => {
             resolver({ success: true, approved: true, message: 'Approved' });
@@ -696,10 +705,12 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
           review_mode: true,
-        });
+        }, testContext);
 
+        // New signature: (taskId, editId, pendingEdit, callbacks, resolver)
         expect(mockSetPendingEdit).toHaveBeenCalledWith(
-          expect.any(String),
+          'conv-123', // taskId
+          expect.any(String), // editId
           expect.objectContaining({
             filePath: 'src/file.ts',
             operation: 'edit',
@@ -709,7 +720,7 @@ describe('editFile tool', () => {
             onReject: expect.any(Function),
             onAllowAll: expect.any(Function),
           }),
-          expect.any(Function)
+          expect.any(Function) // resolver
         );
       });
 
@@ -721,7 +732,8 @@ describe('editFile tool', () => {
         const mockSetPendingEdit = vi.fn();
         getMockStoreState().setPendingEdit = mockSetPendingEdit;
 
-        mockSetPendingEdit.mockImplementation((editId, pendingEdit, callbacks, resolver) => {
+        // New signature: (taskId, editId, pendingEdit, callbacks, resolver)
+        mockSetPendingEdit.mockImplementation((taskId, editId, pendingEdit, callbacks, resolver) => {
           setTimeout(() => {
             resolver({ success: true, approved: true, message: 'Approved' });
           }, 0);
@@ -731,17 +743,19 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
           review_mode: true,
-        });
+        }, testContext);
 
+        // New signature: (taskId, editId, pendingEdit, callbacks, resolver)
         expect(mockSetPendingEdit).toHaveBeenCalledWith(
-          expect.any(String),
-          expect.any(Object),
+          'conv-123', // taskId
+          expect.any(String), // editId
+          expect.any(Object), // pendingEdit
           expect.objectContaining({
             onApprove: expect.any(Function),
             onReject: expect.any(Function),
             onAllowAll: expect.any(Function),
           }),
-          expect.any(Function)
+          expect.any(Function) // resolver
         );
       });
 
@@ -754,8 +768,8 @@ describe('editFile tool', () => {
         const mockSetPendingEdit = vi.fn();
         getMockStoreState().setPendingEdit = mockSetPendingEdit;
 
-        // Mock to immediately approve
-        mockSetPendingEdit.mockImplementation(async (editId, pendingEdit, callbacks, resolver) => {
+        // Mock to immediately approve - new signature: (taskId, editId, pendingEdit, callbacks, resolver)
+        mockSetPendingEdit.mockImplementation(async (taskId, editId, pendingEdit, callbacks, resolver) => {
           // Simulate user approving by calling the onApprove callback
           const approvalResult = await callbacks.onApprove();
           resolver({ success: true, approved: true, message: approvalResult.message });
@@ -765,7 +779,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
           review_mode: true,
-        });
+        }, testContext);
 
         expect(result.success).toBe(true);
         expect(result.message).toContain('Successfully applied');
@@ -779,7 +793,8 @@ describe('editFile tool', () => {
         const mockSetPendingEdit = vi.fn();
         getMockStoreState().setPendingEdit = mockSetPendingEdit;
 
-        mockSetPendingEdit.mockImplementation((editId, pendingEdit, callbacks, resolver) => {
+        // New signature: (taskId, editId, pendingEdit, callbacks, resolver)
+        mockSetPendingEdit.mockImplementation((taskId, editId, pendingEdit, callbacks, resolver) => {
           resolver({
             success: true,
             approved: false,
@@ -792,7 +807,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
           review_mode: true,
-        });
+        }, testContext);
 
         expect(result.success).toBe(true);
         expect(result.message).toContain('Edit rejected');
@@ -809,7 +824,8 @@ describe('editFile tool', () => {
         const mockSetPendingEdit = vi.fn();
         getMockStoreState().setPendingEdit = mockSetPendingEdit;
 
-        mockSetPendingEdit.mockImplementation(async (editId, pendingEdit, callbacks, resolver) => {
+        // New signature: (taskId, editId, pendingEdit, callbacks, resolver)
+        mockSetPendingEdit.mockImplementation(async (taskId, editId, pendingEdit, callbacks, resolver) => {
           // Simulate allow-all being clicked
           const result = await callbacks.onAllowAll();
           resolver(result);
@@ -819,7 +835,7 @@ describe('editFile tool', () => {
           file_path: 'src/file.ts',
           edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
           review_mode: true,
-        });
+        }, testContext);
 
         expect(mockTaskManager.updateTaskSettings).toHaveBeenCalledWith(
           'conv-123',
@@ -843,7 +859,7 @@ describe('editFile tool', () => {
         file_path: 'src/components/test.tsx',
         edits: [{ old_string: 'const nonexistent = 1;', new_string: 'const nonexistent = 2;' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('src/components/test.tsx');
@@ -864,7 +880,7 @@ describe('editFile tool', () => {
           },
         ],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('📝 Edit description: Update variable');
@@ -879,7 +895,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'function test() {\\n  return "value";', new_string: 'function test() {' }],
         review_mode: false,
-      });
+      }, testContext);
 
       // Smart normalization will convert \\n to \n and successfully match
       expect(result.success).toBe(true);
@@ -894,7 +910,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'function calcTotal()', new_string: 'function calculateTotal()' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       // Error message should contain suggestions
@@ -909,7 +925,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value1\nconst value2 = 999;', new_string: 'const value1 = 999;' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('🔍 Found similar text');
@@ -930,7 +946,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(true);
       expect(mockRepositoryService.writeFile).toHaveBeenCalled();
@@ -948,7 +964,7 @@ describe('editFile tool', () => {
           { old_string: 'const b = 2;', new_string: 'const b = 20;' },
         ],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('Successfully applied 2 edits');
@@ -963,7 +979,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('1 total replacement');
@@ -976,7 +992,8 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'old', new_string: 'new' }],
       };
-      const component = editFile.renderToolDoing?.(params);
+      // renderToolDoing requires context with taskId
+      const component = editFile.renderToolDoing?.(params, testContext);
       expect(component).toBeTruthy();
       render(component);
       expect(screen.getByText('src/file.ts')).toBeInTheDocument();
@@ -990,7 +1007,8 @@ describe('editFile tool', () => {
           { old_string: 'old2', new_string: 'new2' },
         ],
       };
-      const component = editFile.renderToolDoing?.(params);
+      // renderToolDoing requires context with taskId
+      const component = editFile.renderToolDoing?.(params, testContext);
       expect(component).toBeTruthy();
       render(component);
       expect(screen.getByText(/Applying 2 edits/)).toBeInTheDocument();
@@ -1030,7 +1048,8 @@ describe('editFile tool', () => {
       const mockSetPendingEdit = vi.fn();
       getMockStoreState().setPendingEdit = mockSetPendingEdit;
 
-      mockSetPendingEdit.mockImplementation((editId, pendingEdit, callbacks, resolver) => {
+      // New signature: (taskId, editId, pendingEdit, callbacks, resolver)
+      mockSetPendingEdit.mockImplementation((taskId, editId, pendingEdit, callbacks, resolver) => {
         resolver({ success: true, approved: true, message: 'Approved' });
       });
 
@@ -1038,7 +1057,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
         review_mode: true,
-      });
+      }, testContext);
 
       // Should still proceed to review mode
       expect(mockSetPendingEdit).toHaveBeenCalled();
@@ -1050,7 +1069,8 @@ describe('editFile tool', () => {
       mockTaskManager.getTaskSettings.mockResolvedValue(null);
 
       // Mock setPendingEdit to simulate an error in the review process
-      getMockStoreState().setPendingEdit = vi.fn((editId, pendingEdit, callbacks, resolve) => {
+      // New signature: (taskId, editId, pendingEdit, callbacks, resolver)
+      getMockStoreState().setPendingEdit = vi.fn((taskId, editId, pendingEdit, callbacks, resolve) => {
         // Simulate an error by throwing when setPendingEdit is called
         throw new Error('Dialog error');
       });
@@ -1059,7 +1079,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
         review_mode: true,
-      });
+      }, testContext);
 
       expect(result.success).toBe(false);
       expect(result.message).toContain('Review process failed');
@@ -1075,7 +1095,8 @@ describe('editFile tool', () => {
       const mockSetPendingEdit = vi.fn();
       getMockStoreState().setPendingEdit = mockSetPendingEdit;
 
-      mockSetPendingEdit.mockImplementation((editId, pendingEdit, callbacks, resolver) => {
+      // New signature: (taskId, editId, pendingEdit, callbacks, resolver)
+      mockSetPendingEdit.mockImplementation((taskId, editId, pendingEdit, callbacks, resolver) => {
         resolver({ success: true, approved: true, message: 'Approved' });
       });
 
@@ -1083,7 +1104,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
         review_mode: true,
-      });
+      }, testContext);
 
       expect(mockNotificationService.notifyReviewRequired).toHaveBeenCalled();
     });
@@ -1101,7 +1122,7 @@ describe('editFile tool', () => {
           { old_string: 'const c = 3;', new_string: 'const c = 30;' },
         ],
         review_mode: false,
-      });
+      }, testContext);
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('3 total replacements');
@@ -1118,7 +1139,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'return "value";', new_string: 'return "new";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       // Smart matching should handle this
       expect(mockRepositoryService.writeFile).toHaveBeenCalled();
@@ -1133,7 +1154,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
         review_mode: false,
-      });
+      }, testContext);
 
       // Logger should have been called (mocked in setup.ts)
       // This test verifies no errors occur during logging
@@ -1153,7 +1174,7 @@ describe('editFile tool', () => {
         file_path: 'src/file.ts',
         edits: [{ old_string: 'const value = "test";', new_string: 'const value = "new";' }],
         review_mode: true,
-      });
+      }, testContext);
 
       expect(result.success).toBe(true);
       expect(mockTaskManager.getTaskSettings).toHaveBeenCalledWith('conv-123');

@@ -179,16 +179,15 @@ export function GlobalContentSearch({
   }
 
   return (
-    <button
-      type="button"
-      className="absolute top-0 right-0 bottom-0 left-0 z-40 flex items-start justify-center border-0 bg-black/30 pt-20 text-left"
+    <div
+      className="absolute top-0 right-0 bottom-0 left-0 z-40 flex items-start justify-center bg-black/30 pt-20"
       onClick={(e) => {
         if (e.target === e.currentTarget) {
           handleClose();
         }
       }}
       onKeyDown={(e) => {
-        if ((e.key === 'Enter' || e.key === ' ') && e.target === e.currentTarget) {
+        if (e.key === 'Escape') {
           handleClose();
         }
       }}
@@ -323,6 +322,6 @@ export function GlobalContentSearch({
           )}
         </div>
       </div>
-    </button>
+    </div>
   );
 }

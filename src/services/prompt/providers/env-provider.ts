@@ -3,6 +3,7 @@
 import { join } from '@tauri-apps/api/path';
 import { exists } from '@tauri-apps/plugin-fs';
 import { arch, platform } from '@tauri-apps/plugin-os';
+import { logger } from '@/lib/logger';
 import { usePlanModeStore } from '@/stores/plan-mode-store';
 import type { PromptContextProvider, ResolveContext } from '@/types/prompt';
 
@@ -115,6 +116,7 @@ export const EnvProvider: PromptContextProvider = {
       const sections: string[] = [];
 
       if (values.working_directory) {
+        logger.info('[EnvProvider] Working directory detected:', values.working_directory);
         sections.push(`Working directory: ${values.working_directory}`);
       }
 

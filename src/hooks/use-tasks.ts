@@ -7,9 +7,18 @@ import { taskService } from '@/services/task-service';
 import { settingsManager } from '@/stores/settings-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useUIStateStore } from '@/stores/ui-state-store';
+import { useWorktreeStore } from '@/stores/worktree-store';
 
 // Import for local use
 import type { Task } from '@/types';
+
+// Type for delete task result
+export interface DeleteTaskResult {
+  deleted: boolean;
+  requiresConfirmation?: boolean;
+  changesCount?: number;
+  message?: string;
+}
 
 export function useTasks(onTaskStart?: (taskId: string, title: string) => void) {
   const [error, setError] = useState<string | null>(null);
@@ -94,10 +103,28 @@ export function useTasks(onTaskStart?: (taskId: string, title: string) => void) 
     }
   }, []);
 
-  // Delete task
-  const deleteTask = useCallback(async (taskId: string) => {
-    await taskService.deleteTask(taskId);
-  }, []);
+  // Delete task - checks for worktree changes and returns warning if needed
+  const deleteTask = useCallback(
+    async (taskId: string, options?: { force?: boolean }): Promise<DeleteTaskResult> => {
+      // Check for worktree changes if not forcing deletion
+      const worktreeState = useWorktreeStore.getState();
+      if (worktreeState.isTaskUsingWorktree(taskId) && !options?.force) {
+        const worktree = worktreeState.getWorktreeForTask(taskId);
+        if (worktree && worktree.changesCount > 0) {
+          // Return warning instead of deleting
+          return {
+            deleted: false,
+            requiresConfirmation: true,
+            changesCount: worktree.changesCount,
+            message: `This task has ${worktree.changesCount} uncommitted file changes in worktree that will be lost.`,
+          };
+        }
+      }
+      await taskService.deleteTask(taskId);
+      return { deleted: true };
+    },
+    []
+  );
 
   // Save message (for backward compatibility)
   const saveMessage = useCallback(

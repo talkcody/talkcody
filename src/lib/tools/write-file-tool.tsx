@@ -8,14 +8,13 @@ import { notificationService } from '@/services/notification-service';
 import { repositoryService } from '@/services/repository-service';
 import { normalizeFilePath } from '@/services/repository-utils';
 import { TaskManager } from '@/services/task-manager';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import {
   type FileEditReviewResult,
   type PendingEdit,
   useEditReviewStore,
 } from '@/stores/edit-review-store';
 import { useFileChangesStore } from '@/stores/file-changes-store';
-import { settingsManager } from '@/stores/settings-store';
 import type { TaskSettings } from '@/types';
 import { normalizeString } from '@/utils/text-replacement';
 
@@ -31,9 +30,9 @@ The file path should be an absolute path.`,
     content: z.string().describe('The content to write to the file'),
   }),
   canConcurrent: false,
-  execute: async ({ file_path, content, review_mode = true }) => {
+  execute: async ({ file_path, content, review_mode = true }, context) => {
     try {
-      const rootPath = await getValidatedWorkspaceRoot();
+      const rootPath = await getEffectiveWorkspaceRoot(context.taskId);
       if (!rootPath) {
         return {
           success: false,
@@ -42,6 +41,9 @@ The file path should be an absolute path.`,
         };
       }
       file_path = await normalizeFilePath(rootPath, file_path);
+      logger.info(
+        `writeFile: rootPath=${rootPath}, file_path=${file_path}, taskId=${context?.taskId}`
+      );
 
       // Security check: Ensure file path is within the current project directory
       const isPathSecure = await isPathWithinProjectDirectory(file_path, rootPath);
@@ -73,7 +75,10 @@ The file path should be an absolute path.`,
       }
 
       // Check if auto-approve is enabled for this task
-      const taskId = settingsManager.getCurrentTaskId();
+      const taskId = context.taskId;
+      if (!taskId) {
+        throw new Error('taskId is required for writeFile tool');
+      }
       const settingsJson = await TaskManager.getTaskSettings(taskId);
 
       if (settingsJson) {
@@ -191,7 +196,10 @@ The file path should be an absolute path.`,
             logger.info('[WriteFileTool] Creating Promise and setting pending edit in store');
 
             // Store the pending edit, callbacks, and resolver in the store
-            useEditReviewStore.getState().setPendingEdit(editId, pendingEdit, callbacks, resolve);
+            // Pass taskId to support concurrent pending edits for multiple tasks
+            useEditReviewStore
+              .getState()
+              .setPendingEdit(taskId, editId, pendingEdit, callbacks, resolve);
           });
 
           // Type guard to ensure reviewResult has the expected structure
@@ -270,8 +278,8 @@ The file path should be an absolute path.`,
       };
     }
   },
-  renderToolDoing: ({ file_path }) => {
-    return <WriteFileToolDoing file_path={file_path} />;
+  renderToolDoing: ({ file_path }, context) => {
+    return <WriteFileToolDoing file_path={file_path} taskId={context?.taskId || ''} />;
   },
   renderToolResult: (result) => (
     <GenericToolResult success={result?.success ?? false} message={result?.message} />

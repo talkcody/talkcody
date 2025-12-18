@@ -18,7 +18,7 @@ import { getToolSync } from '@/lib/tools';
 import { generateId } from '@/lib/utils';
 import { getLocale, type SupportedLocale } from '@/locales';
 import { modelTypeService } from '@/services/model-type-service';
-import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import { usePlanModeStore } from '@/stores/plan-mode-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useTaskStore } from '@/stores/task-store';
@@ -65,7 +65,7 @@ export class LLMService {
   private readonly toolExecutor: ToolExecutor;
   private readonly errorHandler: ErrorHandler;
   /** Task ID for this LLM service instance (used for parallel task execution) */
-  private readonly taskId?: string;
+  private readonly taskId: string;
 
   private getDefaultCompressionConfig(): CompressionConfig {
     return {
@@ -95,7 +95,7 @@ export class LLMService {
    * Create a new LLMService instance.
    * @param taskId Optional task ID for parallel task execution. Each task should have its own instance.
    */
-  constructor(taskId?: string) {
+  constructor(taskId: string) {
     this.taskId = taskId;
     this.messageCompactor = new MessageCompactor(this);
     this.toolExecutor = new ToolExecutor();
@@ -123,11 +123,8 @@ export class LLMService {
   async runAgentLoop(
     options: AgentLoopOptions,
     callbacks: AgentLoopCallbacks,
-    abortController?: AbortController,
-    taskId?: string
+    abortController?: AbortController
   ): Promise<void> {
-    // Resolve effective taskId: method parameter takes precedence over constructor taskId
-    const effectiveTaskId = taskId ?? this.taskId;
     // biome-ignore lint/suspicious/noAsyncPromiseExecutor: Complex agent loop requires async Promise executor
     return new Promise<void>(async (resolve, reject) => {
       const {
@@ -147,6 +144,7 @@ export class LLMService {
           systemPrompt = '',
           tools = {},
           isThink = true,
+          isSubagent = false,
           suppressReasoning = false,
           maxIterations = 500,
           compression,
@@ -164,18 +162,12 @@ export class LLMService {
         logger.info('Starting agent loop with model', {
           model,
           maxIterations: options.maxIterations,
-          taskId: effectiveTaskId || 'nested',
+          taskId: this.taskId,
           inputMessageCount: inputMessages.length,
           agentId: agentId || 'default',
         });
         const t = this.getTranslations();
         onStatus?.(t.LLMService.status.initializing);
-
-        // Clear file changes from previous agent loop for this task
-        if (effectiveTaskId && effectiveTaskId !== 'nested') {
-          const { useFileChangesStore } = await import('@/stores/file-changes-store');
-          useFileChangesStore.getState().clearTask(effectiveTaskId);
-        }
 
         const providerStore = useProviderStore.getState();
         const isAvailable = providerStore.isModelAvailable(model);
@@ -193,7 +185,7 @@ export class LLMService {
         }
         const providerModel = providerStore.getProviderModel(model);
 
-        const rootPath = await getValidatedWorkspaceRoot();
+        const rootPath = await getEffectiveWorkspaceRoot(this.taskId);
 
         // Initialize agent loop state
         const loopState: AgentLoopState = {
@@ -337,10 +329,9 @@ export class LLMService {
             Object.entries(filteredTools).map(([name, toolDef]) => {
               if (toolDef && typeof toolDef === 'object' && 'execute' in toolDef) {
                 // Remove execute method from tool definition
-                const { execute: _execute, ...toolDefWithoutExecute } = toolDef as Record<
-                  string,
-                  unknown
-                >;
+                // Cast through unknown to avoid type issues with ToolWithUI
+                const toolDefAny = toolDef as unknown as Record<string, unknown>;
+                const { execute: _execute, ...toolDefWithoutExecute } = toolDefAny;
                 return [name, toolDefWithoutExecute];
               }
               return [name, toolDef];
@@ -398,7 +389,7 @@ export class LLMService {
                   }
 
                   // Update task usage for UI display
-                  if (usage && effectiveTaskId && effectiveTaskId !== 'nested') {
+                  if (usage && this.taskId && !isSubagent) {
                     const inputTokens = usage.inputTokens || 0;
                     const outputTokens = usage.outputTokens || 0;
                     const cost = aiPricingService.calculateCost(model, {
@@ -407,7 +398,7 @@ export class LLMService {
                     });
                     useTaskStore
                       .getState()
-                      .updateTaskUsage(effectiveTaskId, cost, inputTokens, outputTokens);
+                      .updateTaskUsage(this.taskId, cost, inputTokens, outputTokens);
 
                     // Calculate and update context usage percentage
                     if (loopState.lastRequestTokens > 0) {
@@ -416,7 +407,7 @@ export class LLMService {
                         100,
                         (loopState.lastRequestTokens / maxContextTokens) * 100
                       );
-                      useTaskStore.getState().setContextUsage(effectiveTaskId, contextUsage);
+                      useTaskStore.getState().setContextUsage(this.taskId, contextUsage);
                     }
                   }
 
@@ -660,39 +651,32 @@ export class LLMService {
 
           loopState.lastFinishReason = await streamResult.finishReason;
           const providerMetadata = await streamResult.providerMetadata;
-          const response = await streamResult.response;
 
           logger.info('Finish reason', { finishReason: loopState.lastFinishReason });
           logger.info('Provider metadata', { providerMetadata });
 
-          // Handle "unknown" finish reason by prompting continuation
+          // Handle "unknown" finish reason by retrying without modifying messages
           if (loopState.lastFinishReason === 'unknown' && toolCalls.length === 0) {
-            // Enhanced logging for unknown finish reason
-            logger.error('Unknown finish reason detected', {
+            const maxUnknownRetries = 3;
+            loopState.unknownFinishReasonCount = (loopState.unknownFinishReasonCount || 0) + 1;
+
+            logger.warn('Unknown finish reason detected', {
               provider: providerModel.provider,
               model: model,
-              providerMetadata,
-              responseMessages: response?.messages,
-              toolCallsCount: toolCalls.length,
+              retryCount: loopState.unknownFinishReasonCount,
+              maxRetries: maxUnknownRetries,
               iteration: loopState.currentIteration,
             });
-            // // Implement retry logic with continuation
-            // const maxUnknownRetries = 2;
-            // loopState.unknownFinishReasonCount = (loopState.unknownFinishReasonCount || 0) + 1;
 
-            // if (loopState.unknownFinishReasonCount <= maxUnknownRetries) {
-            //   logger.info(
-            //     `Attempting retry for unknown finish reason (${loopState.unknownFinishReasonCount}/${maxUnknownRetries})`
-            //   );
-
-            //   // Add a user message to prompt the LLM to continue
-            //   const continuationMessage: ModelMessage = {
-            //     role: 'user',
-            //     content: 'Please continue your response.',
-            //   };
-            //   loopState.messages.push(continuationMessage);
-            //   continue;
-            // }
+            if (loopState.unknownFinishReasonCount <= maxUnknownRetries) {
+              const sleepSeconds = loopState.unknownFinishReasonCount; // 1s, 2s, 3s
+              logger.info(
+                `Retrying for unknown finish reason (${loopState.unknownFinishReasonCount}/${maxUnknownRetries}), sleeping ${sleepSeconds}s`
+              );
+              await new Promise((resolve) => setTimeout(resolve, sleepSeconds * 1000));
+              // Retry without modifying loopState.messages
+              continue;
+            }
 
             // Max retries reached
             logger.error('Max unknown finish reason retries reached', {
@@ -716,6 +700,7 @@ export class LLMService {
               model,
               abortController,
               onToolMessage,
+              taskId: this.taskId,
             };
 
             const results = await this.toolExecutor.executeWithSmartConcurrency(
@@ -752,12 +737,24 @@ export class LLMService {
 
             // Build combined assistant message with text/reasoning AND tool calls
             const assistantContent = streamProcessor.getAssistantContent();
-            const toolCallParts = toolCalls.map((tc) => ({
-              type: 'tool-call' as const,
-              toolCallId: tc.toolCallId,
-              toolName: tc.toolName,
-              input: tc.input,
-            }));
+            const toolCallParts = toolCalls.map((tc) => {
+              // Defensive: ensure input is object format (some providers return JSON string)
+              let input = tc.input;
+              if (typeof input === 'string') {
+                try {
+                  input = JSON.parse(input);
+                } catch {
+                  // If parsing fails, wrap as object to satisfy API requirements
+                  input = { value: input };
+                }
+              }
+              return {
+                type: 'tool-call' as const,
+                toolCallId: tc.toolCallId,
+                toolName: tc.toolName,
+                input,
+              };
+            });
 
             // Apply provider-specific transformation (e.g., DeepSeek reasoning_content)
             const transformed = MessageTransform.transformAssistantContent(assistantContent, model);
@@ -876,6 +873,3 @@ export class LLMService {
 export function createLLMService(taskId: string): LLMService {
   return new LLMService(taskId);
 }
-
-/** Default singleton instance for backward compatibility */
-export const llmService = new LLMService();
