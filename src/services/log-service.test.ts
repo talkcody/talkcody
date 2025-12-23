@@ -76,7 +76,7 @@ describe('LogService', () => {
       vi.mocked(path.join).mockImplementation((...paths: string[]) => paths.join('/'));
 
       const result = await logService.getLogFilePath();
-      expect(result).toContain('talkcody.log');
+      expect(result).toContain('TalkCody.log');
     });
   });
 
@@ -111,7 +111,7 @@ describe('LogService', () => {
       vi.mocked(path.join).mockImplementation((...paths: string[]) => paths.join('/'));
 
       const result = await logService.getDisplayLogFilePath();
-      expect(result).toContain('~/Library/Logs/com.talkcody/talkcody.log');
+      expect(result).toContain('~/Library/Logs/com.talkcody/TalkCody.log');
     });
   });
 });
