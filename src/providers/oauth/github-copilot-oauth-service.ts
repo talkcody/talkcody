@@ -524,11 +524,19 @@ export function createGitHubCopilotFetch(enterpriseUrl?: string): FetchFn {
     headers.set('Editor-Plugin-Version', COPILOT_HEADERS['Editor-Plugin-Version']);
     headers.set('Copilot-Integration-Id', COPILOT_HEADERS['Copilot-Integration-Id']);
 
-    logger.debug('[GitHubCopilotFetch] Request:', {
-      url,
-      hasAuth: !!headers.get('Authorization'),
-    });
-
+    // Check if this is a vision request and add the required header
+    if (init?.body) {
+      try {
+        const bodyStr = typeof init.body === 'string' ? init.body : String(init.body);
+        const bodyObj = JSON.parse(bodyStr);
+        if (isVisionRequest(bodyObj)) {
+          headers.set('Copilot-Vision-Request', 'true');
+        }
+      } catch (error) {
+        // If body parsing fails, continue without vision header
+        logger.warn('[GitHubCopilotFetch] Failed to parse request body:', error);
+      }
+    }
     return streamFetch(url, { ...init, headers });
   };
 }
