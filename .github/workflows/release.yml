@@ -40,8 +40,9 @@ jobs:
           draft: false
           prerelease: false
           body: |
-
-            Download packages for all platforms at: https://www.talkcody.com/docs/introduction/client-downloads
+            - [TalkCody Download packages](https://www.talkcody.com/docs/introduction/client-downloads)
+            - [TalkCody Changelog](https://www.talkcody.com/docs/changelog)
+            - [TalkCody Free use guide](https://www.talkcody.com/docs/guides/free-use)
 
   build-linux:
     name: Build Linux AppImage
