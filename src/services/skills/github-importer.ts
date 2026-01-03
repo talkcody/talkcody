@@ -285,30 +285,55 @@ export class GitHubImporter {
         throw new Error(`Path not found after cloning: ${repoInfo.path}`);
       }
 
-      // Read directory contents
-      const entries = await readDir(scanPath);
+      // Check if this is a single skill directory (has SKILL.md)
+      const skillMdPath = await join(scanPath, 'SKILL.md');
+      const hasSkillMd = await exists(skillMdPath);
 
-      // Filter directories
-      const directories = entries.filter((entry) => entry.isDirectory);
+      if (hasSkillMd) {
+        // Single skill mode - treat this directory as a skill
+        logger.info('Detected single skill directory');
 
-      logger.info(`Found ${directories.length} directories to scan`);
+        const directoryName = repoInfo.path.split('/').pop() || 'skill';
+        const skillInfo = await GitHubImporter.inspectLocalSkillDirectory(
+          repoInfo,
+          directoryName,
+          scanPath
+        );
 
-      // Scan each directory for skill structure
-      for (const dir of directories) {
-        try {
-          const skillDirPath = await join(scanPath, dir.name);
-          const skillInfo = await GitHubImporter.inspectLocalSkillDirectory(
-            repoInfo,
-            dir.name,
-            skillDirPath
-          );
-          if (skillInfo.isValid) {
-            // Store the cloned path for later import
-            skillInfo._clonedPath = skillDirPath;
-            skills.push(skillInfo);
+        if (skillInfo.isValid) {
+          // Store the cloned path for later import
+          skillInfo._clonedPath = scanPath;
+          skills.push(skillInfo);
+        }
+      } else {
+        // Batch mode: scan subdirectories
+        logger.info('Detected skills directory (batch mode)');
+
+        // Read directory contents
+        const entries = await readDir(scanPath);
+
+        // Filter directories
+        const directories = entries.filter((entry) => entry.isDirectory);
+
+        logger.info(`Found ${directories.length} directories to scan`);
+
+        // Scan each directory for skill structure
+        for (const dir of directories) {
+          try {
+            const skillDirPath = await join(scanPath, dir.name);
+            const skillInfo = await GitHubImporter.inspectLocalSkillDirectory(
+              repoInfo,
+              dir.name,
+              skillDirPath
+            );
+            if (skillInfo.isValid) {
+              // Store the cloned path for later import
+              skillInfo._clonedPath = skillDirPath;
+              skills.push(skillInfo);
+            }
+          } catch (error) {
+            logger.warn(`Failed to inspect directory ${dir.name}:`, error);
           }
-        } catch (error) {
-          logger.warn(`Failed to inspect directory ${dir.name}:`, error);
         }
       }
 
@@ -437,20 +462,63 @@ export class GitHubImporter {
     try {
       const contents = await GitHubImporter.fetchDirectoryContents(repoInfo);
 
-      // Filter to only directories (potential skill directories)
-      const directories = contents.filter((item) => item.type === 'dir');
+      // Check if this is a single skill directory (has SKILL.md)
+      const hasSkillMd = contents.some((item) => item.name === 'SKILL.md' && item.type === 'file');
 
-      logger.info(`Found ${directories.length} directories to scan`);
+      if (hasSkillMd) {
+        // Single skill mode - treat this directory as a skill
+        logger.info('Detected single skill directory');
 
-      // Scan each directory for skill structure
-      for (const dir of directories) {
-        try {
-          const skillInfo = await GitHubImporter.inspectGitHubSkill(repoInfo, dir);
-          if (skillInfo.isValid) {
-            skills.push(skillInfo);
+        const skillMdFile = contents.find(
+          (item) => item.name === 'SKILL.md' && item.type === 'file'
+        );
+        if (!skillMdFile?.download_url) {
+          throw new Error('SKILL.md file not found');
+        }
+
+        // Parse SKILL.md to get skill info
+        const skillMdContent = await GitHubImporter.fetchFileContent(skillMdFile.download_url);
+        const parsed = SkillMdParser.parse(skillMdContent, { validate: true, logWarnings: false });
+
+        // Get directory name from path
+        const directoryName = repoInfo.path.split('/').pop() || 'skill';
+
+        const skillInfo: GitHubSkillInfo = {
+          directoryName,
+          skillName: parsed.frontmatter.name,
+          description: parsed.frontmatter.description,
+          author: repoInfo.owner,
+          repoUrl: `https://github.com/${repoInfo.owner}/${repoInfo.repo}`,
+          hasSkillMd: true,
+          hasReferencesDir: contents.some(
+            (item) => item.name === 'references' && item.type === 'dir'
+          ),
+          hasScriptsDir: contents.some((item) => item.name === 'scripts' && item.type === 'dir'),
+          hasAssetsDir: contents.some((item) => item.name === 'assets' && item.type === 'dir'),
+          files: await GitHubImporter.collectSkillFiles(repoInfo, contents),
+          isValid: true,
+        };
+
+        skills.push(skillInfo);
+      } else {
+        // Batch mode: scan subdirectories
+        logger.info('Detected skills directory (batch mode)');
+
+        // Filter to only directories (potential skill directories)
+        const directories = contents.filter((item) => item.type === 'dir');
+
+        logger.info(`Found ${directories.length} directories to scan`);
+
+        // Scan each directory for skill structure
+        for (const dir of directories) {
+          try {
+            const skillInfo = await GitHubImporter.inspectGitHubSkill(repoInfo, dir);
+            if (skillInfo.isValid) {
+              skills.push(skillInfo);
+            }
+          } catch (error) {
+            logger.warn(`Failed to inspect directory ${dir.name}:`, error);
           }
-        } catch (error) {
-          logger.warn(`Failed to inspect directory ${dir.name}:`, error);
         }
       }
 

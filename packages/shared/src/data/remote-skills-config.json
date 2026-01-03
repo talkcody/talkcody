@@ -1,5 +1,5 @@
 {
-  "version": "2026-01-02T12:47:23.050Z",
+  "version": "2026-01-03T07:22:40.405Z",
   "remoteSkills": [
     {
       "id": "algorithmic-art",
@@ -32,6 +32,14 @@
       "description": "Create beautiful visual art in .png and .pdf documents using design philosophy. You should use this skill when the user asks to create a poster, piece of art, design, or other static piece. Create original visual designs, never copying existing artists' work to avoid copyright violations.",
       "repository": "anthropics/skills",
       "githubPath": "skills/canvas-design"
+    },
+    {
+      "id": "changelog-generator",
+      "name": "changelog-generator",
+      "category": "Workflow",
+      "description": "Automatically creates user-facing changelogs from git commits by analyzing commit history, categorizing changes, and transforming technical commits into clear, customer-friendly release notes. Turns hours of manual changelog writing into minutes of automated generation.",
+      "repository": "ComposioHQ/awesome-claude-skills",
+      "githubPath": "changelog-generator"
     },
     {
       "id": "dispatching-parallel-agents",

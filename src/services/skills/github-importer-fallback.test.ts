@@ -309,4 +309,234 @@ describe('GitHubImporter Fallback Logic', () => {
       }
     });
   });
+
+  describe('scanGitHubDirectory - Single Skill Mode', () => {
+    it('should detect and import a single skill directory via API', async () => {
+      const mockFetch = vi.mocked(global.fetch);
+      const { SkillMdParser } = await import('./skill-md-parser');
+
+      // Override the parser mock for this test
+      vi.mocked(SkillMdParser.parse).mockReturnValueOnce({
+        frontmatter: {
+          name: 'Changelog Generator',
+          description: 'Generate changelogs',
+          metadata: {},
+        },
+        content: 'Test content',
+      });
+
+      // First request: fetch directory contents with SKILL.md
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue([
+          {
+            name: 'SKILL.md',
+            path: 'changelog-generator/SKILL.md',
+            type: 'file',
+            download_url: 'https://example.com/skill.md',
+          },
+          {
+            name: 'references',
+            path: 'changelog-generator/references',
+            type: 'dir',
+          },
+        ]),
+      } as unknown as Response);
+
+      // Second request: download SKILL.md content
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: vi
+          .fn()
+          .mockResolvedValue('---\nname: Changelog Generator\ndescription: Generate changelogs\n---'),
+      } as unknown as Response);
+
+      const repoInfo = {
+        owner: 'ComposioHQ',
+        repo: 'awesome-claude-skills',
+        branch: 'master',
+        path: 'changelog-generator',
+      };
+
+      const result = await GitHubImporter.scanGitHubDirectory(repoInfo);
+
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.skillName).toBe('Changelog Generator');
+      expect(result.skills[0]?.directoryName).toBe('changelog-generator');
+      expect(result.skills[0]?.hasSkillMd).toBe(true);
+      expect(result.skills[0]?.hasReferencesDir).toBe(true);
+      expect(result.skills[0]?.isValid).toBe(true);
+      expect(result.tempClonePath).toBeUndefined();
+    });
+
+    it('should detect and import a single skill directory via git clone', async () => {
+      const mockFetch = vi.mocked(global.fetch);
+      const { SkillMdParser } = await import('./skill-md-parser');
+
+      // Override the parser mock for this test
+      vi.mocked(SkillMdParser.parse).mockReturnValueOnce({
+        frontmatter: {
+          name: 'Changelog Generator',
+          description: 'Generate changelogs',
+          metadata: {},
+        },
+        content: 'Test content',
+      });
+
+      // Mock rate limit error
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 403,
+        headers: new Headers({
+          'X-RateLimit-Reset': String(Math.floor(Date.now() / 1000) + 3600),
+        }),
+      } as Response);
+
+      const { Command } = await import('@tauri-apps/plugin-shell');
+      const { readDir, readTextFile, exists } = await import('@tauri-apps/plugin-fs');
+
+      // Mock git available
+      vi.mocked(Command.create).mockReturnValueOnce({
+        execute: vi.fn().mockResolvedValue({ code: 0, stdout: 'git version 2.39.0', stderr: '' }),
+      } as never);
+
+      // Mock git clone commands
+      vi.mocked(Command.create).mockReturnValue({
+        execute: vi.fn().mockResolvedValue({ code: 0, stdout: '', stderr: '' }),
+      } as never);
+
+      // Mock exists checks in order:
+      // 1. scanPath exists check
+      // 2. SKILL.md exists check (for single skill mode detection)
+      // 3. SKILL.md exists check again (for reading)
+      // 4. references directory exists check
+      // 5. scripts directory exists check
+      // 6. assets directory exists check
+      vi.mocked(exists)
+        .mockResolvedValueOnce(true) // scanPath
+        .mockResolvedValueOnce(true) // SKILL.md detection
+        .mockResolvedValueOnce(true) // SKILL.md for reading
+        .mockResolvedValueOnce(true) // references
+        .mockResolvedValueOnce(false) // scripts
+        .mockResolvedValueOnce(false); // assets
+
+      // Mock SKILL.md reading
+      vi.mocked(readTextFile).mockResolvedValueOnce(
+        '---\nname: Changelog Generator\ndescription: Generate changelogs\n---\nContent'
+      );
+
+      // Mock file collection
+      vi.mocked(readDir).mockResolvedValueOnce([
+        { name: 'SKILL.md', isFile: true, isDirectory: false, isSymlink: false },
+      ] as never);
+
+      const repoInfo = {
+        owner: 'ComposioHQ',
+        repo: 'awesome-claude-skills',
+        branch: 'master',
+        path: 'changelog-generator',
+      };
+
+      const result = await GitHubImporter.scanGitHubDirectory(repoInfo);
+
+      expect(result.skills).toHaveLength(1);
+      expect(result.skills[0]?.skillName).toBe('Changelog Generator');
+      expect(result.skills[0]?.directoryName).toBe('changelog-generator');
+      expect(result.skills[0]?.hasSkillMd).toBe(true);
+      expect(result.skills[0]?.hasReferencesDir).toBe(true);
+      expect(result.skills[0]?.isValid).toBe(true);
+      expect(result.tempClonePath).toBeDefined();
+      expect(result.tempClonePath).toContain('.temp-clone-');
+    });
+
+    it('should handle batch mode when directory has no SKILL.md', async () => {
+      const mockFetch = vi.mocked(global.fetch);
+      const { SkillMdParser } = await import('./skill-md-parser');
+
+      // First request: fetch directory contents without SKILL.md (batch mode)
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue([
+          {
+            name: 'skill1',
+            path: 'skills/skill1',
+            type: 'dir',
+          },
+          {
+            name: 'skill2',
+            path: 'skills/skill2',
+            type: 'dir',
+          },
+        ]),
+      } as unknown as Response);
+
+      // Mock skill1 inspection
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue([
+          {
+            name: 'SKILL.md',
+            path: 'skills/skill1/SKILL.md',
+            type: 'file',
+            download_url: 'https://example.com/skill1.md',
+          },
+        ]),
+      } as unknown as Response);
+
+      vi.mocked(SkillMdParser.parse).mockReturnValueOnce({
+        frontmatter: {
+          name: 'Skill 1',
+          description: 'First skill',
+          metadata: {},
+        },
+        content: 'Skill 1 content',
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: vi.fn().mockResolvedValue('---\nname: Skill 1\ndescription: First skill\n---'),
+      } as unknown as Response);
+
+      // Mock skill2 inspection
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: vi.fn().mockResolvedValue([
+          {
+            name: 'SKILL.md',
+            path: 'skills/skill2/SKILL.md',
+            type: 'file',
+            download_url: 'https://example.com/skill2.md',
+          },
+        ]),
+      } as unknown as Response);
+
+      vi.mocked(SkillMdParser.parse).mockReturnValueOnce({
+        frontmatter: {
+          name: 'Skill 2',
+          description: 'Second skill',
+          metadata: {},
+        },
+        content: 'Skill 2 content',
+      });
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        text: vi.fn().mockResolvedValue('---\nname: Skill 2\ndescription: Second skill\n---'),
+      } as unknown as Response);
+
+      const repoInfo = {
+        owner: 'test',
+        repo: 'repo',
+        branch: 'main',
+        path: 'skills',
+      };
+
+      const result = await GitHubImporter.scanGitHubDirectory(repoInfo);
+
+      expect(result.skills).toHaveLength(2);
+      expect(result.skills[0]?.skillName).toBe('Skill 1');
+      expect(result.skills[1]?.skillName).toBe('Skill 2');
+      expect(result.tempClonePath).toBeUndefined();
+    });
+  });
 });
