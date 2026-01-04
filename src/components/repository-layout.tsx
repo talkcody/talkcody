@@ -112,8 +112,6 @@ export function RepositoryLayout() {
   const createFile = useRepositoryStore((state) => state.createFile);
   const renameFile = useRepositoryStore((state) => state.renameFile);
   const toggleExpansion = useRepositoryStore((state) => state.toggleExpansion);
-  const pendingExternalChange = useRepositoryStore((state) => state.pendingExternalChange);
-  const applyExternalChange = useRepositoryStore((state) => state.applyExternalChange);
 
   // Derive currentFile from openFiles and activeFileIndex
   const currentFile =
@@ -869,27 +867,6 @@ export function RepositoryLayout() {
 
         <GitStatusBar />
       </div>
-
-      {/* External File Change Dialog */}
-      <AlertDialog open={!!pendingExternalChange}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>File Changed Externally</AlertDialogTitle>
-            <AlertDialogDescription>
-              The file has been modified outside the editor. You have unsaved changes. What would
-              you like to do?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel onClick={() => applyExternalChange(true)}>
-              Keep My Changes
-            </AlertDialogCancel>
-            <AlertDialogAction onClick={() => applyExternalChange(false)}>
-              Load Disk Version
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
 
       <WorktreeConflictDialog
         open={!!conflictData}

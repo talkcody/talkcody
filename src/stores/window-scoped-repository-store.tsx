@@ -72,14 +72,6 @@ interface RepositoryActions {
   removeIndexedFile: (path: string) => void;
   clearIndexedFiles: () => void;
   isFileIndexed: (path: string) => boolean;
-
-  // External file change handling
-  pendingExternalChange: {
-    filePath: string;
-    diskContent: string;
-  } | null;
-  handleExternalFileChange: (filePath: string) => Promise<void>;
-  applyExternalChange: (keepLocal: boolean) => void;
 }
 
 type RepositoryStore = RepositoryState & RepositoryActions;
@@ -99,7 +91,6 @@ function createRepositoryStore() {
     loadingPhase: 'idle',
     indexingProgress: null,
     indexedFiles: new Set<string>(),
-    pendingExternalChange: null,
 
     // Loading phase setter
     setLoadingPhase: (phase: LoadingPhase) => set({ loadingPhase: phase }),
@@ -680,64 +671,6 @@ function createRepositoryStore() {
 
     isFileIndexed: (path: string) => {
       return get().indexedFiles.has(path);
-    },
-
-    // Handle external file change
-    handleExternalFileChange: async (filePath: string) => {
-      const { openFiles } = get();
-      const openFile = openFiles.find((file) => file.path === filePath);
-
-      if (!openFile) return;
-
-      try {
-        // Read latest content from disk
-        repositoryService.invalidateCache(filePath);
-        const diskContent = await repositoryService.readFileWithCache(filePath);
-
-        // If content is the same, no need to update
-        if (openFile.content === diskContent) {
-          return;
-        }
-
-        // If file has unsaved changes, show dialog
-        if (openFile.hasUnsavedChanges) {
-          set({
-            pendingExternalChange: { filePath, diskContent },
-          });
-        } else {
-          // No unsaved changes, silently update
-          set((state) => ({
-            openFiles: state.openFiles.map((file) =>
-              file.path === filePath ? { ...file, content: diskContent } : file
-            ),
-          }));
-        }
-      } catch (error) {
-        logger.error('Failed to handle external file change:', error);
-      }
-    },
-
-    // Apply external change based on user choice
-    applyExternalChange: (keepLocal: boolean) => {
-      const { pendingExternalChange } = get();
-      if (!pendingExternalChange) return;
-
-      const { filePath, diskContent } = pendingExternalChange;
-
-      if (!keepLocal) {
-        // User chose to load disk version
-        set((state) => ({
-          openFiles: state.openFiles.map((file) =>
-            file.path === filePath
-              ? { ...file, content: diskContent, hasUnsavedChanges: false }
-              : file
-          ),
-          pendingExternalChange: null,
-        }));
-      } else {
-        // User chose to keep local changes, just clear dialog state
-        set({ pendingExternalChange: null });
-      }
     },
   }));
 }

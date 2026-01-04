@@ -393,6 +393,29 @@ export function useMonacoEditor({
           }
         });
 
+        // Disable tooltips for find widget buttons
+        // This fixes the issue where tooltips block button clicks
+        setTimeout(() => {
+          const findController = editor.getContribution('editor.contrib.findController');
+          if (findController) {
+            // Get the find widget actions
+            const actions = [
+              'editor.action.findAgain',
+              'editor.action.findNextMatch',
+              'editor.action.findPreviousMatch',
+              'closeFindWidgetCommand',
+            ];
+            actions.forEach((actionId) => {
+              const action = editor.getAction(actionId);
+              if (action) {
+                // Remove tooltip property
+                // biome-ignore lint/suspicious/noExplicitAny: Monaco internal API
+                (action as any).tooltip = '';
+              }
+            });
+          }
+        }, 100);
+
         // Intercept Cmd+G to prevent Monaco's default "Go to Line" and trigger global search
         // We use onKeyDown to intercept before Monaco's keybinding system processes it
         // biome-ignore lint/suspicious/noExplicitAny: Monaco keyboard event type
@@ -420,6 +443,35 @@ export function useMonacoEditor({
           }
         });
 
+        // Hide Monaco find widget tooltips to prevent them from blocking buttons
+        // Use MutationObserver to detect when hover widgets are added to the DOM
+        const observerDisposable = (() => {
+          const observer = new MutationObserver((mutations) => {
+            for (const mutation of mutations) {
+              // Convert NodeList to Array for iteration
+              Array.from(mutation.addedNodes).forEach((node) => {
+                if (node instanceof HTMLElement && node.classList.contains('monaco-hover')) {
+                  // Check if this hover is from find widget (contains "Close" or "Escape" text)
+                  const text = node.textContent || '';
+                  if (text.includes('Close') || text.includes('Escape') || text.includes('Find')) {
+                    node.style.display = 'none';
+                  }
+                }
+              });
+            }
+          });
+
+          // Observe the document body for added nodes
+          observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+          });
+
+          return {
+            dispose: () => observer.disconnect(),
+          };
+        })();
+
         // Store disposables for cleanup
         // biome-ignore lint/suspicious/noExplicitAny: storing disposables on editor instance
         (editor as any)._aiCompletionDisposables = [
@@ -428,6 +480,7 @@ export function useMonacoEditor({
           contentChangeDisposable,
           cursorDisposable,
           keyDownDisposable,
+          observerDisposable,
           { dispose: () => {} }, // Placeholder for findCommandId since it doesn't return a disposable
         ];
       }

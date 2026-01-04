@@ -390,8 +390,7 @@ describe('RepositoryLayout - Project Sync Bug Fix', () => {
         createFile: vi.fn(),
         renameFile: vi.fn(),
         toggleExpansion: vi.fn(),
-        pendingExternalChange: null,
-        applyExternalChange: vi.fn(),
+
       };
       return selector ? selector(state) : state;
     });
