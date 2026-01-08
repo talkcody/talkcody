@@ -54,7 +54,8 @@ export function FileTabs({
   }
 
   const getFileName = (path: string) => {
-    return path.split('/').pop() || path;
+    // Handle both Windows and Unix paths
+    return path.split(/[/\\]/).pop() || path;
   };
 
   const handleTabClick = (index: number, event: React.MouseEvent) => {
