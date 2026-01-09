@@ -1,3 +1,4 @@
+import type { z } from 'zod';
 import type { ToolInput, ToolOutput, ToolRenderContext, ToolWithUI } from './tool';
 
 export type CustomToolPermission = 'fs' | 'net' | 'command';
@@ -12,7 +13,10 @@ export type CustomToolUI<
 export type CustomToolDefinition<
   TInput extends ToolInput = ToolInput,
   TOutput extends ToolOutput = ToolOutput,
-> = ToolWithUI<TInput, TOutput>;
+> = ToolWithUI<TInput, TOutput> & {
+  permissions?: CustomToolPermission[];
+  args?: z.ZodSchema<TInput>;
+};
 
 export interface CustomToolExport {
   default: CustomToolDefinition;

@@ -1,7 +1,7 @@
 // src/components/chat/message-item.tsx
 
 import { Check, CopyIcon, RefreshCcwIcon, Trash2 } from 'lucide-react';
-import { memo, useEffect, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { FilePreview } from '@/components/chat/file-preview';
 import { ToolErrorBoundary } from '@/components/tools/tool-error-boundary';
 import { ToolErrorFallback } from '@/components/tools/tool-error-fallback';
@@ -27,6 +27,11 @@ export interface MessageItemProps {
   onDelete?: (messageId: string) => void;
 }
 
+const hasActualContent = (content: string): boolean => {
+  const cleaned = content.replace(/^[>\s]+/gm, '').trim();
+  return cleaned.length > 0;
+};
+
 function MessageItemComponent({
   message,
   isLastAssistantInTurn,
@@ -44,39 +49,34 @@ function MessageItemComponent({
     }
   }, [hasCopied]);
 
-  const handleCopy = () => {
+  const handleCopy = useCallback(() => {
     const content =
       typeof message.content === 'string'
         ? message.content
         : JSON.stringify(message.content, null, 2);
     navigator.clipboard.writeText(content);
     setHasCopied(true);
-  };
+  }, [message.content]);
 
-  const handleRegenerate = () => {
+  const handleRegenerate = useCallback(() => {
     if (onRegenerate) {
       onRegenerate(message.id);
     }
-  };
+  }, [onRegenerate, message.id]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (onDelete) {
       onDelete(message.id);
     }
-  };
-
-  // Check if the message has actual content (not just formatting markers)
-  const hasActualContent = (content: string): boolean => {
-    // Remove Markdown quote markers (>) and all whitespace, then check if there's any content left
-    const cleaned = content.replace(/^[>\s]+/gm, '').trim();
-    return cleaned.length > 0;
-  };
+  }, [onDelete, message.id]);
 
   // Render tool message content
-  const renderToolMessage = (
-    content: (ToolMessageContent | StoredToolContent)[],
-    message: UIMessage
-  ) => {
+  const toolMessageNodes = useMemo(() => {
+    if (message.role !== 'tool' || !Array.isArray(message.content)) {
+      return null;
+    }
+
+    const content = message.content;
     return content.map((item, _index) => {
       // Handle historical/stored tool-call messages (from DB)
       if (isStoredToolCall(item)) {
@@ -279,7 +279,7 @@ function MessageItemComponent({
 
       return null;
     });
-  };
+  }, [message, message.content, message.role, message.renderDoingUI]);
 
   return (
     <div className={'flex w-full min-w-0 gap-1'}>
@@ -301,7 +301,7 @@ function MessageItemComponent({
             </div>
           )}
           {message.role === 'tool' && Array.isArray(message.content) && (
-            <div className="w-full min-w-0">{renderToolMessage(message.content, message)}</div>
+            <div className="w-full min-w-0">{toolMessageNodes}</div>
           )}
         </div>
 
@@ -340,29 +340,40 @@ function MessageItemComponent({
 }
 
 // Memoized component to prevent unnecessary re-renders during streaming
-// - Streaming messages: always re-render (content is updating)
-// - Completed messages: only re-render if content actually changed
+// - Streaming messages: only re-render when content length changes
+// - Completed messages: re-render only when relevant fields change
 export const MessageItem = memo(MessageItemComponent, (prevProps, nextProps) => {
-  // Allow re-render for streaming messages
-  if (nextProps.message.isStreaming || prevProps.message.isStreaming) {
-    return false; // false = needs re-render
-  }
+  const prevMessage = prevProps.message;
+  const nextMessage = nextProps.message;
 
-  // Allow re-render when renderDoingUI changes (for stopping generation)
-  if (prevProps.message.renderDoingUI !== nextProps.message.renderDoingUI) {
+  if (prevMessage.id !== nextMessage.id) {
     return false;
   }
 
-  // Re-render if isLastAssistantInTurn changed (affects Actions visibility)
+  if (prevMessage.isStreaming || nextMessage.isStreaming) {
+    const prevLen = typeof prevMessage.content === 'string' ? prevMessage.content.length : 0;
+    const nextLen = typeof nextMessage.content === 'string' ? nextMessage.content.length : 0;
+    return prevLen === nextLen && prevMessage.renderDoingUI === nextMessage.renderDoingUI;
+  }
+
   if (prevProps.isLastAssistantInTurn !== nextProps.isLastAssistantInTurn) {
     return false;
   }
 
-  // For completed messages, compare length instead of full content (more efficient)
-  const prevLen =
-    typeof prevProps.message.content === 'string' ? prevProps.message.content.length : 0;
-  const nextLen =
-    typeof nextProps.message.content === 'string' ? nextProps.message.content.length : 0;
+  if (prevMessage.renderDoingUI !== nextMessage.renderDoingUI) {
+    return false;
+  }
 
-  return prevProps.message.id === nextProps.message.id && prevLen === nextLen;
+  if (prevMessage.role !== nextMessage.role) {
+    return false;
+  }
+
+  if (prevMessage.attachments?.length !== nextMessage.attachments?.length) {
+    return false;
+  }
+
+  const prevLen = typeof prevMessage.content === 'string' ? prevMessage.content.length : 0;
+  const nextLen = typeof nextMessage.content === 'string' ? nextMessage.content.length : 0;
+
+  return prevLen === nextLen;
 });

@@ -8,6 +8,7 @@ import {
   Github,
   Server,
   Settings,
+  Wrench,
   Zap,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -29,37 +30,32 @@ export function NavigationSidebar({ activeView, onViewChange }: NavigationSideba
     {
       id: NavigationView.EXPLORER,
       icon: Files,
-      label: t.Navigation.explorer,
       tooltip: `${t.Navigation.explorerTooltip}`,
     },
     {
       id: NavigationView.PROJECTS,
       icon: FolderOpen,
-      label: t.Navigation.projects,
       tooltip: `${t.Navigation.projectsTooltip}`,
     },
     {
       id: NavigationView.AGENTS_MARKETPLACE,
       icon: Bot,
-      label: t.Navigation.agents,
       tooltip: `${t.Navigation.agentsTooltip}`,
     },
     {
       id: NavigationView.SKILLS_MARKETPLACE,
       icon: Zap,
-      label: t.Navigation.skills,
       tooltip: `${t.Navigation.skillsTooltip}`,
     },
     {
       id: NavigationView.MCP_SERVERS,
       icon: Server,
-      label: t.Navigation.mcpServers,
       tooltip: `${t.Navigation.mcpServersTooltip}`,
     },
+
     {
       id: NavigationView.USAGE,
       icon: Activity,
-      label: t.Navigation.usage,
       tooltip: `${t.Navigation.usageTooltip}`,
     },
   ];
@@ -75,6 +71,27 @@ export function NavigationSidebar({ activeView, onViewChange }: NavigationSideba
   const handleGitHubClick = () => {
     open('https://github.com/talkcody/talkcody');
   };
+
+  const bottomNavigationItems = [
+    {
+      id: NavigationView.TOOLS_PLAYGROUND,
+      icon: Wrench,
+      tooltip: `${t.Navigation.toolsPlaygroundTooltip}`,
+      action: () => onViewChange(NavigationView.TOOLS_PLAYGROUND),
+    },
+    {
+      id: 'github',
+      icon: Github,
+      tooltip: t.Navigation.githubTooltip,
+      action: handleGitHubClick,
+    },
+    {
+      id: NavigationView.LOGS,
+      icon: FileText,
+      tooltip: t.Navigation.logsTooltip,
+      action: () => onViewChange(NavigationView.LOGS),
+    },
+  ];
 
   return (
     <div className="flex h-full w-12 flex-col border-r bg-gray-50 dark:bg-gray-900">
@@ -128,37 +145,30 @@ export function NavigationSidebar({ activeView, onViewChange }: NavigationSideba
 
       {/* Bottom Settings Items */}
       <div className="mt-auto flex flex-col items-center space-y-1 p-1">
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-10 w-10 p-0 hover:bg-gray-200 dark:hover:bg-gray-800"
-              onClick={handleGitHubClick}
-            >
-              <Github className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">{t.Navigation.githubTooltip}</TooltipContent>
-        </Tooltip>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(
-                'h-10 w-10 p-0',
-                'hover:bg-gray-200 dark:hover:bg-gray-800',
-                activeView === NavigationView.LOGS &&
-                  'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400'
-              )}
-              onClick={() => onViewChange(NavigationView.LOGS)}
-            >
-              <FileText className="h-5 w-5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="right">{t.Navigation.logsTooltip}</TooltipContent>
-        </Tooltip>
+        {bottomNavigationItems.map((item) => {
+          const Icon = item.icon;
+          const isActive = item.id === NavigationView.LOGS && activeView === NavigationView.LOGS;
+
+          return (
+            <Tooltip key={item.id}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className={cn(
+                    'h-10 w-10 p-0',
+                    'hover:bg-gray-200 dark:hover:bg-gray-800',
+                    isActive && 'bg-blue-100 text-blue-600 dark:bg-blue-900 dark:text-blue-400'
+                  )}
+                  onClick={item.action}
+                >
+                  <Icon className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">{item.tooltip}</TooltipContent>
+            </Tooltip>
+          );
+        })}
       </div>
     </div>
   );
