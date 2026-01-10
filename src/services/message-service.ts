@@ -16,6 +16,17 @@ import { generateId } from '@/lib/utils';
 import { databaseService } from '@/services/database-service';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useTaskStore } from '@/stores/task-store';
+
+const FRAME_BUDGET_MS = 16;
+
+function scheduleRafFlush(run: () => void): void {
+  if (typeof window !== 'undefined' && typeof window.requestAnimationFrame === 'function') {
+    window.requestAnimationFrame(() => run());
+  } else {
+    setTimeout(run, FRAME_BUDGET_MS);
+  }
+}
+
 import type { MessageAttachment, ToolMessageContent, UIMessage } from '@/types/agent';
 
 /**
@@ -41,6 +52,35 @@ interface StoredToolResult {
 type StoredToolContent = StoredToolCall | StoredToolResult;
 
 class MessageService {
+  private streamingBuffers = new Map<string, { content: string; messageId: string }>();
+  private rafScheduled = false;
+
+  private flushStreamingBuffers(): void {
+    const buffers = this.streamingBuffers;
+    if (buffers.size === 0) {
+      this.rafScheduled = false;
+      return;
+    }
+
+    this.streamingBuffers = new Map();
+    this.rafScheduled = false;
+
+    for (const [taskId, payload] of buffers) {
+      useTaskStore
+        .getState()
+        .updateMessageContent(taskId, payload.messageId, payload.content, true);
+      useExecutionStore.getState().updateStreamingContent(taskId, payload.content);
+    }
+  }
+
+  private scheduleStreamingFlush(): void {
+    if (this.rafScheduled) return;
+    this.rafScheduled = true;
+
+    scheduleRafFlush(() => {
+      this.flushStreamingBuffers();
+    });
+  }
   /**
    * Add a user message and persist to database
    */
@@ -130,17 +170,19 @@ class MessageService {
    * Use finalizeMessage when streaming is complete.
    */
   updateStreamingContent(taskId: string, messageId: string, content: string): void {
-    // 1. Update message in TaskStore
-    useTaskStore.getState().updateMessageContent(taskId, messageId, content, true);
-
-    // 2. Update ExecutionStore for cross-task display
-    useExecutionStore.getState().updateStreamingContent(taskId, content);
+    this.streamingBuffers.set(taskId, { content, messageId });
+    this.scheduleStreamingFlush();
   }
 
   /**
    * Finalize a message and persist to database
    */
   async finalizeMessage(taskId: string, messageId: string, content: string): Promise<void> {
+    // Flush any pending streaming updates for this task
+    if (this.streamingBuffers.has(taskId)) {
+      this.streamingBuffers.delete(taskId);
+    }
+
     // 1. Update store (isStreaming = false)
     useTaskStore.getState().updateMessageContent(taskId, messageId, content, false);
 

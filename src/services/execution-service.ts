@@ -136,6 +136,9 @@ class ExecutionService {
               streamedContent = '';
             }
 
+            // Flush running usage into task record once per execution
+            useTaskStore.getState().flushRunningTaskUsage(taskId);
+
             // Post-processing
             await this.handlePostProcessing(taskId, isNewTask, userMessage);
 
@@ -186,6 +189,9 @@ class ExecutionService {
       }
     } finally {
       this.llmServiceInstances.delete(taskId);
+
+      // Ensure running usage does not leak into next run
+      useTaskStore.getState().clearRunningTaskUsage(taskId);
 
       // Ensure execution is marked as completed/stopped
       if (executionStore.isRunning(taskId)) {

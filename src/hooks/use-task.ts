@@ -11,7 +11,7 @@
  * - Clean separation between read and write operations
  */
 
-import { useCallback, useMemo } from 'react';
+import { useCallback } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { messageService } from '@/services/message-service';
 import { useExecutionStore } from '@/stores/execution-store';
@@ -29,9 +29,7 @@ export function useTask(taskId: string | null | undefined) {
   const task = useTaskStore((state) => (taskId ? state.getTask(taskId) : undefined));
 
   // Subscribe to only the current task's messages
-  const rawMessages = useTaskStore((state) =>
-    taskId ? state.getMessages(taskId) : EMPTY_MESSAGES
-  );
+  const messages = useTaskStore((state) => (taskId ? state.getMessages(taskId) : EMPTY_MESSAGES));
 
   // Subscribe to only the current task's execution state
   const execution = useExecutionStore((state) => (taskId ? state.getExecution(taskId) : undefined));
@@ -39,25 +37,8 @@ export function useTask(taskId: string | null | undefined) {
   // Derived: is this task currently running?
   const isRunning = execution?.status === 'running';
 
-  // Derived: streaming content from ExecutionStore
-  const streamingContent = execution?.streamingContent;
-
   // Derived: server status (e.g., "Thinking...", "Executing tool...")
   const serverStatus = execution?.serverStatus;
-
-  // Merge streaming content into messages for display
-  // This creates a view where the latest assistant message shows streaming content
-  const messages = useMemo(() => {
-    if (!streamingContent || !isRunning) return rawMessages;
-
-    // Find the last streaming assistant message and update its content
-    return rawMessages.map((msg, index) => {
-      if (index === rawMessages.length - 1 && msg.role === 'assistant' && msg.isStreaming) {
-        return { ...msg, content: streamingContent } as UIMessage;
-      }
-      return msg;
-    });
-  }, [rawMessages, streamingContent, isRunning]);
 
   // Get loading state
   const isLoadingMessages = useTaskStore((state) =>

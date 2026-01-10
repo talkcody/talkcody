@@ -17,19 +17,166 @@ import { create } from 'zustand';
 import { devtools } from 'zustand/middleware';
 import { logger } from '@/lib/logger';
 import { generateId } from '@/lib/utils';
+import { useExecutionStore } from '@/stores/execution-store';
 import type { Task, TaskSettings } from '@/types';
 import type { ToolMessageContent, UIMessage } from '@/types/agent';
 
 // Stable empty array reference to avoid unnecessary re-renders
 const EMPTY_MESSAGES: UIMessage[] = [];
 
+interface StreamingMessagesCacheEntry {
+  baseMessages: UIMessage[];
+  derivedMessages: UIMessage[];
+  streamingContent: string;
+}
+
+const streamingMessagesCache = new Map<string, StreamingMessagesCacheEntry>();
+
+interface TaskUsageCacheEntry {
+  baseTask: Task;
+  runningUsage: RunningTaskUsage;
+  derivedTask: Task;
+}
+
+const taskUsageCache = new Map<string, TaskUsageCacheEntry>();
+
+interface TaskListCacheEntry {
+  tasksRef: Map<string, Task>;
+  runningUsageRef: Map<string, RunningTaskUsage>;
+  list: Task[];
+}
+
+let taskListCache: TaskListCacheEntry | null = null;
+
+function mergeStreamingContent(
+  taskId: string,
+  baseMessages: UIMessage[],
+  streamingContent: string
+): UIMessage[] {
+  const lastIndex = baseMessages.length - 1;
+  if (lastIndex < 0) {
+    streamingMessagesCache.delete(taskId);
+    return baseMessages;
+  }
+
+  const lastMessage = baseMessages[lastIndex];
+  if (!lastMessage || lastMessage.role !== 'assistant' || !lastMessage.isStreaming) {
+    streamingMessagesCache.delete(taskId);
+    return baseMessages;
+  }
+
+  const cached = streamingMessagesCache.get(taskId);
+  if (
+    cached &&
+    cached.baseMessages === baseMessages &&
+    cached.streamingContent === streamingContent
+  ) {
+    return cached.derivedMessages;
+  }
+
+  const derivedMessages = [...baseMessages];
+  derivedMessages[lastIndex] = {
+    ...lastMessage,
+    content: streamingContent,
+  } as UIMessage;
+
+  streamingMessagesCache.set(taskId, {
+    baseMessages,
+    derivedMessages,
+    streamingContent,
+  });
+
+  return derivedMessages;
+}
+
+function mergeTaskUsage(
+  taskId: string,
+  task: Task,
+  runningUsage: RunningTaskUsage | undefined
+): Task {
+  if (!runningUsage) {
+    taskUsageCache.delete(taskId);
+    return task;
+  }
+
+  const cached = taskUsageCache.get(taskId);
+  if (cached && cached.baseTask === task && cached.runningUsage === runningUsage) {
+    return cached.derivedTask;
+  }
+
+  const derivedTask: Task = {
+    ...task,
+    cost: task.cost + runningUsage.costDelta,
+    input_token: task.input_token + runningUsage.inputTokensDelta,
+    output_token: task.output_token + runningUsage.outputTokensDelta,
+    context_usage: runningUsage.contextUsage ?? task.context_usage,
+  };
+
+  taskUsageCache.set(taskId, {
+    baseTask: task,
+    runningUsage,
+    derivedTask,
+  });
+
+  return derivedTask;
+}
+
+function getTaskListWithCache(
+  tasks: Map<string, Task>,
+  runningUsage: Map<string, RunningTaskUsage>
+): Task[] {
+  if (
+    taskListCache &&
+    taskListCache.tasksRef === tasks &&
+    taskListCache.runningUsageRef === runningUsage
+  ) {
+    return taskListCache.list;
+  }
+
+  const list = Array.from(tasks.values()).map((task) =>
+    mergeTaskUsage(task.id, task, runningUsage.get(task.id))
+  );
+
+  list.sort((a, b) => {
+    if (b.updated_at !== a.updated_at) {
+      return b.updated_at - a.updated_at;
+    }
+    return b.created_at - a.created_at;
+  });
+
+  taskListCache = {
+    tasksRef: tasks,
+    runningUsageRef: runningUsage,
+    list,
+  };
+
+  return list;
+}
+
 // Maximum number of tasks to keep messages cached in memory
 const MAX_CACHED_TASK_MESSAGES = 20;
+
+interface TaskUsageUpdate {
+  costDelta?: number;
+  inputTokensDelta?: number;
+  outputTokensDelta?: number;
+  contextUsage?: number;
+}
+
+interface RunningTaskUsage {
+  costDelta: number;
+  inputTokensDelta: number;
+  outputTokensDelta: number;
+  contextUsage?: number;
+}
 
 interface TaskState {
   // Task list
   tasks: Map<string, Task>;
   currentTaskId: string | null;
+
+  // Runtime usage deltas for running tasks
+  runningTaskUsage: Map<string, RunningTaskUsage>;
 
   // Messages (by taskId)
   messages: Map<string, UIMessage[]>;
@@ -74,19 +221,19 @@ interface TaskState {
   setCurrentTaskId: (taskId: string | null) => void;
 
   /**
-   * Update task usage (cost, tokens)
+   * Update task usage (cost, tokens) and context usage
    */
-  updateTaskUsage: (
-    taskId: string,
-    cost: number,
-    inputTokens: number,
-    outputTokens: number
-  ) => void;
+  updateTaskUsage: (taskId: string, usage: TaskUsageUpdate) => void;
 
   /**
-   * Set context usage percentage for a task
+   * Commit running usage deltas into the task record
    */
-  setContextUsage: (taskId: string, contextUsage: number) => void;
+  flushRunningTaskUsage: (taskId: string) => void;
+
+  /**
+   * Clear running usage without touching task records
+   */
+  clearRunningTaskUsage: (taskId: string) => void;
 
   /**
    * Update task settings
@@ -211,6 +358,7 @@ export const useTaskStore = create<TaskState>()(
     (set, get) => ({
       tasks: new Map(),
       currentTaskId: null,
+      runningTaskUsage: new Map(),
       messages: new Map(),
       messageAccessOrder: [],
       loadingTasks: false,
@@ -239,8 +387,9 @@ export const useTaskStore = create<TaskState>()(
       addTask: (task) => {
         set(
           (state) => {
-            state.tasks.set(task.id, task);
-            return { tasks: state.tasks };
+            const tasks = new Map(state.tasks);
+            tasks.set(task.id, task);
+            return { tasks };
           },
           false,
           'addTask'
@@ -253,9 +402,9 @@ export const useTaskStore = create<TaskState>()(
             const task = state.tasks.get(taskId);
             if (!task) return state;
 
-            // Directly modify the object
-            Object.assign(task, updates);
-            return { tasks: state.tasks };
+            const tasks = new Map(state.tasks);
+            tasks.set(taskId, { ...task, ...updates });
+            return { tasks };
           },
           false,
           'updateTask'
@@ -265,15 +414,22 @@ export const useTaskStore = create<TaskState>()(
       removeTask: (taskId) => {
         set(
           (state) => {
-            state.tasks.delete(taskId);
-            state.messages.delete(taskId);
+            const tasks = new Map(state.tasks);
+            const messages = new Map(state.messages);
+            const runningTaskUsage = new Map(state.runningTaskUsage);
+
+            tasks.delete(taskId);
+            messages.delete(taskId);
+            runningTaskUsage.delete(taskId);
+            taskUsageCache.delete(taskId);
 
             // Clear current task if it was deleted
             const newCurrentTaskId = state.currentTaskId === taskId ? null : state.currentTaskId;
 
             return {
-              tasks: state.tasks,
-              messages: state.messages,
+              tasks,
+              messages,
+              runningTaskUsage,
               currentTaskId: newCurrentTaskId,
             };
           },
@@ -286,34 +442,71 @@ export const useTaskStore = create<TaskState>()(
         set({ currentTaskId: taskId }, false, 'setCurrentTaskId');
       },
 
-      updateTaskUsage: (taskId, cost, inputTokens, outputTokens) => {
+      updateTaskUsage: (taskId, usage) => {
         set(
           (state) => {
-            const task = state.tasks.get(taskId);
-            if (!task) return state;
+            if (!state.tasks.has(taskId)) return state;
 
-            // Direct update
-            task.cost += cost;
-            task.input_token += inputTokens;
-            task.output_token += outputTokens;
-            return { tasks: state.tasks };
+            const runningTaskUsage = new Map(state.runningTaskUsage);
+            const existing = runningTaskUsage.get(taskId) || {
+              costDelta: 0,
+              inputTokensDelta: 0,
+              outputTokensDelta: 0,
+            };
+
+            const nextUsage: RunningTaskUsage = {
+              costDelta: existing.costDelta + (usage.costDelta ?? 0),
+              inputTokensDelta: existing.inputTokensDelta + (usage.inputTokensDelta ?? 0),
+              outputTokensDelta: existing.outputTokensDelta + (usage.outputTokensDelta ?? 0),
+              contextUsage: usage.contextUsage ?? existing.contextUsage,
+            };
+
+            runningTaskUsage.set(taskId, nextUsage);
+            return { runningTaskUsage };
           },
           false,
           'updateTaskUsage'
         );
       },
 
-      setContextUsage: (taskId, contextUsage) => {
+      flushRunningTaskUsage: (taskId) => {
         set(
           (state) => {
             const task = state.tasks.get(taskId);
             if (!task) return state;
 
-            task.context_usage = contextUsage;
-            return { tasks: state.tasks };
+            const delta = state.runningTaskUsage.get(taskId);
+            if (!delta) return state;
+
+            const tasks = new Map(state.tasks);
+            const runningTaskUsage = new Map(state.runningTaskUsage);
+            runningTaskUsage.delete(taskId);
+
+            tasks.set(taskId, {
+              ...task,
+              cost: task.cost + delta.costDelta,
+              input_token: task.input_token + delta.inputTokensDelta,
+              output_token: task.output_token + delta.outputTokensDelta,
+              context_usage: delta.contextUsage ?? task.context_usage,
+            });
+
+            return { tasks, runningTaskUsage };
           },
           false,
-          'setContextUsage'
+          'flushRunningTaskUsage'
+        );
+      },
+
+      clearRunningTaskUsage: (taskId) => {
+        set(
+          (state) => {
+            if (!state.runningTaskUsage.has(taskId)) return state;
+            const runningTaskUsage = new Map(state.runningTaskUsage);
+            runningTaskUsage.delete(taskId);
+            return { runningTaskUsage };
+          },
+          false,
+          'clearRunningTaskUsage'
         );
       },
 
@@ -324,8 +517,12 @@ export const useTaskStore = create<TaskState>()(
             if (!task) return state;
 
             const existingSettings: TaskSettings = task.settings ? JSON.parse(task.settings) : {};
-            task.settings = JSON.stringify({ ...existingSettings, ...settings });
-            return { tasks: state.tasks };
+            const tasks = new Map(state.tasks);
+            tasks.set(taskId, {
+              ...task,
+              settings: JSON.stringify({ ...existingSettings, ...settings }),
+            });
+            return { tasks };
           },
           false,
           'updateTaskSettings'
@@ -349,9 +546,9 @@ export const useTaskStore = create<TaskState>()(
               (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
             );
 
-            // Direct set
-            state.messages.set(taskId, merged);
-            return { messages: state.messages };
+            const messagesMap = new Map(state.messages);
+            messagesMap.set(taskId, merged);
+            return { messages: messagesMap };
           },
           false,
           'setMessages'
@@ -364,20 +561,27 @@ export const useTaskStore = create<TaskState>()(
 
         set(
           (state) => {
-            // Directly modify the existing Map, avoiding creating new objects
             const existing = state.messages.get(taskId) || [];
-            state.messages.set(taskId, [...existing, fullMessage]);
+            const messagesMap = new Map(state.messages);
+            messagesMap.set(taskId, [...existing, fullMessage]);
 
             // Only update timestamp for user messages
             const task = state.tasks.get(taskId);
             if (task && message.role === 'user') {
-              task.updated_at = Date.now();
-              task.message_count = (task.message_count ?? 0) + 1;
+              const tasks = new Map(state.tasks);
+              tasks.set(taskId, {
+                ...task,
+                updated_at: Date.now(),
+                message_count: (task.message_count ?? 0) + 1,
+              });
+              return {
+                messages: messagesMap,
+                tasks,
+              };
             }
 
             return {
-              messages: state.messages,
-              tasks: state.tasks,
+              messages: messagesMap,
             };
           },
           false,
@@ -393,15 +597,15 @@ export const useTaskStore = create<TaskState>()(
             const messages = state.messages.get(taskId);
             if (!messages) return state;
 
-            // Directly update messages
-            const taskMessages = state.messages.get(taskId);
-            if (!taskMessages) return state;
+            const index = messages.findIndex((msg) => msg.id === messageId);
+            if (index < 0) return state;
 
-            const updatedMessages = taskMessages.map((msg) =>
-              msg.id === messageId ? ({ ...msg, ...updates } as UIMessage) : msg
-            );
-            state.messages.set(taskId, updatedMessages);
-            return { messages: state.messages };
+            const updatedMessages = [...messages];
+            updatedMessages[index] = { ...updatedMessages[index], ...updates } as UIMessage;
+
+            const messagesMap = new Map(state.messages);
+            messagesMap.set(taskId, updatedMessages);
+            return { messages: messagesMap };
           },
           false,
           'updateMessage'
@@ -414,16 +618,19 @@ export const useTaskStore = create<TaskState>()(
             const messages = state.messages.get(taskId);
             if (!messages) return state;
 
-            // Use Immer to directly modify, avoiding creating new Map and arrays
-            const taskMessages = state.messages.get(taskId);
-            if (!taskMessages) return state;
+            const index = messages.findIndex((msg) => msg.id === messageId);
+            if (index < 0) return state;
 
-            // Directly modify messages in Map (Zustand still detects changes)
-            const updatedMessages = taskMessages.map((msg) =>
-              msg.id === messageId ? { ...msg, content, isStreaming } : msg
-            );
-            state.messages.set(taskId, updatedMessages);
-            return { messages: state.messages };
+            const updatedMessages = [...messages];
+            updatedMessages[index] = {
+              ...updatedMessages[index],
+              content,
+              isStreaming,
+            } as UIMessage;
+
+            const messagesMap = new Map(state.messages);
+            messagesMap.set(taskId, updatedMessages);
+            return { messages: messagesMap };
           },
           false,
           'updateMessageContent'
@@ -436,12 +643,12 @@ export const useTaskStore = create<TaskState>()(
             const messages = state.messages.get(taskId);
             if (!messages) return state;
 
-            // Direct modification
-            state.messages.set(
+            const messagesMap = new Map(state.messages);
+            messagesMap.set(
               taskId,
               messages.filter((msg) => msg.id !== messageId)
             );
-            return { messages: state.messages };
+            return { messages: messagesMap };
           },
           false,
           'deleteMessage'
@@ -454,8 +661,9 @@ export const useTaskStore = create<TaskState>()(
             const messages = state.messages.get(taskId);
             if (!messages) return state;
 
-            state.messages.set(taskId, messages.slice(0, index));
-            return { messages: state.messages };
+            const messagesMap = new Map(state.messages);
+            messagesMap.set(taskId, messages.slice(0, index));
+            return { messages: messagesMap };
           },
           false,
           'deleteMessagesFromIndex'
@@ -465,8 +673,9 @@ export const useTaskStore = create<TaskState>()(
       clearMessages: (taskId) => {
         set(
           (state) => {
-            state.messages.set(taskId, []);
-            return { messages: state.messages };
+            const messagesMap = new Map(state.messages);
+            messagesMap.set(taskId, []);
+            return { messages: messagesMap };
           },
           false,
           'clearMessages'
@@ -479,7 +688,6 @@ export const useTaskStore = create<TaskState>()(
             const messages = state.messages.get(taskId);
             if (!messages) return state;
 
-            // 直接修改
             const updatedMessages = messages.map((msg) => {
               const updates: Partial<UIMessage> = {};
 
@@ -492,8 +700,9 @@ export const useTaskStore = create<TaskState>()(
 
               return Object.keys(updates).length > 0 ? { ...msg, ...updates } : msg;
             });
-            state.messages.set(taskId, updatedMessages);
-            return { messages: state.messages };
+            const messagesMap = new Map(state.messages);
+            messagesMap.set(taskId, updatedMessages);
+            return { messages: messagesMap };
           },
           false,
           'stopStreaming'
@@ -545,8 +754,9 @@ export const useTaskStore = create<TaskState>()(
               logger.warn('[TaskStore] Parent message NOT FOUND for toolCallId:', parentToolCallId);
             }
 
-            state.messages.set(taskId, updatedMessages);
-            return { messages: state.messages };
+            const messagesMap = new Map(state.messages);
+            messagesMap.set(taskId, updatedMessages);
+            return { messages: messagesMap };
           },
           false,
           'addNestedToolMessage'
@@ -586,13 +796,14 @@ export const useTaskStore = create<TaskState>()(
             if (toEvict.length === 0) return state;
 
             const newOrder = state.messageAccessOrder.filter((id) => !toEvict.includes(id));
+            const messagesMap = new Map(state.messages);
 
             for (const taskId of toEvict) {
-              state.messages.delete(taskId);
+              messagesMap.delete(taskId);
               logger.info('[TaskStore] Evicted messages for task', { taskId });
             }
 
-            return { messages: state.messages, messageAccessOrder: newOrder };
+            return { messages: messagesMap, messageAccessOrder: newOrder };
           },
           false,
           'evictOldestMessages'
@@ -610,12 +821,13 @@ export const useTaskStore = create<TaskState>()(
       setLoadingMessages: (taskId, loading) => {
         set(
           (state) => {
+            const loadingMessages = new Set(state.loadingMessages);
             if (loading) {
-              state.loadingMessages.add(taskId);
+              loadingMessages.add(taskId);
             } else {
-              state.loadingMessages.delete(taskId);
+              loadingMessages.delete(taskId);
             }
-            return { loadingMessages: state.loadingMessages };
+            return { loadingMessages };
           },
           false,
           'setLoadingMessages'
@@ -631,23 +843,29 @@ export const useTaskStore = create<TaskState>()(
       // ============================================
 
       getTask: (taskId) => {
-        return get().tasks.get(taskId);
+        const task = get().tasks.get(taskId);
+        if (!task) return undefined;
+
+        return mergeTaskUsage(taskId, task, get().runningTaskUsage.get(taskId));
       },
 
       getTaskList: () => {
-        const tasks = Array.from(get().tasks.values());
-        // Sort by updated_at descending, then by created_at descending for stability
-        return tasks.sort((a, b) => {
-          if (b.updated_at !== a.updated_at) {
-            return b.updated_at - a.updated_at;
-          }
-          // Same updated_at, use created_at as tie-breaker
-          return b.created_at - a.created_at;
-        });
+        const { tasks, runningTaskUsage } = get();
+        return getTaskListWithCache(tasks, runningTaskUsage);
       },
 
       getMessages: (taskId) => {
-        return get().messages.get(taskId) || EMPTY_MESSAGES;
+        const messages = get().messages.get(taskId) || EMPTY_MESSAGES;
+        const execution = useExecutionStore.getState().getExecution(taskId);
+        const streamingContent = execution?.streamingContent;
+        const isRunning = execution?.status === 'running';
+
+        if (!streamingContent || !isRunning) {
+          streamingMessagesCache.delete(taskId);
+          return messages;
+        }
+
+        return mergeStreamingContent(taskId, messages, streamingContent);
       },
 
       findMessageIndex: (taskId, messageId) => {

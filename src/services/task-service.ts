@@ -104,7 +104,7 @@ class TaskService {
         : await databaseService.getTasks();
 
       taskStore.setTasks(tasks);
-      logger.info('[TaskService] Tasks loaded', { count: tasks.length });
+      logger.info('[TaskService] Tasks loaded', { projectId, count: tasks.length });
     } catch (error) {
       logger.error('[TaskService] Failed to load tasks:', error);
       taskStore.setError('Failed to load tasks');
@@ -284,7 +284,11 @@ class TaskService {
     outputTokens: number
   ): Promise<void> {
     // 1. Update store (accumulate)
-    useTaskStore.getState().updateTaskUsage(taskId, cost, inputTokens, outputTokens);
+    useTaskStore.getState().updateTaskUsage(taskId, {
+      costDelta: cost,
+      inputTokensDelta: inputTokens,
+      outputTokensDelta: outputTokens,
+    });
 
     // 2. Persist to database
     try {

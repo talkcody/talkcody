@@ -31,6 +31,7 @@ const resetStores = () => {
   useExecutionStore.setState({ executions: new Map() });
   useTaskStore.setState({
     tasks: new Map(),
+    runningTaskUsage: new Map(),
     messages: new Map(),
     messageAccessOrder: [],
     loadingMessages: new Set(),
@@ -105,5 +106,85 @@ describe('useTask selectors', () => {
     });
 
     expect(result.current.renders).toBe(2);
+  });
+
+  it('returns stable messages reference while streaming content is unchanged', () => {
+    const taskA = createTask('task-a', 'Task A');
+    const streamingMessage: UIMessage = {
+      id: 'msg-1',
+      role: 'assistant',
+      content: 'initial',
+      timestamp: new Date(),
+      isStreaming: true,
+    };
+
+    useTaskStore.setState({
+      tasks: new Map([['task-a', taskA]]),
+      messages: new Map([['task-a', [streamingMessage]]]),
+    });
+
+    const executions = new Map();
+    executions.set('task-a', {
+      taskId: 'task-a',
+      status: 'running',
+      abortController: new AbortController(),
+      startTime: new Date(),
+      streamingContent: 'partial update',
+      isStreaming: true,
+      serverStatus: '',
+    });
+    useExecutionStore.setState({
+      executions,
+    });
+
+    const first = useTaskStore.getState().getMessages('task-a');
+    const second = useTaskStore.getState().getMessages('task-a');
+
+    expect(first[first.length - 1]?.content).toBe('partial update');
+    expect(second).toBe(first);
+  });
+
+  it('returns stable task reference when running usage is unchanged', () => {
+    const taskA = createTask('task-a', 'Task A');
+
+    useTaskStore.setState({
+      tasks: new Map([['task-a', taskA]]),
+    });
+
+    useTaskStore.getState().updateTaskUsage('task-a', {
+      costDelta: 1,
+      inputTokensDelta: 2,
+      outputTokensDelta: 3,
+    });
+
+    const first = useTaskStore.getState().getTask('task-a');
+    const second = useTaskStore.getState().getTask('task-a');
+
+    expect(first).toBeDefined();
+    expect(second).toBe(first);
+  });
+
+  it('returns stable task list reference when state is unchanged', () => {
+    const taskA = createTask('task-a', 'Task A');
+    const taskB = createTask('task-b', 'Task B');
+
+    useTaskStore.setState({
+      tasks: new Map([
+        ['task-a', taskA],
+        ['task-b', taskB],
+      ]),
+    });
+
+    useTaskStore.getState().updateTaskUsage('task-a', {
+      costDelta: 1,
+      inputTokensDelta: 1,
+      outputTokensDelta: 1,
+    });
+
+    const firstList = useTaskStore.getState().getTaskList();
+    const secondList = useTaskStore.getState().getTaskList();
+
+    expect(firstList).toHaveLength(2);
+    expect(secondList).toBe(firstList);
   });
 });

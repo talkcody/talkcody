@@ -613,19 +613,22 @@ export class LLMService {
                       inputTokens,
                       outputTokens,
                     });
-                    useTaskStore
-                      .getState()
-                      .updateTaskUsage(this.taskId, cost, inputTokens, outputTokens);
 
-                    // Calculate and update context usage percentage
+                    let contextUsage: number | undefined;
                     if (loopState.lastRequestTokens > 0) {
                       const maxContextTokens = getContextLength(model);
-                      const contextUsage = Math.min(
+                      contextUsage = Math.min(
                         100,
                         (loopState.lastRequestTokens / maxContextTokens) * 100
                       );
-                      useTaskStore.getState().setContextUsage(this.taskId, contextUsage);
                     }
+
+                    useTaskStore.getState().updateTaskUsage(this.taskId, {
+                      costDelta: cost,
+                      inputTokensDelta: inputTokens,
+                      outputTokensDelta: outputTokens,
+                      contextUsage,
+                    });
                   }
 
                   // Filter out file content with large base64Data from steps to avoid huge logs

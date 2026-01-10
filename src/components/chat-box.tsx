@@ -11,7 +11,6 @@ import {
   useState,
 } from 'react';
 import { toast } from 'sonner';
-import { useShallow } from 'zustand/react/shallow';
 import { useExecutionState } from '@/hooks/use-execution-state';
 import { useMessages } from '@/hooks/use-task';
 import { useTasks } from '@/hooks/use-tasks';
