@@ -128,16 +128,46 @@ echo ""
 # Step 2: Merge platform fragments into final manifest.json
 echo "🔄 Step 2/4: Merging platform fragments..."
 
-# Start with empty platforms object
-PLATFORMS_JSON='{}'
+# Try to download existing manifest.json from R2 first
+R2_MANIFEST_PATH="${R2_BUCKET}/${VERSION_PATH}/manifest.json"
+EXISTING_MANIFEST_FILE="$TEMP_DIR/existing-manifest.json"
+HAS_EXISTING_MANIFEST=false
 
-# First fragment provides version and pub_date
-FIRST_FRAGMENT=$(cat "${DOWNLOADED_FRAGMENTS[0]}")
-VERSION_FROM_FRAGMENT=$(echo "$FIRST_FRAGMENT" | jq -r '.version')
-PUB_DATE=$(echo "$FIRST_FRAGMENT" | jq -r '.pub_date')
+echo "  Checking for existing manifest.json on R2..."
+for i in $(seq 1 3); do
+    if wrangler r2 object get "${R2_MANIFEST_PATH}" --file "$EXISTING_MANIFEST_FILE" --remote 2>/dev/null; then
+        if jq empty "$EXISTING_MANIFEST_FILE" 2>/dev/null; then
+            HAS_EXISTING_MANIFEST=true
+            echo -e "${BLUE}  Found existing manifest.json, will merge platforms${NC}"
+            break
+        else
+            echo -e "${YELLOW}  Downloaded manifest.json is invalid, retrying...${NC}"
+            rm -f "$EXISTING_MANIFEST_FILE"
+        fi
+    fi
+    if [ $i -lt 3 ]; then
+        echo "  Retry $i/3..."
+        sleep 2
+    fi
+done
 
-echo "  Version: $VERSION_FROM_FRAGMENT"
-echo "  Publish Date: $PUB_DATE"
+# Initialize platforms JSON and version info
+if [ "$HAS_EXISTING_MANIFEST" = true ]; then
+    # Use existing manifest as base (preserves Mac ARM local release data)
+    PLATFORMS_JSON=$(cat "$EXISTING_MANIFEST_FILE" | jq '.platforms // {}')
+    VERSION_FROM_FRAGMENT=$(cat "$EXISTING_MANIFEST_FILE" | jq -r '.version')
+    PUB_DATE=$(cat "$EXISTING_MANIFEST_FILE" | jq -r '.pub_date')
+    echo "  Base version: $VERSION_FROM_FRAGMENT"
+    echo "  Base publish date: $PUB_DATE"
+else
+    # Fall back to first fragment (original behavior)
+    PLATFORMS_JSON='{}'
+    FIRST_FRAGMENT=$(cat "${DOWNLOADED_FRAGMENTS[0]}")
+    VERSION_FROM_FRAGMENT=$(echo "$FIRST_FRAGMENT" | jq -r '.version')
+    PUB_DATE=$(echo "$FIRST_FRAGMENT" | jq -r '.pub_date')
+    echo "  Version: $VERSION_FROM_FRAGMENT"
+    echo "  Publish Date: $PUB_DATE"
+fi
 
 # Merge all fragments
 for FRAGMENT_PATH in "${DOWNLOADED_FRAGMENTS[@]}"; do
