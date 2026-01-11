@@ -50,8 +50,8 @@ vi.mock('@/stores/settings-store', () => ({
 
 vi.mock('@/services/task-service', () => ({
   taskService: {
-    loadTasksWithPagination: vi.fn(),
-    loadTasksWithSearchPagination: vi.fn(),
+    loadTasksWithPagination: vi.fn(() => Promise.resolve([])),
+    loadTasksWithSearchPagination: vi.fn(() => Promise.resolve([])),
     loadMessages: vi.fn(),
     createTask: vi.fn(),
     selectTask: vi.fn(),
