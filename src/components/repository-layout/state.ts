@@ -91,7 +91,7 @@ export interface RepositoryLayoutActions {
   selectNextSession: () => void;
   selectPreviousSession: () => void;
 
-  startNewChat: () => void;
+  startNewTask: () => void;
   selectTask: (taskId: string) => void;
 
   checkForConflicts: () => Promise<boolean>;

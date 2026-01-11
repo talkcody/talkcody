@@ -1,6 +1,6 @@
 // src/hooks/use-tasks.ts
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { databaseService } from '@/services/database-service';
 import { taskService } from '@/services/task-service';
@@ -30,23 +30,10 @@ export function useTasks(onTaskStart?: (taskId: string, title: string) => void) 
     return trimmed.length > 0 ? trimmed : '';
   }, []);
 
-  // Get tasks Map from TaskStore (stable reference)
-  const tasksMap = useTaskStore((state) => state.tasks);
+  // Get task list from store (sorted with internal cache)
+  const tasks = useTaskStore((state) => state.getTaskList());
   const currentTaskId = useTaskStore((state) => state.currentTaskId);
   const loadingTasks = useTaskStore((state) => state.loadingTasks);
-
-  // Derive task list with memoization to avoid infinite loops
-  const tasks = useMemo(() => {
-    const list = Array.from(tasksMap.values());
-    // Sort by updated_at descending, then by created_at descending for stability
-    return list.sort((a, b) => {
-      if (b.updated_at !== a.updated_at) {
-        return b.updated_at - a.updated_at;
-      }
-      // Same updated_at, use created_at as tie-breaker
-      return b.created_at - a.created_at;
-    });
-  }, [tasksMap]);
 
   // UI state for editing
   const editingTaskId = useUIStateStore((state) => state.editingTaskId);

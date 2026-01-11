@@ -8,6 +8,25 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 TalkCody 的所有重要更新都记录在这里。
 
+## [0.2.5] - 2026-01-11
+
+### 新增
+
+- **支持自定义工具（实验版本）**：新增 Custom Tools 和 Custom Tools Playground，支持用户自定义 AI 工具，核心能力是可以自定义 UI
+- **Edit 自动批准 **：可在设置中开启，不需要等待文件修改时再进行审批
+- 全局文件搜索显示最近打开的文件
+- 多窗口时，将 Project name 作为窗口标题
+
+### 优化
+
+- **UI 渲染性能优化**：优化多任务并行执行时的 UI 渲染性能，提升复杂工作流下的响应速度
+
+### 修复
+
+- **修复文件变更摘要 Bug**：修复 file-changes-summary 组件的显示问题
+- **路径处理兼容**：修复 Windows 和 Unix 路径处理的兼容性问题
+- Fix Mac 的 dock menu 显示 最近 project的 Bug
+
 ## [0.2.4] - 2026-01-06
 
 ### 新增

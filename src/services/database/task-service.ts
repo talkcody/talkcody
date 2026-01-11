@@ -313,11 +313,20 @@ export class TaskService {
     taskId: string,
     cost: number,
     inputToken: number,
-    outputToken: number
+    outputToken: number,
+    contextUsage?: number
   ): Promise<void> {
+    if (contextUsage === undefined) {
+      await this.db.execute(
+        'UPDATE conversations SET cost = cost + $1, input_token = input_token + $2, output_token = output_token + $3, updated_at = $4 WHERE id = $5',
+        [cost, inputToken, outputToken, Date.now(), taskId]
+      );
+      return;
+    }
+
     await this.db.execute(
-      'UPDATE conversations SET cost = cost + $1, input_token = input_token + $2, output_token = output_token + $3, updated_at = $4 WHERE id = $5',
-      [cost, inputToken, outputToken, Date.now(), taskId]
+      'UPDATE conversations SET cost = cost + $1, input_token = input_token + $2, output_token = output_token + $3, context_usage = $4, updated_at = $5 WHERE id = $6',
+      [cost, inputToken, outputToken, contextUsage, Date.now(), taskId]
     );
   }
 

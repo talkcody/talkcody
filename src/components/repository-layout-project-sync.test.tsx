@@ -59,7 +59,7 @@ vi.mock('@/hooks/use-tasks', () => ({
     cancelEditing: vi.fn(),
     selectTask: vi.fn(),
     currentTaskId: null,
-    startNewChat: vi.fn(),
+    startNewTask: vi.fn(),
     loadTasks: vi.fn(),
   })),
 }));

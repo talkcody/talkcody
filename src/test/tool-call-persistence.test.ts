@@ -220,7 +220,6 @@ describe('Tool-call message persistence bug fix', () => {
     };
 
     it('should NOT generate missing tool-call when tool-call was properly saved', async () => {
-      // Simulate messages loaded from database (both tool-call and tool-result saved)
       const messages: UIMessage[] = [
         {
           id: '1',

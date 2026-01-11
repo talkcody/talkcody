@@ -2,10 +2,9 @@
 
 import { logger } from '@/lib/logger';
 import { generateConversationTitle, generateId } from '@/lib/utils';
-import { databaseService, type StoredMessage } from '@/services/database-service';
+import { databaseService } from '@/services/database-service';
 import { settingsManager } from '@/stores/settings-store';
 import { useTaskStore } from '@/stores/task-store';
-import type { MessageAttachment, UIMessage } from '@/types/agent';
 import { aiTaskTitleService } from './ai/ai-task-title-service';
 
 /**
@@ -29,43 +28,6 @@ export class TaskManager {
   }
 
   /**
-   * Save message
-   */
-  static async saveMessage(
-    taskId: string,
-    role: 'user' | 'assistant',
-    content: string,
-    positionIndex = 0,
-    assistantId?: string,
-    attachments?: MessageAttachment[]
-  ): Promise<string> {
-    return await databaseService.saveMessage(
-      taskId,
-      role,
-      content,
-      positionIndex,
-      assistantId,
-      attachments
-    );
-  }
-
-  /**
-   * Get all messages for task
-   */
-  static async getTaskHistory(taskId: string): Promise<UIMessage[]> {
-    const storedMessages = await databaseService.getMessages(taskId);
-    return storedMessages.map((msg: StoredMessage) => ({
-      id: msg.id,
-      role: msg.role,
-      content: msg.content,
-      timestamp: new Date(msg.timestamp),
-      isStreaming: false,
-      assistantId: msg.assistant_id,
-      attachments: msg.attachments,
-    }));
-  }
-
-  /**
    * Get task details
    */
   static async getTaskDetails(taskId: string) {
@@ -79,9 +41,10 @@ export class TaskManager {
     taskId: string,
     cost: number,
     inputToken: number,
-    outputToken: number
+    outputToken: number,
+    contextUsage?: number
   ): Promise<void> {
-    await databaseService.updateTaskUsage(taskId, cost, inputToken, outputToken);
+    await databaseService.updateTaskUsage(taskId, cost, inputToken, outputToken, contextUsage);
   }
 
   /**

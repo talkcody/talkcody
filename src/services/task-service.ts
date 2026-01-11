@@ -124,7 +124,6 @@ class TaskService {
       const storedMessages = await databaseService.getMessages(taskId);
       const messages = mapStoredMessagesToUI(storedMessages);
       taskStore.setMessages(taskId, messages);
-      logger.info('[TaskService] Messages loaded', { taskId, count: messages.length });
       return messages;
     } catch (error) {
       logger.error('[TaskService] Failed to load messages:', error);
@@ -150,19 +149,19 @@ class TaskService {
       await this.loadMessages(taskId);
     }
 
-    // Update usage tracking from database
-    try {
-      const details = await databaseService.getTaskDetails(taskId);
-      if (details) {
-        taskStore.updateTask(taskId, {
-          cost: details.cost,
-          input_token: details.input_token,
-          output_token: details.output_token,
-        });
-      }
-    } catch (error) {
-      logger.error('[TaskService] Failed to load task details:', error);
-    }
+    // // Update usage tracking from database
+    // try {
+    //   const details = await databaseService.getTaskDetails(taskId);
+    //   if (details) {
+    //     taskStore.updateTask(taskId, {
+    //       cost: details.cost,
+    //       input_token: details.input_token,
+    //       output_token: details.output_token,
+    //     });
+    //   }
+    // } catch (error) {
+    //   logger.error('[TaskService] Failed to load task details:', error);
+    // }
   }
 
   /**
@@ -269,19 +268,27 @@ class TaskService {
     taskId: string,
     cost: number,
     inputTokens: number,
-    outputTokens: number
+    outputTokens: number,
+    contextUsage?: number
   ): Promise<void> {
     // 1. Update store (accumulate)
     useTaskStore.getState().updateTaskUsage(taskId, {
       costDelta: cost,
       inputTokensDelta: inputTokens,
       outputTokensDelta: outputTokens,
+      contextUsage,
     });
 
     // 2. Persist to database
     try {
-      await databaseService.updateTaskUsage(taskId, cost, inputTokens, outputTokens);
-      logger.info('[TaskService] Task usage updated', { taskId, cost, inputTokens, outputTokens });
+      await databaseService.updateTaskUsage(taskId, cost, inputTokens, outputTokens, contextUsage);
+      logger.info('[TaskService] Task usage updated', {
+        taskId,
+        cost,
+        inputTokens,
+        outputTokens,
+        contextUsage,
+      });
     } catch (error) {
       logger.error('[TaskService] Failed to update task usage:', error);
     }

@@ -30,7 +30,7 @@ const createMessage = (id: string, content: string): UIMessage => ({
 const resetStores = () => {
   useExecutionStore.setState({ executions: new Map() });
   useTaskStore.setState({
-    tasks: new Map(),
+    tasks: [],
     runningTaskUsage: new Map(),
     messages: new Map(),
     loadingMessages: new Set(),
@@ -52,10 +52,7 @@ describe('useTask selectors', () => {
     messages.set('task-b', [createMessage('b1', 'hello b')]);
 
     useTaskStore.setState({
-      tasks: new Map([
-        ['task-a', taskA],
-        ['task-b', taskB],
-      ]),
+      tasks: [taskA, taskB],
       messages,
     });
 
@@ -83,7 +80,7 @@ describe('useTask selectors', () => {
     const taskA = createTask('task-a', 'Task A');
 
     useTaskStore.setState({
-      tasks: new Map([['task-a', taskA]]),
+      tasks: [taskA],
       messages: new Map([['task-a', [createMessage('a1', 'hello a')]]]),
     });
 
@@ -118,7 +115,7 @@ describe('useTask selectors', () => {
     };
 
     useTaskStore.setState({
-      tasks: new Map([['task-a', taskA]]),
+      tasks: [taskA],
       messages: new Map([['task-a', [streamingMessage]]]),
     });
 
@@ -147,7 +144,7 @@ describe('useTask selectors', () => {
     const taskA = createTask('task-a', 'Task A');
 
     useTaskStore.setState({
-      tasks: new Map([['task-a', taskA]]),
+      tasks: [taskA],
     });
 
     useTaskStore.getState().updateTaskUsage('task-a', {
@@ -168,16 +165,7 @@ describe('useTask selectors', () => {
     const taskB = createTask('task-b', 'Task B');
 
     useTaskStore.setState({
-      tasks: new Map([
-        ['task-a', taskA],
-        ['task-b', taskB],
-      ]),
-    });
-
-    useTaskStore.getState().updateTaskUsage('task-a', {
-      costDelta: 1,
-      inputTokensDelta: 1,
-      outputTokensDelta: 1,
+      tasks: [taskA, taskB],
     });
 
     const firstList = useTaskStore.getState().getTaskList();

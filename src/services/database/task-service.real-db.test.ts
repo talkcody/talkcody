@@ -293,17 +293,22 @@ describe('TaskService with Real Database', () => {
     it('should accumulate usage values', async () => {
       await taskService.createTask('Task', 'task-usage', 'default');
 
-      await taskService.updateTaskUsage('task-usage', 0.01, 100, 50);
-      await taskService.updateTaskUsage('task-usage', 0.02, 200, 100);
+      await taskService.updateTaskUsage('task-usage', 0.01, 100, 50, 40);
+      await taskService.updateTaskUsage('task-usage', 0.02, 200, 100, 60);
 
-      const rows = db.rawQuery<{ cost: number; input_token: number; output_token: number }>(
-        'SELECT cost, input_token, output_token FROM conversations WHERE id = ?',
-        ['task-usage']
-      );
+      const rows = db.rawQuery<{
+        cost: number;
+        input_token: number;
+        output_token: number;
+        context_usage: number | null;
+      }>('SELECT cost, input_token, output_token, context_usage FROM conversations WHERE id = ?', [
+        'task-usage',
+      ]);
 
       expect(rows[0]?.cost).toBeCloseTo(0.03, 5);
       expect(rows[0]?.input_token).toBe(300);
       expect(rows[0]?.output_token).toBe(150);
+      expect(rows[0]?.context_usage).toBe(60);
     });
   });
 });

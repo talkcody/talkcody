@@ -47,6 +47,7 @@ export class TursoSchema {
         cost REAL DEFAULT 0,
         input_token INTEGER DEFAULT 0,
         output_token INTEGER DEFAULT 0,
+        context_usage REAL DEFAULT NULL,
         settings TEXT DEFAULT NULL,
         FOREIGN KEY (project_id) REFERENCES projects (id) ON DELETE CASCADE
       )

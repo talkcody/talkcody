@@ -136,8 +136,26 @@ class ExecutionService {
               streamedContent = '';
             }
 
-            // Flush running usage into task record once per execution
-            useTaskStore.getState().flushRunningTaskUsage(taskId);
+            // Persist running usage into task record once per execution
+            const runningUsage = useTaskStore.getState().runningTaskUsage.get(taskId);
+            if (runningUsage) {
+              // Use finally to ensure clearRunningTaskUsage is called only after DB write completes
+              await TaskManager.updateTaskUsage(
+                taskId,
+                runningUsage.costDelta,
+                runningUsage.inputTokensDelta,
+                runningUsage.outputTokensDelta,
+                runningUsage.contextUsage
+              )
+                .then(() => {
+                  // Flush running usage into task record after persistence
+                  useTaskStore.getState().flushRunningTaskUsage(taskId);
+                })
+                .finally(() => {
+                  // Clear running usage only after DB write completes
+                  useTaskStore.getState().clearRunningTaskUsage(taskId);
+                });
+            }
 
             // Post-processing
             await this.handlePostProcessing(taskId, isNewTask, userMessage);
@@ -151,6 +169,10 @@ class ExecutionService {
 
             logger.error('[ExecutionService] Agent loop error', error);
             executionStore.setError(taskId, error.message);
+
+            // Clear running usage on error to avoid stale data
+            useTaskStore.getState().clearRunningTaskUsage(taskId);
+
             callbacks?.onError?.(error);
           },
 
@@ -187,9 +209,6 @@ class ExecutionService {
       }
     } finally {
       this.llmServiceInstances.delete(taskId);
-
-      // Ensure running usage does not leak into next run
-      useTaskStore.getState().clearRunningTaskUsage(taskId);
 
       // Ensure execution is marked as completed/stopped
       if (executionStore.isRunning(taskId)) {
@@ -247,9 +266,6 @@ class ExecutionService {
         logger.error('Background title generation failed:', error);
       });
     }
-
-    // Mark task execution as completed
-    useExecutionStore.getState().completeExecution(taskId);
 
     // Send notification if window is not focused
     await notificationService.notifyAgentComplete();

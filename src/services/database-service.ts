@@ -267,11 +267,12 @@ export class DatabaseService {
     taskId: string,
     cost: number,
     inputToken: number,
-    outputToken: number
+    outputToken: number,
+    contextUsage?: number
   ): Promise<void> {
     await this.ensureInitialized();
     if (!this.taskService) throw new Error('Task service not initialized');
-    return this.taskService.updateTaskUsage(taskId, cost, inputToken, outputToken);
+    return this.taskService.updateTaskUsage(taskId, cost, inputToken, outputToken, contextUsage);
   }
 
   async updateTaskSettings(taskId: string, settings: string): Promise<void> {

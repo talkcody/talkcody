@@ -51,6 +51,9 @@ export class TursoDatabaseInit {
       // Migration 5: Create recent_projects table for dock menu
       await TursoDatabaseInit.migrateRecentProjectsTable(db);
 
+      // Migration 6: Add context_usage column to conversations
+      await TursoDatabaseInit.migrateConversationsContextUsage(db);
+
       logger.info('✅ Database migrations check completed');
     } catch (error) {
       logger.error('❌ Database migration error:', error);
@@ -231,6 +234,29 @@ export class TursoDatabaseInit {
     } catch (error) {
       logger.error('Error creating recent_projects table:', error);
       // Don't throw - allow app to continue
+    }
+  }
+
+  /**
+   * Add context_usage field to conversations table
+   */
+  private static async migrateConversationsContextUsage(db: TursoClient): Promise<void> {
+    try {
+      const result = await (db as any).execute(`
+        SELECT COUNT(*) as count
+        FROM pragma_table_info('conversations')
+        WHERE name = 'context_usage'
+      `);
+
+      const columnExists = result.rows[0]?.count > 0;
+
+      if (!columnExists) {
+        logger.info('Migrating conversations table to add context_usage field...');
+        await (db as any).execute(`ALTER TABLE conversations ADD COLUMN context_usage REAL`);
+        logger.info('✅ Conversations table context_usage migration completed');
+      }
+    } catch (error) {
+      logger.error('Error migrating conversations table context_usage:', error);
     }
   }
 }

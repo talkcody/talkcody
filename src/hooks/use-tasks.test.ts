@@ -1,15 +1,26 @@
+import type React from 'react';
 import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { Task } from '@/types/task';
 import { useTasks } from './use-tasks';
 
 // Mock stores
-const mockTasks = new Map();
+const mockTasks: Task[] = [];
 const mockTaskStoreState = {
   tasks: mockTasks,
   currentTaskId: null as string | null,
   loadingTasks: false,
   setCurrentTaskId: vi.fn(),
   getTask: vi.fn(),
+  getTaskList: vi.fn(() => {
+    const list = [...mockTasks];
+    return list.sort((a, b) => {
+      if (b.updated_at !== a.updated_at) {
+        return b.updated_at - a.updated_at;
+      }
+      return b.created_at - a.created_at;
+    });
+  }),
 };
 
 vi.mock('@/stores/task-store', () => ({
@@ -46,7 +57,7 @@ vi.mock('@/services/task-service', () => ({
     selectTask: vi.fn(),
     deleteTask: vi.fn(),
     renameTask: vi.fn(),
-    startNewChat: vi.fn(),
+    startNewTask: vi.fn(),
   },
 }));
 
@@ -61,7 +72,7 @@ vi.mock('@/services/database-service', () => ({
 describe('useTasks', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockTasks.clear();
+    mockTasks.splice(0, mockTasks.length);
     mockTaskStoreState.currentTaskId = null;
     mockTaskStoreState.loadingTasks = false;
     mockUIStateStoreState.editingTaskId = null;
@@ -106,8 +117,7 @@ describe('useTasks', () => {
       input_token: 0,
       output_token: 0,
     };
-    mockTasks.set('task1', task1);
-    mockTasks.set('task2', task2);
+    mockTasks.push(task1, task2);
 
     const { result } = renderHook(() => useTasks());
 
@@ -149,7 +159,9 @@ describe('useTasks', () => {
     const { taskService } = await import('@/services/task-service');
     const { logger } = await import('@/lib/logger');
     const loggerErrorSpy = vi.spyOn(logger, 'error');
-    (taskService.loadTasksWithPagination as any).mockRejectedValueOnce(new Error('Network error'));
+    (taskService.loadTasksWithPagination as unknown as { mockRejectedValueOnce: (err: Error) => void }).mockRejectedValueOnce(
+      new Error('Network error')
+    );
 
     const { result } = renderHook(() => useTasks());
     await act(async () => {
@@ -164,7 +176,9 @@ describe('useTasks', () => {
 
   it('should create a task', async () => {
     const { taskService } = await import('@/services/task-service');
-    (taskService.createTask as any).mockResolvedValueOnce('new-task-id');
+    (taskService.createTask as unknown as { mockResolvedValueOnce: (value: string) => void }).mockResolvedValueOnce(
+      'new-task-id'
+    );
 
     const onTaskStart = vi.fn();
     const { result } = renderHook(() => useTasks(onTaskStart));
@@ -252,7 +266,9 @@ describe('useTasks', () => {
   it('should get task details', async () => {
     const { databaseService } = await import('@/services/database-service');
     const mockDetails = { id: 'task1', title: 'Test' };
-    (databaseService.getTaskDetails as any).mockResolvedValueOnce(mockDetails);
+    (databaseService.getTaskDetails as unknown as { mockResolvedValueOnce: (value: { id: string; title: string }) => void }).mockResolvedValueOnce(
+      mockDetails
+    );
 
     const { result } = renderHook(() => useTasks());
     const details = await result.current.getTaskDetails('task1');
@@ -261,24 +277,25 @@ describe('useTasks', () => {
     expect(details).toEqual(mockDetails);
   });
 
-  it('should start a new chat', async () => {
+  it('should start a new task', async () => {
     const { taskService } = await import('@/services/task-service');
 
     const { result } = renderHook(() => useTasks());
     act(() => {
-      result.current.startNewChat();
+      result.current.startNewTask();
     });
 
-    expect(taskService.startNewChat).toHaveBeenCalled();
+    expect(taskService.startNewTask).toHaveBeenCalled();
   });
 
   it('should set current task ID', async () => {
-    const { settingsManager } = await import('@/stores/settings-store');
     const { useTaskStore } = await import('@/stores/task-store');
     const mockSetCurrentTaskId = vi.fn();
-    (useTaskStore as any).getState = vi.fn().mockReturnValue({
-      setCurrentTaskId: mockSetCurrentTaskId,
-    });
+    (useTaskStore as unknown as { getState: () => { setCurrentTaskId: (id: string | null) => void } }).getState = vi
+      .fn()
+      .mockReturnValue({
+        setCurrentTaskId: mockSetCurrentTaskId,
+      });
 
     const { result } = renderHook(() => useTasks());
     act(() => {
@@ -292,12 +309,24 @@ describe('useTasks', () => {
     const { taskService } = await import('@/services/task-service');
     const { useTaskStore } = await import('@/stores/task-store');
 
-    const mockTask = { id: 'task1', title: 'Original Title' };
+    const mockTask: Task = {
+      id: 'task1',
+      title: 'Original Title',
+      project_id: 'proj1',
+      created_at: 1000,
+      updated_at: 1000,
+      message_count: 0,
+      cost: 0,
+      input_token: 0,
+      output_token: 0,
+    };
     const mockGetTask = vi.fn().mockReturnValue(mockTask);
-    (useTaskStore as any).getState = vi.fn().mockReturnValue({
-      getTask: mockGetTask,
-      setCurrentTaskId: vi.fn(),
-    });
+    (useTaskStore as unknown as { getState: () => { getTask: (id: string) => { id: string; title: string } | undefined; setCurrentTaskId: (id: string | null) => void } }).getState = vi
+      .fn()
+      .mockReturnValue({
+        getTask: mockGetTask,
+        setCurrentTaskId: vi.fn(),
+      });
 
     // Mock finishEditing to return result
     mockUIStateStoreState.finishEditing = vi.fn().mockReturnValue({
@@ -308,9 +337,9 @@ describe('useTasks', () => {
     const { result } = renderHook(() => useTasks());
 
     // Start editing
-    const mockEvent = { stopPropagation: vi.fn() };
+    const mockEvent = { stopPropagation: vi.fn() } as unknown as React.MouseEvent;
     act(() => {
-      result.current.startEditing(mockTask as any, mockEvent as any);
+      result.current.startEditing(mockTask, mockEvent);
     });
 
     expect(mockUIStateStoreState.startEditing).toHaveBeenCalledWith(mockTask, mockEvent);

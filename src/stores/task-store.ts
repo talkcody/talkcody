@@ -41,7 +41,7 @@ interface TaskUsageCacheEntry {
 const taskUsageCache = new Map<string, TaskUsageCacheEntry>();
 
 interface TaskListCacheEntry {
-  tasksRef: Map<string, Task>;
+  tasksRef: Task[];
   runningUsageRef: Map<string, RunningTaskUsage>;
   list: Task[];
 }
@@ -121,10 +121,43 @@ function mergeTaskUsage(
   return derivedTask;
 }
 
-function getTaskListWithCache(
-  tasks: Map<string, Task>,
-  runningUsage: Map<string, RunningTaskUsage>
-): Task[] {
+function sortTasksByTimeline(list: Task[]): Task[] {
+  return list.sort((a, b) => {
+    if (b.updated_at !== a.updated_at) {
+      return b.updated_at - a.updated_at;
+    }
+    return b.created_at - a.created_at;
+  });
+}
+
+function findTaskIndex(tasks: Task[], taskId: string): number {
+  return tasks.findIndex((task) => task.id === taskId);
+}
+
+function upsertTasks(existing: Task[], incoming: Task[]): Task[] {
+  if (incoming.length === 0) return existing;
+
+  const next = [...existing];
+  const indexById = new Map<string, number>();
+
+  for (let i = 0; i < existing.length; i += 1) {
+    indexById.set(existing[i].id, i);
+  }
+
+  for (const task of incoming) {
+    const existingIndex = indexById.get(task.id);
+    if (existingIndex === undefined) {
+      indexById.set(task.id, next.length);
+      next.push(task);
+    } else {
+      next[existingIndex] = task;
+    }
+  }
+
+  return next;
+}
+
+function getTaskListWithCache(tasks: Task[], runningUsage: Map<string, RunningTaskUsage>): Task[] {
   if (
     taskListCache &&
     taskListCache.tasksRef === tasks &&
@@ -133,16 +166,7 @@ function getTaskListWithCache(
     return taskListCache.list;
   }
 
-  const list = Array.from(tasks.values()).map((task) =>
-    mergeTaskUsage(task.id, task, runningUsage.get(task.id))
-  );
-
-  list.sort((a, b) => {
-    if (b.updated_at !== a.updated_at) {
-      return b.updated_at - a.updated_at;
-    }
-    return b.created_at - a.created_at;
-  });
+  const list = tasks.map((task) => mergeTaskUsage(task.id, task, runningUsage.get(task.id)));
 
   taskListCache = {
     tasksRef: tasks,
@@ -169,7 +193,7 @@ interface RunningTaskUsage {
 
 interface TaskState {
   // Task list
-  tasks: Map<string, Task>;
+  tasks: Task[];
   currentTaskId: string | null;
 
   // Runtime usage deltas for running tasks
@@ -339,7 +363,7 @@ interface TaskState {
 export const useTaskStore = create<TaskState>()(
   devtools(
     (set, get) => ({
-      tasks: new Map(),
+      tasks: [],
       currentTaskId: null,
       runningTaskUsage: new Map(),
       messages: new Map(),
@@ -353,13 +377,9 @@ export const useTaskStore = create<TaskState>()(
 
       setTasks: (tasks) => {
         set(
-          (state) => {
-            // Create a new Map to ensure state change is detected
-            const newTasks = new Map();
-            for (const task of tasks) {
-              newTasks.set(task.id, task);
-            }
-            return { tasks: newTasks };
+          () => {
+            const sortedTasks = sortTasksByTimeline([...tasks]);
+            return { tasks: sortedTasks };
           },
           false,
           'setTasks'
@@ -369,9 +389,8 @@ export const useTaskStore = create<TaskState>()(
       addTask: (task) => {
         set(
           (state) => {
-            const tasks = new Map(state.tasks);
-            tasks.set(task.id, task);
-            return { tasks };
+            const nextTasks = upsertTasks(state.tasks, [task]);
+            return { tasks: sortTasksByTimeline([...nextTasks]) };
           },
           false,
           'addTask'
@@ -381,11 +400,8 @@ export const useTaskStore = create<TaskState>()(
       addTasks: (tasks) => {
         set(
           (state) => {
-            const newTasks = new Map(state.tasks);
-            for (const task of tasks) {
-              newTasks.set(task.id, task);
-            }
-            return { tasks: newTasks };
+            const nextTasks = upsertTasks(state.tasks, tasks);
+            return { tasks: sortTasksByTimeline([...nextTasks]) };
           },
           false,
           'addTasks'
@@ -395,12 +411,14 @@ export const useTaskStore = create<TaskState>()(
       updateTask: (taskId, updates) => {
         set(
           (state) => {
-            const task = state.tasks.get(taskId);
-            if (!task) return state;
+            const index = findTaskIndex(state.tasks, taskId);
+            if (index < 0) return state;
 
-            const tasks = new Map(state.tasks);
-            tasks.set(taskId, { ...task, ...updates });
-            return { tasks };
+            const nextTasks = [...state.tasks];
+            const task = nextTasks[index];
+            nextTasks[index] = { ...task, ...updates };
+
+            return { tasks: sortTasksByTimeline(nextTasks) };
           },
           false,
           'updateTask'
@@ -410,11 +428,10 @@ export const useTaskStore = create<TaskState>()(
       removeTask: (taskId) => {
         set(
           (state) => {
-            const tasks = new Map(state.tasks);
+            const tasks = state.tasks.filter((task) => task.id !== taskId);
             const messages = new Map(state.messages);
             const runningTaskUsage = new Map(state.runningTaskUsage);
 
-            tasks.delete(taskId);
             messages.delete(taskId);
             runningTaskUsage.delete(taskId);
             taskUsageCache.delete(taskId);
@@ -441,7 +458,8 @@ export const useTaskStore = create<TaskState>()(
       updateTaskUsage: (taskId, usage) => {
         set(
           (state) => {
-            if (!state.tasks.has(taskId)) return state;
+            const index = findTaskIndex(state.tasks, taskId);
+            if (index < 0) return state;
 
             const runningTaskUsage = new Map(state.runningTaskUsage);
             const existing = runningTaskUsage.get(taskId) || {
@@ -468,25 +486,26 @@ export const useTaskStore = create<TaskState>()(
       flushRunningTaskUsage: (taskId) => {
         set(
           (state) => {
-            const task = state.tasks.get(taskId);
-            if (!task) return state;
+            const index = findTaskIndex(state.tasks, taskId);
+            if (index < 0) return state;
 
             const delta = state.runningTaskUsage.get(taskId);
             if (!delta) return state;
 
-            const tasks = new Map(state.tasks);
-            const runningTaskUsage = new Map(state.runningTaskUsage);
-            runningTaskUsage.delete(taskId);
-
-            tasks.set(taskId, {
+            const nextTasks = [...state.tasks];
+            const task = nextTasks[index];
+            nextTasks[index] = {
               ...task,
               cost: task.cost + delta.costDelta,
               input_token: task.input_token + delta.inputTokensDelta,
               output_token: task.output_token + delta.outputTokensDelta,
               context_usage: delta.contextUsage ?? task.context_usage,
-            });
+            };
 
-            return { tasks, runningTaskUsage };
+            const runningTaskUsage = new Map(state.runningTaskUsage);
+            runningTaskUsage.delete(taskId);
+
+            return { tasks: sortTasksByTimeline(nextTasks), runningTaskUsage };
           },
           false,
           'flushRunningTaskUsage'
@@ -509,16 +528,17 @@ export const useTaskStore = create<TaskState>()(
       updateTaskSettings: (taskId, settings) => {
         set(
           (state) => {
-            const task = state.tasks.get(taskId);
-            if (!task) return state;
+            const index = findTaskIndex(state.tasks, taskId);
+            if (index < 0) return state;
 
+            const nextTasks = [...state.tasks];
+            const task = nextTasks[index];
             const existingSettings: TaskSettings = task.settings ? JSON.parse(task.settings) : {};
-            const tasks = new Map(state.tasks);
-            tasks.set(taskId, {
+            nextTasks[index] = {
               ...task,
               settings: JSON.stringify({ ...existingSettings, ...settings }),
-            });
-            return { tasks };
+            };
+            return { tasks: sortTasksByTimeline(nextTasks) };
           },
           false,
           'updateTaskSettings'
@@ -562,17 +582,18 @@ export const useTaskStore = create<TaskState>()(
             messagesMap.set(taskId, [...existing, fullMessage]);
 
             // Only update timestamp for user messages
-            const task = state.tasks.get(taskId);
-            if (task && message.role === 'user') {
-              const tasks = new Map(state.tasks);
-              tasks.set(taskId, {
+            const index = findTaskIndex(state.tasks, taskId);
+            if (index >= 0 && message.role === 'user') {
+              const nextTasks = [...state.tasks];
+              const task = nextTasks[index];
+              nextTasks[index] = {
                 ...task,
                 updated_at: Date.now(),
                 message_count: (task.message_count ?? 0) + 1,
-              });
+              };
               return {
                 messages: messagesMap,
-                tasks,
+                tasks: sortTasksByTimeline(nextTasks),
               };
             }
 
@@ -786,9 +807,10 @@ export const useTaskStore = create<TaskState>()(
       // ============================================
 
       getTask: (taskId) => {
-        const task = get().tasks.get(taskId);
-        if (!task) return undefined;
+        const index = findTaskIndex(get().tasks, taskId);
+        if (index < 0) return undefined;
 
+        const task = get().tasks[index];
         return mergeTaskUsage(taskId, task, get().runningTaskUsage.get(taskId));
       },
 
