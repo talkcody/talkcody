@@ -1,6 +1,7 @@
 import { Github} from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
+import { CONFIG } from "@/lib/config";
 
 const translations = {
   en: {
@@ -74,7 +75,7 @@ export function Footer({ lang }: { lang: string }) {
             </p>
             <div className="flex items-center gap-4 pt-2">
               <a
-                href="https://github.com/talkcody/talkcody"
+                href={CONFIG.github.repo}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
@@ -159,32 +160,29 @@ export function Footer({ lang }: { lang: string }) {
               </ul>
             </div>
 
-            {/* Community */}
             <div className="space-y-3">
               <h4 className="text-sm font-semibold flex items-center gap-2">
-                {/* <Star className="h-4 w-4" /> */}
                 {t.community}
               </h4>
               <ul className="space-y-2.5 text-sm">
                 <li>
                   <a
-                    href="https://github.com/talkcody/talkcody"
+                    href={CONFIG.github.repo}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                   >
-                    {/* <Github className="h-3 w-3" /> */}
-                    {t.viewOnGitHub}
+                    GitHub
                   </a>
                 </li>
                 <li>
                   <a
-                    href="https://github.com/talkcody/talkcody"
+                    href={CONFIG.x}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {t.contribute}
+                    X
                   </a>
                 </li>
                 <li>
@@ -192,7 +190,6 @@ export function Footer({ lang }: { lang: string }) {
                     href={`/${lang}/docs`}
                     className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                   >
-                    {/* <HelpCircle className="h-3 w-3" /> */}
                     {t.support}
                   </Link>
                 </li>

@@ -30,21 +30,6 @@ export interface CustomToolLoadOptions {
 }
 
 const CUSTOM_TOOLS_RELATIVE_DIR = '.talkcody/tools';
-const CUSTOM_TOOLS_SUFFIX = `/${CUSTOM_TOOLS_RELATIVE_DIR}`;
-
-function normalizePathForSuffix(value: string): string {
-  return value.replace(/\\/g, '/').replace(/\/+$/, '');
-}
-
-async function resolveCustomToolsDirectory(customDirectory: string): Promise<string> {
-  const normalized = await normalize(customDirectory);
-  const normalizedForSuffix = normalizePathForSuffix(normalized);
-  if (normalizedForSuffix.endsWith(CUSTOM_TOOLS_SUFFIX)) {
-    return normalized;
-  }
-  const joined = await join(customDirectory, CUSTOM_TOOLS_RELATIVE_DIR);
-  return await normalize(joined);
-}
 
 function hasCustomToolExtension(fileName: string): boolean {
   return /.*[-_]tool\.tsx?$/i.test(fileName);
@@ -82,8 +67,8 @@ async function buildDirectories(
   };
 
   if (customDirectory) {
-    const resolvedCustom = await resolveCustomToolsDirectory(customDirectory);
-    await addDir(resolvedCustom, 'custom');
+    // When custom directory is set, use it directly without appending .talkcody/tools
+    await addDir(customDirectory, 'custom');
     return directories;
   }
 
@@ -109,6 +94,7 @@ export async function loadCustomTools(
   const directories = await buildDirectories(options);
 
   if (directories.length === 0) {
+    logger.warn('[CustomToolLoader] No directories to scan for custom tools');
     return { tools: [] };
   }
 
@@ -118,6 +104,7 @@ export async function loadCustomTools(
   for (const { path: dirPath, source } of directories) {
     try {
       if (!(await exists(dirPath))) {
+        logger.warn('[CustomToolLoader] Directory not found', { dirPath });
         results.push({
           name: dirPath,
           filePath: dirPath,
@@ -134,7 +121,6 @@ export async function loadCustomTools(
         if (!entry.isFile) continue;
         if (entry.name.endsWith('.d.ts')) continue;
         if (!hasCustomToolExtension(entry.name)) continue;
-
         const filePath = await join(dirPath, entry.name);
         const toolName = getToolNameFromFile(entry.name);
 

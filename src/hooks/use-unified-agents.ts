@@ -1,6 +1,6 @@
 // Unified agents hook for fetching both marketplace and local agents
 
-import type { MarketplaceAgent } from '@talkcody/shared';
+import type { RemoteAgentConfig } from '@talkcody/shared/types/remote-agents';
 import { useCallback, useMemo, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { agentRegistry } from '@/services/agents/agent-registry';
@@ -10,12 +10,12 @@ import type { Agent } from '@/types';
 import { useMarketplace } from './use-marketplace';
 
 export type UnifiedAgent =
-  | (MarketplaceAgent & { _type: 'marketplace' })
+  | (RemoteAgentConfig & { _type: 'marketplace' })
   | (Agent & { _type: 'local' });
 
 interface UseUnifiedAgentsReturn {
   // Marketplace agents
-  marketplaceAgents: (MarketplaceAgent & { _type: 'marketplace' })[];
+  marketplaceAgents: (RemoteAgentConfig & { _type: 'marketplace' })[];
   // Local agents
   localAgents: (Agent & { _type: 'local' })[];
   // All agents (for "All Agents" tab - marketplace only)
@@ -23,7 +23,7 @@ interface UseUnifiedAgentsReturn {
   // My agents (local + installed from marketplace)
   myAgents: (Agent & { _type: 'local' })[];
   // Featured agents
-  featuredAgents: (MarketplaceAgent & { _type: 'marketplace' })[];
+  featuredAgents: (RemoteAgentConfig & { _type: 'marketplace' })[];
   // Loading states
   isLoading: boolean;
   // Methods from marketplace

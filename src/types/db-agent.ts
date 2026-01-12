@@ -80,6 +80,13 @@ export interface CreateAgentData {
   tags?: string; // JSON array
 }
 
+// Type guard to check if data includes dynamic_provider_settings
+export function hasDynamicProviderSettings(
+  data: Record<string, unknown>
+): data is Record<string, unknown> & { dynamic_provider_settings: string } {
+  return 'dynamic_provider_settings' in data && typeof data.dynamic_provider_settings === 'string';
+}
+
 export interface UpdateAgentData {
   name?: string;
   description?: string;
@@ -109,6 +116,13 @@ export interface UpdateAgentData {
   icon_url?: string;
   categories?: string; // JSON array
   tags?: string; // JSON array
+}
+
+// Type guard to check if update data includes dynamic_provider_settings
+export function hasDynamicProviderSettingsUpdate(
+  data: Record<string, unknown>
+): data is Record<string, unknown> & { dynamic_provider_settings: string } {
+  return 'dynamic_provider_settings' in data && typeof data.dynamic_provider_settings === 'string';
 }
 
 /**

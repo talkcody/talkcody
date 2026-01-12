@@ -1,6 +1,8 @@
-export const DOWNLOAD_CONFIG = {
+export const CONFIG = {
   version: '0.2.5',
   releaseDate: '2026-01-11',
+
+  x:'https://x.com/TalkCody',
 
   github: {
     repo: 'https://github.com/talkcody/talkcody',

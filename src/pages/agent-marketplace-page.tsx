@@ -1,12 +1,12 @@
 // Marketplace page for discovering and installing agents
 
-import type { MarketplaceAgent } from '@talkcody/shared';
-import { Bot, Clock, Download, Plus, RefreshCw, Search, Star, TrendingUp } from 'lucide-react';
+import type { RemoteAgentConfig } from '@talkcody/shared/types/remote-agents';
+import { Bot, Clock, Download, Plus, RefreshCw, Search, Star } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AgentEditorDialog } from '@/components/agents/agent-editor-dialog';
+import { ImportGitHubAgentDialog } from '@/components/agents/import-github-agent-dialog';
 import { LocalAgentDetailDialog } from '@/components/agents/local-agent-detail-dialog';
-import { PublishAgentDialog } from '@/components/agents/publish-agent-dialog';
 import { UnifiedAgentCard } from '@/components/agents/unified-agent-card';
 import { MarketplaceAgentCard } from '@/components/marketplace/agent-card';
 import { AgentDetailDialog } from '@/components/marketplace/agent-detail-dialog';
@@ -48,11 +48,8 @@ export function AgentMarketplacePage() {
   const [activeTab, setActiveTab] = useState('myagents');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
-  const [selectedTags, _setSelectedTags] = useState<string[]>([]);
-  const [sortBy, setSortBy] = useState<'popular' | 'recent' | 'downloads' | 'installs' | 'name'>(
-    'popular'
-  );
-  const [selectedAgent, setSelectedAgent] = useState<MarketplaceAgent | null>(null);
+  const [_sortBy, _setSortBy] = useState<'popular' | 'recent' | 'name'>('popular');
+  const [selectedAgent, setSelectedAgent] = useState<RemoteAgentConfig | null>(null);
   const [installingAgentId, setInstallingAgentId] = useState<string | null>(null);
 
   // Local agent management state
@@ -60,7 +57,7 @@ export function AgentMarketplacePage() {
   const [editingAgent, setEditingAgent] = useState<Agent | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [deletingAgentId, setDeletingAgentId] = useState<string | null>(null);
-  const [publishingAgent, setPublishingAgent] = useState<Agent | null>(null);
+  const [isGitHubImportOpen, setIsGitHubImportOpen] = useState(false);
 
   // Tab-specific loading state
   const [isMarketplaceDataLoaded, setIsMarketplaceDataLoaded] = useState(false);
@@ -97,7 +94,7 @@ export function AgentMarketplacePage() {
     }
 
     // Apply sorting
-    switch (sortBy) {
+    switch (_sortBy) {
       case 'name':
         result.sort((a, b) => a.name.localeCompare(b.name));
         break;
@@ -114,7 +111,27 @@ export function AgentMarketplacePage() {
     }
 
     return result;
-  }, [myAgents, searchQuery, sortBy]);
+  }, [myAgents, searchQuery, _sortBy]);
+
+  const filteredMarketplaceAgents = useMemo(() => {
+    let result = [...marketplaceAgents];
+
+    if (searchQuery) {
+      const searchLower = searchQuery.toLowerCase();
+      result = result.filter(
+        (agent) =>
+          agent.name.toLowerCase().includes(searchLower) ||
+          agent.description?.toLowerCase().includes(searchLower) ||
+          agent.id.toLowerCase().includes(searchLower)
+      );
+    }
+
+    if (selectedCategory !== 'all') {
+      result = result.filter((agent) => agent.category === selectedCategory);
+    }
+
+    return result;
+  }, [marketplaceAgents, searchQuery, selectedCategory]);
 
   // Load local agents on mount only
   useEffect(() => {
@@ -139,12 +156,7 @@ export function AgentMarketplacePage() {
             loadCategories(),
             loadTags(),
             loadFeaturedAgents(),
-            loadMarketplaceAgents({
-              sortBy,
-              search: searchQuery || undefined,
-              categoryIds: selectedCategory !== 'all' ? [selectedCategory] : undefined,
-              tagIds: selectedTags.length > 0 ? selectedTags : undefined,
-            }),
+            loadMarketplaceAgents(),
           ]);
           setIsMarketplaceDataLoaded(true);
         } catch (error) {
@@ -161,31 +173,14 @@ export function AgentMarketplacePage() {
     loadTags,
     loadFeaturedAgents,
     loadMarketplaceAgents,
-    sortBy,
-    searchQuery,
-    selectedCategory,
-    selectedTags,
   ]);
 
   // Load marketplace data when filters change and we're on marketplace tab
   useEffect(() => {
     if (activeTab === 'all' && isMarketplaceDataLoaded) {
-      loadMarketplaceAgents({
-        sortBy,
-        search: searchQuery || undefined,
-        categoryIds: selectedCategory !== 'all' ? [selectedCategory] : undefined,
-        tagIds: selectedTags.length > 0 ? selectedTags : undefined,
-      });
+      loadMarketplaceAgents();
     }
-  }, [
-    searchQuery,
-    selectedCategory,
-    selectedTags,
-    sortBy,
-    activeTab,
-    isMarketplaceDataLoaded,
-    loadMarketplaceAgents,
-  ]);
+  }, [activeTab, isMarketplaceDataLoaded, loadMarketplaceAgents]);
 
   const handleRefresh = async () => {
     logger.info('Refreshing data...');
@@ -199,17 +194,12 @@ export function AgentMarketplacePage() {
           loadCategories(),
           loadTags(),
           loadFeaturedAgents(),
-          loadMarketplaceAgents({
-            sortBy,
-            search: searchQuery || undefined,
-            categoryIds: selectedCategory !== 'all' ? [selectedCategory] : undefined,
-            tagIds: selectedTags.length > 0 ? selectedTags : undefined,
-          }),
+          loadMarketplaceAgents(),
         ]);
         setIsMarketplaceDataLoaded(true);
       } catch (error) {
         logger.error('Failed to refresh marketplace data:', error);
-        setIsMarketplaceDataLoaded(true); // Still mark as loaded to show error state
+        setIsMarketplaceDataLoaded(true);
       }
     }
   };
@@ -222,11 +212,11 @@ export function AgentMarketplacePage() {
     setSelectedCategory(value);
   };
 
-  const handleSortChange = (value: 'popular' | 'recent' | 'downloads' | 'installs' | 'name') => {
-    setSortBy(value);
+  const handleSortChange = (_value: 'popular' | 'recent' | 'name') => {
+    _setSortBy('popular');
   };
 
-  const handleAgentClick = (agent: MarketplaceAgent) => {
+  const handleAgentClick = (agent: RemoteAgentConfig) => {
     setSelectedAgent(agent);
   };
 
@@ -234,10 +224,10 @@ export function AgentMarketplacePage() {
     setSelectedAgent(null);
   };
 
-  const handleInstall = async (agent: MarketplaceAgent) => {
+  const handleInstall = async (agent: RemoteAgentConfig) => {
     try {
       setInstallingAgentId(agent.id);
-      await installAgent(agent.slug, agent.latestVersion);
+      await installAgent(agent.id, agent.version || '1.0.0');
       await refreshLocalAgents();
     } catch (error) {
       logger.error('Failed to install agent:', error);
@@ -378,37 +368,31 @@ export function AgentMarketplacePage() {
     }
   };
 
-  const handleShareAgent = async (agentId: string) => {
-    try {
-      const dbAgent = await agentService.getAgent(agentId);
-      if (dbAgent) {
-        setPublishingAgent(dbAgent);
-      } else {
-        toast.error(t.Agents.page.notFound);
-      }
-    } catch (error) {
-      logger.error('Share agent error:', error);
-      toast.error(t.Agents.page.loadDetailsFailed);
-    }
-  };
-
   const handleToggleActive = async (agent: Agent) => {
     try {
+      // Ensure is_enabled is boolean
+      const currentEnabled = Boolean(agent.is_enabled);
+      const newEnabled = !currentEnabled;
+
       if (agent.source_type === 'system') {
         // For system agents, update in-memory state only
-        agentRegistry.setSystemAgentEnabled(agent.id, !agent.is_enabled);
+        agentRegistry.setSystemAgentEnabled(agent.id, newEnabled);
         await refreshLocalAgents();
         await refreshAgents();
         toast.success(
-          t.Agents.page.toggleSuccess(agent.is_enabled ? t.Skills.deactivate : t.Skills.activate)
+          t.Agents.page.toggleSuccess(currentEnabled ? t.Skills.deactivate : t.Skills.activate)
         );
       } else {
         // For user agents, update database
         await agentService.updateAgent(agent.id, {
-          is_enabled: !agent.is_enabled,
+          is_enabled: newEnabled,
         });
         await refreshLocalAgents();
         await refreshAgents();
+        // Show success toast for non-system agents as well
+        toast.success(
+          t.Agents.page.toggleSuccess(currentEnabled ? t.Skills.deactivate : t.Skills.activate)
+        );
       }
     } catch (error) {
       logger.error('Failed to toggle agent:', error);
@@ -417,8 +401,6 @@ export function AgentMarketplacePage() {
   };
 
   const handlePublishSuccess = async () => {
-    toast.success(t.Agents.page.published);
-    setPublishingAgent(null);
     await refreshLocalAgents();
     await refreshAgents();
   };
@@ -455,6 +437,10 @@ export function AgentMarketplacePage() {
                 {t.Agents.page.addAgent}
               </Button>
             )}
+            <Button variant="outline" size="sm" onClick={() => setIsGitHubImportOpen(true)}>
+              <Download className="h-4 w-4 mr-2" />
+              {t.Agents.page.importFromGitHub}
+            </Button>
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               {t.Agents.page.refresh}
@@ -480,15 +466,29 @@ export function AgentMarketplacePage() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">{t.Agents.page.allCategories}</SelectItem>
-              {categories.map((category) => (
-                <SelectItem key={category.id} value={category.id}>
-                  {category.name}
-                </SelectItem>
-              ))}
+              {categories.map((category) => {
+                if (typeof category === 'string') {
+                  return (
+                    <SelectItem key={category} value={category}>
+                      {category}
+                    </SelectItem>
+                  );
+                }
+
+                const { slug, name } = category ?? {};
+                const categoryName = name || String(category);
+                const categoryValue = slug || name || String(category);
+
+                return (
+                  <SelectItem key={categoryValue} value={categoryValue}>
+                    {categoryName}
+                  </SelectItem>
+                );
+              })}
             </SelectContent>
           </Select>
 
-          <Select value={sortBy} onValueChange={handleSortChange}>
+          <Select value={_sortBy} onValueChange={handleSortChange}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Sort by" />
             </SelectTrigger>
@@ -503,18 +503,6 @@ export function AgentMarketplacePage() {
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
                   {t.Agents.page.sortRecent}
-                </div>
-              </SelectItem>
-              <SelectItem value="downloads">
-                <div className="flex items-center gap-2">
-                  <Download className="h-4 w-4" />
-                  {t.Agents.page.sortDownloads}
-                </div>
-              </SelectItem>
-              <SelectItem value="installs">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4" />
-                  {t.Agents.page.sortInstalls}
                 </div>
               </SelectItem>
               <SelectItem value="name">{t.Agents.page.sortName}</SelectItem>
@@ -540,14 +528,14 @@ export function AgentMarketplacePage() {
               <div className="flex items-center justify-center h-64">
                 <div className="text-muted-foreground">{t.Agents.page.loading}</div>
               </div>
-            ) : marketplaceAgents.length === 0 ? (
+            ) : filteredMarketplaceAgents.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-64 text-center">
                 <p className="text-muted-foreground mb-2">{t.Agents.page.noAgentsFound}</p>
                 <p className="text-sm text-muted-foreground">{t.Agents.page.adjustFilters}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {marketplaceAgents.map((agent) => (
+                {filteredMarketplaceAgents.map((agent) => (
                   <MarketplaceAgentCard
                     key={agent.id}
                     agent={agent}
@@ -615,7 +603,6 @@ export function AgentMarketplacePage() {
                     onEdit={() => handleEditAgent(agent)}
                     onDelete={() => setDeletingAgentId(agent.id)}
                     onFork={() => handleForkAgent(agent.id)}
-                    onShare={() => handleShareAgent(agent.id)}
                     onToggleActive={() => handleToggleActive(agent)}
                   />
                 ))}
@@ -702,15 +689,12 @@ export function AgentMarketplacePage() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Publish Agent Dialog */}
-      {publishingAgent && (
-        <PublishAgentDialog
-          agent={publishingAgent}
-          open={!!publishingAgent}
-          onClose={() => setPublishingAgent(null)}
-          onSuccess={handlePublishSuccess}
-        />
-      )}
+      {/* Import Agent from GitHub */}
+      <ImportGitHubAgentDialog
+        open={isGitHubImportOpen}
+        onOpenChange={setIsGitHubImportOpen}
+        onImportComplete={handlePublishSuccess}
+      />
 
       {/* Local Agent Detail Dialog */}
       {selectedLocalAgent && (

@@ -41,6 +41,12 @@ export async function loadCustomToolsForRegistry(
   const adapted = adaptCustomTools([...definitions.values()].map((item) => item.definition));
   const tools = Object.values(adapted);
 
+  logger.info('[CustomToolService] Custom tools loaded', {
+    definitionCount: definitions.size,
+    adaptedToolCount: tools.length,
+    toolNames: tools.map((t) => (t as any).name || 'unknown'),
+  });
+
   const errors = summary.tools
     .filter((tool) => tool.status === 'error')
     .map((tool) => ({

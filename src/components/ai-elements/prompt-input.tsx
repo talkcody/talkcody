@@ -48,7 +48,17 @@ export const PromptInputTextarea = ({
       }
 
       // Don't submit if IME composition is in progress (e.g., Chinese input method)
-      if (e.nativeEvent.isComposing) {
+      // Use multiple checks for maximum compatibility across browsers and IMEs
+      // - e.isComposing: React synthetic event property (preferred, but needs type assertion)
+      // - e.nativeEvent.isComposing: browser native event property
+      // - e.keyCode === 229: IME composition keyCode in some browsers
+      const isComposing =
+        (e as React.KeyboardEvent<HTMLTextAreaElement> & { isComposing?: boolean }).isComposing ||
+        e.nativeEvent?.isComposing ||
+        e.keyCode === 229; // keyCode 229 indicates IME composition
+
+      if (isComposing) {
+        // IME composition is in progress, don't submit
         return;
       }
 

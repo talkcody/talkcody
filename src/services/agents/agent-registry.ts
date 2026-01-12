@@ -5,6 +5,7 @@ import { convertToolsForAI } from '@/lib/tool-adapter';
 import { type ToolOverride, useToolOverrideStore } from '@/stores/tool-override-store';
 import type { Agent, CreateAgentData, UpdateAgentData } from '@/types';
 import type { AgentDefinition, AgentToolSet, DynamicPromptConfig } from '@/types/agent';
+import type { MCPToolPlaceholder, ToolWithUI } from '@/types/tool';
 import { agentDatabaseService } from '../agent-database-service';
 import { agentService } from '../database/agent-service';
 import { filterToolSetForAgent, isToolAllowedForAgent } from './agent-tool-access';
@@ -388,9 +389,9 @@ class AgentRegistry {
     const resolvedTools: AgentToolSet = {};
 
     for (const [toolName, tool] of Object.entries(tools)) {
-      if (tool && typeof tool === 'object' && (tool as any)._isMCPTool) {
+      if (this.isMCPToolPlaceholder(tool)) {
         // This is an MCP tool placeholder, resolve it
-        const mcpToolName = (tool as any)._mcpToolName;
+        const mcpToolName = tool._mcpToolName;
         try {
           // Use new multi-server adapter with format: {server_id}__{tool_name}
           const mcpTool = await multiMCPAdapter.getAdaptedTool(mcpToolName);
@@ -399,7 +400,6 @@ class AgentRegistry {
         } catch (error) {
           logger.warn(`Failed to resolve MCP tool '${mcpToolName}' for '${toolName}':`, error);
           // Keep the placeholder tool but mark it as unavailable
-          // Cast as any since this is a fallback placeholder that won't be used for UI rendering
           resolvedTools[toolName] = {
             name: toolName,
             description: `MCP tool '${mcpToolName}' is not available`,
@@ -407,10 +407,10 @@ class AgentRegistry {
             execute: async () => {
               throw new Error(`MCP tool '${mcpToolName}' is not available: ${error}`);
             },
-            renderToolDoing: () => null as any,
-            renderToolResult: () => null as any,
+            renderToolDoing: () => null,
+            renderToolResult: () => null,
             canConcurrent: false,
-          };
+          } as ToolWithUI;
         }
       } else {
         // Regular tool, keep as is
@@ -419,6 +419,17 @@ class AgentRegistry {
     }
 
     return resolvedTools;
+  }
+
+  private isMCPToolPlaceholder(tool: unknown): tool is MCPToolPlaceholder {
+    return (
+      typeof tool === 'object' &&
+      tool !== null &&
+      '_isMCPTool' in tool &&
+      (tool as { _isMCPTool: unknown })._isMCPTool === true &&
+      '_mcpToolName' in tool &&
+      typeof (tool as { _mcpToolName: unknown })._mcpToolName === 'string'
+    );
   }
 
   /**
@@ -452,16 +463,17 @@ class AgentRegistry {
       // Get tool from new registry
       const tool = await getToolByName(toolId);
       if (tool) {
-        modifiedTools[toolId] = tool as any;
+        modifiedTools[toolId] = tool as ToolWithUI;
         logger.debug(`Applied override: added tool '${toolId}' to agent '${agent.id}'`);
       } else {
         // Check if it's an MCP tool (format: server__toolname)
         if (toolId.includes('__')) {
           // Store as MCP tool placeholder - will be resolved later by resolveToolsWithMCP
-          modifiedTools[toolId] = {
+          const placeholder: MCPToolPlaceholder = {
             _isMCPTool: true,
             _mcpToolName: toolId,
-          } as any;
+          };
+          modifiedTools[toolId] = placeholder as unknown as ToolWithUI;
           logger.debug(`Applied override: added MCP tool '${toolId}' to agent '${agent.id}'`);
         } else {
           logger.warn(`Cannot apply override: tool '${toolId}' not found in registry`);
@@ -515,7 +527,7 @@ class AgentRegistry {
 
     // Step 3: Resolve MCP tools if agent has tools
     if (!agent.tools || Object.keys(agent.tools).length === 0) {
-      return { ...agent, model: resolvedModel } as any;
+      return { ...agent, model: resolvedModel } as AgentDefinition;
     }
 
     try {
@@ -524,10 +536,10 @@ class AgentRegistry {
         ...agent,
         tools: resolvedTools,
         model: resolvedModel,
-      } as any;
+      } as AgentDefinition;
     } catch (error) {
       logger.error(`Failed to resolve MCP tools for agent '${id}':`, error);
-      return { ...agent, model: resolvedModel } as any; // Return agent with resolved model even if MCP resolution fails
+      return { ...agent, model: resolvedModel } as AgentDefinition; // Return agent with resolved model even if MCP resolution fails
     }
   }
 
@@ -559,9 +571,7 @@ class AgentRegistry {
       const enabled = dbAgent.dynamic_enabled ?? false;
       const providers = dbAgent.dynamic_providers ? JSON.parse(dbAgent.dynamic_providers) : [];
       const variables = dbAgent.dynamic_variables ? JSON.parse(dbAgent.dynamic_variables) : {};
-      const providerSettings = (dbAgent as any).dynamic_provider_settings
-        ? JSON.parse((dbAgent as any).dynamic_provider_settings)
-        : {};
+      const providerSettings = this.parseDynamicProviderSettings(dbAgent);
       dynamicPrompt = {
         enabled: !!enabled,
         providers: Array.isArray(providers) ? providers : [],
@@ -594,7 +604,7 @@ class AgentRegistry {
       id: dbAgent.id,
       name: dbAgent.name,
       description: dbAgent.description || undefined,
-      modelType: dbAgent.model_type as any, // Convert string to ModelType
+      modelType: dbAgent.model_type as AgentDefinition['modelType'], // Convert string to ModelType
       systemPrompt: dbAgent.system_prompt,
       tools,
       hidden: dbAgent.is_hidden,
@@ -629,7 +639,8 @@ class AgentRegistry {
       rules: agent.rules,
       output_format: agent.outputFormat,
       is_hidden: agent.hidden !== undefined ? agent.hidden : false,
-      is_default: agent.isDefault !== undefined ? agent.isDefault : true,
+      is_default: agent.isDefault !== undefined ? agent.isDefault : false,
+      is_enabled: true,
       created_by: 'system',
       source_type: 'local',
     };
@@ -638,7 +649,7 @@ class AgentRegistry {
       createData.dynamic_enabled = agent.dynamicPrompt.enabled;
       createData.dynamic_providers = JSON.stringify(agent.dynamicPrompt.providers || []);
       createData.dynamic_variables = JSON.stringify(agent.dynamicPrompt.variables || {});
-      (createData as any).dynamic_provider_settings = JSON.stringify(
+      (createData as CreateAgentData).dynamic_provider_settings = JSON.stringify(
         agent.dynamicPrompt.providerSettings || {}
       );
     }
@@ -680,7 +691,7 @@ class AgentRegistry {
       updateData.dynamic_enabled = partial.dynamicPrompt.enabled;
       updateData.dynamic_providers = JSON.stringify(partial.dynamicPrompt.providers || []);
       updateData.dynamic_variables = JSON.stringify(partial.dynamicPrompt.variables || {});
-      (updateData as any).dynamic_provider_settings = JSON.stringify(
+      (updateData as UpdateAgentData).dynamic_provider_settings = JSON.stringify(
         partial.dynamicPrompt.providerSettings || {}
       );
     }
@@ -694,13 +705,19 @@ class AgentRegistry {
       updateData.source_type = marketplacePartial.sourceType;
     }
     if (marketplacePartial.marketplaceId !== undefined) {
-      updateData.marketplace_id = marketplacePartial.marketplaceId;
+      updateData.marketplace_id = undefined;
     }
     if (marketplacePartial.marketplaceVersion !== undefined) {
-      updateData.marketplace_version = marketplacePartial.marketplaceVersion;
+      updateData.marketplace_version = undefined;
     }
 
     return updateData;
+  }
+
+  private parseDynamicProviderSettings(dbAgent: Agent): Record<string, unknown> {
+    const providerSettings = (dbAgent as Agent & { dynamic_provider_settings?: string })
+      .dynamic_provider_settings;
+    return providerSettings ? JSON.parse(providerSettings) : {};
   }
 
   /**

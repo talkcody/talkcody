@@ -25,7 +25,7 @@ interface CustomToolsState {
 }
 
 interface CustomToolsStore extends CustomToolsState {
-  refresh: (taskId: string) => Promise<void>;
+  refresh: (taskId?: string) => Promise<void>;
   setTools: (tools: CustomToolStateItem[]) => void;
 }
 
@@ -47,17 +47,23 @@ export const useCustomToolsStore = create<CustomToolsStore>((set) => ({
 
   setTools: (tools) => set({ tools }),
 
-  refresh: async (taskId: string) => {
+  refresh: async (taskId?: string) => {
     set({ isLoading: true });
+    logger.info('[CustomToolsStore] Refreshing custom tools', { taskId });
     try {
-      const rootPath = await getEffectiveWorkspaceRoot(taskId);
+      const rootPath = await getEffectiveWorkspaceRoot(taskId ?? '');
       const customDirectory = useSettingsStore.getState().custom_tools_dir;
       const options = {
         workspaceRoot: rootPath || undefined,
         customDirectory: customDirectory || undefined,
       };
 
+      logger.info('[CustomToolsStore] Loading custom tools', { options });
       const result = await loadCustomTools(options);
+      logger.info('[CustomToolsStore] Custom tools loaded', {
+        toolCount: result.tools.length,
+        tools: result.tools.map((t) => ({ name: t.name, status: t.status })),
+      });
       set({
         tools: result.tools.map(mapLoadResultToStateItem),
         isLoading: false,

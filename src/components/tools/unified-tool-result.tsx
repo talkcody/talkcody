@@ -2,6 +2,7 @@ import { formatToolInputSummary as sharedFormatToolInputSummary } from '@talkcod
 import { Check, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
+import { getAllToolsSync, getToolMetadata } from '@/lib/tools';
 import { getRelativePath } from '@/services/repository-utils';
 import { useFileChangesStore } from '@/stores/file-changes-store';
 import { useRepositoryStore } from '@/stores/window-scoped-repository-store';
@@ -64,7 +65,24 @@ export function UnifiedToolResult({
   taskId,
   toolCallId,
 }: UnifiedToolResultProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const shouldExpandByDefault = useMemo(() => {
+    try {
+      // Try to get tool from registry first
+      const tools = getAllToolsSync();
+      const tool = tools[toolName];
+      if (tool?.showResultUIAlways) {
+        return true;
+      }
+    } catch {
+      // Tools not loaded yet, fall back to metadata
+    }
+
+    // Use metadata
+    const metadata = getToolMetadata(toolName);
+    return metadata.showResultUIAlways === true;
+  }, [toolName]);
+
+  const [isOpen, setIsOpen] = useState(shouldExpandByDefault);
   const rootPath = useRepositoryStore((state) => state.rootPath);
 
   // Determine if error based on explicit prop or output content

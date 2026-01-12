@@ -27,6 +27,9 @@ export default defineConfig(() => ({
     },
   },
 
+  // Put Vite cache outside node_modules to avoid accidental cleanup.
+  cacheDir: path.resolve(__dirname, '.vite'),
+
   optimizeDeps: {
     // Exclude test-only or native deps from pre-bundling to avoid esbuild resolution errors.
     exclude: [

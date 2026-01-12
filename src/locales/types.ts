@@ -624,8 +624,24 @@ export interface LocaleDefinition {
       toggleSuccess: (action: string) => string;
       updateFailed: string;
       published: string;
+      importFromGitHub: string;
       tooltipTitle: string;
       tooltipDescription: string;
+    };
+    githubImport: {
+      title: string;
+      description: string;
+      urlLabel: string;
+      urlPlaceholder: string;
+      urlHint: string;
+      urlRequired: string;
+      scanning: string;
+      invalidUrl: string;
+      networkError: string;
+      imported: string;
+      failed: string;
+      import: string;
+      close: string;
     };
   };
 
@@ -821,6 +837,8 @@ export interface LocaleDefinition {
       importing: string;
       importSuccess: (count: number) => string;
       importFailed: (count: number) => string;
+      imported: string;
+      failed: string;
       alreadyExists: (name: string) => string;
       selectAll: string;
       deselectAll: string;

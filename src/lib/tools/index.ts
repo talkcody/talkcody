@@ -46,6 +46,8 @@ export interface ToolMetadata {
   getTargetFile?: (input: Record<string, unknown>) => string | string[] | null;
   /** Whether to render "doing" UI for this tool. Set to false for fast operations to avoid UI flash. Default: true */
   renderDoingUI?: boolean;
+  /** Whether to always show the tool result UI expanded by default */
+  showResultUIAlways?: boolean;
 }
 
 export interface ToolDefinition {
@@ -358,6 +360,7 @@ export function getToolMetadata(toolName: string): ToolMetadata {
       canConcurrent: false,
       fileOperation: false,
       renderDoingUI: true,
+      showResultUIAlways: false,
     };
   }
 

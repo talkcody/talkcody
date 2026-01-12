@@ -70,7 +70,12 @@ class TaskService {
     // 3. Notify callback
     options?.onTaskStart?.(taskId, title);
 
-    // 4. Acquire worktree if enabled and other tasks are running
+    // 4. Generate AI title asynchronously (fire-and-forget)
+    this.generateAndUpdateTitle(taskId, userMessage).catch((error: Error) => {
+      logger.error('Background AI title generation failed:', error);
+    });
+
+    // 5. Acquire worktree if enabled and other tasks are running
     const runningTaskIds = useExecutionStore.getState().getRunningTaskIds();
     logger.info('[TaskService] createTask checking worktree', {
       taskId,
@@ -211,9 +216,6 @@ class TaskService {
     }
   }
 
-  /**
-   * Rename a task
-   */
   async renameTask(taskId: string, title: string): Promise<void> {
     // 1. Update store
     useTaskStore.getState().updateTask(taskId, { title, updated_at: Date.now() });

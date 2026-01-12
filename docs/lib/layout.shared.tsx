@@ -2,6 +2,7 @@ import type { BaseLayoutProps } from "fumadocs-ui/layouts/shared";
 import { i18n } from "@/lib/i18n";
 import Image from "next/image";
 import { Github } from "lucide-react";
+import { CONFIG } from "./config";
 
 export interface LayoutOptions {
   hideNavLinks?: boolean;
@@ -37,12 +38,11 @@ export function baseOptions(locale: string, options?: LayoutOptions): BaseLayout
             icon: <Github className="size-4.5" />,
             text: "GitHub",
             label: "GitHub",
-            url: "https://github.com/talkcody/talkcody",
+            url: CONFIG.github.repo,
             external: true,
           },
         ]
       : [
-          // Homepage navbar: text links only
           {
             text: locale === "zh" ? "文档" : "Docs",
             url: `${prefix}/docs`,
@@ -53,7 +53,12 @@ export function baseOptions(locale: string, options?: LayoutOptions): BaseLayout
           },
           {
             text: "GitHub",
-            url: "https://github.com/talkcody/talkcody",
+            url: CONFIG.github.repo,
+            external: true,
+          },
+          {
+            text: "X",
+            url: CONFIG.x,
             external: true,
           },
         ],

@@ -1,9 +1,8 @@
 // Unified agent card component for both marketplace and local agents
 
-import type { MarketplaceAgent, Tag } from '@talkcody/shared';
-import { Download, GitFork, Pause, Pencil, Play, Share2, Star, Trash2, User } from 'lucide-react';
+import type { RemoteAgentConfig } from '@talkcody/shared/types/remote-agents';
+import { GitFork, Pause, Pencil, Play, Star, Trash2, User } from 'lucide-react';
 import { BetaBadge } from '@/components/beta-badge';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -17,7 +16,7 @@ import {
 import type { Agent } from '@/types';
 import type { AgentDefinition } from '@/types/agent';
 
-type UnifiedAgent = (MarketplaceAgent | AgentDefinition | Agent) & {
+type UnifiedAgent = (RemoteAgentConfig | AgentDefinition | Agent) & {
   _type?: 'marketplace' | 'local';
   // For local agents (database agents use source_type, not sourceType)
   marketplace_id?: string;
@@ -29,17 +28,16 @@ interface UnifiedAgentCardProps {
   agent: UnifiedAgent;
   onClick: () => void;
   // Marketplace actions
-  onInstall?: (agent: MarketplaceAgent) => void;
+  onInstall?: (agent: RemoteAgentConfig) => void;
   isInstalling?: boolean;
   // Local agent actions
   onEdit?: () => void;
   onDelete?: () => void;
   onFork?: () => void;
-  onShare?: () => void;
   onToggleActive?: () => void;
 }
 
-function isMarketplaceAgent(agent: UnifiedAgent): agent is MarketplaceAgent {
+function isMarketplaceAgent(agent: UnifiedAgent): agent is RemoteAgentConfig {
   return '_type' in agent && agent._type === 'marketplace';
 }
 
@@ -59,7 +57,6 @@ export function UnifiedAgentCard({
   onEdit,
   onDelete,
   onFork,
-  onShare,
   onToggleActive,
 }: UnifiedAgentCardProps) {
   const isMarketplace = isMarketplaceAgent(agent);
@@ -73,23 +70,11 @@ export function UnifiedAgentCard({
 
   // Get icon
   let iconUrl: string | undefined;
-  if (isMarketplaceAgent(agent)) {
-    iconUrl = agent.iconUrl;
-  } else if (isDatabaseAgent(agent)) {
+  if (isDatabaseAgent(agent)) {
     iconUrl = agent.icon_url;
   }
 
-  // Get author info (marketplace only)
-  const author = isMarketplaceAgent(agent) ? agent.author : null;
-
-  // Get tags (marketplace only)
-  const tags = isMarketplaceAgent(agent) ? agent.tags : [];
-
-  // Get stats (marketplace only)
-  const installCount = isMarketplaceAgent(agent) ? agent.installCount : 0;
-  const rating = isMarketplaceAgent(agent) ? agent.rating : 0;
-  const ratingCount = isMarketplaceAgent(agent) ? agent.ratingCount : 0;
-  const isFeatured = isMarketplaceAgent(agent) ? agent.isFeatured : false;
+  const isFeatured = false;
 
   return (
     <Card
@@ -175,32 +160,9 @@ export function UnifiedAgentCard({
         {/* Stats section with improved styling */}
         <div className="flex items-center gap-3 text-xs text-muted-foreground">
           {isMarketplace && (
-            <>
-              <div className="flex items-center gap-1.5 bg-muted/30 px-2 py-1 rounded-md">
-                <Download className="h-3.5 w-3.5" />
-                <span className="font-medium">{installCount.toLocaleString()}</span>
-              </div>
-
-              {rating > 0 && (
-                <div className="flex items-center gap-1.5 bg-muted/30 px-2 py-1 rounded-md">
-                  <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
-                  <span className="font-medium">{rating}</span>
-                  <span className="opacity-60">({ratingCount})</span>
-                </div>
-              )}
-
-              {author && (
-                <div className="flex items-center gap-1.5 bg-muted/30 px-2 py-1 rounded-md">
-                  <Avatar className="h-4 w-4">
-                    <AvatarImage src={author.avatarUrl || ''} />
-                    <AvatarFallback className="text-[10px]">
-                      {author.name.charAt(0).toUpperCase()}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="truncate font-medium">{author.name}</span>
-                </div>
-              )}
-            </>
+            <div className="flex items-center gap-1.5 bg-muted/30 px-2 py-1 rounded-md">
+              <span className="font-medium">{agent.category}</span>
+            </div>
           )}
 
           {isLocal && isDatabaseAgent(agent) && (
@@ -225,23 +187,11 @@ export function UnifiedAgentCard({
           )}
         </div>
 
-        {/* Tags with improved styling */}
-        {tags.length > 0 && (
+        {false && (
           <div className="flex flex-wrap gap-1.5">
-            {tags.slice(0, 3).map((tag: Tag) => (
-              <Badge
-                key={tag.id}
-                variant="outline"
-                className="text-xs bg-muted/30 hover:bg-muted/50 transition-colors border-border/50"
-              >
-                {tag.name}
-              </Badge>
-            ))}
-            {tags.length > 3 && (
-              <Badge variant="outline" className="text-xs bg-muted/30 border-border/50">
-                +{tags.length - 3} more
-              </Badge>
-            )}
+            <Badge variant="outline" className="text-xs bg-muted/30 border-border/50">
+              placeholder
+            </Badge>
           </div>
         )}
       </CardContent>
@@ -254,7 +204,7 @@ export function UnifiedAgentCard({
             className="flex-1 min-w-[120px] bg-primary hover:bg-primary/90 shadow-sm hover:shadow-md transition-all"
             onClick={(e) => {
               e.stopPropagation();
-              onInstall?.(agent as MarketplaceAgent);
+              onInstall?.(agent as RemoteAgentConfig);
             }}
             disabled={isInstalling || !onInstall}
           >
@@ -293,22 +243,6 @@ export function UnifiedAgentCard({
                 <GitFork className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
                 <span className="text-[10px] text-muted-foreground group-hover:text-primary transition-colors font-medium">
                   Fork
-                </span>
-              </button>
-            )}
-
-            {onShare && !isSystemAgent && (
-              <button
-                type="button"
-                className="flex flex-col items-center gap-1 px-2 py-1.5 rounded-md hover:bg-primary/10 transition-all group"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onShare();
-                }}
-              >
-                <Share2 className="h-4 w-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                <span className="text-[10px] text-muted-foreground group-hover:text-primary transition-colors font-medium">
-                  Share
                 </span>
               </button>
             )}

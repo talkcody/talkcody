@@ -6,7 +6,7 @@ icon: Download
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { Card, Cards } from 'fumadocs-ui/components/card';
-import { DOWNLOAD_CONFIG } from '@/lib/download-config';
+import { CONFIG } from '@/lib/config';
 
 # 客户端下载
 
@@ -14,11 +14,11 @@ import { DOWNLOAD_CONFIG } from '@/lib/download-config';
 
 <Cards>
   <Card title="macOS (Apple Silicon)" description="适用于 M1、M2、M3 和 M4 Mac">
-    **下载**：<a href={DOWNLOAD_CONFIG.downloads['darwin-aarch64']}>talkcody_{DOWNLOAD_CONFIG.version}_aarch64.dmg</a>
+    **下载**：<a href={CONFIG.downloads['darwin-aarch64']}>talkcody_{CONFIG.version}_aarch64.dmg</a>
   </Card>
 
   <Card title="macOS (Intel)" description="适用于基于 Intel 的 Mac">
-    **下载**：<a href={DOWNLOAD_CONFIG.downloads['darwin-x86_64']}>talkcody_{DOWNLOAD_CONFIG.version}_x64.dmg</a>
+    **下载**：<a href={CONFIG.downloads['darwin-x86_64']}>talkcody_{CONFIG.version}_x64.dmg</a>
   </Card>
 </Cards>
 
@@ -26,7 +26,7 @@ import { DOWNLOAD_CONFIG } from '@/lib/download-config';
 
 <Cards>
   <Card title="Windows (x64)" description="适用于 64 位 Windows 系统">
-    **下载**：<a href={DOWNLOAD_CONFIG.downloads['windows-x86_64']}>TalkCody_{DOWNLOAD_CONFIG.version}_x64_en-US.msi</a>
+    **下载**：<a href={CONFIG.downloads['windows-x86_64']}>TalkCody_{CONFIG.version}_x64_en-US.msi</a>
   </Card>
 </Cards>
 
@@ -34,7 +34,7 @@ import { DOWNLOAD_CONFIG } from '@/lib/download-config';
 
 <Cards>
   <Card title="Linux (x86_64)" description="适用于 64 位 Linux 系统">
-    **下载**：<a href={DOWNLOAD_CONFIG.downloads['linux-x86_64']}>talkcody_{DOWNLOAD_CONFIG.version}_x86_64.AppImage</a>
+    **下载**：<a href={CONFIG.downloads['linux-x86_64']}>talkcody_{CONFIG.version}_x86_64.AppImage</a>
   </Card>
 </Cards>
 
@@ -45,7 +45,7 @@ import { DOWNLOAD_CONFIG } from '@/lib/download-config';
 ## 需要帮助？
 
 - [快速开始指南](/zh/docs/introduction/quick-start) - 开始使用 TalkCody
-- <a href={DOWNLOAD_CONFIG.github.issues}>GitHub Issues</a> - 报告错误或请求功能
+- <a href={CONFIG.github.issues}>GitHub Issues</a> - 报告错误或请求功能
 
 <Callout type="success">
 下载后，前往[快速开始指南](/zh/docs/introduction/quick-start)配置 TalkCody 并开始使用 AI 进行编码！

@@ -2,7 +2,7 @@
  * Utilities for OS detection and download link generation
  */
 
-import { DOWNLOAD_CONFIG } from './download-config';
+import { CONFIG } from './config';
 
 export type Platform = 'mac-apple-silicon' | 'mac-intel' | 'windows' | 'linux' | 'unknown';
 
@@ -115,26 +115,26 @@ export function getDownloadInfo(platform: Platform): DownloadInfo {
     'mac-apple-silicon': {
       platform: 'mac-apple-silicon',
       displayName: 'macOS (Apple Silicon)',
-      downloadUrl: DOWNLOAD_CONFIG.downloads['darwin-aarch64'] || '#',
-      available: !!DOWNLOAD_CONFIG.downloads['darwin-aarch64'],
+      downloadUrl: CONFIG.downloads['darwin-aarch64'] || '#',
+      available: !!CONFIG.downloads['darwin-aarch64'],
     },
     'mac-intel': {
       platform: 'mac-intel',
       displayName: 'macOS (Intel)',
-      downloadUrl: DOWNLOAD_CONFIG.downloads['darwin-x86_64'] || '#',
-      available: !!DOWNLOAD_CONFIG.downloads['darwin-x86_64'],
+      downloadUrl: CONFIG.downloads['darwin-x86_64'] || '#',
+      available: !!CONFIG.downloads['darwin-x86_64'],
     },
     'windows': {
       platform: 'windows',
       displayName: 'Windows',
-      downloadUrl: DOWNLOAD_CONFIG.downloads['windows-x86_64'] || '#',
-      available: !!DOWNLOAD_CONFIG.downloads['windows-x86_64'],
+      downloadUrl: CONFIG.downloads['windows-x86_64'] || '#',
+      available: !!CONFIG.downloads['windows-x86_64'],
     },
     'linux': {
       platform: 'linux',
       displayName: 'Linux',
-      downloadUrl: DOWNLOAD_CONFIG.downloads['linux-x86_64'] || '#',
-      available: !!DOWNLOAD_CONFIG.downloads['linux-x86_64'],
+      downloadUrl: CONFIG.downloads['linux-x86_64'] || '#',
+      available: !!CONFIG.downloads['linux-x86_64'],
     },
     'unknown': {
       platform: 'unknown',

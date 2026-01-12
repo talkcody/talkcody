@@ -1,6 +1,6 @@
 // src/services/database/agent-service.ts
 
-import type { Agent, CreateAgentData, UpdateAgentData } from '@/types';
+import type { Agent, CreateAgentData, DbAgent, UpdateAgentData } from '@/types';
 import { agentDatabaseService } from '../agent-database-service';
 
 export class AgentService {
@@ -23,18 +23,18 @@ export class AgentService {
       dynamic_enabled: data.dynamic_enabled ?? false,
       dynamic_providers: data.dynamic_providers ?? '[]',
       dynamic_variables: data.dynamic_variables ?? '{}',
-      dynamic_provider_settings: (data as any).dynamic_provider_settings ?? '{}',
+      dynamic_provider_settings: data.dynamic_provider_settings ?? '{}',
 
-      // Marketplace fields
+      // Marketplace fields (publish disabled)
       source_type: data.source_type || 'local',
-      marketplace_id: data.marketplace_id || null,
-      marketplace_version: data.marketplace_version || null,
-      forked_from_id: data.forked_from_id || null,
-      forked_from_marketplace_id: data.forked_from_marketplace_id || null,
-      is_shared: data.is_shared ?? false,
-      icon_url: data.icon_url || null,
-      author_name: data.author_name || null,
-      author_id: data.author_id || null,
+      marketplace_id: undefined,
+      marketplace_version: undefined,
+      forked_from_id: data.forked_from_id ?? undefined,
+      forked_from_marketplace_id: data.forked_from_marketplace_id ?? undefined,
+      is_shared: false,
+      icon_url: data.icon_url ?? undefined,
+      author_name: undefined,
+      author_id: undefined,
       categories: data.categories || '[]',
       tags: data.tags || '[]',
 
@@ -94,7 +94,7 @@ export class AgentService {
       ]
     );
 
-    return agentData as Agent;
+    return agentData as unknown as Agent;
   }
 
   async updateAgent(id: string, data: UpdateAgentData): Promise<Agent | null> {
@@ -103,7 +103,7 @@ export class AgentService {
 
     // Build dynamic update query
     const updates: string[] = [];
-    const values: any[] = [];
+    const values: (string | boolean | number | null)[] = [];
     let paramIndex = 1;
 
     if (data.name !== undefined) {
@@ -162,27 +162,25 @@ export class AgentService {
       updates.push(`dynamic_variables = $${paramIndex++}`);
       values.push(data.dynamic_variables);
     }
-    if ((data as any).dynamic_provider_settings !== undefined) {
+    if (data.dynamic_provider_settings !== undefined) {
       updates.push(`dynamic_provider_settings = $${paramIndex++}`);
-      values.push((data as any).dynamic_provider_settings);
+      values.push(data.dynamic_provider_settings);
     }
 
-    // Marketplace fields
+    // Marketplace fields (publish disabled)
     if (data.source_type !== undefined) {
       updates.push(`source_type = $${paramIndex++}`);
       values.push(data.source_type);
     }
-    if (data.marketplace_id !== undefined) {
+    if (data.marketplace_id !== undefined || data.marketplace_version !== undefined) {
       updates.push(`marketplace_id = $${paramIndex++}`);
-      values.push(data.marketplace_id);
-    }
-    if (data.marketplace_version !== undefined) {
+      values.push(null);
       updates.push(`marketplace_version = $${paramIndex++}`);
-      values.push(data.marketplace_version);
+      values.push(null);
     }
     if (data.is_shared !== undefined) {
       updates.push(`is_shared = $${paramIndex++}`);
-      values.push(data.is_shared);
+      values.push(false);
     }
     if (data.last_synced_at !== undefined) {
       updates.push(`last_synced_at = $${paramIndex++}`);
@@ -223,8 +221,10 @@ export class AgentService {
 
   async getAgent(id: string): Promise<Agent | null> {
     const db = await agentDatabaseService.getDb();
-    const results = await db.select<Agent[]>('SELECT * FROM agents WHERE id = $1', [id]);
-    return results.length > 0 ? this.normalizeAgent(results[0]) : null;
+    const results = await db.select<DbAgent[]>('SELECT * FROM agents WHERE id = $1', [id]);
+    const first = results[0];
+    if (!first) return null;
+    return this.normalizeAgent(first);
   }
 
   async listAgents(options?: {
@@ -237,7 +237,7 @@ export class AgentService {
 
     let query = 'SELECT * FROM agents';
     const conditions: string[] = [];
-    const values: any[] = [];
+    const values: (string | boolean)[] = [];
     let paramIndex = 1;
 
     if (options?.enabledOnly) {
@@ -266,7 +266,7 @@ export class AgentService {
 
     query += ' ORDER BY is_default DESC, usage_count DESC, created_at DESC';
 
-    const results = await db.select<Agent[]>(query, values);
+    const results = await db.select<DbAgent[]>(query, values);
     return results.map((agent) => this.normalizeAgent(agent));
   }
 
@@ -280,7 +280,7 @@ export class AgentService {
 
   async getAgentsByCreator(createdBy: string): Promise<Agent[]> {
     const db = await agentDatabaseService.getDb();
-    const results = await db.select<Agent[]>(
+    const results = await db.select<DbAgent[]>(
       'SELECT * FROM agents WHERE created_by = $1 ORDER BY created_at DESC',
       [createdBy]
     );
@@ -296,18 +296,24 @@ export class AgentService {
     return (results[0]?.count ?? 0) > 0;
   }
 
-  private normalizeAgent(agent: any): Agent {
+  private normalizeAgent(agent: DbAgent): Agent {
+    const toBool = (value: unknown, fallback = false) => {
+      if (value === true || value === 'true' || value === 1 || value === '1') return true;
+      if (value === false || value === 'false' || value === 0 || value === '0') return false;
+      return fallback;
+    };
+
     return {
       ...agent,
-      is_hidden: agent.is_hidden === 'true' || agent.is_hidden === true,
-      is_default: agent.is_default === 'true' || agent.is_default === true,
-      is_enabled: agent.is_enabled === 'true' || agent.is_enabled === true,
-      dynamic_enabled: agent.dynamic_enabled === 'true' || agent.dynamic_enabled === true,
-      is_shared: agent.is_shared === 'true' || agent.is_shared === true,
-      source_type: agent.source_type || 'local',
-      categories: agent.categories || '[]',
-      tags: agent.tags || '[]',
-    };
+      is_hidden: toBool(agent.is_hidden),
+      is_default: toBool(agent.is_default),
+      is_enabled: toBool(agent.is_enabled, true),
+      dynamic_enabled: toBool(agent.dynamic_enabled),
+      is_shared: toBool(agent.is_shared),
+      source_type: agent.source_type ?? 'local',
+      categories: agent.categories ?? '[]',
+      tags: agent.tags ?? '[]',
+    } as Agent;
   }
 }
 

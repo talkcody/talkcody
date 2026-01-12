@@ -17,6 +17,7 @@ import {
   resolveProviderModelName,
 } from '@/providers/core/provider-utils';
 import { modelSyncService } from '@/providers/models/model-sync-service';
+import { remoteAgentsSyncService } from '@/providers/remote-agents/remote-agents-sync-service';
 import { remoteSkillsSyncService } from '@/providers/remote-skills/remote-skills-sync-service';
 import type { ProviderDefinition } from '@/types';
 import type { AvailableModel } from '@/types/api-keys';
@@ -244,6 +245,11 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
       // Initialize remote skills sync service (non-blocking, for hot-reload)
       remoteSkillsSyncService.initialize().catch((err) => {
         logger.warn('[ProviderStore] Remote skills sync initialization failed:', err);
+      });
+
+      // Initialize remote agents sync service (non-blocking, for hot-reload)
+      remoteAgentsSyncService.initialize().catch((err) => {
+        logger.warn('[ProviderStore] Remote agents sync initialization failed:', err);
       });
 
       // Load all data in parallel (including OAuth)

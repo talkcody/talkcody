@@ -261,12 +261,8 @@ class ExecutionService {
     isNewTask?: boolean,
     userMessage?: string
   ): Promise<void> {
-    // Generate AI title for new tasks
-    if (isNewTask && userMessage) {
-      taskService.generateAndUpdateTitle(taskId, userMessage).catch((error: Error) => {
-        logger.error('Background title generation failed:', error);
-      });
-    }
+    // AI title generation is now done asynchronously immediately after task creation
+    // to provide faster title updates without waiting for the entire task to complete
 
     // Send notification if window is not focused
     await notificationService.notifyAgentComplete();

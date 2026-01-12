@@ -6,26 +6,20 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useLocale } from '@/hooks/use-locale';
 import { useCustomToolsStore } from '@/stores/custom-tools-store';
 import { useSettingsStore } from '@/stores/settings-store';
-import { useTaskStore } from '@/stores/task-store';
 
 export function CustomToolsSettings() {
   const { t } = useLocale();
   const { tools, isLoading, refresh } = useCustomToolsStore();
-  const activeTaskId = useTaskStore((state) => state.currentTaskId) || '';
   const activeRootPath = useSettingsStore((state) => state.current_root_path) || '';
   const customToolsDir = useSettingsStore((state) => state.custom_tools_dir) || '';
   const setCustomToolsDir = useSettingsStore((state) => state.setCustomToolsDir);
 
   useEffect(() => {
-    if (activeTaskId) {
-      refresh(activeTaskId);
-    }
-  }, [activeTaskId, refresh]);
+    refresh();
+  }, [refresh]);
 
   const handleRefresh = () => {
-    if (activeTaskId) {
-      refresh(activeTaskId);
-    }
+    refresh();
   };
 
   const handleSelectDirectory = async () => {

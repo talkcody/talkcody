@@ -6,7 +6,7 @@ icon: Download
 
 import { Callout } from 'fumadocs-ui/components/callout';
 import { Card, Cards } from 'fumadocs-ui/components/card';
-import { DOWNLOAD_CONFIG } from '@/lib/download-config';
+import { CONFIG } from '@/lib/config';
 
 # Client Downloads
 
@@ -14,11 +14,11 @@ import { DOWNLOAD_CONFIG } from '@/lib/download-config';
 
 <Cards>
   <Card title="macOS (Apple Silicon)" description="For M1, M2, M3, and M4 Macs">
-    **Download**: <a href={DOWNLOAD_CONFIG.downloads['darwin-aarch64']}>talkcody_{DOWNLOAD_CONFIG.version}_aarch64.dmg</a>
+    **Download**: <a href={CONFIG.downloads['darwin-aarch64']}>talkcody_{CONFIG.version}_aarch64.dmg</a>
   </Card>
 
   <Card title="macOS (Intel)" description="For Intel-based Macs">
-    **Download**: <a href={DOWNLOAD_CONFIG.downloads['darwin-x86_64']}>talkcody_{DOWNLOAD_CONFIG.version}_x64.dmg</a>
+    **Download**: <a href={CONFIG.downloads['darwin-x86_64']}>talkcody_{CONFIG.version}_x64.dmg</a>
   </Card>
 </Cards>
 
@@ -26,7 +26,7 @@ import { DOWNLOAD_CONFIG } from '@/lib/download-config';
 
 <Cards>
   <Card title="Windows (x64)" description="For 64-bit Windows systems">
-    **Download**: <a href={DOWNLOAD_CONFIG.downloads['windows-x86_64']}>TalkCody_{DOWNLOAD_CONFIG.version}_x64_en-US.msi</a>
+    **Download**: <a href={CONFIG.downloads['windows-x86_64']}>TalkCody_{CONFIG.version}_x64_en-US.msi</a>
   </Card>
 </Cards>
 
@@ -34,7 +34,7 @@ import { DOWNLOAD_CONFIG } from '@/lib/download-config';
 
 <Cards>
   <Card title="Linux (x86_64)" description="For 64-bit Linux systems">
-    **Download**: <a href={DOWNLOAD_CONFIG.downloads['linux-x86_64']}>talkcody_{DOWNLOAD_CONFIG.version}_x86_64.AppImage</a>
+    **Download**: <a href={CONFIG.downloads['linux-x86_64']}>talkcody_{CONFIG.version}_x86_64.AppImage</a>
   </Card>
 </Cards>
 
@@ -45,7 +45,7 @@ Want to build TalkCody yourself? Check out the [Development Setup](/docs/open-so
 ## Need Help?
 
 - [Quick Start Guide](/docs/introduction/quick-start) - Get started with TalkCody
-- <a href={DOWNLOAD_CONFIG.github.issues}>GitHub Issues</a> - Report bugs or request features
+- <a href={CONFIG.github.issues}>GitHub Issues</a> - Report bugs or request features
 
 <Callout type="success">
 After downloading, head to the [Quick Start Guide](/docs/introduction/quick-start) to configure TalkCody and start coding with AI!

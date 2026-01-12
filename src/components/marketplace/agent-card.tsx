@@ -1,8 +1,7 @@
 // Marketplace agent card component
 
-import type { MarketplaceAgent, Tag } from '@talkcody/shared';
-import { Download, Star, User } from 'lucide-react';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import type { RemoteAgentConfig } from '@talkcody/shared/types/remote-agents';
+import { User } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
@@ -15,9 +14,9 @@ import {
 } from '@/components/ui/card';
 
 interface MarketplaceAgentCardProps {
-  agent: MarketplaceAgent;
+  agent: RemoteAgentConfig;
   onClick: () => void;
-  onInstall?: (agent: MarketplaceAgent) => void;
+  onInstall?: (agent: RemoteAgentConfig) => void;
   isInstalling?: boolean;
 }
 
@@ -31,25 +30,16 @@ export function MarketplaceAgentCard({
     <Card className="cursor-pointer hover:bg-accent transition-colors" onClick={onClick}>
       <CardHeader>
         <div className="flex items-start gap-3">
-          {agent.iconUrl ? (
-            <img
-              src={agent.iconUrl}
-              alt={agent.name}
-              className="w-12 h-12 rounded-md object-cover"
-            />
-          ) : (
-            <div className="w-12 h-12 rounded-md bg-primary/10 flex items-center justify-center">
-              <User className="h-6 w-6 text-primary" />
-            </div>
-          )}
+          <div className="w-12 h-12 rounded-md bg-primary/10 flex items-center justify-center">
+            <User className="h-6 w-6 text-primary" />
+          </div>
 
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2">
               <CardTitle className="text-lg truncate">{agent.name}</CardTitle>
-              {agent.isFeatured && (
+              {agent.isBeta && (
                 <Badge variant="default" className="shrink-0">
-                  <Star className="h-3 w-3 mr-1" />
-                  Featured
+                  Beta
                 </Badge>
               )}
             </div>
@@ -64,42 +54,9 @@ export function MarketplaceAgentCard({
       <CardContent>
         <div className="flex items-center gap-4 text-xs text-muted-foreground">
           <div className="flex items-center gap-1">
-            <Download className="h-3 w-3" />
-            {agent.installCount.toLocaleString()}
-          </div>
-
-          {agent.rating > 0 && (
-            <div className="flex items-center gap-1">
-              <Star className="h-3 w-3 fill-current" />
-              {agent.rating} ({agent.ratingCount})
-            </div>
-          )}
-
-          <div className="flex items-center gap-1">
-            <Avatar className="h-4 w-4">
-              <AvatarImage src={agent.author.avatarUrl || ''} />
-              <AvatarFallback>
-                {(agent.author.displayName || agent.author.name).charAt(0).toUpperCase()}
-              </AvatarFallback>
-            </Avatar>
-            <span className="truncate">{agent.author.displayName || agent.author.name}</span>
+            <span className="font-medium">{agent.category}</span>
           </div>
         </div>
-
-        {agent.tags && agent.tags.length > 0 && (
-          <div className="flex flex-wrap gap-1 mt-3">
-            {agent.tags.slice(0, 3).map((tag: Tag) => (
-              <Badge key={tag.id} variant="outline" className="text-xs">
-                {tag.name}
-              </Badge>
-            ))}
-            {agent.tags.length > 3 && (
-              <Badge variant="outline" className="text-xs">
-                +{agent.tags.length - 3}
-              </Badge>
-            )}
-          </div>
-        )}
       </CardContent>
 
       <CardFooter className="gap-2">

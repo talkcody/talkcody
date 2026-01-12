@@ -103,3 +103,4 @@ docs/.vercel/
 .talkcody/
 .vercel
 .env*.local
+.vite/

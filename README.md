@@ -104,6 +104,7 @@ We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for deta
 
 - **Issues**: [GitHub Issues](https://github.com/talkcody/talkcody/issues)
 - **Discussions**: [GitHub Discussions](https://github.com/talkcody/talkcody/discussions)
+- **X**: [TalkCody](https://x.com/TalkCody)
 
 
 ## License

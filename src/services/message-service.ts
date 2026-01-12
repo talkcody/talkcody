@@ -175,9 +175,6 @@ class MessageService {
     this.scheduleStreamingFlush();
   }
 
-  /**
-   * Finalize a message and persist to database
-   */
   async finalizeMessage(taskId: string, messageId: string, content: string): Promise<void> {
     // Flush any pending streaming updates for this task
     if (this.streamingBuffers.has(taskId)) {

@@ -11,11 +11,13 @@ interface CreateToolOptions {
   /* biome-ignore lint/suspicious/noExplicitAny: Tool parameters are dynamic based on input schema */
   execute: (params: any, context: ToolExecuteContext) => Promise<any>;
   /* biome-ignore lint/suspicious/noExplicitAny: Tool parameters are dynamic based on input schema */
-  renderToolDoing: (params: any, context?: ToolRenderContext) => ReactElement;
+  renderToolDoing: (params: any, context?: ToolRenderContext) => ReactElement | null;
   /* biome-ignore lint/suspicious/noExplicitAny: Tool parameters are dynamic based on input schema */
-  renderToolResult: (result: any, params: any, context?: ToolRenderContext) => ReactElement;
+  renderToolResult: (result: any, params: any, context?: ToolRenderContext) => ReactElement | null;
   canConcurrent: boolean;
   hidden?: boolean;
+  /** Whether to always show the tool result UI expanded by default */
+  showResultUIAlways?: boolean;
 }
 
 export function createTool(options: CreateToolOptions): ToolWithUI {
@@ -28,6 +30,7 @@ export function createTool(options: CreateToolOptions): ToolWithUI {
     renderToolResult,
     canConcurrent,
     hidden,
+    showResultUIAlways,
   } = options;
 
   const executeDescriptor: TypedPropertyDescriptor<CreateToolOptions['execute']> = {
@@ -53,6 +56,10 @@ export function createTool(options: CreateToolOptions): ToolWithUI {
 
   if (hidden) {
     tool.hidden = hidden;
+  }
+
+  if (showResultUIAlways !== undefined) {
+    tool.showResultUIAlways = showResultUIAlways;
   }
 
   return tool;

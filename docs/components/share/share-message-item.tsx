@@ -3,7 +3,7 @@
 
 'use client';
 
-import { Check, ChevronDown, ChevronRight, User, Wrench, X } from 'lucide-react';
+import { Bot, Check, ChevronDown, ChevronRight, User, Wrench, X } from 'lucide-react';
 import { memo, useState, type ReactNode } from 'react';
 import type { ShareMessage, ShareToolContent } from '@/types/share';
 import {
@@ -35,6 +35,14 @@ function ShareMessageItemComponent({ message }: ShareMessageItemProps): ReactNod
       ...prev,
       [toolCallId]: !prev[toolCallId],
     }));
+  };
+
+  // Format timestamp
+  const formatTime = (timestamp: number): string => {
+    return new Date(timestamp).toLocaleTimeString(undefined, {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
   };
 
   // Render tool output with specialized components
@@ -230,6 +238,9 @@ function ShareMessageItemComponent({ message }: ShareMessageItemProps): ReactNod
               AvatarIcon && <AvatarIcon className="h-4 w-4" />
             )}
           </div>
+          <span className="text-xs text-gray-500 dark:text-gray-400">
+            {formatTime(message.timestamp)}
+          </span>
         </div>
 
         {/* Message content */}

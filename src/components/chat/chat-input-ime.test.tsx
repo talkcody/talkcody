@@ -597,6 +597,61 @@ describe('ChatInput - IME Composition with isComposingRef', () => {
  * Tests for edge cases and specific IME scenarios
  */
 describe('ChatInput - IME Edge Cases', () => {
+  // Helper function that mirrors the updated implementation in chat-input.tsx
+  function createIMETestContext() {
+    const textarea = document.createElement('textarea');
+    const mockSubmit = vi.fn();
+
+    // Simulate isComposingRef from the component
+    const isComposingRef = { current: false };
+
+    // Composition event handlers (mirrors chat-input.tsx implementation)
+    const handleCompositionStart = () => {
+      isComposingRef.current = true;
+    };
+
+    const handleCompositionEnd = () => {
+      isComposingRef.current = false;
+    };
+
+    // Keydown handler (mirrors the UPDATED implementation in chat-input.tsx)
+    const handleInputKeydown = (e: KeyboardEvent) => {
+      // Check if this is an Enter key press
+      const isEnterKey = e.key === 'Enter' || e.code === 'Enter';
+      if (!isEnterKey || e.shiftKey) {
+        return;
+      }
+
+      // Check IME composition state using multiple indicators
+      const isComposing = 
+        isComposingRef.current ||
+        (e as KeyboardEvent & { isComposing?: boolean }).isComposing ||
+        (e as unknown as { nativeEvent: { isComposing: boolean } }).nativeEvent?.isComposing ||
+        e.keyCode === 229; // keyCode 229 indicates IME composition
+
+      if (!isComposing) {
+        e.preventDefault();
+        mockSubmit();
+      }
+    };
+
+    // Attach event listeners
+    textarea.addEventListener('compositionstart', handleCompositionStart);
+    textarea.addEventListener('compositionend', handleCompositionEnd);
+    textarea.addEventListener('keydown', handleInputKeydown);
+
+    return {
+      textarea,
+      mockSubmit,
+      isComposingRef,
+      cleanup: () => {
+        textarea.removeEventListener('compositionstart', handleCompositionStart);
+        textarea.removeEventListener('compositionend', handleCompositionEnd);
+        textarea.removeEventListener('keydown', handleInputKeydown);
+      },
+    };
+  }
+
   it('should handle rapid compositionstart/compositionend events', () => {
     const isComposingRef = { current: false };
 
@@ -763,5 +818,68 @@ describe('ChatInput - IME Edge Cases', () => {
     // Enter to send
     simulateKeydown(false);
     expect(mockSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('should not submit when keyCode is 229 (IME composition indicator)', () => {
+    /**
+     * Scenario: In some browsers, IME composition events have keyCode 229
+     * This test ensures our implementation handles this case correctly
+     */
+    const { textarea, mockSubmit, cleanup } = createIMETestContext();
+
+    // Simulate Enter key with keyCode 229 (IME composition)
+    const event = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 229,
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(event, 'nativeEvent', {
+      value: { isComposing: false },
+      writable: false,
+    });
+    Object.defineProperty(event, 'isComposing', {
+      value: false,
+      writable: false,
+    });
+
+    textarea.dispatchEvent(event);
+
+    // Should NOT submit because keyCode is 229
+    expect(mockSubmit).not.toHaveBeenCalled();
+
+    cleanup();
+  });
+
+  it('should submit when keyCode is not 229 and no other IME indicators', () => {
+    /**
+     * Scenario: Normal Enter key press (keyCode 13)
+     */
+    const { textarea, mockSubmit, cleanup } = createIMETestContext();
+
+    // Simulate normal Enter key (keyCode 13)
+    const event = new KeyboardEvent('keydown', {
+      key: 'Enter',
+      code: 'Enter',
+      keyCode: 13,
+      bubbles: true,
+      cancelable: true,
+    });
+    Object.defineProperty(event, 'nativeEvent', {
+      value: { isComposing: false },
+      writable: false,
+    });
+    Object.defineProperty(event, 'isComposing', {
+      value: false,
+      writable: false,
+    });
+
+    textarea.dispatchEvent(event);
+
+    // Should submit because keyCode is 13 (normal Enter) and no IME indicators
+    expect(mockSubmit).toHaveBeenCalledTimes(1);
+
+    cleanup();
   });
 });

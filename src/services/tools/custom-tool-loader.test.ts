@@ -139,11 +139,10 @@ describe('custom-tool-loader multi-directory support', () => {
   });
 
   it('loads only from custom directory when configured', async () => {
-    const customDir = '/custom';
-    const customToolsDir = '/custom/.talkcody/tools';
+    const customDir = '/my/tools';
     const userDir = '/home/.talkcody/tools';
 
-    registerDirectory(customToolsDir, ['custom-tool.ts']);
+    registerDirectory(customDir, ['custom-tool.ts']);
     registerDirectory(userDir, ['user-tool.ts']);
 
     definitionQueue.push(createDefinition('custom-tool'));
@@ -158,11 +157,11 @@ describe('custom-tool-loader multi-directory support', () => {
     expect(summary.tools.every((tool) => tool.source)).toBe(true);
   });
 
-  it('uses custom directory directly when it already targets .talkcody/tools', async () => {
-    const customDir = '/custom/.talkcody/tools';
+  it('uses custom directory directly without appending .talkcody/tools', async () => {
+    const customDir = '/my/custom/tools';
 
-    registerDirectory(customDir, ['direct-tool.ts']);
-    definitionQueue.push(createDefinition('direct-tool'));
+    registerDirectory(customDir, ['my-custom-tool.ts']);
+    definitionQueue.push(createDefinition('my-custom-tool'));
 
     const summary = await loadCustomTools({ customDirectory: customDir });
     const loadedNames = summary.tools
@@ -170,7 +169,7 @@ describe('custom-tool-loader multi-directory support', () => {
       .map((tool) => tool.name)
       .sort();
 
-    expect(loadedNames).toEqual(['direct-tool']);
-    expect(summary.tools.every((tool) => tool.source)).toBe(true);
+    expect(loadedNames).toEqual(['my-custom-tool']);
+    expect(summary.tools.every((tool) => tool.source === 'custom')).toBe(true);
   });
 });

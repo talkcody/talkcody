@@ -584,16 +584,33 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       }
 
       // Don't submit if IME composition is in progress (e.g., Chinese input method)
-      // Check both the ref and the native event for maximum compatibility
-      if (
-        e.code === 'Enter' &&
-        !e.shiftKey &&
-        !isComposingRef.current &&
-        !e.nativeEvent.isComposing
-      ) {
-        e.preventDefault();
-        handleSubmit(e);
+      // Use multiple checks for maximum compatibility across browsers and IMEs
+
+      // 1. Check if this is an Enter key press
+      const isEnterKey = e.key === 'Enter' || e.code === 'Enter';
+      if (!isEnterKey || e.shiftKey) {
+        return;
       }
+
+      // 2. Check IME composition state using multiple indicators
+      //    - isComposingRef: manually tracked via compositionstart/compositionend events
+      //    - e.isComposing: React synthetic event property (preferred, but needs type assertion)
+      //    - e.nativeEvent.isComposing: browser native event property
+      //    - e.keyCode === 229: IME composition keyCode in some browsers
+      const isComposing =
+        isComposingRef.current ||
+        (e as React.KeyboardEvent & { isComposing?: boolean }).isComposing ||
+        e.nativeEvent?.isComposing ||
+        e.keyCode === 229; // keyCode 229 indicates IME composition
+
+      if (isComposing) {
+        // IME composition is in progress, don't submit
+        return;
+      }
+
+      // 3. All checks passed - submit the message
+      e.preventDefault();
+      handleSubmit(e);
     };
 
     const handleCompositionStart = () => {

@@ -565,13 +565,13 @@ const en: LocaleDefinition = {
     customTools: {
       title: 'Custom Tools',
       description:
-        'Load tools from a custom directory .talkcody/tools, workspace .talkcody/tools, or home ~/.talkcody/tools.',
+        'Load tools from a custom directory, workspace .talkcody/tools, or home ~/.talkcody/tools.',
       locationLabel: 'Tool directory',
       selectDirectory: 'Select directory',
       customDirectoryLabel: 'Custom directory',
       customDirectoryUnset: 'Not set (using workspace and home directories)',
       sourcesHint:
-        'Scan order: Custom directory .talkcody/tools > Workspace .talkcody/tools > Home ~/.talkcody/tools',
+        'Scan order: Custom directory > Workspace .talkcody/tools > Home ~/.talkcody/tools',
       workspaceDirectoryLabel: 'Workspace directory',
       homeDirectoryLabel: 'Home directory',
       empty: 'No custom tools found.',
@@ -651,9 +651,25 @@ const en: LocaleDefinition = {
       toggleSuccess: (action) => `Agent ${action}`,
       updateFailed: 'Failed to update agent',
       published: 'Agent published to marketplace!',
+      importFromGitHub: 'Import from GitHub',
       tooltipTitle: 'AI Agents',
       tooltipDescription:
         'Agents are specialized AI assistants with different capabilities and personalities. Each agent can have different tools, skills, and system prompts configured to help with specific tasks like coding, writing, or research.',
+    },
+    githubImport: {
+      title: 'Import Agents from GitHub',
+      description: 'Import agents from a GitHub repository URL',
+      urlLabel: 'GitHub URL',
+      urlPlaceholder: 'https://github.com/your-org/agents/tree/main/agents',
+      urlHint: 'Enter a GitHub URL pointing to an agents directory',
+      urlRequired: 'GitHub URL is required',
+      scanning: 'Scanning repository...',
+      invalidUrl: 'Invalid GitHub URL format',
+      networkError: 'Failed to connect to GitHub. Please check your network connection.',
+      imported: 'imported',
+      failed: 'failed',
+      import: 'Import',
+      close: 'Close',
     },
   },
 
@@ -860,6 +876,8 @@ const en: LocaleDefinition = {
       importSuccess: (count: number) =>
         `Successfully imported ${count} skill${count !== 1 ? 's' : ''}`,
       importFailed: (count: number) => `Failed to import ${count} skill${count !== 1 ? 's' : ''}`,
+      imported: 'imported',
+      failed: 'failed',
       alreadyExists: (name: string) => `Skill "${name}" already exists`,
       selectAll: 'Select All',
       deselectAll: 'Deselect All',

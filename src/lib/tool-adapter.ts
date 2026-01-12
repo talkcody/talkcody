@@ -10,8 +10,8 @@ export interface ToolUIContext {
 const toolUIRegistry = new Map<
   string,
   {
-    renderToolDoing: (params: ToolInput, context?: ToolUIContext) => React.ReactElement;
-    renderToolResult: (result: ToolOutput, params: ToolInput) => React.ReactElement;
+    renderToolDoing: (params: ToolInput, context?: ToolUIContext) => React.ReactElement | null;
+    renderToolResult: (result: ToolOutput, params: ToolInput) => React.ReactElement | null;
   }
 >();
 
