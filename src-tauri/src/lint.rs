@@ -3,6 +3,9 @@ use std::process::Command;
 use std::sync::OnceLock;
 use tauri::{AppHandle, Emitter};
 
+#[cfg(windows)]
+use std::os::windows::process::CommandExt;
+
 /// Cached result of bun availability check.
 /// Note: This is a static cache that persists for the lifetime of the application.
 /// If the user installs bun after the app starts, they will need to restart the app
@@ -41,9 +44,12 @@ pub struct LintResult {
 /// Check if bun is available on the system
 fn is_bun_available() -> bool {
     *BUN_AVAILABLE.get_or_init(|| {
-        Command::new("bun")
-            .arg("--version")
-            .output()
+        let mut cmd = Command::new("bun");
+        cmd.arg("--version");
+        // On Windows, hide the console window to avoid flashing cmd.exe
+        #[cfg(windows)]
+        cmd.creation_flags(0x08000000); // CREATE_NO_WINDOW
+        cmd.output()
             .map(|output| output.status.success())
             .unwrap_or(false)
     })
