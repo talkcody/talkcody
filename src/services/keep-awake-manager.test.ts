@@ -18,13 +18,13 @@ const { executionState, listeners, mockExecutionStore } = vi.hoisted(() => {
     runningCount: 0,
   };
 
-  const listeners = new Set<() => void>();
+  const listeners = new Set<(state: { getRunningCount: () => number }) => void>();
 
   const mockExecutionStore = {
     getState: () => ({
       getRunningCount: () => executionState.runningCount,
     }),
-    subscribe: (listener: () => void) => {
+    subscribe: (listener: (state: { getRunningCount: () => number }) => void) => {
       listeners.add(listener);
       return () => {
         listeners.delete(listener);
@@ -51,7 +51,8 @@ describe('keepAwakeManager', () => {
   });
 
   const emit = () => {
-    listeners.forEach((listener) => listener());
+    const state = mockExecutionStore.getState();
+    listeners.forEach((listener) => listener(state));
   };
 
   it('should sync to running count on start', async () => {
