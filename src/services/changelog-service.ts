@@ -20,6 +20,42 @@ export interface ChangelogEntry {
 // Only include the most recent versions that users care about
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '0.3.0',
+    date: '2026-01-19',
+    en: {
+      added: [
+        'Google OAuth Support: New Google authentication option for AI providers',
+        'LSP Tool: Enhanced Language Server Protocol tool with better code navigation',
+        'Claude Code Skills Support: Support for importing and using Claude Code skills',
+        'Create Agent Tool: New tool to create custom AI agents',
+        'Create Skill Command: New command to create agent skills',
+        'Create Tool Command: New command to create custom tools',
+        'Hook Feature: Support for pre-execution and post-execution hooks',
+        'Task Service: Enhanced task management service',
+        'Auto-Approve Plan: Option to automatically approve plan mode results',
+        'Global Auto-Approve Edits Setting: New global setting to auto-approve file edits',
+      ],
+      changed: ['Improved Keep Awake functionality', 'Enhanced Whats New dialog with link support'],
+      fixed: ['Fixed unknown command bug', 'Fixed compact command issues', 'Fixed Rust warnings'],
+    },
+    zh: {
+      added: [
+        'Google OAuth 支持：AI 提供商新增 Google 身份验证选项',
+        'LSP 工具：增强的语言服务器协议工具，提供更好的代码导航',
+        'Claude Code Skills 支持：支持导入和使用 Claude Code skills',
+        'Create Agent Tool：新增创建自定义 AI 智能体的工具',
+        'Create Skill Command：新增创建智能体 skill 的命令',
+        'Create Tool Command：新增创建自定义工具的命令',
+        'Hook 功能：支持执行前和执行后的钩子',
+        'Task Service：增强的任务管理服务',
+        'Auto-Approve Plan：支持自动批准 plan 模式结果',
+        '全局 Auto-Approve Edits 设置：新增全局设置自动批准文件编辑',
+      ],
+      changed: ['改进 Keep Awake 功能', '增强 Whats New 对话框的链接支持'],
+      fixed: ['修复未知命令 bug', '修复 compact 命令问题', '修复 Rust 警告'],
+    },
+  },
+  {
     version: '0.2.6',
     date: '2026-01-14',
     en: {
