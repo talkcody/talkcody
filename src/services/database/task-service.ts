@@ -137,12 +137,15 @@ export class TaskService {
     // Delete attachment files
     for (const message of messages) {
       const attachments = await this.db.select<StoredAttachment[]>(
-        'SELECT file_path FROM message_attachments WHERE message_id = $1',
+        'SELECT file_path, type FROM message_attachments WHERE message_id = $1',
         [message.id]
       );
 
       for (const attachment of attachments) {
-        await fileService.deleteAttachmentFile(attachment.file_path);
+        // Only delete temp files, not code files from repository
+        if (attachment.type !== 'code') {
+          await fileService.deleteAttachmentFile(attachment.file_path);
+        }
       }
     }
 
@@ -288,13 +291,16 @@ export class TaskService {
   async deleteMessage(messageId: string): Promise<void> {
     // Get attachment files to delete
     const attachments = await this.db.select<StoredAttachment[]>(
-      'SELECT file_path FROM message_attachments WHERE message_id = $1',
+      'SELECT file_path, type FROM message_attachments WHERE message_id = $1',
       [messageId]
     );
 
     // Delete attachment files
     for (const attachment of attachments) {
-      await fileService.deleteAttachmentFile(attachment.file_path);
+      // Only delete temp files, not code files from repository
+      if (attachment.type !== 'code') {
+        await fileService.deleteAttachmentFile(attachment.file_path);
+      }
     }
 
     // Delete attachments from database
