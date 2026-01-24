@@ -29,7 +29,7 @@ describe('CustomProviderService - private IP support', () => {
       id: 'custom-private',
       name: 'Private Provider',
       type: 'openai-compatible',
-      baseUrl: 'http://10.108.10.104:9090',
+      baseUrl: 'http://10.108.10.104:9090/v1',
       apiKey: 'test-key',
       enabled: true,
       description: 'Private IP provider',
