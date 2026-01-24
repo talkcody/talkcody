@@ -260,7 +260,7 @@ class CustomProviderService {
       } else {
         // openai-compatible - /v1/models supports GET
         headers.Authorization = `Bearer ${config.apiKey}`;
-        testUrl = `${config.baseUrl.replace(/\/+$/, '')}/v1/models`;
+        testUrl = `${config.baseUrl.replace(/\/+$/, '')}/models`;
       }
 
       const proxyRequest: ProxyRequest = {

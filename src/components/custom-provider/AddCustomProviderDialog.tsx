@@ -413,7 +413,11 @@ export function AddCustomProviderDialog({
             id={baseUrlId}
             value={formData.baseUrl}
             onChange={(e) => handleInputChange('baseUrl', e.target.value)}
-            placeholder={t.CustomProviderDialog.baseUrlPlaceholder}
+            placeholder={
+              formData.type === 'anthropic'
+                ? t.CustomProviderDialog.baseUrlPlaceholderAnthropic
+                : t.CustomProviderDialog.baseUrlPlaceholderOpenAI
+            }
           />
           <p className="text-xs text-muted-foreground">{t.CustomProviderDialog.baseUrlHint}</p>
         </div>

@@ -1404,7 +1404,8 @@ export interface LocaleDefinition {
     providerName: string;
     providerNamePlaceholder: string;
     baseUrl: string;
-    baseUrlPlaceholder: string;
+    baseUrlPlaceholderOpenAI: string;
+    baseUrlPlaceholderAnthropic: string;
     baseUrlHint: string;
     apiKey: string;
     apiKeyPlaceholder: string;
