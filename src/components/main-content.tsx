@@ -1,10 +1,10 @@
-import { AgentMarketplacePage } from '@/pages/agent-marketplace-page';
+import { AgentsPage } from '@/pages/agents-page';
 import { ExplorerPage } from '@/pages/explorer-page';
 import { LogsPage } from '@/pages/logs-page';
 import { MCPServersPage } from '@/pages/mcp-servers-page';
 import { ProjectsPage } from '@/pages/projects-page';
 import { SettingsPage } from '@/pages/settings-page';
-import { SkillsMarketplacePage } from '@/pages/skills-marketplace-page';
+import { SkillsPage } from '@/pages/skills-page';
 import ToolPlayground from '@/pages/tool-playground-page';
 import { UsageDashboardPage } from '@/pages/usage-dashboard-page';
 import { NavigationView } from '@/types/navigation';
@@ -24,9 +24,9 @@ export function MainContent({ activeView }: MainContentProps) {
       {/* Lazy load these pages to avoid unnecessary network requests on startup */}
       {activeView === NavigationView.PROJECTS && <ProjectsPage />}
 
-      {activeView === NavigationView.AGENTS_MARKETPLACE && <AgentMarketplacePage />}
+      {activeView === NavigationView.AGENTS_MARKETPLACE && <AgentsPage />}
 
-      {activeView === NavigationView.SKILLS_MARKETPLACE && <SkillsMarketplacePage />}
+      {activeView === NavigationView.SKILLS_MARKETPLACE && <SkillsPage />}
 
       {activeView === NavigationView.MCP_SERVERS && <MCPServersPage />}
 

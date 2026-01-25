@@ -139,6 +139,16 @@
           "args": true
         },
         {
+          "name": "npm",
+          "cmd": "npm",
+          "args": true
+        },
+        {
+          "name": "bun",
+          "cmd": "bun",
+          "args": true
+        },
+        {
           "name": "node",
           "cmd": "node",
           "args": true
@@ -224,6 +234,16 @@
         {
           "name": "npx",
           "cmd": "/opt/homebrew/bin/npx",
+          "args": true
+        },
+        {
+          "name": "npm",
+          "cmd": "npm",
+          "args": true
+        },
+        {
+          "name": "bun",
+          "cmd": "bun",
           "args": true
         },
         {

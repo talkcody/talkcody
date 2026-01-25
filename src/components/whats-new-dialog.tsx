@@ -17,6 +17,7 @@ import { logger } from '@/lib/logger';
 import {
   type ChangelogContent,
   type ChangelogEntry,
+  type ChangelogItem,
   getChangelogForVersion,
   getLatestChangelog,
 } from '@/services/changelog-service';
@@ -125,6 +126,119 @@ const renderMarkdownLinks = (input: string) =>
     );
   });
 
+type NormalizedChangelogItem = {
+  title: string;
+  description?: string;
+  videoUrl?: string;
+};
+
+const normalizeChangelogItems = (items: ChangelogItem[] = []): NormalizedChangelogItem[] =>
+  items.map((item) => (typeof item === 'string' ? { title: item } : item));
+
+const sectionHasVideo = (items: NormalizedChangelogItem[]) =>
+  items.some((item) => Boolean(item.videoUrl));
+
+const renderItemText = (text: string) => <span>{renderMarkdownLinks(text)}</span>;
+
+const renderVideoPreview = (
+  videoUrl: string,
+  label: string,
+  captionsLabel: string,
+  captionsLang: string
+) => (
+  <div className="space-y-2">
+    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
+    <div className="overflow-hidden rounded-xl border bg-black/90 shadow-sm">
+      <video
+        className="aspect-video w-full object-cover"
+        controls
+        playsInline
+        preload="metadata"
+        src={videoUrl}
+      >
+        <track
+          kind="captions"
+          src="data:text/vtt,WEBVTT"
+          srcLang={captionsLang}
+          label={captionsLabel}
+        />
+      </video>
+    </div>
+  </div>
+);
+
+const renderFeatureCards = (
+  items: NormalizedChangelogItem[],
+  videoLabel: string,
+  captionsLabel: string,
+  captionsLang: string
+) => (
+  <div className="space-y-3">
+    {items.map((item, index) => (
+      <div
+        key={`${item.title}-${item.videoUrl ?? 'text'}-${index}`}
+        className="rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-muted/40 p-4 shadow-sm sm:p-5"
+      >
+        <div
+          className={item.videoUrl ? 'grid gap-4 sm:grid-cols-[minmax(0,1fr)_260px]' : 'space-y-2'}
+        >
+          <div className="space-y-2">
+            <h5 className="text-base font-semibold text-foreground">
+              {renderItemText(item.title)}
+            </h5>
+            {item.description && (
+              <p className="text-sm text-muted-foreground">{renderItemText(item.description)}</p>
+            )}
+          </div>
+          {item.videoUrl
+            ? renderVideoPreview(item.videoUrl, videoLabel, captionsLabel, captionsLang)
+            : null}
+        </div>
+      </div>
+    ))}
+  </div>
+);
+
+const renderBulletList = (items: NormalizedChangelogItem[]) => (
+  <ul className="list-disc list-inside space-y-2 text-sm text-muted-foreground">
+    {items.map((item, index) => (
+      <li key={`${item.title}-${index}`}>
+        <span className="text-foreground/90">{renderItemText(item.title)}</span>
+        {item.description ? (
+          <span className="block pl-5 text-xs text-muted-foreground">
+            {renderItemText(item.description)}
+          </span>
+        ) : null}
+      </li>
+    ))}
+  </ul>
+);
+
+const renderSection = (
+  label: string,
+  items: ChangelogItem[] | undefined,
+  labelClassName: string,
+  videoLabel: string,
+  captionsLabel: string,
+  captionsLang: string
+) => {
+  if (!items || items.length === 0) {
+    return null;
+  }
+
+  const normalized = normalizeChangelogItems(items);
+  const hasVideo = sectionHasVideo(normalized);
+
+  return (
+    <div className="space-y-3">
+      <h4 className={`text-xs font-semibold uppercase tracking-wide ${labelClassName}`}>{label}</h4>
+      {hasVideo
+        ? renderFeatureCards(normalized, videoLabel, captionsLabel, captionsLang)
+        : renderBulletList(normalized)}
+    </div>
+  );
+};
+
 export function WhatsNewDialog({ forceOpen, onForceOpenChange }: WhatsNewDialogProps) {
   const { t, locale } = useLocale();
   const [open, setOpen] = useState(false);
@@ -208,7 +322,7 @@ export function WhatsNewDialog({ forceOpen, onForceOpenChange }: WhatsNewDialogP
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-lg max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto bg-gradient-to-br from-background via-background to-muted/30">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-yellow-500" />
@@ -222,61 +336,38 @@ export function WhatsNewDialog({ forceOpen, onForceOpenChange }: WhatsNewDialogP
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 py-4">
-          {/* Added */}
-          {content.added && content.added.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-green-600 dark:text-green-400">
-                {t.WhatsNew.added}
-              </h4>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                {content.added.map((item) => (
-                  <li key={item}>{renderMarkdownLinks(item)}</li>
-                ))}
-              </ul>
-            </div>
+        <div className="space-y-6 py-4">
+          {renderSection(
+            t.WhatsNew.added,
+            content.added,
+            'text-emerald-600 dark:text-emerald-400',
+            t.WhatsNew.videoPreview,
+            t.WhatsNew.videoCaptionsLabel,
+            locale
           )}
-
-          {/* Changed */}
-          {content.changed && content.changed.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-blue-600 dark:text-blue-400">
-                {t.WhatsNew.changed}
-              </h4>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                {content.changed.map((item) => (
-                  <li key={item}>{renderMarkdownLinks(item)}</li>
-                ))}
-              </ul>
-            </div>
+          {renderSection(
+            t.WhatsNew.changed,
+            content.changed,
+            'text-sky-600 dark:text-sky-400',
+            t.WhatsNew.videoPreview,
+            t.WhatsNew.videoCaptionsLabel,
+            locale
           )}
-
-          {/* Fixed */}
-          {content.fixed && content.fixed.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-orange-600 dark:text-orange-400">
-                {t.WhatsNew.fixed}
-              </h4>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                {content.fixed.map((item) => (
-                  <li key={item}>{renderMarkdownLinks(item)}</li>
-                ))}
-              </ul>
-            </div>
+          {renderSection(
+            t.WhatsNew.fixed,
+            content.fixed,
+            'text-orange-600 dark:text-orange-400',
+            t.WhatsNew.videoPreview,
+            t.WhatsNew.videoCaptionsLabel,
+            locale
           )}
-
-          {/* Removed */}
-          {content.removed && content.removed.length > 0 && (
-            <div className="space-y-2">
-              <h4 className="text-sm font-semibold text-red-600 dark:text-red-400">
-                {t.WhatsNew.removed}
-              </h4>
-              <ul className="list-disc list-inside space-y-1 text-sm text-muted-foreground">
-                {content.removed.map((item) => (
-                  <li key={item}>{renderMarkdownLinks(item)}</li>
-                ))}
-              </ul>
-            </div>
+          {renderSection(
+            t.WhatsNew.removed,
+            content.removed,
+            'text-rose-600 dark:text-rose-400',
+            t.WhatsNew.videoPreview,
+            t.WhatsNew.videoCaptionsLabel,
+            locale
           )}
         </div>
 

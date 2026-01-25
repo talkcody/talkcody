@@ -55,6 +55,7 @@ const createToolPlaygroundServiceMock = () => ({
       tool: {
         name: toolName,
         description: 'mock tool',
+        inputSchema: undefined as never,
         execute: async () => null,
         renderToolDoing: () => null,
         renderToolResult: () => null,
@@ -119,6 +120,7 @@ vi.mock('@/services/tools/tool-playground-service', () => {
         tool: {
           name: 'Untitled Tool',
           description: 'mock tool',
+          inputSchema: undefined as never,
           execute: async () => null,
           renderToolDoing: () => null,
           renderToolResult: () => null,

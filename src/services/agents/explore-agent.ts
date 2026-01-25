@@ -118,6 +118,7 @@ export class ExploreAgent {
     const selectedTools = {
       readFile: getToolSync('readFile'),
       glob: getToolSync('glob'),
+      lsp: getToolSync('lsp'),
       codeSearch: getToolSync('codeSearch'),
       listFiles: getToolSync('listFiles'),
       bash: getToolSync('bash'),
@@ -138,7 +139,7 @@ export class ExploreAgent {
       role: 'read',
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'agents_md', 'skills'],
+        providers: ['env', 'agents_md', 'output_format', 'skills'],
         variables: {},
         providerSettings: {
           agents_md: { maxChars: 4000 },

@@ -756,7 +756,6 @@ pub fn run() {
             database::db_query,
             database::db_batch,
             http_proxy::proxy_fetch,
-            http_proxy::proxy_fetch_stream,
             http_proxy::stream_fetch,
             git::git_get_status,
             git::git_is_repository,

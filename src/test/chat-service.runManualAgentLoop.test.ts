@@ -1,7 +1,10 @@
 // src/test/chat-service.runManualAgentLoop.test.ts
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
-import { LLMService } from '../services/agents/llm-service';
+import { hookService } from '../services/hooks/hook-service';
+import { hookStateService } from '../services/hooks/hook-state-service';
+import { messageService } from '../services/message-service';
+import { createLLMService, LLMService } from '../services/agents/llm-service';
 import type { AgentLoopOptions, UIMessage } from '../types/agent';
 
 vi.mock('@/providers/stores/provider-store', async (importOriginal) => {
@@ -76,11 +79,84 @@ vi.mock('../services/task-service', () => ({
     selectTask: vi.fn().mockResolvedValue(undefined),
     deleteTask: vi.fn().mockResolvedValue(undefined),
     renameTask: vi.fn().mockResolvedValue(undefined),
-    updateTaskUsage: vi.fn().mockResolvedValue(undefined),
     getTaskDetails: vi.fn().mockResolvedValue(null),
     loadTasksWithPagination: vi.fn().mockResolvedValue([]),
     loadTasksWithSearchPagination: vi.fn().mockResolvedValue([]),
     startNewTask: vi.fn().mockReturnValue(undefined),
+  },
+}));
+
+vi.mock('../services/context/context-compactor', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../services/context/context-compactor')>();
+  const MockContextCompactor = vi.fn(function (this: typeof actual.ContextCompactor) {
+    Object.setPrototypeOf(this, actual.ContextCompactor.prototype);
+    const instance = new actual.ContextCompactor();
+    Object.assign(this, instance);
+    this.compactMessages = vi.fn(async (options) => {
+      const preservedMessages = options.messages.slice(-1);
+      return {
+        compressedSummary: 'Summary',
+        sections: [{ title: 'Summary', content: 'Summary' }],
+        preservedMessages,
+        originalMessageCount: options.messages.length,
+        compressedMessageCount: preservedMessages.length + 2,
+        compressionRatio: 0.5,
+      };
+    });
+  });
+  return {
+    ...actual,
+    ContextCompactor: MockContextCompactor,
+  };
+});
+
+vi.mock('@/stores/task-store', () => ({
+  useTaskStore: {
+    getState: vi.fn(() => ({
+      getMessages: vi.fn(() => []),
+      getTask: vi.fn(() => undefined),
+      updateTask: vi.fn(),
+      updateTaskUsage: vi.fn(),
+    })),
+  },
+}));
+
+vi.mock('../services/hooks/hook-service', () => ({
+  hookService: {
+    runStop: vi.fn().mockResolvedValue({
+      blocked: false,
+      continue: true,
+      additionalContext: [],
+    }),
+    applyHookSummary: vi.fn(),
+    runSessionStart: vi.fn().mockResolvedValue({
+      blocked: false,
+      continue: true,
+      additionalContext: [],
+    }),
+    runPreToolUse: vi.fn().mockResolvedValue({
+      blocked: false,
+      continue: true,
+      additionalContext: [],
+    }),
+    runPostToolUse: vi.fn().mockResolvedValue({
+      blocked: false,
+      continue: true,
+      additionalContext: [],
+    }),
+  },
+}));
+
+vi.mock('../services/hooks/hook-state-service', () => ({
+  hookStateService: {
+    consumeAdditionalContext: vi.fn(() => []),
+    setStopHookActive: vi.fn(),
+  },
+}));
+
+vi.mock('../services/message-service', () => ({
+  messageService: {
+    addUserMessage: vi.fn(),
   },
 }));
 
@@ -149,10 +225,31 @@ describe('ChatService.runManualAgentLoop', () => {
       isFirst ? `\n<thinking>\n${text}` : text
     );
 
+    vi.mocked(hookService.runStop).mockResolvedValue({
+      blocked: false,
+      continue: true,
+      additionalContext: [],
+    });
+    vi.mocked(hookService.runSessionStart).mockResolvedValue({
+      blocked: false,
+      continue: true,
+      additionalContext: [],
+    });
+    vi.mocked(hookService.runPreToolUse).mockResolvedValue({
+      blocked: false,
+      continue: true,
+      additionalContext: [],
+    });
+    vi.mocked(hookService.runPostToolUse).mockResolvedValue({
+      blocked: false,
+      continue: true,
+      additionalContext: [],
+    });
+
     const aiModule = await import('ai');
     mockStreamText = vi.mocked(aiModule.streamText);
 
-    chatService = new LLMService();
+    chatService = new LLMService('test-task-id');
     mockCallbacks = {
       onChunk: vi.fn(),
       onComplete: vi.fn(),
@@ -325,6 +422,7 @@ describe('ChatService.runManualAgentLoop', () => {
         }),
       };
 
+
       const mockFullStream = [
         {
           type: 'tool-call',
@@ -470,6 +568,108 @@ describe('ChatService.runManualAgentLoop', () => {
   });
 
   describe('Error handling', () => {
+    it('should auto-compact on context length exceeded and retry', async () => {
+      const overflowError = {
+        type: 'error',
+        sequence_number: 2,
+        error: {
+          type: 'invalid_request_error',
+          code: 'context_length_exceeded',
+          message: 'Your input exceeds the context window of this model.',
+          param: 'input',
+        },
+      };
+
+      const mockFirstStream = [{ type: 'error', error: overflowError }];
+
+      const mockSecondStream = [
+        { type: 'text-delta', text: 'Recovered after compaction.' },
+        {
+          type: 'step-finish',
+          finishReason: 'stop',
+          usage: { inputTokens: 10, outputTokens: 5 },
+        },
+      ];
+
+      mockStreamText
+        .mockReturnValueOnce({
+          fullStream: (async function* () {
+            for (const delta of mockFirstStream) {
+              yield delta;
+            }
+          })(),
+          finishReason: Promise.resolve('error'),
+        })
+        .mockReturnValueOnce({
+          fullStream: (async function* () {
+            for (const delta of mockSecondStream) {
+              yield delta;
+            }
+          })(),
+          finishReason: Promise.resolve('stop'),
+        });
+
+      const options = createBasicOptions();
+
+      await chatService.runAgentLoop(options, mockCallbacks);
+
+      expect(mockCallbacks.onChunk).toHaveBeenCalledWith('Recovered after compaction.');
+      expect(mockCallbacks.onError).not.toHaveBeenCalled();
+
+      const { ContextCompactor } = await import('../services/context/context-compactor');
+      const compactorInstance = vi.mocked(ContextCompactor).mock.instances[0];
+      expect(compactorInstance.compactMessages).toHaveBeenCalledTimes(1);
+    });
+
+    it('should surface friendly error if auto-compaction fails', async () => {
+      const overflowError = {
+        type: 'error',
+        sequence_number: 2,
+        error: {
+          type: 'invalid_request_error',
+          code: 'context_length_exceeded',
+          message: 'Your input exceeds the context window of this model.',
+          param: 'input',
+        },
+      };
+
+      const mockFirstStream = [{ type: 'error', error: overflowError }];
+
+      mockStreamText.mockReturnValue({
+        fullStream: (async function* () {
+          for (const delta of mockFirstStream) {
+            yield delta;
+          }
+        })(),
+        finishReason: Promise.resolve('error'),
+      });
+
+      const { ContextCompactor } = await import('../services/context/context-compactor');
+      const compactorInstance = vi.mocked(ContextCompactor).mock.instances[0];
+      vi.mocked(compactorInstance.compactMessages).mockResolvedValueOnce({
+        compressedSummary: '',
+        sections: [],
+        preservedMessages: [],
+        originalMessageCount: 1,
+        compressedMessageCount: 1,
+        compressionRatio: 1,
+      });
+
+      const options = createBasicOptions();
+
+      await expect(chatService.runAgentLoop(options, mockCallbacks)).rejects.toThrow(
+        'Automatic compaction failed; please run /compact or reduce context.'
+      );
+
+      expect(mockCallbacks.onError).toHaveBeenCalledWith(
+        expect.objectContaining({
+          message: expect.stringContaining(
+            'Automatic compaction failed; please run /compact or reduce context.'
+          ),
+        })
+      );
+    });
+
     it('should handle NoSuchToolError gracefully', async () => {
       const { NoSuchToolError } = await import('ai');
       const mockError = new Error('Tool not found');
@@ -747,6 +947,49 @@ describe('ChatService.runManualAgentLoop', () => {
   });
 
   describe('Edge cases', () => {
+    it('should surface stop hook reason in loop messages', async () => {
+      const mockFullStream = [
+        {
+          type: 'step-finish',
+          finishReason: 'stop',
+          usage: { inputTokens: 10, outputTokens: 0 },
+        },
+      ];
+
+      mockStreamText.mockReturnValue({
+        fullStream: (async function* () {
+          for (const delta of mockFullStream) {
+            yield delta;
+          }
+        })(),
+        finishReason: Promise.resolve('stop'),
+      });
+
+      vi.mocked(hookService.runStop).mockImplementation(async () => {
+        await Promise.resolve();
+        return {
+          blocked: true,
+          blockReason: 'Stop hook blocked',
+          continue: false,
+          additionalContext: [],
+        };
+      });
+
+      const options = createBasicOptions({
+        tools: {},
+      });
+
+      const localService = new LLMService('test-task-id');
+
+      await localService.runAgentLoop(options, mockCallbacks);
+
+      expect(messageService.addUserMessage).toHaveBeenCalledWith(
+        'test-task-id',
+        'Stop hook blocked'
+      );
+      expect(hookStateService.setStopHookActive).toHaveBeenCalledWith(true);
+    });
+
     it('should handle empty tool set', async () => {
       const mockFullStream = [
         {

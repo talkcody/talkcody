@@ -74,6 +74,51 @@ workspace/
 - 文件必须导出 `default` 对象作为工具定义
 - 文件名即为工具名称（不含扩展名）
 
+### 带 package.json 的自定义工具（Packaged Tool）
+
+除了单文件 `xxx-tool.tsx`，TalkCody 也支持目录形式的自定义工具，用于引入额外依赖。
+
+#### 目录结构
+
+```
+~/.talkcody/tools/
+└── my-packaged-tool/
+    ├── package.json
+    ├── bun.lockb           # 或 package-lock.json（二选一）
+    ├── tool.tsx            # 默认入口
+    └── node_modules/       # 安装后生成
+```
+
+#### 必要条件
+
+- 目录下必须有 `package.json`
+- 必须提供锁文件：`bun.lockb` 或 `package-lock.json`
+- `package.json` 里只允许 `dependencies`
+- `scripts` 会被拒绝（禁止执行）
+- 入口文件默认是 `tool.tsx`，可在 `package.json` 中指定
+
+#### package.json 示例
+
+```json
+{
+  "name": "my-packaged-tool",
+  "version": "1.0.0",
+  "dependencies": {
+    "zod": "^3.23.0",
+    "lodash": "^4.17.21"
+  },
+  "talkcody": {
+    "toolEntry": "tool.tsx"
+  }
+}
+```
+
+#### 安装与运行说明
+
+- TalkCody 会在加载工具时自动执行依赖安装
+- 安装命令会**强制锁文件**并**忽略 scripts**（安全策略）
+- 每个工具目录有独立的 `node_modules`，互不影响
+
 ## 创建自定义工具
 
 ### 基础结构

@@ -63,7 +63,6 @@ class AgentRegistry {
   private async loadSystemAgents(): Promise<void> {
     logger.info('loadSystemAgents: Loading system agents from code...');
 
-    // Import all system agent classes
     const { PlannerAgent } = await import('./code-planner-agent');
     const { PlanAgent } = await import('./plan-agent');
     const { CodeReviewAgent } = await import('./code-review-agent');
@@ -78,7 +77,6 @@ class AgentRegistry {
     const { CreateSkillAgent } = await import('./create-skill-agent');
     const { ImageGeneratorAgent } = await import('./image-generator-agent');
 
-    // Build planner tools (includes MCP integration)
     const plannerTools = await this.buildPlannerTools();
 
     // Get all system agent definitions
@@ -192,6 +190,7 @@ class AgentRegistry {
       const readFile = await getTool('readFile');
       const codeSearch = await getTool('codeSearch');
       const glob = await getTool('glob');
+      const lsp = await getTool('lsp');
       const listFiles = await getTool('listFiles');
       const todoWrite = await getTool('todoWrite');
       const writeFile = await getTool('writeFile');
@@ -205,6 +204,7 @@ class AgentRegistry {
         readFile,
         codeSearch,
         glob,
+        lsp,
         listFiles,
         todoWrite,
         writeFile,
@@ -223,6 +223,7 @@ class AgentRegistry {
       const readFile = await getTool('readFile');
       const codeSearch = await getTool('codeSearch');
       const glob = await getTool('glob');
+      const lsp = await getTool('lsp');
       const listFiles = await getTool('listFiles');
       const todoWrite = await getTool('todoWrite');
       const writeFile = await getTool('writeFile');
@@ -236,6 +237,7 @@ class AgentRegistry {
         readFile,
         codeSearch,
         glob,
+        lsp,
         listFiles,
         todoWrite,
         writeFile,

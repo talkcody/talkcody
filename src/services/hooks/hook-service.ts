@@ -3,7 +3,6 @@ import {
   buildNotificationInput,
   buildPostToolUseInput,
   buildPreToolUseInput,
-  buildSessionEndInput,
   buildSessionStartInput,
   buildStopInput,
   buildUserPromptSubmitInput,
@@ -90,15 +89,6 @@ export class HookService {
     const context = await this.getContext(taskId);
     const input = buildSessionStartInput(context, source);
     return hookRunner.runHooks('SessionStart', '', input, taskId);
-  }
-
-  async runSessionEnd(taskId: string, reason: 'clear' | 'logout' | 'prompt_input_exit' | 'other') {
-    if (!hookStateService.shouldRunHooks('SessionEnd')) {
-      return emptyHookSummary();
-    }
-    const context = await this.getContext(taskId);
-    const input = buildSessionEndInput(context, reason);
-    return hookRunner.runHooks('SessionEnd', '', input, taskId);
   }
 
   applyHookSummary(summary: HookRunSummary): void {

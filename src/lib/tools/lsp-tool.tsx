@@ -128,7 +128,6 @@ Provide a file path and a 1-based line/character position as shown in editors.`,
     query: z.string().optional().describe('Query string for workspace symbols'),
   }),
   canConcurrent: true,
-  hidden: true,
   execute: async (
     { operation, filePath, line, character, query },
     context
@@ -192,11 +191,22 @@ Provide a file path and a 1-based line/character position as shown in editors.`,
         };
       }
 
-      workspaceRoot = await findWorkspaceRoot(resolvedPath, language, rootPath);
+      workspaceRoot =
+        operation === 'findReferences'
+          ? rootPath
+          : await findWorkspaceRoot(resolvedPath, language, rootPath);
 
       const directConnection = lspConnectionManager.getConnection(resolvedPath);
-      if (directConnection) {
-        serverId = directConnection.serverId;
+      const workspaceConnection =
+        operation === 'findReferences'
+          ? lspConnectionManager.getConnectionByRoot(rootPath, language)
+          : null;
+      const selectedConnection =
+        workspaceConnection ??
+        (directConnection && directConnection.rootPath === workspaceRoot ? directConnection : null);
+
+      if (selectedConnection) {
+        serverId = selectedConnection.serverId;
       } else {
         serverId = await lspService.startServer(language, workspaceRoot);
         shouldDecrement = true;

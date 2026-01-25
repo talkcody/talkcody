@@ -2,6 +2,7 @@
 // Tests the complete flow: Create -> Publish -> Fork -> Update -> Delete
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test';
 import { eq } from 'drizzle-orm';
+import { DEFAULT_CATEGORIES } from '@talkcody/shared';
 import { db } from '../db/client';
 import { marketplaceSkills, skillVersions, users } from '../db/schema';
 import { app } from '../index';
@@ -32,10 +33,7 @@ beforeAll(async () => {
   });
   authToken = `Bearer ${token}`;
 
-  // Get category
-  const categoriesRes = await app.request('/api/skills-marketplace/categories');
-  const categoriesData = await categoriesRes.json();
-  testCategorySlug = categoriesData.categories[0].slug;
+  testCategorySlug = DEFAULT_CATEGORIES[0].slug;
 
   console.log('✅ Skill Publishing Integration test setup complete\n');
 });

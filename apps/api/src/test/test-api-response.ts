@@ -5,7 +5,7 @@ async function testApiResponse() {
   try {
     console.log('Testing API response for Translator agent...\n');
 
-    const res = await app.request('/api/marketplace/agents/translator');
+    const res = await app.request('/api/remote-agents/translator');
 
     if (res.status !== 200) {
       console.log(`❌ API returned status: ${res.status}`);

@@ -82,12 +82,7 @@ scripts/*
 !scripts/lib/common.sh
 !scripts/hooks/
 !scripts/hooks/**
-# Design documents (ignore most, keep specific files)
-design/*
-!design/multi-agent-parallel-execution.md
-!design/core-concepts.md
-!design/lint-implementation.md
-!design/task-messages-state.md
+
 .wrangler/
 
 # Turso database files (local mode)

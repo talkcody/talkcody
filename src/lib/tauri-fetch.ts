@@ -300,7 +300,8 @@ function createStreamFetch(): TauriFetchFunction {
               logger.error('[Tauri Stream Fetch] Error writing chunk:', e);
             });
           });
-        } else if (status === 0) {
+        } else if (status !== undefined) {
+          // EndPayload received, close the stream
           close();
         }
       };

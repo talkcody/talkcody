@@ -130,36 +130,40 @@ export const testCustomTool = createTool({
 
       const renderContext: ToolRenderContext = { toolName, taskId: context.taskId };
 
-      try {
-        const doingResult = definition.renderToolDoing(parsedParams.data, renderContext);
-        if (!isRenderable(doingResult)) {
-          return buildError(
-            'render_doing',
-            normalizedPath,
-            'renderToolDoing returned invalid value',
-            toolName
-          );
+      if (definition.renderToolDoing) {
+        try {
+          const doingResult = definition.renderToolDoing(parsedParams.data, renderContext);
+          if (!isRenderable(doingResult)) {
+            return buildError(
+              'render_doing',
+              normalizedPath,
+              'renderToolDoing returned invalid value',
+              toolName
+            );
+          }
+        } catch (error) {
+          return buildError('render_doing', normalizedPath, error, toolName);
         }
-      } catch (error) {
-        return buildError('render_doing', normalizedPath, error, toolName);
       }
 
-      try {
-        const resultOutput = definition.renderToolResult(
-          executeResult,
-          parsedParams.data,
-          renderContext
-        );
-        if (!isRenderable(resultOutput)) {
-          return buildError(
-            'render_result',
-            normalizedPath,
-            'renderToolResult returned invalid value',
-            toolName
+      if (definition.renderToolResult) {
+        try {
+          const resultOutput = definition.renderToolResult(
+            executeResult,
+            parsedParams.data,
+            renderContext
           );
+          if (!isRenderable(resultOutput)) {
+            return buildError(
+              'render_result',
+              normalizedPath,
+              'renderToolResult returned invalid value',
+              toolName
+            );
+          }
+        } catch (error) {
+          return buildError('render_result', normalizedPath, error, toolName);
         }
-      } catch (error) {
-        return buildError('render_result', normalizedPath, error, toolName);
       }
 
       return {

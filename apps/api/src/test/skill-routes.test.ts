@@ -1,6 +1,7 @@
 // Skill API routes tests
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
 import { eq } from 'drizzle-orm';
+import { DEFAULT_CATEGORIES } from '@talkcody/shared';
 import { db } from '../db/client';
 import { marketplaceSkills, users } from '../db/schema';
 import { app } from '../index';
@@ -31,10 +32,7 @@ beforeAll(async () => {
   });
   authToken = `Bearer ${token}`;
 
-  // Get category
-  const categoriesRes = await app.request('/api/skills-marketplace/categories');
-  const categoriesData = await categoriesRes.json();
-  testCategorySlug = categoriesData.categories[0].slug;
+  testCategorySlug = DEFAULT_CATEGORIES[0].slug;
 
   console.log('✅ Skill Routes test setup complete\n');
 });

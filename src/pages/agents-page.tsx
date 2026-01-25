@@ -44,7 +44,7 @@ import { useAgentStore } from '@/stores/agent-store';
 import type { Agent } from '@/types';
 import type { ModelType } from '@/types/model-types';
 
-export function AgentMarketplacePage() {
+export function AgentsPage() {
   const [activeTab, setActiveTab] = useState('myagents');
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');

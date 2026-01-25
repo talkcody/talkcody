@@ -127,9 +127,6 @@ export class ErrorHandler {
     return { shouldContinue: false, shouldStop: false };
   }
 
-  /**
-   * Handle unknown stream error
-   */
   handleUnknownError(error: unknown, options: ErrorHandlerOptions): ErrorHandlerResult {
     const { model, loopState } = options;
 

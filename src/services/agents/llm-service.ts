@@ -8,17 +8,23 @@ import {
   type ToolModelMessage,
   type ToolSet,
 } from 'ai';
-import { createErrorContext, extractAndFormatError } from '@/lib/error-utils';
+import {
+  createErrorContext,
+  extractAndFormatError,
+  isContextLengthExceededError,
+} from '@/lib/error-utils';
 import { convertMessages } from '@/lib/llm-utils';
 import { logger } from '@/lib/logger';
 import { convertToAnthropicFormat } from '@/lib/message-convert';
 import { MessageTransform } from '@/lib/message-transform';
 import { validateAnthropicMessages } from '@/lib/message-validate';
+import { UsageTokenUtils } from '@/lib/usage-token-utils';
 import { generateId } from '@/lib/utils';
 import { getLocale, type SupportedLocale } from '@/locales';
 import { getContextLength } from '@/providers/config/model-config';
 import { parseModelIdentifier } from '@/providers/core/provider-utils';
 import { modelTypeService } from '@/providers/models/model-type-service';
+import { autoCodeReviewService } from '@/services/auto-code-review-service';
 import { databaseService } from '@/services/database-service';
 import { hookService } from '@/services/hooks/hook-service';
 import { hookStateService } from '@/services/hooks/hook-state-service';
@@ -35,50 +41,6 @@ import type {
   UIMessage,
 } from '../../types/agent';
 import { aiPricingService } from '../ai/ai-pricing-service';
-
-type UsageLike = {
-  inputTokens?: number;
-  outputTokens?: number;
-  totalTokens?: number;
-  promptTokens?: number;
-  completionTokens?: number;
-};
-
-export function normalizeUsageTokens(
-  usage?: UsageLike | null,
-  totalUsage?: UsageLike | null
-): { inputTokens: number; outputTokens: number; totalTokens: number } | null {
-  const primary = usage ?? totalUsage ?? null;
-  const inputTokens =
-    primary?.inputTokens ??
-    primary?.promptTokens ??
-    totalUsage?.inputTokens ??
-    totalUsage?.promptTokens ??
-    0;
-  const outputTokens =
-    primary?.outputTokens ??
-    primary?.completionTokens ??
-    totalUsage?.outputTokens ??
-    totalUsage?.completionTokens ??
-    0;
-  let totalTokens = primary?.totalTokens ?? totalUsage?.totalTokens ?? inputTokens + outputTokens;
-
-  if (totalTokens > 0 && (inputTokens > 0 || outputTokens > 0)) {
-    totalTokens = inputTokens + outputTokens;
-  }
-
-  if (totalTokens > 0 && inputTokens === 0 && outputTokens === 0) {
-    return { inputTokens: totalTokens, outputTokens: 0, totalTokens };
-  }
-
-  if (totalTokens === 0 && (inputTokens > 0 || outputTokens > 0)) {
-    totalTokens = inputTokens + outputTokens;
-  }
-
-  if (totalTokens === 0) return null;
-
-  return { inputTokens, outputTokens, totalTokens };
-}
 
 /**
  * Callbacks for agent loop
@@ -287,6 +249,61 @@ export class LLMService {
     return getLocale(language);
   }
 
+  private async runAutoCompaction(
+    loopState: AgentLoopState,
+    compressionConfig: CompressionConfig,
+    systemPrompt: string,
+    _model: string,
+    isSubagent: boolean,
+    abortController?: AbortController,
+    onStatus?: (status: string) => void
+  ): Promise<boolean> {
+    const t = this.getTranslations();
+    onStatus?.(t.LLMService.status.contextTooLongCompacting);
+
+    const compressionResult = await this.messageCompactor.compactMessages(
+      {
+        messages: loopState.messages,
+        config: compressionConfig,
+        systemPrompt,
+      },
+      loopState.lastRequestTokens,
+      abortController
+    );
+
+    if (!compressionResult.compressedSummary && compressionResult.sections.length === 0) {
+      return false;
+    }
+
+    const compressedMessages = this.messageCompactor.createCompressedMessages(compressionResult);
+    const validation = this.messageCompactor.validateCompressedMessages(compressedMessages);
+
+    const finalMessages =
+      validation.valid || !validation.fixedMessages ? compressedMessages : validation.fixedMessages;
+
+    loopState.messages = convertToAnthropicFormat(finalMessages, {
+      autoFix: true,
+      trimAssistantWhitespace: true,
+    });
+    loopState.lastRequestTokens = 0;
+
+    onStatus?.(t.LLMService.status.compressed(compressionResult.compressionRatio.toFixed(2)));
+
+    if (this.taskId && !isSubagent) {
+      const currentUIMessageCount = useTaskStore.getState().getMessages(this.taskId).length;
+
+      this.saveCompactedMessages(
+        loopState.messages,
+        currentUIMessageCount,
+        loopState.lastRequestTokens
+      ).catch((err) => {
+        logger.warn('Failed to save compacted messages', err);
+      });
+    }
+
+    return true;
+  }
+
   /**
    * Run the agent loop with the given options and callbacks.
    * @param options Agent loop configuration
@@ -481,6 +498,7 @@ export class LLMService {
         const streamProcessor = new StreamProcessor();
 
         let didRunSessionStart = false;
+        let autoCompactionAttempts = 0;
 
         while (!loopState.isComplete && loopState.currentIteration < maxIterations) {
           if (this.taskId && !isSubagent && !didRunSessionStart) {
@@ -573,14 +591,6 @@ export class LLMService {
 
           // Log request context before calling streamText
           const requestStartTime = Date.now();
-          // logger.info('Calling streamText', {
-          //   model: providerModel.modelId,
-          //   agentId,
-          //   provider: providerModel.provider,
-          //   messageCount: loopState.messages.length,
-          //   iteration: loopState.currentIteration,
-          //   timestamp: new Date().toISOString(),
-          // });
 
           // Create tool definitions WITHOUT execute methods for AI SDK
           // This prevents AI SDK from auto-executing tools, which would bypass ToolExecutor
@@ -602,6 +612,7 @@ export class LLMService {
           const MAX_STREAM_RETRIES = 3;
           let streamRetryCount = 0;
           let streamResult: ReturnType<typeof streamText> | null = null;
+          let shouldAutoCompact = false;
 
           while (streamRetryCount <= MAX_STREAM_RETRIES) {
             try {
@@ -654,14 +665,14 @@ export class LLMService {
                 messages: loopState.messages,
                 stopWhen: stepCountIs(1),
                 experimental_transform: smoothStream({
-                  delayInMs: 30, // optional: defaults to 10ms
+                  delayInMs: 100, // optional: defaults to 10ms
                   chunking: 'line', // optional: defaults to 'word'
                 }),
                 maxOutputTokens: 15000,
                 providerOptions,
-                onFinish: async ({ finishReason, usage, totalUsage }) => {
+                onFinish: async ({ finishReason, usage, totalUsage, request }) => {
                   const requestDuration = Date.now() - requestStartTime;
-                  const normalizedUsage = normalizeUsageTokens(usage, totalUsage);
+                  const normalizedUsage = UsageTokenUtils.normalizeUsageTokens(usage, totalUsage);
 
                   if (normalizedUsage?.totalTokens) {
                     // Check if token count increased significantly
@@ -728,6 +739,7 @@ export class LLMService {
                     requestDuration,
                     totalUsage: totalUsage,
                     lastRequestTokens: loopState.lastRequestTokens,
+                    request,
                   });
                 },
                 tools: toolsForAI as ToolSet, // Use tool definitions WITHOUT execute methods
@@ -843,6 +855,21 @@ export class LLMService {
                   case 'error': {
                     streamProcessor.markError();
 
+                    if (isContextLengthExceededError(delta.error)) {
+                      const MAX_AUTO_COMPACTIONS = 1;
+                      if (autoCompactionAttempts < MAX_AUTO_COMPACTIONS) {
+                        autoCompactionAttempts++;
+                        shouldAutoCompact = true;
+                        break;
+                      }
+
+                      const errorMessage = t.LLMService.errors.contextTooLongCompactionFailed;
+                      const error = new Error(errorMessage);
+                      onError?.(error);
+                      reject(error);
+                      return;
+                    }
+
                     const errorHandlerOptions = {
                       model,
                       tools: filteredTools,
@@ -891,6 +918,17 @@ export class LLMService {
               // Stream processing succeeded, exit retry loop
               break;
             } catch (streamError) {
+              if (isContextLengthExceededError(streamError)) {
+                const MAX_AUTO_COMPACTIONS = 1;
+                if (autoCompactionAttempts < MAX_AUTO_COMPACTIONS) {
+                  autoCompactionAttempts++;
+                  shouldAutoCompact = true;
+                  break;
+                }
+
+                throw new Error(t.LLMService.errors.contextTooLongCompactionFailed);
+              }
+
               // Check if this is a retryable OpenRouter streaming error
               if (
                 this.isRetryableStreamingError(streamError) &&
@@ -917,6 +955,25 @@ export class LLMService {
             throw new Error(t.LLMService.errors.streamResultNull);
           }
 
+          if (shouldAutoCompact) {
+            const wasCompacted = await this.runAutoCompaction(
+              loopState,
+              compressionConfig,
+              systemPrompt,
+              model,
+              isSubagent,
+              abortController,
+              onStatus
+            );
+
+            if (!wasCompacted) {
+              throw new Error(t.LLMService.errors.contextTooLongCompactionFailed);
+            }
+
+            // Retry the same iteration with compacted messages.
+            continue;
+          }
+
           // Get processed data from stream processor
           const toolCalls = streamProcessor.getToolCalls();
           const hasError = streamProcessor.hasError();
@@ -929,19 +986,7 @@ export class LLMService {
             continue;
           }
 
-          if (this.taskId && toolCalls.length === 0) {
-            const stopSummary = await hookService.runStop(this.taskId);
-            hookService.applyHookSummary(stopSummary);
-            if (stopSummary.blocked) {
-              const reason = stopSummary.blockReason || stopSummary.stopReason;
-              if (reason) {
-                await messageService.addUserMessage(this.taskId, reason);
-              }
-              hookStateService.setStopHookActive(true);
-              continue;
-            }
-          }
-
+          loopState.lastFinishReason = await streamResult.finishReason;
           // Handle "unknown" finish reason by retrying without modifying messages
           if (loopState.lastFinishReason === 'unknown' && toolCalls.length === 0) {
             const maxUnknownRetries = 3;
@@ -972,6 +1017,40 @@ export class LLMService {
               model: model,
             });
             throw new Error(t.LLMService.errors.unknownFinishReason);
+          }
+
+          const shouldRunStopHook =
+            this.taskId &&
+            toolCalls.length === 0 &&
+            !isSubagent &&
+            (!agentId || agentId === 'planner');
+
+          if (shouldRunStopHook) {
+            const stopSummary = await hookService.runStop(this.taskId);
+            hookService.applyHookSummary(stopSummary);
+
+            if (stopSummary.blocked) {
+              const reason = stopSummary.blockReason || stopSummary.stopReason;
+              if (reason) {
+                await messageService.addUserMessage(this.taskId, reason);
+                loopState.messages.push({
+                  role: 'user',
+                  content: reason,
+                });
+              }
+              hookStateService.setStopHookActive(true);
+              continue;
+            } else {
+              const reviewText = await autoCodeReviewService.run(this.taskId);
+              if (reviewText) {
+                await messageService.addUserMessage(this.taskId, reviewText);
+                loopState.messages.push({
+                  role: 'user',
+                  content: reviewText,
+                });
+                continue;
+              }
+            }
           }
 
           if (toolCalls.length > 0) {
@@ -1064,15 +1143,13 @@ export class LLMService {
           }
         }
 
-        if (this.taskId && !isSubagent) {
-          await hookService.runSessionEnd(this.taskId, 'other');
-        }
         const totalDuration = Date.now() - totalStartTime;
         logger.info('Agent loop completed', {
           totalIterations: loopState.currentIteration,
           finalFinishReason: loopState.lastFinishReason,
           totalDurationMs: totalDuration,
           totalDurationSeconds: (totalDuration / 1000).toFixed(2),
+          fullTextLength: streamProcessor.getFullText().length,
         });
         const fullText = streamProcessor.getFullText();
         onComplete?.(fullText);

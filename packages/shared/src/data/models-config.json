@@ -423,6 +423,30 @@
       },
       "context_length": 202752
     },
+    "glm-4.7-flash": {
+      "name": "GLM 4.7 Flash",
+      "imageInput": true,
+      "providers": [
+        "zhipu",
+        "openRouter",
+        "aiGateway",
+        "zai",
+        "ollama"
+      ],
+      "providerMappings": {
+        "zhipu": "glm-4.7-flash",
+        "zai": "glm-4.7-flash",
+        "aiGateway": "zai/glm-4.7-flashx",
+        "openRouter": "z-ai/glm-4.7-flash",
+        "ollama": "glm-4.7-flash"
+      },
+      "pricing": {
+        "input": "0.00000043",
+        "output": "0.00000175",
+        "cachedInput": "0.00000008"
+      },
+      "context_length": 202752
+    },
     "minimax-m21": {
       "name": "MiniMax M2.1",
       "imageInput": true,

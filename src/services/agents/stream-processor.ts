@@ -120,16 +120,10 @@ export class StreamProcessor {
     return { ...this.state };
   }
 
-  /**
-   * Get full text accumulated so far
-   */
   getFullText(): string {
     return this.state.fullText;
   }
 
-  /**
-   * Get current step text
-   */
   getCurrentStepText(): string {
     return this.state.currentStepText;
   }

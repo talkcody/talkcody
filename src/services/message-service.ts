@@ -16,6 +16,7 @@ import { timedMethod } from '@/lib/timer';
 import { generateId } from '@/lib/utils';
 import { databaseService } from '@/services/database-service';
 import { useExecutionStore } from '@/stores/execution-store';
+import { useOutputFormatStore } from '@/stores/output-format-store';
 import { useTaskStore } from '@/stores/task-store';
 
 const FRAME_BUDGET_MS = 16;
@@ -139,6 +140,7 @@ class MessageService {
       timestamp: new Date(),
       isStreaming: true,
       assistantId: agentId,
+      outputFormat: useOutputFormatStore.getState().outputFormat,
     };
 
     // 1. Update store (synchronous)

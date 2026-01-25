@@ -59,6 +59,9 @@ describe('ParameterPanel optional/default badges', () => {
       async execute() {
         return {};
       },
+      renderToolDoing: () => null,
+      renderToolResult: () => null,
+      canConcurrent: false,
     };
 
     renderPanel(tool);

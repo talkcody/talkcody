@@ -199,6 +199,20 @@ const zh: LocaleDefinition = {
       disabledTooltip: '人工审查：需要时手动运行代码审查',
       toggleFailed: '更新自动代码审查设置失败',
     },
+    outputFormat: {
+      title: '输出格式',
+      description: '选择助手的输出格式。',
+      currentFormat: '当前格式',
+      switchSuccess: '输出格式已更新',
+      markdown: 'Markdown',
+      mermaid: 'Mermaid',
+      web: '网页',
+      markdownDescription: '以 Markdown 渲染，支持代码块和表格。',
+      mermaidDescription: '使用 Mermaid 语法渲染图表。',
+      webDescription: '以 HTML/网页内容渲染。',
+      viewSource: '查看源码',
+      viewRendered: '查看渲染',
+    },
     reasoningEffort: {
       title: '推理强度',
       description: '控制模型在响应前进行多少推理。较高的强度会使用更多 tokens 进行思考。',
@@ -430,6 +444,14 @@ const zh: LocaleDefinition = {
       messageCompaction: {
         title: '消息压缩模型',
         description: '当上下文达到限制时用于压缩对话历史的模型',
+      },
+      planModel: {
+        title: '计划模型',
+        description: '用于计划 Agent 生成实现计划的模型',
+      },
+      codeReviewModel: {
+        title: '代码审查模型',
+        description: '用于代码审查 Agent 分析变更的模型',
       },
       resetToDefault: '重置为默认',
       updated: (type) => `${type} 已更新`,
@@ -975,6 +997,15 @@ const zh: LocaleDefinition = {
     githubTooltip: '在 GitHub 上为 TalkCody 点赞',
   },
 
+  PptViewer: {
+    slideOf: (current, total) => `第 ${current} 页，共 ${total} 页`,
+    previous: '上一页',
+    next: '下一页',
+    exportPdf: '导出 PDF',
+    keyboardShortcuts: '快捷键：左右键翻页，Home/End 跳转',
+    empty: '暂无幻灯片',
+  },
+
   Sidebar: {
     files: '文件',
     tasks: '任务',
@@ -1185,12 +1216,14 @@ const zh: LocaleDefinition = {
       compacting: '正在压缩消息历史...',
       compressed: (ratio) => `消息历史已压缩（${ratio}x 缩减）`,
       compressionFailed: '消息压缩失败，继续执行...',
+      contextTooLongCompacting: '上下文过长，正在压缩并重试...',
     },
     errors: {
       noProvider: (model, provider) =>
         `模型 ${model} 没有可用的供应商。请在设置中配置 API 密钥。供应商：${provider}`,
       streamResultNull: '重试循环后流结果意外为空',
       unknownFinishReason: 'LLM 以未知原因完成且没有工具调用',
+      contextTooLongCompactionFailed: '自动压缩失败，请运行 /compact 或减少上下文。',
     },
   },
 
@@ -1467,6 +1500,8 @@ const zh: LocaleDefinition = {
     changed: '变更',
     fixed: '修复',
     removed: '移除',
+    videoPreview: '视频预览',
+    videoCaptionsLabel: '中文字幕',
     releasedOn: (date) => `发布于 ${date}`,
   },
 
@@ -1909,6 +1944,22 @@ const zh: LocaleDefinition = {
         peak: '峰值',
       },
     },
+    cost: {
+      title: '每日花费',
+      description: '所选时间范围内的每日花费',
+      chartLabel: '花费',
+      summary: {
+        total: '总花费',
+      },
+    },
+    requests: {
+      title: '每日请求次数',
+      description: '所选时间范围内的每日请求次数',
+      chartLabel: '请求次数',
+      summary: {
+        total: '总请求次数',
+      },
+    },
     models: {
       title: '按模型统计 Tokens',
       description: '按模型分组的使用统计',
@@ -1920,6 +1971,45 @@ const zh: LocaleDefinition = {
         avg: '平均 (tok)',
         sum: '总计 (tok)',
         requests: '请求次数',
+      },
+    },
+  },
+
+  DbQuery: {
+    summary: {
+      title: '汇总',
+      totalRecords: '总记录数',
+      average: '平均值',
+      minimum: '最小值',
+      maximum: '最大值',
+      sum: '合计',
+      count: '数量',
+      noData: '暂无汇总数据',
+    },
+    table: {
+      title: '结果',
+      loading: '正在加载结果...',
+      noData: '暂无结果',
+      rowsPerPage: '每页行数',
+      pageOf: (current, total) => `第 ${current} / ${total} 页`,
+      previousPage: '上一页',
+      nextPage: '下一页',
+      firstPage: '第一页',
+      lastPage: '最后一页',
+    },
+    chart: {
+      noData: '暂无图表数据',
+      xAxis: 'X 轴',
+      yAxis: 'Y 轴',
+      valueLabel: '数值',
+    },
+    grid: {
+      title: '查询结果',
+      noData: '暂无查询结果',
+      tabs: {
+        summary: '汇总',
+        chart: '图表',
+        table: '表格',
       },
     },
   },

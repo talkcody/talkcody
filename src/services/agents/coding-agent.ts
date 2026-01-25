@@ -169,7 +169,7 @@ export class CodingAgent {
       role: 'write',
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'agents_md', 'skills'],
+        providers: ['env', 'agents_md', 'output_format', 'skills'],
         variables: {},
       },
     };

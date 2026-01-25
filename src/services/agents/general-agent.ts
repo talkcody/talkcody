@@ -58,7 +58,7 @@ export class GeneralAgent {
       canBeSubagent: false, // Chat agent should not be called as a subagent
       dynamicPrompt: {
         enabled: true,
-        providers: ['skills'],
+        providers: ['output_format', 'skills'],
         variables: {},
       },
     };

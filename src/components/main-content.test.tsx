@@ -23,6 +23,7 @@ vi.mock('@/stores/settings-store', () => ({
     getSidebarView: () => 'files',
     setSidebarView: vi.fn(),
     getAutoApproveEditsGlobal: vi.fn(() => false),
+    getSync: vi.fn((key: string) => (key === 'language' ? 'en' : undefined)),
   },
 }));
 
@@ -47,8 +48,8 @@ vi.mock('@/pages/agent-marketplace-page', () => ({
   AgentMarketplacePage: () => <div data-testid="agent-marketplace-page">Agent Marketplace Page</div>,
 }));
 
-vi.mock('@/pages/skills-marketplace-page', () => ({
-  SkillsMarketplacePage: () => <div data-testid="skills-marketplace-page">Skills Marketplace Page</div>,
+vi.mock('@/pages/skills-page', () => ({
+  SkillsPage: () => <div data-testid="skills-page">Skills Page</div>,
 }));
 
 vi.mock('@/pages/mcp-servers-page', () => ({
@@ -73,7 +74,7 @@ describe('MainContent - State Persistence on Page Switch', () => {
     // Other pages are lazy-loaded and should NOT be in the DOM when not active
     expect(screen.queryByTestId('projects-page')).not.toBeInTheDocument();
     expect(screen.queryByTestId('agent-marketplace-page')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('skills-marketplace-page')).not.toBeInTheDocument();
+    expect(screen.queryByTestId('skills-page')).not.toBeInTheDocument();
     expect(screen.queryByTestId('mcp-servers-page')).not.toBeInTheDocument();
     expect(screen.queryByTestId('settings-page')).not.toBeInTheDocument();
 
@@ -133,7 +134,7 @@ describe('MainContent - State Persistence on Page Switch', () => {
     // Lazy-loaded pages - rendered only when active
     const lazyLoadedViews = [
       { view: NavigationView.PROJECTS, testId: 'projects-page' },
-      { view: NavigationView.SKILLS_MARKETPLACE, testId: 'skills-marketplace-page' },
+      { view: NavigationView.SKILLS_MARKETPLACE, testId: 'skills-page' },
       { view: NavigationView.MCP_SERVERS, testId: 'mcp-servers-page' },
       { view: NavigationView.SETTINGS, testId: 'settings-page' },
     ];

@@ -64,6 +64,7 @@ export type {
   CustomProviderType,
 } from './custom-provider';
 export type { CustomToolDefinition, CustomToolPermission, CustomToolUI } from './custom-tool';
+export type { CustomToolPackageInfo, CustomToolPackageResolution } from './custom-tool-package';
 // Database Agent types
 export type {
   Agent,

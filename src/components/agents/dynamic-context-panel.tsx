@@ -193,6 +193,12 @@ export function DynamicContextPanel({ agent, onChange }: DynamicContextPanelProp
                 desc: 'Injects AGENTS.md content from workspace',
                 tokens: ['agents_md'],
               },
+              {
+                id: 'output_format',
+                label: 'Output Format',
+                desc: 'Injects output format instructions from chat selection',
+                tokens: ['output_format_instruction'],
+              },
             ].map((p) => (
               <label key={p.id} className="flex max-w-xs items-start gap-2 text-xs">
                 <input

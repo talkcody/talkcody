@@ -209,7 +209,7 @@ export class TestIPCHandler {
     }
 
     // Network proxy (return empty response)
-    if (cmd === 'proxy_fetch' || cmd === 'proxy_fetch_stream') {
+    if (cmd === 'proxy_fetch') {
       return { status: 200, headers: {}, body: '' };
     }
 

@@ -15,6 +15,7 @@ export const createMockTauriPath = (
     homeDir?: string;
     join?: (...paths: string[]) => string | Promise<string>;
     dirname?: (path: string) => string | Promise<string>;
+    basename?: (path: string) => string | Promise<string>;
     isAbsolute?: (path: string) => boolean | Promise<boolean>;
   } = {}
 ) => ({
@@ -34,6 +35,14 @@ export const createMockTauriPath = (
         const parts = path.split('/');
         parts.pop();
         return parts.join('/') || '/';
+      })
+  ),
+  basename: vi.fn().mockImplementation(
+    overrides.basename ??
+      ((path: string) => {
+        const normalized = path.replace(/\\/g, '/');
+        const parts = normalized.split('/');
+        return parts.pop() || '';
       })
   ),
   isAbsolute: vi

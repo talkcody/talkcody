@@ -4,7 +4,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { logger } from '@/lib/logger';
 import { remoteSkillsLoader } from '@/providers/remote-skills/remote-skills-loader';
-import { apiClient } from '@/services/api-client';
 import type { RemoteSkillConfig } from '@/types/remote-skills';
 import type { SkillSortOption } from '@/types/skill';
 
@@ -144,21 +143,8 @@ export function useMarketplaceSkills(): UseMarketplaceSkillsReturn {
   }, [loadSkills]);
 
   // Install skill - track installation with backend
-  const installSkill = useCallback(async (slug: string, version: string): Promise<void> => {
-    try {
-      const response = await apiClient.post(`/api/skills-marketplace/skills/${slug}/install`, {
-        version,
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to track skill installation');
-      }
-    } catch (error) {
-      const errorMessage =
-        error instanceof Error ? error.message : 'Failed to track skill installation';
-      logger.error('Track skill installation error:', error);
-      throw new Error(errorMessage);
-    }
+  const installSkill = useCallback(async (_slug: string, _version: string): Promise<void> => {
+    logger.info('Remote skill install tracking disabled');
   }, []);
 
   return {

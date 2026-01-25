@@ -142,6 +142,7 @@ export class PlanAgent {
     const selectedTools = {
       readFile: getToolSync('readFile'),
       glob: getToolSync('glob'),
+      lsp: getToolSync('lsp'),
       codeSearch: getToolSync('codeSearch'),
       listFiles: getToolSync('listFiles'),
       webSearch: getToolSync('webSearch'),
@@ -155,7 +156,7 @@ export class PlanAgent {
       name: 'Plan',
       description:
         'Professional software planning expert that generates structured plans and obtains user approval',
-      modelType: ModelType.MAIN,
+      modelType: ModelType.PLAN,
       hidden: true,
       isDefault: true,
       version: PlanAgent.VERSION,

@@ -660,9 +660,6 @@ class LspService {
     }
   }
 
-  /**
-   * Get references
-   */
   async references(
     serverId: string,
     filePath: string,
@@ -689,9 +686,6 @@ class LspService {
     }
   }
 
-  /**
-   * Get implementation
-   */
   async implementation(
     serverId: string,
     filePath: string,

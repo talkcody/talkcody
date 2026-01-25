@@ -195,6 +195,20 @@ export interface LocaleDefinition {
       disabledTooltip: string;
       toggleFailed: string;
     };
+    outputFormat: {
+      title: string;
+      description: string;
+      currentFormat: string;
+      switchSuccess: string;
+      markdown: string;
+      mermaid: string;
+      web: string;
+      markdownDescription: string;
+      mermaidDescription: string;
+      webDescription: string;
+      viewSource: string;
+      viewRendered: string;
+    };
     reasoningEffort: {
       title: string;
       description: string;
@@ -423,6 +437,14 @@ export interface LocaleDefinition {
         description: string;
       };
       messageCompaction: {
+        title: string;
+        description: string;
+      };
+      planModel: {
+        title: string;
+        description: string;
+      };
+      codeReviewModel: {
         title: string;
         description: string;
       };
@@ -962,6 +984,15 @@ export interface LocaleDefinition {
     githubTooltip: string;
   };
 
+  PptViewer: {
+    slideOf: (current: number, total: number) => string;
+    previous: string;
+    next: string;
+    exportPdf: string;
+    keyboardShortcuts: string;
+    empty: string;
+  };
+
   Sidebar: {
     files: string;
     tasks: string;
@@ -1170,11 +1201,13 @@ export interface LocaleDefinition {
       compacting: string;
       compressed: (ratio: string) => string;
       compressionFailed: string;
+      contextTooLongCompacting: string;
     };
     errors: {
       noProvider: (model: string, provider: string) => string;
       streamResultNull: string;
       unknownFinishReason: string;
+      contextTooLongCompactionFailed: string;
     };
   };
 
@@ -1449,6 +1482,8 @@ export interface LocaleDefinition {
     changed: string;
     fixed: string;
     removed: string;
+    videoPreview: string;
+    videoCaptionsLabel: string;
     releasedOn: (date: string) => string;
   };
 
@@ -1833,6 +1868,22 @@ export interface LocaleDefinition {
         peak: string;
       };
     };
+    cost: {
+      title: string;
+      description: string;
+      chartLabel: string;
+      summary: {
+        total: string;
+      };
+    };
+    requests: {
+      title: string;
+      description: string;
+      chartLabel: string;
+      summary: {
+        total: string;
+      };
+    };
     models: {
       title: string;
       description: string;
@@ -1844,6 +1895,45 @@ export interface LocaleDefinition {
         avg: string;
         sum: string;
         requests: string;
+      };
+    };
+  };
+
+  DbQuery: {
+    summary: {
+      title: string;
+      totalRecords: string;
+      average: string;
+      minimum: string;
+      maximum: string;
+      sum: string;
+      count: string;
+      noData: string;
+    };
+    table: {
+      title: string;
+      loading: string;
+      noData: string;
+      rowsPerPage: string;
+      pageOf: (current: number, total: number) => string;
+      previousPage: string;
+      nextPage: string;
+      firstPage: string;
+      lastPage: string;
+    };
+    chart: {
+      noData: string;
+      xAxis: string;
+      yAxis: string;
+      valueLabel: string;
+    };
+    grid: {
+      title: string;
+      noData: string;
+      tabs: {
+        summary: string;
+        chart: string;
+        table: string;
       };
     };
   };

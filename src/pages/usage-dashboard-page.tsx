@@ -15,7 +15,7 @@ export function UsageDashboardPage() {
   const { t } = useLocale();
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto h-full overflow-y-auto p-6">
       <div className="space-y-6">
         {/* Header */}
         <div>

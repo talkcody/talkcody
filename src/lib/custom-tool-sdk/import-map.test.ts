@@ -47,6 +47,33 @@ vi.mock('@/services/tools/custom-tool-compiler', () => ({
   resolveCustomToolDefinition: vi.fn(async () => ({ name: 'mock-tool' })),
 }));
 
+vi.mock('@/services/tools/custom-tool-packager', () => ({
+  resolveToolRoot: vi.fn(async (baseDir?: string) => (baseDir ? '/tools/pkg' : undefined)),
+  resolveNodeModuleEntry: vi.fn(async (modulePath: string) => {
+    // Return index.js for the module path
+    if (modulePath.includes('node_modules')) {
+      return `${modulePath}/index.js`;
+    }
+    return '/tools/pkg/node_modules/foo/index.js';
+  }),
+  resolveNodeModuleSubpathEntry: vi.fn(async (modulePath: string, subpath: string) => {
+    console.log('[mock] resolveNodeModuleSubpathEntry called', modulePath, subpath);
+    if (subpath === './promise' && modulePath.includes('mysql2')) {
+      return `${modulePath}/promise.js`;
+    }
+    if (subpath === './connection' && modulePath.includes('mysql2')) {
+      return `${modulePath}/connection.js`;
+    }
+    if (subpath && modulePath.includes('foo')) {
+      return `${modulePath}/${subpath.replace(/^\.\//, '')}.js`;
+    }
+    if (subpath && modulePath.includes('@scope/name')) {
+      return `${modulePath}/${subpath.replace(/^\.\//, '')}.js`;
+    }
+    return null;
+  }),
+}));
+
 describe('custom tool import map', () => {
   const loaderKeys = __getInternalModuleLoaderKeys();
 
@@ -84,5 +111,59 @@ describe('custom tool import map', () => {
 
     const resolved = await resolveCustomToolModule('./helpers', baseDir);
     expect(resolved).toEqual({ name: 'mock-tool' });
+  });
+
+  it('resolves bare imports from tool node_modules', async () => {
+    const baseDir = '/tools/pkg';
+    fsState.existing.add('/tools/pkg/node_modules/foo');
+    fsState.existing.add('/tools/pkg/node_modules/foo/index.js');
+    fsState.files.set('/tools/pkg/node_modules/foo/index.js', 'export default {}');
+
+    const resolved = await resolveCustomToolModule('foo', baseDir);
+    expect(resolved).toEqual({ name: 'mock-tool' });
+  });
+
+  it('provides events builtin for Node-style modules', async () => {
+    const resolved = await resolveCustomToolModule('events');
+    expect(typeof resolved).toBe('function');
+    const moduleRef = resolved as { EventEmitter?: unknown };
+    expect(moduleRef.EventEmitter).toBe(resolved);
+  });
+
+  it('resolves scoped packages with subpaths', async () => {
+    const baseDir = '/tools/pkg';
+    fsState.existing.add('/tools/pkg/node_modules/@scope/name');
+    fsState.existing.add('/tools/pkg/node_modules/@scope/name/subpath.js');
+    fsState.files.set('/tools/pkg/node_modules/@scope/name/subpath.js', 'export default {}');
+
+    const resolved = await resolveCustomToolModule('@scope/name/subpath', baseDir);
+    expect(resolved).toEqual({ name: 'mock-tool' });
+  });
+
+  it('resolves export subpaths from packages', async () => {
+    const baseDir = '/tools/pkg';
+    fsState.existing.add('/tools/pkg/node_modules/mysql2');
+    fsState.existing.add('/tools/pkg/node_modules/mysql2/promise.js');
+    fsState.files.set('/tools/pkg/node_modules/mysql2/promise.js', 'export default {}');
+
+    const resolved = await resolveCustomToolModule('mysql2/promise', baseDir);
+    expect(resolved).toEqual({ name: 'mock-tool' });
+  });
+
+  it('resolves node_modules subpath imports from packaged tool subdirectory', async () => {
+    const baseDir = '/tools/pkg/subdir';
+    fsState.existing.add('/tools/pkg/node_modules/mysql2');
+    fsState.existing.add('/tools/pkg/node_modules/mysql2/connection.js');
+    fsState.files.set('/tools/pkg/node_modules/mysql2/connection.js', 'export default {}');
+
+    const resolved = await resolveCustomToolModule('mysql2/connection', baseDir);
+    expect(resolved).toEqual({ name: 'mock-tool' });
+    
+    // Verify resolveNodeModuleSubpathEntry was called with correct arguments
+    const { resolveNodeModuleSubpathEntry } = await import('@/services/tools/custom-tool-packager');
+    expect(resolveNodeModuleSubpathEntry).toHaveBeenCalledWith(
+      '/tools/pkg/node_modules/mysql2',
+      './connection'
+    );
   });
 });

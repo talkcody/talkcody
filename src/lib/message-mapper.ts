@@ -3,7 +3,24 @@
 
 import type { StoredMessage } from '@/services/database-service';
 import type { UIMessage } from '@/types/agent';
+import type { OutputFormatType } from '@/types/output-format';
 import { logger } from './logger';
+
+function resolveOutputFormat(content: string): OutputFormatType | undefined {
+  const trimmed = content.trim();
+  if (/^```mermaid\b/i.test(trimmed) || /^graph\b|^sequenceDiagram\b|^flowchart\b/i.test(trimmed)) {
+    return 'mermaid';
+  }
+  if (
+    /^```html\b/i.test(trimmed) ||
+    /^<(!doctype\s+html|html\b|head\b|body\b|div\b|section\b|main\b|article\b|header\b|footer\b)/i.test(
+      trimmed
+    )
+  ) {
+    return 'web';
+  }
+  return 'markdown';
+}
 
 /**
  * Map a stored message to a UI message format
@@ -47,6 +64,7 @@ export function mapStoredToUIMessage(msg: StoredMessage): UIMessage {
     isStreaming: false,
     assistantId: msg.assistant_id,
     attachments: msg.attachments,
+    outputFormat: msg.role === 'assistant' ? resolveOutputFormat(msg.content) : undefined,
   };
 }
 
@@ -63,6 +81,7 @@ export function mapStoredToSimpleUIMessage(msg: StoredMessage): UIMessage {
     isStreaming: false,
     assistantId: msg.assistant_id,
     attachments: msg.attachments,
+    outputFormat: msg.role === 'assistant' ? resolveOutputFormat(msg.content) : undefined,
   };
 }
 

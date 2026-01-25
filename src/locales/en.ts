@@ -204,6 +204,20 @@ const en: LocaleDefinition = {
       disabledTooltip: 'Manual review: use the review button when you are ready',
       toggleFailed: 'Failed to update auto code review setting',
     },
+    outputFormat: {
+      title: 'Output Format',
+      description: 'Select how the assistant should format its response.',
+      currentFormat: 'Current format',
+      switchSuccess: 'Output format updated',
+      markdown: 'Markdown',
+      mermaid: 'Mermaid',
+      web: 'Web',
+      markdownDescription: 'Standard markdown rendering with code blocks and tables.',
+      mermaidDescription: 'Render diagrams using Mermaid syntax.',
+      webDescription: 'Render as HTML/web content.',
+      viewSource: 'View Source',
+      viewRendered: 'View Rendered',
+    },
     reasoningEffort: {
       title: 'Reasoning Effort',
       description:
@@ -446,6 +460,14 @@ const en: LocaleDefinition = {
       messageCompaction: {
         title: 'Message Compaction Model',
         description: 'Model for compressing conversation history when context limit is reached',
+      },
+      planModel: {
+        title: 'Plan Model',
+        description: 'Model used by the plan agent to create implementation plans',
+      },
+      codeReviewModel: {
+        title: 'Code Review Model',
+        description: 'Model used by the code review agent to analyze changes',
       },
       resetToDefault: 'Reset to Default',
       updated: (type) => `${type} updated`,
@@ -1008,6 +1030,15 @@ const en: LocaleDefinition = {
     githubTooltip: 'Star TalkCody on GitHub',
   },
 
+  PptViewer: {
+    slideOf: (current, total) => `Slide ${current} of ${total}`,
+    previous: 'Previous',
+    next: 'Next',
+    exportPdf: 'Export PDF',
+    keyboardShortcuts: 'Shortcuts: Left/Right to navigate, Home/End to jump',
+    empty: 'No slides',
+  },
+
   Sidebar: {
     files: 'Files',
     tasks: 'Tasks',
@@ -1221,12 +1252,15 @@ const en: LocaleDefinition = {
       compacting: 'Compacting message history...',
       compressed: (ratio) => `Message history compressed (${ratio}x reduction)`,
       compressionFailed: 'Message compression failed, continuing...',
+      contextTooLongCompacting: 'Context too long, compacting and retrying...',
     },
     errors: {
       noProvider: (model, provider) =>
         `No available provider for model: ${model}. Please configure API keys in settings. Provider: ${provider}`,
       streamResultNull: 'Stream result is unexpectedly null after retry loop',
       unknownFinishReason: 'LLM finished with unknown reason and no tool calls',
+      contextTooLongCompactionFailed:
+        'Automatic compaction failed; please run /compact or reduce context.',
     },
   },
 
@@ -1509,6 +1543,8 @@ const en: LocaleDefinition = {
     changed: 'Changed',
     fixed: 'Fixed',
     removed: 'Removed',
+    videoPreview: 'Video preview',
+    videoCaptionsLabel: 'English captions',
     releasedOn: (date) => `Released on ${date}`,
   },
 
@@ -1959,6 +1995,22 @@ const en: LocaleDefinition = {
         peak: 'Peak',
       },
     },
+    cost: {
+      title: 'Cost by Day',
+      description: 'Daily spend for the selected range',
+      chartLabel: 'Cost',
+      summary: {
+        total: 'Total cost',
+      },
+    },
+    requests: {
+      title: 'Requests by Day',
+      description: 'Daily request volume for the selected range',
+      chartLabel: 'Requests',
+      summary: {
+        total: 'Total requests',
+      },
+    },
     models: {
       title: 'Tokens by Model',
       description: 'Usage breakdown grouped by model',
@@ -1970,6 +2022,45 @@ const en: LocaleDefinition = {
         avg: 'Avg (tok)',
         sum: 'Sum (tok)',
         requests: 'Requests',
+      },
+    },
+  },
+
+  DbQuery: {
+    summary: {
+      title: 'Summary',
+      totalRecords: 'Total records',
+      average: 'Average',
+      minimum: 'Minimum',
+      maximum: 'Maximum',
+      sum: 'Sum',
+      count: 'Count',
+      noData: 'No summary data',
+    },
+    table: {
+      title: 'Results',
+      loading: 'Loading results...',
+      noData: 'No results',
+      rowsPerPage: 'Rows per page',
+      pageOf: (current, total) => `Page ${current} of ${total}`,
+      previousPage: 'Previous page',
+      nextPage: 'Next page',
+      firstPage: 'First page',
+      lastPage: 'Last page',
+    },
+    chart: {
+      noData: 'No chart data',
+      xAxis: 'X Axis',
+      yAxis: 'Y Axis',
+      valueLabel: 'Value',
+    },
+    grid: {
+      title: 'Query Results',
+      noData: 'No query results',
+      tabs: {
+        summary: 'Summary',
+        chart: 'Chart',
+        table: 'Table',
       },
     },
   },

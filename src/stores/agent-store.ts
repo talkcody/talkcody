@@ -8,6 +8,7 @@ interface AgentState {
   isLoading: boolean;
   error: string | null;
   isInitialized: boolean;
+  refreshToken: number;
 }
 
 interface AgentStore extends AgentState {
@@ -31,6 +32,7 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
   isLoading: false,
   error: null,
   isInitialized: false,
+  refreshToken: 0,
 
   /**
    * Get a single agent by ID from store
@@ -68,11 +70,12 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       const agentList = agentRegistry.list();
       const agentsMap = new Map(agentList.map((agent) => [agent.id, agent]));
 
-      set({
+      set((state) => ({
         agents: agentsMap,
         isLoading: false,
         isInitialized: true,
-      });
+        refreshToken: state.refreshToken + 1,
+      }));
 
       logger.info(`Loaded ${agentList.length} agents successfully into store`);
     } catch (error) {
@@ -179,10 +182,11 @@ export const useAgentStore = create<AgentStore>((set, get) => ({
       const agentList = agentRegistry.list();
       const agentsMap = new Map(agentList.map((agent) => [agent.id, agent]));
 
-      set({
+      set((state) => ({
         agents: agentsMap,
         isLoading: false,
-      });
+        refreshToken: state.refreshToken + 1,
+      }));
 
       logger.info(`Refreshed ${agentList.length} agents successfully`);
     } catch (error) {

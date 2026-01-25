@@ -15,7 +15,6 @@
 
 import { logger } from '@/lib/logger';
 import { createLLMService, type LLMService } from '@/services/agents/llm-service';
-import { autoCodeReviewService } from '@/services/auto-code-review-service';
 import { messageService } from '@/services/message-service';
 import { notificationService } from '@/services/notification-service';
 import { taskService } from '@/services/task-service';
@@ -165,10 +164,6 @@ class ExecutionService {
               'TalkCody agent has finished processing',
               'agent_complete'
             );
-
-            autoCodeReviewService.run(taskId).catch((error) => {
-              logger.error('[ExecutionService] Auto code review failed', { taskId, error });
-            });
 
             // Call external callback
             callbacks?.onComplete?.({ success: true, fullText });

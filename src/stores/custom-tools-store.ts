@@ -7,6 +7,7 @@ import { loadCustomTools } from '@/services/tools/custom-tool-loader';
 import { refreshCustomTools } from '@/services/tools/custom-tool-refresh';
 import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import type { CustomToolDefinition } from '@/types/custom-tool';
+import type { CustomToolPackageInfo } from '@/types/custom-tool-package';
 import { useSettingsStore } from './settings-store';
 
 export interface CustomToolStateItem {
@@ -16,6 +17,7 @@ export interface CustomToolStateItem {
   source?: CustomToolSource;
   error?: string;
   tool?: CustomToolDefinition;
+  packageInfo?: CustomToolPackageInfo;
 }
 
 interface CustomToolsState {
@@ -37,6 +39,7 @@ function mapLoadResultToStateItem(tool: CustomToolLoadResult): CustomToolStateIt
     source: tool.source,
     error: tool.error,
     tool: tool.tool,
+    packageInfo: tool.packageInfo,
   };
 }
 

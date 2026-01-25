@@ -383,3 +383,49 @@ export function extractAndFormatError(
   const formattedError = formatErrorForLogging(errorDetails);
   return { errorDetails, formattedError };
 }
+
+export function isContextLengthExceededError(error: unknown): boolean {
+  const matchesContextOverflow = (candidate: unknown): boolean => {
+    if (!candidate || typeof candidate !== 'object') return false;
+    const record = candidate as Record<string, unknown>;
+    return (
+      record.type === 'invalid_request_error' &&
+      record.code === 'context_length_exceeded' &&
+      typeof record.message === 'string'
+    );
+  };
+
+  const candidates = [
+    error,
+    (error as { error?: unknown })?.error,
+    (error as { response?: { data?: { error?: unknown } } })?.response?.data?.error,
+    (error as { response?: { error?: unknown } })?.response?.error,
+    (error as { data?: { error?: unknown } })?.data?.error,
+    (error as { cause?: unknown })?.cause,
+  ];
+
+  for (const candidate of candidates) {
+    if (matchesContextOverflow(candidate)) {
+      return true;
+    }
+  }
+
+  if (error instanceof Error && error.message.includes('context_length_exceeded')) {
+    return true;
+  }
+
+  if (typeof error === 'string' && error.includes('context_length_exceeded')) {
+    return true;
+  }
+
+  try {
+    const serialized = JSON.stringify(error);
+    if (serialized?.includes('context_length_exceeded')) {
+      return true;
+    }
+  } catch {
+    // Ignore serialization errors.
+  }
+
+  return false;
+}

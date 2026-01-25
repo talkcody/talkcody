@@ -5,7 +5,7 @@ async function testListApi() {
   try {
     console.log('Testing list agents API...\n');
 
-    const res = await app.request('/api/marketplace/agents?limit=20');
+    const res = await app.request('/api/remote-agents/configs');
 
     if (res.status !== 200) {
       console.log(`❌ API returned status: ${res.status}`);

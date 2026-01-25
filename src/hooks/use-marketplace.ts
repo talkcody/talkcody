@@ -1,6 +1,9 @@
 // Marketplace hook for fetching and managing marketplace data
 
-import type { RemoteAgentConfig } from '@talkcody/shared/types/remote-agents';
+import type {
+  RemoteAgentConfig,
+  RemoteAgentsConfiguration,
+} from '@talkcody/shared/types/remote-agents';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { API_BASE_URL } from '@/lib/config';
@@ -37,89 +40,74 @@ export function useMarketplace(): UseMarketplaceReturn {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const fetchRemoteAgentsConfig = useCallback(async (): Promise<RemoteAgentsConfiguration> => {
+    const response = await simpleFetch(`${API_BASE_URL}/api/remote-agents/configs`);
+
+    if (!response.ok) {
+      throw new Error('Failed to load agents');
+    }
+
+    return (await response.json()) as RemoteAgentsConfiguration;
+  }, []);
+
+  const normalizeRemoteAgent = useCallback(
+    (agent: RemoteAgentsConfiguration['remoteAgents'][number]): RemoteAgentConfig => ({
+      ...agent,
+      modelType: 'main_model',
+      systemPrompt: '',
+    }),
+    []
+  );
+
   const loadAgents = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     try {
-      const response = await simpleFetch(`${API_BASE_URL}/api/remote-agents/configs`);
-
-      if (!response.ok) {
-        throw new Error('Failed to load agents');
-      }
-
-      const data = await response.json();
-      setAgents(data.remoteAgents || []);
+      const data = await fetchRemoteAgentsConfig();
+      setAgents(data.remoteAgents.map(normalizeRemoteAgent));
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');
       logger.error('Load agents error:', err);
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [fetchRemoteAgentsConfig, normalizeRemoteAgent]);
 
   const loadCategories = useCallback(async () => {
     try {
-      const response = await simpleFetch(`${API_BASE_URL}/api/marketplace/categories`);
-
-      if (!response.ok) {
-        throw new Error('Failed to load categories');
-      }
-
-      const data = await response.json();
-      setCategories(data.categories || []);
+      const data = await fetchRemoteAgentsConfig();
+      const uniqueCategories = Array.from(
+        new Set(data.remoteAgents.map((agent) => agent.category).filter(Boolean))
+      ).sort();
+      setCategories(uniqueCategories);
     } catch (err) {
       logger.error('Load categories error:', err);
+      setCategories([]);
     }
-  }, []);
+  }, [fetchRemoteAgentsConfig]);
 
   const loadTags = useCallback(async () => {
-    try {
-      const response = await simpleFetch(`${API_BASE_URL}/api/marketplace/tags`);
-
-      if (!response.ok) {
-        throw new Error('Failed to load tags');
-      }
-
-      const data = await response.json();
-      setTags(data.tags || []);
-    } catch (err) {
-      logger.error('Load tags error:', err);
-    }
+    setTags([]);
   }, []);
 
   const loadFeaturedAgents = useCallback(async () => {
-    try {
-      const response = await simpleFetch(
-        `${API_BASE_URL}/api/marketplace/agents/featured?limit=10`
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to load featured agents');
-      }
-
-      const data = await response.json();
-      setFeaturedAgents(data.agents || []);
-    } catch (err) {
-      logger.error('Load featured agents error:', err);
-    }
+    setFeaturedAgents([]);
   }, []);
 
-  const getAgentBySlug = useCallback(async (slug: string): Promise<RemoteAgentConfig | null> => {
-    try {
-      const response = await simpleFetch(`${API_BASE_URL}/api/remote-agents/${slug}`);
-
-      if (!response.ok) {
-        throw new Error('Failed to load agent');
+  const getAgentBySlug = useCallback(
+    async (slug: string): Promise<RemoteAgentConfig | null> => {
+      try {
+        const data = await fetchRemoteAgentsConfig();
+        const match = data.remoteAgents.find((agent) => agent.id === slug) || null;
+        return match ? normalizeRemoteAgent(match) : null;
+      } catch (err) {
+        logger.error('Get agent error:', err);
+        return null;
       }
-
-      const data = await response.json();
-      return data;
-    } catch (err) {
-      logger.error('Get agent error:', err);
-      return null;
-    }
-  }, []);
+    },
+    [fetchRemoteAgentsConfig, normalizeRemoteAgent]
+  );
 
   const installAgent = useCallback(async (slug: string, _version: string) => {
     try {

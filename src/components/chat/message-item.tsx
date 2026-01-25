@@ -10,8 +10,10 @@ import { logger } from '@/lib/logger';
 import { getToolUIRenderers } from '@/lib/tool-adapter';
 import type { StoredToolCall, StoredToolContent } from '@/types';
 import type { ToolMessageContent, UIMessage } from '@/types/agent';
+import type { OutputFormatType } from '@/types/output-format';
 import { Action, Actions } from '../ai-elements/actions';
 import MyMarkdown from './my-markdown';
+import { WebContentRenderer } from './web-content-renderer';
 
 /**
  * Check if a tool content item is a stored/historical tool-call message
@@ -276,6 +278,25 @@ function MessageItemComponent({
     });
   }, [message, message.content, message.role, message.renderDoingUI]);
 
+  const outputFormat = (message.outputFormat || 'markdown') as OutputFormatType;
+  const assistantContentClass =
+    outputFormat === 'web'
+      ? 'w-full max-w-none'
+      : 'prose prose-neutral dark:prose-invert w-full max-w-none';
+  const assistantText = typeof message.content === 'string' ? message.content : '';
+  const mermaidContent = assistantText.trim().startsWith('```mermaid')
+    ? assistantText
+    : `\n\n\`\`\`mermaid\n${assistantText}\n\`\`\`\n\n`;
+
+  const assistantContent =
+    outputFormat === 'web' ? (
+      <WebContentRenderer content={assistantText} />
+    ) : outputFormat === 'mermaid' ? (
+      <MyMarkdown content={mermaidContent} />
+    ) : (
+      <MyMarkdown content={assistantText} />
+    );
+
   return (
     <div className={'flex w-full min-w-0 gap-1'}>
       <div className={'w-full min-w-0 rounded-lg'}>
@@ -291,9 +312,7 @@ function MessageItemComponent({
             </div>
           )}
           {message.role === 'assistant' && typeof message.content === 'string' && (
-            <div className="prose prose-neutral dark:prose-invert w-full max-w-none">
-              <MyMarkdown content={message.content} />
-            </div>
+            <div className={assistantContentClass}>{assistantContent}</div>
           )}
           {message.role === 'tool' && Array.isArray(message.content) && (
             <div className="w-full min-w-0">{toolMessageNodes}</div>
@@ -347,7 +366,11 @@ export const MessageItem = memo(MessageItemComponent, (prevProps, nextProps) => 
   if (prevMessage.isStreaming || nextMessage.isStreaming) {
     const prevLen = typeof prevMessage.content === 'string' ? prevMessage.content.length : 0;
     const nextLen = typeof nextMessage.content === 'string' ? nextMessage.content.length : 0;
-    return prevLen === nextLen && prevMessage.renderDoingUI === nextMessage.renderDoingUI;
+    return (
+      prevLen === nextLen &&
+      prevMessage.renderDoingUI === nextMessage.renderDoingUI &&
+      prevMessage.outputFormat === nextMessage.outputFormat
+    );
   }
 
   if (prevProps.isLastAssistantInTurn !== nextProps.isLastAssistantInTurn) {
@@ -363,6 +386,10 @@ export const MessageItem = memo(MessageItemComponent, (prevProps, nextProps) => 
   }
 
   if (prevMessage.attachments?.length !== nextMessage.attachments?.length) {
+    return false;
+  }
+
+  if (prevMessage.outputFormat !== nextMessage.outputFormat) {
     return false;
   }
 

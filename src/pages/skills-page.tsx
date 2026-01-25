@@ -75,7 +75,7 @@ function convertRemoteSkillToSkill(remoteSkill: RemoteSkillConfig): Skill {
   };
 }
 
-export function SkillsMarketplacePage() {
+export function SkillsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [sortBy] = useState<SkillSortOption>('name');

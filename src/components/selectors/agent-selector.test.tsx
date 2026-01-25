@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AgentDefinition } from '@/types/agent';
+import { agentService } from '@/services/database/agent-service';
 import { AgentSelector } from './agent-selector';
 
 // Mock dependencies
@@ -10,6 +11,7 @@ const mockAgentStoreState = {
   agents: new Map<string, AgentDefinition>(),
   isLoading: false,
   isInitialized: false,
+  refreshToken: 0,
 };
 
 // Mock agent registry
@@ -73,6 +75,12 @@ vi.mock('@/hooks/use-settings', () => ({
     setAssistantId: mockSetAssistantId,
     loading: false,
   })),
+}));
+
+vi.mock('@/services/database/agent-service', () => ({
+  agentService: {
+    listAgents: vi.fn(),
+  },
 }));
 
 // Mock UI navigation
@@ -230,6 +238,39 @@ describe('AgentSelector Component', () => {
     await waitFor(() => {
       expect(screen.getByText('Test Agent 1')).toBeInTheDocument();
       expect(screen.getByText('Test Agent 2')).toBeInTheDocument();
+    });
+  });
+
+  it('should remove disabled local agents after refresh token update', async () => {
+    mockAgentStoreState.agents = new Map([
+      ['agent-1', { id: 'agent-1', name: 'Test Agent 1' } as AgentDefinition],
+      ['agent-2', { id: 'agent-2', name: 'Test Agent 2' } as AgentDefinition],
+    ]);
+
+    const listAgentsMock = vi.mocked(agentService.listAgents);
+    listAgentsMock.mockResolvedValue([
+      { id: 'agent-1', is_enabled: true },
+      { id: 'agent-2', is_enabled: true },
+    ] as any);
+
+    const { rerender } = render(<AgentSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Agent 1')).toBeInTheDocument();
+      expect(screen.getByText('Test Agent 2')).toBeInTheDocument();
+    });
+
+    listAgentsMock.mockResolvedValue([
+      { id: 'agent-1', is_enabled: true },
+      { id: 'agent-2', is_enabled: false },
+    ] as any);
+
+    mockAgentStoreState.refreshToken += 1;
+    rerender(<AgentSelector />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Test Agent 1')).toBeInTheDocument();
+      expect(screen.queryByText('Test Agent 2')).not.toBeInTheDocument();
     });
   });
 });

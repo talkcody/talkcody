@@ -52,6 +52,9 @@ interface SettingsState {
   model_type_small: string;
   model_type_image_generator: string;
   model_type_transcription: string;
+  model_type_message_compaction: string;
+  model_type_plan: string;
+  model_type_code_review: string;
 
   // API Keys (dynamic based on provider registry)
   apiKeys: ApiKeySettings;
@@ -237,6 +240,9 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
   model_type_small: '',
   model_type_image_generator: '',
   model_type_transcription: '',
+  model_type_message_compaction: '',
+  model_type_plan: '',
+  model_type_code_review: '',
   apiKeys: {} as ApiKeySettings,
   minimax_cookie: '',
   shortcuts: DEFAULT_SHORTCUTS,
@@ -306,6 +312,9 @@ class SettingsDatabase {
       model_type_small: '',
       model_type_image_generator: '',
       model_type_transcription: '',
+      model_type_message_compaction: '',
+      model_type_plan: '',
+      model_type_code_review: '',
       onboarding_completed: 'false',
       ...generateDefaultApiKeySettings(),
       shortcut_globalFileSearch: JSON.stringify(DEFAULT_SHORTCUTS.globalFileSearch),
@@ -440,6 +449,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         'model_type_small',
         'model_type_image_generator',
         'model_type_transcription',
+        'model_type_message_compaction',
+        'model_type_plan',
+        'model_type_code_review',
         'onboarding_completed',
         'minimax_cookie',
         'last_seen_version',
@@ -519,6 +531,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         model_type_small: rawSettings.model_type_small || '',
         model_type_image_generator: rawSettings.model_type_image_generator || '',
         model_type_transcription: rawSettings.model_type_transcription || '',
+        model_type_message_compaction: rawSettings.model_type_message_compaction || '',
+        model_type_plan: rawSettings.model_type_plan || '',
+        model_type_code_review: rawSettings.model_type_code_review || '',
         apiKeys: apiKeys as ApiKeySettings,
         minimax_cookie: rawSettings.minimax_cookie || '',
         shortcuts: shortcuts as ShortcutSettings,
@@ -687,7 +702,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   // Model Type Settings
   setModelType: async (
-    type: 'main' | 'small' | 'image_generator' | 'transcription',
+    type:
+      | 'main'
+      | 'small'
+      | 'image_generator'
+      | 'transcription'
+      | 'message_compaction'
+      | 'plan'
+      | 'code_review',
     value: string
   ) => {
     const key = `model_type_${type}`;

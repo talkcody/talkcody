@@ -10,7 +10,6 @@ export interface FileChange {
 }
 
 interface FileChangesStore {
-  // Map: taskId -> FileChange[]
   changesByTask: Map<string, FileChange[]>;
 
   // Add a file change for a task

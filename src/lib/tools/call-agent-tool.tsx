@@ -239,6 +239,8 @@ export const callAgent = createTool({
               },
               onComplete: (finalText) => {
                 if (idleTimer) clearTimeout(idleTimer);
+                logger.info(`callAgent finalText: ${finalText}`);
+                logger.info(`callAgent fullText: ${fullText}`);
                 fullText = finalText || fullText;
                 logger.info(`callAgent: Agent ${agentId} completed`);
               },

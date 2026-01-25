@@ -12,6 +12,7 @@ const mockGetServerConfig = vi.hoisted(() => vi.fn());
 const mockFindWorkspaceRoot = vi.hoisted(() => vi.fn());
 const mockGetLspLanguageIdForPath = vi.hoisted(() => vi.fn());
 const mockGetConnection = vi.hoisted(() => vi.fn());
+const mockGetConnectionByRoot = vi.hoisted(() => vi.fn());
 const mockInit = vi.hoisted(() => vi.fn());
 const mockStartServer = vi.hoisted(() => vi.fn());
 const mockOpenDocument = vi.hoisted(() => vi.fn());
@@ -57,6 +58,7 @@ vi.mock('@/services/lsp/lsp-servers', () => ({
 vi.mock('@/services/lsp/lsp-connection-manager', () => ({
   lspConnectionManager: {
     getConnection: mockGetConnection,
+    getConnectionByRoot: mockGetConnectionByRoot,
   },
 }));
 
@@ -123,6 +125,7 @@ function setupBaseSuccessMocks() {
   mockGetLspLanguageIdForPath.mockReturnValue('typescript');
   mockStartServer.mockResolvedValue('server-1');
   mockGetConnection.mockReturnValue(null);
+  mockGetConnectionByRoot.mockReturnValue(null);
 }
 
 describe('lspTool', () => {
@@ -172,6 +175,26 @@ describe('lspTool', () => {
 
     expect(result.success).toBe(false);
     expect(result.message).toBe(baseTranslations.positionRequired('goToDefinition'));
+  });
+
+  it('uses repo root workspace for findReferences by default', async () => {
+    mockReferences.mockResolvedValue([{ uri: '/repo/src/other.ts', range: { start: 0, end: 1 } }]);
+    mockFindWorkspaceRoot.mockResolvedValue('/repo/src');
+
+    const result = await lspTool.execute(
+      {
+        operation: 'findReferences',
+        filePath: 'src/index.ts',
+        line: 1,
+        character: 1,
+      },
+      baseContext
+    );
+
+    expect(mockFindWorkspaceRoot).not.toHaveBeenCalled();
+    expect(mockGetConnectionByRoot).toHaveBeenCalledWith('/repo', 'typescript');
+    expect(mockStartServer).toHaveBeenCalledWith('typescript', '/repo');
+    expect(result.success).toBe(true);
   });
 
   it('treats empty results as success', async () => {

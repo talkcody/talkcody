@@ -57,8 +57,18 @@ export async function compileCustomTool(
   };
 }
 
-function convertCommonJsToAsyncRequire(source: string): string {
-  return source.replace(/\brequire\(/g, 'await __require(');
+function extractRequireSpecifiers(source: string): string[] {
+  const matches = new Set<string>();
+  const pattern = /\brequire\((['"])([^'"]+)\1\)/g;
+  let match = pattern.exec(source);
+  while (match) {
+    const specifier = match[2];
+    if (specifier) {
+      matches.add(specifier);
+    }
+    match = pattern.exec(source);
+  }
+  return Array.from(matches);
 }
 
 export async function createCustomToolModuleUrl(
@@ -66,7 +76,7 @@ export async function createCustomToolModuleUrl(
   filename: string,
   baseDir?: string
 ): Promise<string> {
-  const transformed = convertCommonJsToAsyncRequire(compiled.code);
+  const requiredSpecifiers = extractRequireSpecifiers(compiled.code);
 
   const module = `const __moduleCache = new Map();
 const __baseDir = ${baseDir !== undefined ? JSON.stringify(baseDir) : 'undefined'};
@@ -81,12 +91,30 @@ const __require = async (specifier) => {
   __moduleCache.set(specifier, resolved);
   return resolved;
 };
+const __requireSync = (specifier) => {
+  if (__moduleCache.has(specifier)) {
+    return __moduleCache.get(specifier);
+  }
+  throw new Error(\`Custom tool import not found: \${specifier}\`);
+};
+const __preload = async () => {
+  const specifiers = ${JSON.stringify(requiredSpecifiers)};
+  for (const specifier of specifiers) {
+    try {
+      await __require(specifier);
+    } catch {
+      // Ignore preload failures to keep optional requires working.
+    }
+  }
+};
 
 const __load = async () => {
+  await __preload();
   const exports = {};
   const module = { exports };
+  const require = __requireSync;
 
-  ${transformed}
+  ${compiled.code}
 
   return module.exports?.default ?? module.exports;
 };

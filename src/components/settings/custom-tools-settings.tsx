@@ -130,10 +130,22 @@ export function CustomToolsSettings() {
                   className="flex items-center justify-between rounded-md border p-3"
                 >
                   <div>
-                    <div className="font-medium">{tool.name}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="font-medium">{tool.name}</div>
+                      {tool.packageInfo ? (
+                        <span className="rounded bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wide">
+                          package
+                        </span>
+                      ) : null}
+                    </div>
                     <div className="text-xs text-muted-foreground font-mono" title={tool.filePath}>
                       {tool.filePath}
                     </div>
+                    {tool.packageInfo ? (
+                      <div className="text-[10px] text-muted-foreground">
+                        Lockfile: {tool.packageInfo.lockfileType}
+                      </div>
+                    ) : null}
                   </div>
                   <div className="text-xs">
                     {tool.status === 'loaded' ? (

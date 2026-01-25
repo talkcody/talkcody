@@ -49,6 +49,16 @@ const getModelTypeLocale = (
         title: t.Settings.models.messageCompaction.title,
         description: t.Settings.models.messageCompaction.description,
       };
+    case ModelType.PLAN:
+      return {
+        title: t.Settings.models.planModel.title,
+        description: t.Settings.models.planModel.description,
+      };
+    case ModelType.CODE_REVIEW:
+      return {
+        title: t.Settings.models.codeReviewModel.title,
+        description: t.Settings.models.codeReviewModel.description,
+      };
     default:
       return { title: modelType, description: '' };
   }
@@ -66,6 +76,8 @@ export function ModelTypeSettings() {
     [ModelType.IMAGE_GENERATOR]: '',
     [ModelType.TRANSCRIPTION]: '',
     [ModelType.MESSAGE_COMPACTION]: '',
+    [ModelType.PLAN]: '',
+    [ModelType.CODE_REVIEW]: '',
   });
 
   // Store selected provider for each model type
@@ -75,6 +87,8 @@ export function ModelTypeSettings() {
     [ModelType.IMAGE_GENERATOR]: '',
     [ModelType.TRANSCRIPTION]: '',
     [ModelType.MESSAGE_COMPACTION]: '',
+    [ModelType.PLAN]: '',
+    [ModelType.CODE_REVIEW]: '',
   });
 
   const [isLoading, setIsLoading] = useState(false);

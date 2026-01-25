@@ -1,0 +1,162 @@
+---
+title: Hooks 钩子
+description: Hooks 是在关键事件触发时运行的外部脚本，用于拦截、扩展和自动化 TalkCody 行为。
+icon: Plug
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## 什么是 Hooks
+
+Hooks 是 TalkCody 的事件驱动扩展机制。每当发生特定事件（如用户提交问题、工具调用前后、会话开始/结束等），TalkCody 会把标准化的 JSON 输入通过 stdin 交给你配置的命令执行，并读取其 stdout 中的 JSON 对象输出，从而实现：
+
+- 阻止或放行某些操作
+- 修改工具的输入参数
+- 追加系统上下文
+- 记录审计日志、同步外部系统
+
+> 这里的 Hooks 指的是自动化钩子，不是 React Hooks。
+
+## 什么时候使用
+
+- 对工具调用做安全审计或白名单限制（PreToolUse）
+- 记录用户输入、执行日志、通知到外部系统（UserPromptSubmit / PostToolUse / Notification）
+- 在会话开始或结束时写入审计信息（SessionStart / SessionEnd）
+- 在模型准备结束时触发自动流程或阻止停止（Stop）
+
+## 如何使用
+
+### 1. 启用 Hooks
+
+在 **Settings -> Hooks** 打开开关。开关关闭时，不会执行任何 Hook。
+
+### 2. 配置文件位置与合并顺序
+
+Hooks 配置文件为 JSON，支持三种作用域：
+
+- **User 级**：用户目录（或应用数据目录）下的 `~/.talkcody/settings.json`
+- **Project 级**：当前工作区根目录下的 `.talkcody/settings.json`
+
+合并顺序为 **User -> Project**，同一事件下的规则会按顺序追加。
+
+### 3. 编写配置规则
+
+规则结构如下：
+
+- `hooks`：按事件名分组
+- `matcher`：匹配条件（见下文）
+- `hooks[]`：要执行的命令列表（当前仅支持 `type: "command"`）
+- `timeout`：超时时间（秒），默认 60
+
+示例：
+
+```json
+{
+  "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "writeFile|editFile|bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /path/to/validate-tools.js",
+            "timeout": 30
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /path/to/log-prompt.js"
+          }
+        ]
+      }
+    ],
+    "Notification": [
+      {
+        "matcher": "task_complete",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node /path/to/notify.js"
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+### 4. 编写 Hook 脚本
+
+Hook 命令通过 **stdin** 接收 JSON，并通过 **stdout** 输出 JSON 对象：
+
+```js
+const fs = require('fs');
+
+const input = fs.readFileSync(0, 'utf8');
+const payload = JSON.parse(input);
+
+if (payload.hook_event_name === 'PreToolUse' && payload.tool_name === 'bash') {
+  console.log(JSON.stringify({ decision: 'deny', reason: '禁止使用 bash 工具' }));
+} else {
+  console.log(JSON.stringify({ continue: true }));
+}
+```
+
+此外，TalkCody 会设置环境变量 `TALKCODY_PROJECT_DIR`，并在输入中提供 `cwd`。
+
+如果需要阻止流程，可以输出 `decision: "deny"/"block"`，或让脚本以 **退出码 2** 结束。
+
+## 事件与输入
+
+所有事件都有基础字段：
+
+- `session_id`
+- `cwd`
+- `permission_mode`
+- `hook_event_name`
+
+事件列表：
+
+| 事件 | 触发时机 | matcher 含义 | 额外字段 |
+|------|----------|--------------|----------|
+| `UserPromptSubmit` | 用户提交消息 | 无 matcher 值 | `prompt` |
+| `PreToolUse` | 调用工具前 | 匹配 `tool_name` | `tool_name` `tool_input` `tool_use_id` |
+| `PostToolUse` | 调用工具后 | 匹配 `tool_name` | `tool_name` `tool_input` `tool_response` `tool_use_id` |
+| `Notification` | 触发通知 | 匹配 `notification_type` | `message` `notification_type` |
+| `Stop` | 模型准备结束时 | 无 matcher 值 | `stop_hook_active` |
+| `SessionStart` | 会话开始 | 无 matcher 值 | `source` (`startup`/`resume`/`clear`/`compact`) |
+| `SessionEnd` | 会话结束 | 无 matcher 值 | `reason` (`clear`/`logout`/`prompt_input_exit`/`other`) |
+
+当事件没有 matcher 值时，请使用空 matcher 或 `*` 以确保规则可命中。
+
+## 输出与控制
+
+Hook 的 stdout 如果是 JSON 对象且命令 **退出码为 0**，会被解析为以下字段：
+
+- `decision`: `block` / `deny` 时会阻止流程
+- `reason`: 阻止原因
+- `continue`: 是否继续（不同事件的处理略有差异）
+- `stopReason`: 停止原因
+- `systemMessage`: 注入系统消息
+- `additionalContext`: 注入额外上下文（会追加到系统消息）
+- `updatedInput`: 更新工具输入（主要用于 PreToolUse）
+- `hookSpecificOutput.permissionDecision`: `deny` 时会阻止工具执行
+
+如果命令退出码不是 0，则 stdout 会被忽略；**退出码 2** 会直接阻止流程。
+
+## 匹配器与超时
+
+- `matcher` 支持：
+  - 空值或 `*`：总是匹配
+  - 精确字符串匹配
+  - 正则表达式（无效正则会被忽略）
+- 单个 Hook 的默认超时为 60 秒，可用 `timeout` 覆盖。
+
+<Callout type="warn">
+Hooks 会执行本地命令并读写输入输出，请只运行可信脚本，并确保输出严格是 JSON 对象，否则输出会被忽略。
+</Callout>

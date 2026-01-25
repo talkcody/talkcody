@@ -1,5 +1,6 @@
 import { logger } from '@/lib/logger';
 import type { CustomToolDefinition } from '@/types/custom-tool';
+import type { CustomToolPackageInfo } from '@/types/custom-tool-package';
 import type { ToolWithUI } from '@/types/tool';
 import type { CustomToolLoadOptions, CustomToolSource } from './custom-tool-loader';
 import { loadCustomTools } from './custom-tool-loader';
@@ -27,24 +28,37 @@ export async function loadCustomToolsForRegistry(
   const summary = await loadCustomTools(options);
   const definitions = new Map<
     string,
-    { definition: CustomToolDefinition; source: CustomToolSource }
+    {
+      definition: CustomToolDefinition;
+      source: CustomToolSource;
+      packageInfo?: CustomToolPackageInfo;
+    }
   >();
 
   for (const tool of summary.tools) {
     if (tool.status !== 'loaded' || !tool.tool) continue;
     const existing = definitions.get(tool.tool.name);
     if (!existing || isHigherPriority(tool.source, existing.source)) {
-      definitions.set(tool.tool.name, { definition: tool.tool, source: tool.source });
+      definitions.set(tool.tool.name, {
+        definition: tool.tool,
+        source: tool.source,
+        packageInfo: tool.packageInfo,
+      });
     }
   }
 
-  const adapted = adaptCustomTools([...definitions.values()].map((item) => item.definition));
+  const adapted = adaptCustomTools(
+    [...definitions.values()].map((item) => ({
+      definition: item.definition,
+      packageInfo: item.packageInfo,
+    }))
+  );
   const tools = Object.values(adapted);
 
   logger.info('[CustomToolService] Custom tools loaded', {
     definitionCount: definitions.size,
     adaptedToolCount: tools.length,
-    toolNames: tools.map((t) => (t as any).name || 'unknown'),
+    toolNames: tools.map((t) => t.name || 'unknown'),
   });
 
   const errors = summary.tools

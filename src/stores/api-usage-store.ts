@@ -13,35 +13,42 @@ interface ApiUsageState {
   isLoading: boolean;
   error: string | null;
   lastFetchedAt: number | null;
+  autoRefreshEnabled: boolean;
 }
 
 interface ApiUsageActions {
   initialize: () => Promise<void>;
+  fetchUsage: () => Promise<void>;
   refresh: () => Promise<void>;
   setRange: (range: ApiUsageRange) => Promise<void>;
   setTokenView: (view: ApiUsageTokenView) => void;
+  setAutoRefresh: (enabled: boolean) => void;
   clear: () => void;
 }
 
 type ApiUsageStore = ApiUsageState & ApiUsageActions;
 
 const CACHE_DURATION_MS = 60 * 1000;
+const AUTO_REFRESH_INTERVAL_MS = 60 * 1000;
+
+let refreshInterval: ReturnType<typeof setInterval> | null = null;
 
 export const useApiUsageStore = create<ApiUsageStore>((set, get) => ({
-  range: 'today',
+  range: 'week',
   tokenView: 'total',
   data: null,
   isLoading: false,
   error: null,
   lastFetchedAt: null,
+  autoRefreshEnabled: false,
 
   initialize: async () => {
     const { data } = get();
     if (data) return;
-    await get().refresh();
+    await get().fetchUsage();
   },
 
-  refresh: async () => {
+  fetchUsage: async () => {
     const { isLoading, range, lastFetchedAt } = get();
     if (isLoading) return;
 
@@ -61,13 +68,36 @@ export const useApiUsageStore = create<ApiUsageStore>((set, get) => ({
     }
   },
 
+  refresh: async () => {
+    set({ lastFetchedAt: null });
+    await get().fetchUsage();
+  },
+
   setRange: async (range) => {
     set({ range, lastFetchedAt: null });
-    await get().refresh();
+    await get().fetchUsage();
   },
 
   setTokenView: (view) => {
     set({ tokenView: view });
+  },
+
+  setAutoRefresh: (enabled) => {
+    set({ autoRefreshEnabled: enabled });
+
+    if (refreshInterval) {
+      clearInterval(refreshInterval);
+      refreshInterval = null;
+    }
+
+    if (enabled) {
+      refreshInterval = setInterval(() => {
+        const store = get();
+        if (store.autoRefreshEnabled) {
+          store.fetchUsage();
+        }
+      }, AUTO_REFRESH_INTERVAL_MS);
+    }
   },
 
   clear: () => {

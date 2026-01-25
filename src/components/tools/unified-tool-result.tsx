@@ -2,7 +2,6 @@ import { formatToolInputSummary as sharedFormatToolInputSummary } from '@talkcod
 import { Check, ChevronDown, ChevronRight, X } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { logger } from '@/lib/logger';
 import { getToolMetadata } from '@/lib/tools';
 import { getRelativePath } from '@/services/repository-utils';
 import { useFileChangesStore } from '@/stores/file-changes-store';

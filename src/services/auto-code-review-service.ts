@@ -4,9 +4,6 @@ import { logger } from '@/lib/logger';
 import { modelService } from '@/providers/stores/provider-store';
 import { agentRegistry } from '@/services/agents/agent-registry';
 import { createLLMService } from '@/services/agents/llm-service';
-import { hookService } from '@/services/hooks/hook-service';
-import { hookStateService } from '@/services/hooks/hook-state-service';
-import { messageService } from '@/services/message-service';
 import { previewSystemPrompt } from '@/services/prompt/preview';
 import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import { useFileChangesStore } from '@/stores/file-changes-store';
@@ -62,49 +59,35 @@ function buildReviewPrompt(taskId: string): string {
 }
 
 export class AutoCodeReviewService {
-  async run(taskId: string): Promise<void> {
-    if (!taskId) return;
-    if (!isAutoCodeReviewEnabled(taskId)) return;
+  async run(taskId: string): Promise<string | null> {
+    if (!taskId) return null;
+    if (!isAutoCodeReviewEnabled(taskId)) return null;
 
     const changes = useFileChangesStore.getState().getChanges(taskId);
-    if (changes.length === 0) return;
+    if (changes.length === 0) return null;
 
     const latestChange = getLatestChangeTimestamp(taskId);
     const lastReviewed = lastReviewedChangeTimestamp.get(taskId) || 0;
-    if (latestChange <= lastReviewed) return;
+    if (latestChange <= lastReviewed) return null;
 
     if (inFlightTasks.has(taskId)) {
       logger.debug('[AutoCodeReview] Review already running', { taskId });
-      return;
+      return null;
     }
 
     inFlightTasks.add(taskId);
 
     try {
-      const stopSummary = await hookService.runStop(taskId);
-      hookService.applyHookSummary(stopSummary);
-      if (stopSummary.blocked || stopSummary.continue === false) {
-        if (stopSummary.blocked) {
-          hookStateService.setStopHookActive(true);
-        }
-        lastReviewedChangeTimestamp.set(taskId, latestChange);
-        logger.info('[AutoCodeReview] Stop hook blocked auto review', {
-          taskId,
-          reason: stopSummary.blockReason || stopSummary.stopReason,
-        });
-        return;
-      }
-
       const agent = await agentRegistry.getWithResolvedTools('code-review');
       if (!agent) {
         logger.warn('[AutoCodeReview] Code review agent not found', { taskId });
-        return;
+        return null;
       }
 
       const resolvedModel = (agent as typeof agent & { model?: string }).model;
       if (!resolvedModel) {
         logger.warn('[AutoCodeReview] Model not resolved for code review agent', { taskId });
-        return;
+        return null;
       }
 
       if (!modelService.isModelAvailableSync(resolvedModel)) {
@@ -112,7 +95,7 @@ export class AutoCodeReviewService {
           taskId,
           model: resolvedModel,
         });
-        return;
+        return null;
       }
 
       let systemPrompt: string | undefined;
@@ -175,11 +158,13 @@ export class AutoCodeReviewService {
 
       const reviewText = fullText.trim();
       if (reviewText) {
-        await messageService.addUserMessage(taskId, reviewText);
         lastReviewedChangeTimestamp.set(taskId, latestChange);
+        return reviewText;
       }
+      return null;
     } catch (error) {
       logger.error('[AutoCodeReview] Unexpected error', { taskId, error });
+      return null;
     } finally {
       inFlightTasks.delete(taskId);
     }

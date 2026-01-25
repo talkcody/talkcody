@@ -77,10 +77,15 @@ export function ApiUsageTab() {
   const initialize = useApiUsageStore((state) => state.initialize);
   const setRange = useApiUsageStore((state) => state.setRange);
   const setTokenView = useApiUsageStore((state) => state.setTokenView);
+  const setAutoRefresh = useApiUsageStore((state) => state.setAutoRefresh);
 
   useEffect(() => {
     initialize();
-  }, [initialize]);
+    setAutoRefresh(true);
+    return () => {
+      setAutoRefresh(false);
+    };
+  }, [initialize, setAutoRefresh]);
 
   const dailyData = useMemo(() => {
     return (data?.daily ?? []).map((point) => ({
@@ -127,6 +132,50 @@ export function ApiUsageTab() {
       peakLabel: peak.label,
     };
   }, [dailyData]);
+
+  const costDailyData = useMemo(() => {
+    return (data?.daily ?? []).map((point) => ({
+      ...point,
+      value: point.totalCost,
+      label: formatDateLabel(point.date),
+    }));
+  }, [data?.daily]);
+
+  const requestDailyData = useMemo(() => {
+    return (data?.daily ?? []).map((point) => ({
+      ...point,
+      value: point.requestCount,
+      label: formatDateLabel(point.date),
+    }));
+  }, [data?.daily]);
+
+  const costStats = useMemo(() => {
+    if (costDailyData.length === 0) return null;
+    const total = costDailyData.reduce((sum, point) => sum + point.value, 0);
+    const average = total / costDailyData.length;
+    const peak = costDailyData.reduce((max, point) => (point.value > max.value ? point : max));
+
+    return {
+      total,
+      average,
+      peakValue: peak.value,
+      peakLabel: peak.label,
+    };
+  }, [costDailyData]);
+
+  const requestStats = useMemo(() => {
+    if (requestDailyData.length === 0) return null;
+    const total = requestDailyData.reduce((sum, point) => sum + point.value, 0);
+    const average = total / requestDailyData.length;
+    const peak = requestDailyData.reduce((max, point) => (point.value > max.value ? point : max));
+
+    return {
+      total,
+      average,
+      peakValue: peak.value,
+      peakLabel: peak.label,
+    };
+  }, [requestDailyData]);
 
   return (
     <div className="space-y-6">
@@ -256,27 +305,38 @@ export function ApiUsageTab() {
                 </div>
               )}
               <ChartContainer
-                className="h-[300px] p-4"
+                className="h-[300px] rounded-lg border border-blue-200/60 bg-gradient-to-b from-blue-50/60 via-blue-50/10 to-transparent p-4 dark:border-blue-900/50 dark:from-blue-950/40 dark:via-blue-950/10"
                 config={{
                   tokens: {
                     label: t.apiUsage.tokens.chartLabel,
-                    color: 'hsl(var(--chart-1))',
+                    color: 'hsl(210 90% 60%)',
                   },
                 }}
               >
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={dailyData} margin={{ top: 10, right: 12, left: -8, bottom: 12 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="label" tickLine={false} axisLine={false} tickMargin={8} />
+                  <BarChart data={dailyData} margin={{ top: 10, right: 12, left: 16, bottom: 12 }}>
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      className="stroke-blue-200/70 dark:stroke-blue-900/50"
+                    />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      className="text-blue-700/70 dark:text-blue-200/70"
+                    />
                     <YAxis
                       tickLine={false}
                       axisLine={false}
-                      width={48}
+                      width={56}
                       tickMargin={6}
                       tickFormatter={formatCompactNumber}
+                      className="text-blue-700/70 dark:text-blue-200/70"
                     />
                     <Tooltip
-                      cursor={{ fill: 'var(--chart-cursor)' }}
+                      cursor={{ fill: 'rgba(59, 130, 246, 0.12)' }}
                       content={
                         <ChartTooltip
                           labelFormatter={(label) => label}
@@ -290,6 +350,213 @@ export function ApiUsageTab() {
                       fill="var(--color-tokens)"
                       radius={[8, 8, 4, 4]}
                       maxBarSize={36}
+                      className="drop-shadow-[0_8px_18px_rgba(37,99,235,0.35)]"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.apiUsage.cost.title}</CardTitle>
+          <CardDescription>{t.apiUsage.cost.description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {costDailyData.length === 0 ? (
+            <div className="text-sm text-muted-foreground">{t.apiUsage.noData}</div>
+          ) : (
+            <>
+              {costStats && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t.apiUsage.cost.summary.total}
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">{formatCurrency(costStats.total)}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t.apiUsage.tokens.summary.totalSuffix}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t.apiUsage.tokens.summary.average}
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {formatCurrency(costStats.average)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t.apiUsage.tokens.summary.perDay}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t.apiUsage.tokens.summary.peak}
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {formatCurrency(costStats.peakValue)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{costStats.peakLabel}</p>
+                  </div>
+                </div>
+              )}
+              <ChartContainer
+                className="h-[300px] rounded-lg border border-blue-200/60 bg-gradient-to-b from-blue-50/60 via-blue-50/10 to-transparent p-4 dark:border-blue-900/50 dark:from-blue-950/40 dark:via-blue-950/10"
+                config={{
+                  cost: {
+                    label: t.apiUsage.cost.chartLabel,
+                    color: 'hsl(204 90% 58%)',
+                  },
+                }}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={costDailyData}
+                    margin={{ top: 10, right: 12, left: 20, bottom: 12 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      className="stroke-blue-200/70 dark:stroke-blue-900/50"
+                    />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      className="text-blue-700/70 dark:text-blue-200/70"
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      width={72}
+                      tickMargin={6}
+                      tickFormatter={(value) => formatCurrency(Number(value))}
+                      className="text-blue-700/70 dark:text-blue-200/70"
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(59, 130, 246, 0.12)' }}
+                      content={
+                        <ChartTooltip
+                          labelFormatter={(label) => label}
+                          valueFormatter={(value) => formatCurrency(Number(value))}
+                        />
+                      }
+                    />
+                    <Bar
+                      dataKey="value"
+                      name={t.apiUsage.cost.chartLabel}
+                      fill="var(--color-cost)"
+                      radius={[8, 8, 4, 4]}
+                      maxBarSize={36}
+                      className="drop-shadow-[0_8px_18px_rgba(14,165,233,0.35)]"
+                    />
+                  </BarChart>
+                </ResponsiveContainer>
+              </ChartContainer>
+            </>
+          )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>{t.apiUsage.requests.title}</CardTitle>
+          <CardDescription>{t.apiUsage.requests.description}</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {requestDailyData.length === 0 ? (
+            <div className="text-sm text-muted-foreground">{t.apiUsage.noData}</div>
+          ) : (
+            <>
+              {requestStats && (
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t.apiUsage.requests.summary.total}
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {formatCompactNumber(requestStats.total)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t.apiUsage.tokens.summary.totalSuffix}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t.apiUsage.tokens.summary.average}
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {formatCompactNumber(requestStats.average)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {t.apiUsage.tokens.summary.perDay}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border bg-muted/30 p-3">
+                    <p className="text-xs uppercase tracking-wide text-muted-foreground">
+                      {t.apiUsage.tokens.summary.peak}
+                    </p>
+                    <p className="mt-2 text-lg font-semibold">
+                      {formatCompactNumber(requestStats.peakValue)}
+                    </p>
+                    <p className="text-xs text-muted-foreground">{requestStats.peakLabel}</p>
+                  </div>
+                </div>
+              )}
+              <ChartContainer
+                className="h-[300px] rounded-lg border border-blue-200/60 bg-gradient-to-b from-blue-50/60 via-blue-50/10 to-transparent p-4 dark:border-blue-900/50 dark:from-blue-950/40 dark:via-blue-950/10"
+                config={{
+                  requests: {
+                    label: t.apiUsage.requests.chartLabel,
+                    color: 'hsl(220 85% 65%)',
+                  },
+                }}
+              >
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={requestDailyData}
+                    margin={{ top: 10, right: 12, left: 16, bottom: 12 }}
+                  >
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      vertical={false}
+                      className="stroke-blue-200/70 dark:stroke-blue-900/50"
+                    />
+                    <XAxis
+                      dataKey="label"
+                      tickLine={false}
+                      axisLine={false}
+                      tickMargin={8}
+                      className="text-blue-700/70 dark:text-blue-200/70"
+                    />
+                    <YAxis
+                      tickLine={false}
+                      axisLine={false}
+                      width={56}
+                      tickMargin={6}
+                      tickFormatter={(value) => formatCompactNumber(Number(value))}
+                      className="text-blue-700/70 dark:text-blue-200/70"
+                    />
+                    <Tooltip
+                      cursor={{ fill: 'rgba(59, 130, 246, 0.12)' }}
+                      content={
+                        <ChartTooltip
+                          labelFormatter={(label) => label}
+                          valueFormatter={(value) => formatCompactNumber(Number(value))}
+                        />
+                      }
+                    />
+                    <Bar
+                      dataKey="value"
+                      name={t.apiUsage.requests.chartLabel}
+                      fill="var(--color-requests)"
+                      radius={[8, 8, 4, 4]}
+                      maxBarSize={36}
+                      className="drop-shadow-[0_8px_18px_rgba(59,130,246,0.35)]"
                     />
                   </BarChart>
                 </ResponsiveContainer>

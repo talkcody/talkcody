@@ -1,5 +1,6 @@
 import type { ModelMessage } from 'ai';
 import type { ModelType } from './model-types';
+import type { OutputFormatType } from './output-format';
 import type { ToolInput, ToolOutput, ToolWithUI } from './tool';
 
 /**
@@ -23,6 +24,7 @@ export interface UIMessage {
   nestedTools?: UIMessage[]; // For parent tools - stores nested tool messages
   renderDoingUI?: boolean; // For tool-call messages - indicates whether UI should render "doing" state
   taskId?: string; // Task ID for tools that need to identify their execution context (e.g., exitPlanMode)
+  outputFormat?: OutputFormatType; // Selected output format for assistant messages
 }
 
 export interface ToolMessageContent {

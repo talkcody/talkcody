@@ -340,7 +340,7 @@ export class CodeReviewAgent {
       name: 'Code Review',
       description:
         'Multi-source code review specialist for GitHub PRs, local commits, git diffs, and project files',
-      modelType: ModelType.MAIN,
+      modelType: ModelType.CODE_REVIEW,
       hidden: false,
       isDefault: false,
       version: CodeReviewAgent.VERSION,

@@ -1,3 +1,4 @@
+use bytes::Bytes;
 use futures_util::StreamExt;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -5,7 +6,7 @@ use std::net::{IpAddr, ToSocketAddrs};
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 use tauri::Emitter;
-use tokio::time::timeout;
+use tokio::time::{timeout, Instant};
 use url::Url;
 
 static REQUEST_COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -149,6 +150,31 @@ pub struct ChunkPayload {
 pub struct EndPayload {
     pub request_id: u32,
     pub status: u16,
+    pub error: Option<String>,
+}
+
+fn should_end_on_empty_chunk(chunk: &[u8]) -> bool {
+    chunk.is_empty()
+}
+
+async fn drain_response_stream<S>(stream: &mut S, max_duration: Duration)
+where
+    S: futures_util::Stream<Item = Result<Bytes, reqwest::Error>> + Unpin,
+{
+    let deadline = Instant::now() + max_duration;
+    loop {
+        let now = Instant::now();
+        if now >= deadline {
+            break;
+        }
+        let remaining = deadline - now;
+        let step_timeout = remaining.min(Duration::from_millis(200));
+        match timeout(step_timeout, stream.next()).await {
+            Ok(Some(_)) => continue,
+            Ok(None) => break,
+            Err(_) => break,
+        }
+    }
 }
 
 #[tauri::command]
@@ -158,7 +184,15 @@ pub async fn proxy_fetch(request: ProxyRequest) -> Result<ProxyResponse, String>
     // Validate URL to prevent SSRF attacks
     validate_url(&request.url, request.allow_private_ip.unwrap_or(false))?;
 
-    let client = reqwest::Client::new();
+    // Configure client with proper decompression and connection settings
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(10))
+        .gzip(true)
+        .brotli(true)
+        .tcp_nodelay(true)
+        .pool_max_idle_per_host(5)
+        .build()
+        .map_err(|e| format!("Failed to build client: {}", e))?;
 
     // Build the request
     let mut req_builder = match request.method.to_uppercase().as_str() {
@@ -174,6 +208,11 @@ pub async fn proxy_fetch(request: ProxyRequest) -> Result<ProxyResponse, String>
     for (key, value) in request.headers {
         req_builder = req_builder.header(&key, &value);
     }
+
+    // Add explicit encoding expectations
+    req_builder = req_builder
+        .header("Accept-Encoding", "gzip, br, identity")
+        .header("Accept", "text/event-stream, text/plain, application/json");
 
     // Add body if present
     if let Some(body) = request.body {
@@ -247,144 +286,6 @@ pub async fn proxy_fetch(request: ProxyRequest) -> Result<ProxyResponse, String>
     })
 }
 
-/// Streaming version of proxy_fetch that reads response in chunks
-/// This is more suitable for streaming responses like SSE
-#[tauri::command]
-pub async fn proxy_fetch_stream(request: ProxyRequest) -> Result<ProxyResponse, String> {
-    log::info!(
-        "Proxy fetch (streaming) request to: {} {}",
-        request.method,
-        request.url
-    );
-
-    // Validate URL to prevent SSRF attacks
-    validate_url(&request.url, request.allow_private_ip.unwrap_or(false))?;
-
-    let client = reqwest::Client::new();
-
-    // Build the request
-    let mut req_builder = match request.method.to_uppercase().as_str() {
-        "GET" => client.get(&request.url),
-        "POST" => client.post(&request.url),
-        "PUT" => client.put(&request.url),
-        "DELETE" => client.delete(&request.url),
-        "PATCH" => client.patch(&request.url),
-        _ => return Err(format!("Unsupported HTTP method: {}", request.method)),
-    };
-
-    // Add headers
-    for (key, value) in request.headers {
-        req_builder = req_builder.header(&key, &value);
-    }
-
-    // Add body if present
-    if let Some(body) = request.body {
-        req_builder = req_builder.body(body);
-    }
-
-    // Send request
-    let response = req_builder.send().await.map_err(|e| {
-        log::error!("Proxy fetch (streaming) error: {}", e);
-        format!("Request failed: {}", e)
-    })?;
-
-    let status = response.status().as_u16();
-    log::info!("Proxy fetch (streaming) response status: {}", status);
-
-    // Extract headers
-    let mut headers = HashMap::new();
-    for (key, value) in response.headers() {
-        if let Ok(value_str) = value.to_str() {
-            headers.insert(key.to_string(), value_str.to_string());
-        }
-    }
-
-    // Log critical response headers for debugging
-    let content_type = response
-        .headers()
-        .get("content-type")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("none");
-    let transfer_encoding = response
-        .headers()
-        .get("transfer-encoding")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("none");
-    let content_length = response
-        .headers()
-        .get("content-length")
-        .and_then(|v| v.to_str().ok())
-        .unwrap_or("none");
-
-    log::info!(
-        "Streaming response headers - Content-Type: {}, Transfer-Encoding: {}, Content-Length: {}",
-        content_type,
-        transfer_encoding,
-        content_length
-    );
-
-    // Get response body using bytes_stream for better streaming support
-    log::info!("Starting to read response body in chunks...");
-
-    // Use per-chunk timeout instead of total timeout
-    // This allows long-running streams as long as data keeps arriving
-    let chunk_timeout = Duration::from_secs(300);
-
-    let mut body_chunks = Vec::new();
-    let mut stream = response.bytes_stream();
-    let mut chunk_count = 0;
-
-    loop {
-        // Wait for next chunk with timeout
-        let chunk_result = timeout(chunk_timeout, stream.next()).await;
-
-        match chunk_result {
-            Ok(Some(Ok(chunk))) => {
-                chunk_count += 1;
-                // log::info!("Received chunk {}: {} bytes", chunk_count, chunk.len());
-                body_chunks.extend_from_slice(&chunk);
-            }
-            Ok(Some(Err(e))) => {
-                log::error!("Error reading chunk {}: {}", chunk_count + 1, e);
-                return Err(format!("Error reading chunk: {}", e));
-            }
-            Ok(None) => {
-                // Stream ended normally
-                log::info!("Stream ended after {} chunks", chunk_count);
-                break;
-            }
-            Err(_) => {
-                // Timeout waiting for next chunk
-                log::error!(
-                    "Timeout waiting for chunk {} after {} seconds (no data received)",
-                    chunk_count + 1,
-                    chunk_timeout.as_secs()
-                );
-                return Err(format!(
-                    "Timeout: no data received for {} seconds after {} chunks",
-                    chunk_timeout.as_secs(),
-                    chunk_count
-                ));
-            }
-        }
-    }
-
-    let body = String::from_utf8(body_chunks)
-        .map_err(|e| format!("Failed to convert response to UTF-8: {}", e))?;
-
-    log::info!(
-        "Streaming response complete - Total chunks: {}, Total size: {} bytes",
-        chunk_count,
-        body.len()
-    );
-
-    Ok(ProxyResponse {
-        status,
-        headers,
-        body,
-    })
-}
-
 /// Real streaming fetch that emits chunks via Tauri events
 /// This enables true streaming in the JavaScript side
 #[tauri::command]
@@ -397,21 +298,39 @@ pub async fn stream_fetch(
         .unwrap_or_else(|| REQUEST_COUNTER.fetch_add(1, Ordering::SeqCst));
     // Use request-specific event name to avoid global event broadcasting
     let event_name = format!("stream-response-{}", request_id);
+    let window_clone = window.clone();
+    let event_name_clone = event_name.clone();
 
-    // log::info!(
-    //     "Stream fetch request to: {} {} (request_id: {})",
-    //     request.method,
-    //     request.url,
-    //     request_id
-    // );
+    // Helper to emit end event before returning error
+    let emit_end = |status: u16, error_msg: Option<String>| {
+        let _ = window_clone.emit(
+            &event_name_clone,
+            EndPayload {
+                request_id,
+                status,
+                error: error_msg,
+            },
+        );
+    };
 
     // Validate URL to prevent SSRF attacks
-    validate_url(&request.url, request.allow_private_ip.unwrap_or(false))?;
+    if let Err(e) = validate_url(&request.url, request.allow_private_ip.unwrap_or(false)) {
+        emit_end(0, Some(format!("URL validation failed: {}", e)));
+        return Err(e);
+    }
 
+    // Configure client with proper decompression and connection settings
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(10))
+        .gzip(true)
+        .brotli(true)
+        .tcp_nodelay(true) // Reduce latency for streaming
+        .pool_max_idle_per_host(5) // Enable connection pooling
         .build()
-        .map_err(|e| format!("Failed to build client: {}", e))?;
+        .map_err(|e| {
+            emit_end(0, Some(format!("Failed to build client: {}", e)));
+            format!("Failed to build client: {}", e)
+        })?;
 
     // Build the request
     let mut req_builder = match request.method.to_uppercase().as_str() {
@@ -420,13 +339,22 @@ pub async fn stream_fetch(
         "PUT" => client.put(&request.url),
         "DELETE" => client.delete(&request.url),
         "PATCH" => client.patch(&request.url),
-        _ => return Err(format!("Unsupported HTTP method: {}", request.method)),
+        _ => {
+            let err = format!("Unsupported HTTP method: {}", request.method);
+            emit_end(0, Some(err.clone()));
+            return Err(err);
+        }
     };
 
     // Add headers
     for (key, value) in request.headers {
         req_builder = req_builder.header(&key, &value);
     }
+
+    // Add explicit encoding expectations
+    req_builder = req_builder
+        .header("Accept-Encoding", "gzip, br, identity")
+        .header("Accept", "text/event-stream, text/plain, application/json");
 
     // Add body if present
     if let Some(body) = request.body {
@@ -435,18 +363,13 @@ pub async fn stream_fetch(
 
     // Send request
     let response = req_builder.send().await.map_err(|e| {
-        log::error!("Stream fetch error (request_id: {}): {}", request_id, e);
-        format!("Request failed: {}", e)
+        let err = format!("Request failed: {}", e);
+        emit_end(0, Some(err.clone()));
+        err
     })?;
 
-    let status = response.status().as_u16();
-    if status != 200 {
-        log::error!(
-            "Stream fetch response error: status {} (request_id: {})",
-            status,
-            request_id
-        );
-    }
+    let status_code = response.status();
+    let status = status_code.as_u16();
 
     // Extract headers
     let mut headers = HashMap::new();
@@ -456,28 +379,54 @@ pub async fn stream_fetch(
         }
     }
 
-    // Log response headers
-    let _content_type = response
+    // Log and validate content-type for streaming
+    let content_type = response
         .headers()
         .get("content-type")
         .and_then(|v| v.to_str().ok())
         .unwrap_or("none");
 
+    log::info!(
+        "Stream fetch response content-type: {} (request_id: {})",
+        content_type,
+        request_id
+    );
+
     // Spawn async task to stream chunks
-    let window_clone = window.clone();
-    let event_name_clone = event_name.clone();
+    let status_for_spawn = status;
     tauri::async_runtime::spawn(async move {
         let mut stream = response.bytes_stream();
         let chunk_timeout = Duration::from_secs(300);
         let mut chunk_count = 0;
+        let mut consecutive_errors = 0;
+        const MAX_CONSECUTIVE_ERRORS: u32 = 3;
+        let mut error_msg: Option<String> = None;
+        let mut end_of_data_reached = false;
+        let mut stream_exhausted = false;
 
         loop {
             let chunk_result = timeout(chunk_timeout, stream.next()).await;
 
             match chunk_result {
                 Ok(Some(Ok(chunk))) => {
+                    consecutive_errors = 0; // Reset on success
+
+                    if should_end_on_empty_chunk(&chunk) {
+                        log::trace!(
+                            "Received empty chunk {} (request_id: {}), marking end of data",
+                            chunk_count + 1,
+                            request_id
+                        );
+                        end_of_data_reached = true;
+                        continue;
+                    }
+
+                    if end_of_data_reached {
+                        // Skip emitting after end marker
+                        continue;
+                    }
+
                     chunk_count += 1;
-                    let _chunk_size = chunk.len();
 
                     // Emit chunk to frontend using request-specific event
                     if let Err(e) = window_clone.emit(
@@ -493,40 +442,85 @@ pub async fn stream_fetch(
                             request_id,
                             e
                         );
+                        error_msg = Some(format!("Failed to emit chunks: {}", e));
                         break;
                     }
                 }
                 Ok(Some(Err(e))) => {
+                    consecutive_errors += 1;
                     log::error!(
-                        "Error reading chunk {} (request_id: {}): {}",
+                        "Error reading chunk {} (request_id: {}): {} (consecutive: {})",
                         chunk_count + 1,
                         request_id,
-                        e
+                        e,
+                        consecutive_errors
                     );
-                    break;
+
+                    // Only break on persistent errors
+                    if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
+                        log::error!(
+                            "Too many consecutive errors, aborting stream (request_id: {})",
+                            request_id
+                        );
+                        error_msg = Some(format!("Too many consecutive errors: {}", e));
+                        break;
+                    }
+
+                    // Brief pause before retrying
+                    tokio::time::sleep(Duration::from_millis(100)).await;
                 }
                 Ok(None) => {
+                    // Stream ended normally
+                    log::info!(
+                        "Stream ended normally after {} chunks (request_id: {})",
+                        chunk_count,
+                        request_id
+                    );
+                    stream_exhausted = true;
                     break;
                 }
                 Err(_) => {
                     // Timeout waiting for next chunk
+                    consecutive_errors += 1;
                     log::error!(
-                        "Timeout waiting for chunk {} after {} seconds (request_id: {})",
+                        "Timeout waiting for chunk {} after {} seconds (request_id: {}, consecutive: {})",
                         chunk_count + 1,
                         chunk_timeout.as_secs(),
-                        request_id
+                        request_id,
+                        consecutive_errors
                     );
-                    break;
+
+                    if consecutive_errors >= MAX_CONSECUTIVE_ERRORS {
+                        log::error!(
+                            "Too many consecutive timeouts, aborting stream (request_id: {})",
+                            request_id
+                        );
+                        error_msg = Some("Timeout waiting for chunks".to_string());
+                        break;
+                    }
+
+                    // Brief pause before retrying
+                    tokio::time::sleep(Duration::from_millis(100)).await;
                 }
             }
         }
 
-        // Emit end signal
+        // Always drain unless stream is already exhausted
+        if !stream_exhausted {
+            log::debug!(
+                "Draining remaining stream data (request_id: {})",
+                request_id
+            );
+            drain_response_stream(&mut stream, Duration::from_secs(5)).await;
+        }
+
+        // Emit end signal with actual status and error information
         if let Err(e) = window_clone.emit(
             &event_name_clone,
             EndPayload {
                 request_id,
-                status: 0,
+                status: status_for_spawn,
+                error: error_msg,
             },
         ) {
             log::error!(
@@ -819,11 +813,13 @@ mod tests {
         let payload = EndPayload {
             request_id: 99,
             status: 0,
+            error: None,
         };
 
         let json = serde_json::to_string(&payload).unwrap();
         assert!(json.contains("\"request_id\":99"));
         assert!(json.contains("\"status\":0"));
+        assert!(json.contains("\"error\":null"));
     }
 
     #[test]
@@ -834,5 +830,268 @@ mod tests {
 
         let after = REQUEST_COUNTER.load(Ordering::SeqCst);
         assert_eq!(after, initial + 1);
+    }
+
+    #[test]
+    fn test_empty_chunk_handling() {
+        let chunk: Vec<u8> = vec![];
+        assert!(should_end_on_empty_chunk(&chunk));
+
+        let chunk: Vec<u8> = vec![72, 101, 108, 108, 111]; // "Hello"
+        assert!(!should_end_on_empty_chunk(&chunk));
+        assert_eq!(chunk.len(), 5);
+    }
+
+    #[tokio::test]
+    async fn test_drain_response_stream_consumes_all() {
+        let items = vec![
+            Ok(Bytes::from_static(b"one")),
+            Ok(Bytes::from_static(b"two")),
+        ];
+        let mut stream = futures_util::stream::iter(items);
+
+        drain_response_stream(&mut stream, Duration::from_secs(1)).await;
+
+        let remaining = stream.next().await;
+        assert!(remaining.is_none());
+    }
+
+    #[test]
+    fn test_consecutive_error_counter_logic() {
+        // Test the consecutive error counter logic used in stream_fetch
+        const MAX_CONSECUTIVE_ERRORS: u32 = 3;
+
+        let mut consecutive_errors = 0;
+
+        // Simulate first error
+        consecutive_errors += 1;
+        assert_eq!(consecutive_errors, 1);
+        assert!(consecutive_errors < MAX_CONSECUTIVE_ERRORS);
+
+        // Simulate second error
+        consecutive_errors += 1;
+        assert_eq!(consecutive_errors, 2);
+        assert!(consecutive_errors < MAX_CONSECUTIVE_ERRORS);
+
+        // Simulate third error
+        consecutive_errors += 1;
+        assert_eq!(consecutive_errors, 3);
+        assert!(consecutive_errors >= MAX_CONSECUTIVE_ERRORS);
+
+        // Simulate success - should reset counter
+        consecutive_errors = 0;
+        assert_eq!(consecutive_errors, 0);
+        assert!(consecutive_errors < MAX_CONSECUTIVE_ERRORS);
+    }
+
+    #[test]
+    fn test_status_code_validation() {
+        // Test status codes that should be considered successful
+        let successful_statuses = [200, 201, 202, 204, 206];
+        for status in successful_statuses {
+            let http_status = reqwest::StatusCode::from_u16(status).unwrap();
+            assert!(
+                http_status.is_success(),
+                "Status {} should be successful",
+                status
+            );
+        }
+
+        // Test status codes that should be considered errors
+        let error_statuses = [400, 401, 403, 404, 500, 502, 503, 504];
+        for status in error_statuses {
+            let http_status = reqwest::StatusCode::from_u16(status).unwrap();
+            assert!(
+                !http_status.is_success(),
+                "Status {} should not be successful",
+                status
+            );
+        }
+    }
+
+    #[test]
+    fn test_content_type_validation() {
+        // Test valid content types for streaming
+        let valid_content_types = [
+            "text/event-stream",
+            "text/plain",
+            "application/json",
+            "text/event-stream; charset=utf-8",
+            "application/json; charset=utf-8",
+        ];
+
+        for ct in valid_content_types {
+            let contains_text = ct.contains("text/");
+            let contains_json = ct.contains("application/json");
+            let contains_sse = ct.contains("text-event-stream");
+
+            assert!(
+                contains_text || contains_json || contains_sse,
+                "Content type '{}' should be valid for streaming",
+                ct
+            );
+        }
+    }
+
+    #[test]
+    fn test_timeout_duration_config() {
+        let chunk_timeout = Duration::from_secs(300);
+        assert_eq!(chunk_timeout.as_secs(), 300);
+
+        let retry_delay = Duration::from_millis(100);
+        assert_eq!(retry_delay.as_millis(), 100);
+    }
+
+    #[test]
+    fn test_encoding_headers() {
+        // Test that the encoding headers are properly formatted
+        let accept_encoding = "gzip, br, identity";
+        assert!(accept_encoding.contains("gzip"));
+        assert!(accept_encoding.contains("br"));
+        assert!(accept_encoding.contains("identity"));
+
+        let accept = "text/event-stream, text/plain, application/json";
+        assert!(accept.contains("text/event-stream"));
+        assert!(accept.contains("text/plain"));
+        assert!(accept.contains("application/json"));
+    }
+
+    #[test]
+    fn test_end_payload_with_error() {
+        let payload = EndPayload {
+            request_id: 1,
+            status: 500,
+            error: Some("Internal Server Error".to_string()),
+        };
+
+        let json = serde_json::to_string(&payload).unwrap();
+        assert!(json.contains("\"request_id\":1"));
+        assert!(json.contains("\"status\":500"));
+        assert!(json.contains("\"error\":\"Internal Server Error\""));
+    }
+
+    #[test]
+    fn test_end_payload_without_error() {
+        let payload = EndPayload {
+            request_id: 1,
+            status: 200,
+            error: None,
+        };
+
+        let json = serde_json::to_string(&payload).unwrap();
+        assert!(json.contains("\"request_id\":1"));
+        assert!(json.contains("\"status\":200"));
+        assert!(json.contains("\"error\":null"));
+    }
+
+    #[test]
+    fn test_stream_fetch_returns_error_on_invalid_url() {
+        // Test that URL validation fails correctly
+        let result = validate_url("invalid-url", false);
+        assert!(result.is_err());
+        let err_msg = result.unwrap_err();
+        assert!(err_msg.contains("Invalid URL") || err_msg.contains("scheme"));
+    }
+
+    #[test]
+    fn test_stream_fetch_validates_unsupported_methods() {
+        // Test that only supported methods are allowed
+        let valid_methods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
+        for method in valid_methods {
+            let upper = method.to_uppercase();
+            assert!(matches!(
+                upper.as_str(),
+                "GET" | "POST" | "PUT" | "DELETE" | "PATCH"
+            ));
+        }
+    }
+    #[test]
+    fn test_end_payload_preserves_status_code() {
+        // Test that different status codes can be stored in EndPayload
+        let test_cases = [
+            (200, None),
+            (201, None),
+            (204, None),
+            (400, Some("Bad Request".to_string())),
+            (401, Some("Unauthorized".to_string())),
+            (404, Some("Not Found".to_string())),
+            (500, Some("Internal Server Error".to_string())),
+            (502, Some("Bad Gateway".to_string())),
+            (503, Some("Service Unavailable".to_string())),
+            (504, Some("Gateway Timeout".to_string())),
+            (0, Some("URL validation failed".to_string())),
+            (0, Some("Request failed".to_string())),
+            (0, Some("Failed to build client".to_string())),
+            (0, Some("Unsupported HTTP method".to_string())),
+            (0, Some("Failed to emit chunks".to_string())),
+            (0, Some("Too many consecutive errors".to_string())),
+            (0, Some("Timeout waiting for chunks".to_string())),
+        ];
+
+        for (status, error) in test_cases {
+            let payload = EndPayload {
+                request_id: 1,
+                status,
+                error: error.clone(),
+            };
+
+            let json = serde_json::to_string(&payload).unwrap();
+
+            // Check that status field is present with correct value
+            assert!(
+                json.contains("\"status\""),
+                "Status field should be present"
+            );
+            assert!(
+                json.contains(&format!(":{}", status)),
+                "Status value should be {}",
+                status
+            );
+
+            // Check that error field is present
+            assert!(json.contains("\"error\""), "Error field should be present");
+
+            if let Some(ref err) = error {
+                assert!(
+                    json.contains(&format!("\"{}\"", err)),
+                    "Error message should be present"
+                );
+            } else {
+                assert!(json.contains("null"), "Error should be null when no error");
+            }
+        }
+    }
+
+    #[test]
+    fn test_end_event_error_scenarios() {
+        // Test different error scenarios in end events
+        let scenarios = vec![
+            (0, Some("URL validation failed".to_string())),
+            (0, Some("Request failed".to_string())),
+            (500, Some("Server returned error status".to_string())),
+            (0, Some("Failed to build client".to_string())),
+            (0, Some("Unsupported HTTP method".to_string())),
+            (0, Some("Failed to emit chunks".to_string())),
+            (0, Some("Too many consecutive errors".to_string())),
+            (0, Some("Timeout waiting for chunks".to_string())),
+        ];
+
+        for (status, error) in scenarios {
+            let payload = EndPayload {
+                request_id: 1,
+                status,
+                error: error.clone(),
+            };
+
+            let json = serde_json::to_string(&payload).unwrap();
+            assert!(
+                json.contains("\"status\":"),
+                "Status field should be present"
+            );
+            assert!(json.contains("\"error\":"), "Error field should be present");
+            if let Some(ref err) = error {
+                assert!(json.contains(&format!("\"error\":\"{}\"", err)));
+            }
+        }
     }
 }

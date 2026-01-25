@@ -40,7 +40,6 @@ describe('test_custom_tool', () => {
       name: 'my_custom_tool',
       description: 'Test tool',
       inputSchema: z.object({ message: z.string() }),
-      args: z.object({ message: z.string() }),
       execute: executeMock,
       renderToolDoing: renderDoingMock,
       renderToolResult: renderResultMock,
@@ -82,7 +81,6 @@ describe('test_custom_tool', () => {
       name: 'my_custom_tool',
       description: 'Test tool',
       inputSchema: z.object({ message: z.string() }),
-      args: z.object({ message: z.string() }),
       execute: vi.fn(async () => {
         throw new Error('boom');
       }),
@@ -108,7 +106,6 @@ describe('test_custom_tool', () => {
       name: 'my_custom_tool',
       description: 'Test tool',
       inputSchema: z.object({ message: z.string() }),
-      args: z.object({ message: z.string() }),
       execute: vi.fn(async () => ({ ok: true })),
       renderToolDoing: vi.fn(() => <div>doing</div>),
       renderToolResult: vi.fn(() => ({ bad: true } as unknown as React.ReactElement)),

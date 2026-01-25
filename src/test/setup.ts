@@ -150,13 +150,13 @@ vi.mock('@/stores/todo-store', () => ({
 // ============================================
 
 // Mock ResizeObserver
-(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = vi
-  .fn()
-  .mockImplementation(() => ({
-    observe: vi.fn(),
-    unobserve: vi.fn(),
-    disconnect: vi.fn(),
-  }));
+class ResizeObserverMock {
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+}
+
+(globalThis as unknown as { ResizeObserver?: unknown }).ResizeObserver = ResizeObserverMock;
 
 // jsdom may not provide a clear() implementation; ensure a working localStorage polyfill exists.
 if (!globalThis.localStorage || typeof globalThis.localStorage.clear !== 'function') {

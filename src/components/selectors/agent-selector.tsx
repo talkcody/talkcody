@@ -21,13 +21,14 @@ export function AgentSelector({ disabled = false }: AgentSelectorProps) {
   // Subscribe to agent store to trigger re-renders when agents are loaded
   const agentsMap = useAgentStore((state) => state.agents);
   const isLoadingAgents = useAgentStore((state) => state.isLoading);
+  const refreshToken = useAgentStore((state) => state.refreshToken);
 
   // Track enabled state for database agents
   const [dbAgentEnabledMap, setDbAgentEnabledMap] = useState<Map<string, boolean>>(new Map());
 
   // Load enabled state for database agents
   useEffect(() => {
-    const loadEnabledState = async () => {
+    const loadEnabledState = async (refreshKey: number) => {
       try {
         const dbAgents = await agentService.listAgents({ includeHidden: false });
         const enabledMap = new Map<string, boolean>();
@@ -39,8 +40,8 @@ export function AgentSelector({ disabled = false }: AgentSelectorProps) {
         logger.error('Failed to load agent enabled state:', error);
       }
     };
-    loadEnabledState();
-  }, []);
+    loadEnabledState(refreshToken);
+  }, [refreshToken]);
 
   const agents = useMemo(() => {
     const allAgents = Array.from(agentsMap.values());

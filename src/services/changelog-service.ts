@@ -1,12 +1,20 @@
 // Changelog data service for What's New dialog
 
+export type ChangelogItem =
+  | string
+  | {
+      title: string;
+      description?: string;
+      videoUrl?: string;
+    };
+
 export interface ChangelogContent {
-  added?: string[];
-  changed?: string[];
-  fixed?: string[];
-  removed?: string[];
-  security?: string[];
-  deprecated?: string[];
+  added?: ChangelogItem[];
+  changed?: ChangelogItem[];
+  fixed?: ChangelogItem[];
+  removed?: ChangelogItem[];
+  security?: ChangelogItem[];
+  deprecated?: ChangelogItem[];
 }
 
 export interface ChangelogEntry {
@@ -24,27 +32,83 @@ export const CHANGELOG_DATA: ChangelogEntry[] = [
     date: '2026-01-19',
     en: {
       added: [
-        'Google Login Support',
-        'New create-agent command: One-click creation of custom AI agents',
-        'New create-skill command: One-click creation of skills',
-        'New create-tool command: One-click creation of custom tools',
-        'New compact command: Manually compact conversations early',
-        'Mac Keep Awake Support: Prevent system sleep',
-        'Auto-Approve Plan Setting Support',
-        'Reasoning-Effort Setting Support',
+        {
+          title: 'Google Login Support',
+          description: 'Sign in faster with Google accounts across devices.',
+          videoUrl: 'https://talkcody.com/assets/videos/whats-new/google-login.mp4',
+        },
+        {
+          title: 'New create-agent command',
+          description: 'One-click creation of custom AI agents.',
+          videoUrl: 'https://talkcody.com/assets/videos/whats-new/create-agent.mp4',
+        },
+        {
+          title: 'New create-skill command',
+          description: 'One-click creation of skills for your agents.',
+          videoUrl: 'https://talkcody.com/assets/videos/whats-new/create-skill.mp4',
+        },
+        {
+          title: 'New create-tool command',
+          description: 'One-click creation of custom tools.',
+          videoUrl: 'https://talkcody.com/assets/videos/whats-new/create-tool.mp4',
+        },
+        {
+          title: 'New compact command',
+          description: 'Manually compact conversations early.',
+        },
+        {
+          title: 'Mac Keep Awake Support',
+          description: 'Prevent system sleep while tasks run.',
+        },
+        {
+          title: 'Auto-Approve Plan Setting Support',
+          description: 'Ship faster with auto-approved plans.',
+        },
+        {
+          title: 'Reasoning-Effort Setting Support',
+          description: 'Tune performance with reasoning-effort.',
+        },
         '[Commands Documentation](https://talkcody.com/docs/commands)',
       ],
     },
     zh: {
       added: [
-        '支持 Google 登录',
-        '新增 create-agent command，一键创建自定义 AI 智能体',
-        '新增 create-skill command，一键创建 skill',
-        '新增 create-tool command，一键创建自定义工具',
-        '新增 compact command，可以手动提前压缩对话',
-        '支持 Mac Keep Awake 功能，防止系统休眠',
-        '支持 自动批准 plan 设置',
-        '支持 reasoning-effort 设置',
+        {
+          title: '支持 Google 登录',
+          description: '跨设备使用 Google 账户快速登录。',
+          videoUrl: 'https://talkcody.com/assets/videos/whats-new/google-login.mp4',
+        },
+        {
+          title: '新增 create-agent command',
+          description: '一键创建自定义 AI 智能体。',
+          videoUrl: 'https://talkcody.com/assets/videos/whats-new/create-agent.mp4',
+        },
+        {
+          title: '新增 create-skill command',
+          description: '一键创建 skill。',
+          videoUrl: 'https://talkcody.com/assets/videos/whats-new/create-skill.mp4',
+        },
+        {
+          title: '新增 create-tool command',
+          description: '一键创建自定义工具。',
+          videoUrl: 'https://talkcody.com/assets/videos/whats-new/create-tool.mp4',
+        },
+        {
+          title: '新增 compact command',
+          description: '支持手动提前压缩对话。',
+        },
+        {
+          title: '支持 Mac Keep Awake 功能',
+          description: '防止系统休眠。',
+        },
+        {
+          title: '支持自动批准 plan 设置',
+          description: '启用后可自动批准计划。',
+        },
+        {
+          title: '支持 reasoning-effort 设置',
+          description: '可调节推理强度。',
+        },
         '[commands 文档](https://talkcody.com/docs/commands)',
       ],
     },
