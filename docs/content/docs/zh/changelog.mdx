@@ -8,6 +8,30 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 TalkCody 的所有重要更新都记录在这里。
 
+## [0.3.1] - 2026-01-25
+
+### 新增
+
+- **Hooks 系统**：新增事件驱动的 Hooks 机制，支持在关键事件（用户提交、工具调用前后、会话开始/结束、停止等）触发自定义脚本，实现操作拦截、参数修改、审计日志等功能
+- **自动代码审查**：支持自动代码审查（Auto Code Review），在文件变更后自动运行 Code Review Agent 进行代码审查
+- **LSP 工具**：新增完整的 LSP（Language Server Protocol）工具，支持跳转定义、查找引用、悬停提示、文档符号、工作区符号、跳转实现、调用层级分析等操作
+- **API 使用量仪表板**：新增 API 使用量可视化页面，展示 Token 使用量、成本、请求数的图表统计，支持按今日/本周/本月筛选
+- **自定义 Plan 和 Code Review 模型**：支持在设置中为 Plan Agent 和 Code Review Agent 分别配置专用模型
+- **Plan 内容直接展示**：在 call-agent-tool-result 中直接展示 Plan 文件内容，无需手动打开文件
+- **Custom Tool 支持 package.json**：Custom Tool 现在支持使用 package.json 定义依赖，自动安装 npm/bun 依赖包，支持任意第三方库
+- 支持自定义 Plan Agent 和 Code Review Agent 的 Model
+
+### 修复
+
+- 修复 AI Pricing Service 和 LSP Tool 的相关 Bug
+- 修复 API Usage Tab 刷新问题
+- 修复 OpenAI 兼容类型的路径处理（自动追加 /v1）
+
+### 致谢
+
+- 感谢 @qingzhongli 修复 OpenAI 兼容类型的路径处理
+- 感谢 @MiaMia-Li 完善 《TalkCody 免费使用指南》文档
+
 ## [0.3.0] - 2026-01-19
 
 ### 新增

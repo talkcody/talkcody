@@ -28,6 +28,102 @@ export interface ChangelogEntry {
 // Only include the most recent versions that users care about
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '0.3.1',
+    date: '2026-01-25',
+    en: {
+      added: [
+        {
+          title: 'Hooks System',
+          description:
+            'New event-driven Hooks mechanism that supports triggering custom scripts at key events, enabling operation interception, parameter modification, audit logs, and more.',
+          videoUrl: 'https://cdn.talkcody.com/images/talkcody-stop-hook.mp4',
+        },
+        {
+          title: 'Auto Code Review',
+          description:
+            'Support for automatic code review (Auto Code Review), which automatically runs the Code Review Agent after file changes.',
+          videoUrl: 'https://cdn.talkcody.com/images/TalkCody-code-review.mp4',
+        },
+        {
+          title: 'API Usage Dashboard',
+          description:
+            'New API usage visualization page, displaying chart statistics for Token usage, costs, and request counts, with filtering by today/this week/this month.',
+          videoUrl: 'https://cdn.talkcody.com/images/talkcody-api-usage.mp4',
+        },
+        {
+          title: 'LSP Tools',
+          description:
+            'New complete LSP tools, supporting go-to-definition, find references, hover hints, document symbols, workspace symbols, go-to-implementation, call hierarchy analysis, and other operations.',
+        },
+        {
+          title: 'Custom Plan and Code Review Models',
+          description:
+            'Support for configuring dedicated models for Plan Agent and Code Review Agent in settings.',
+        },
+        {
+          title: 'Direct Plan Content Display',
+          description:
+            'Display Plan file content directly in call-agent-tool-result without manually opening the file.',
+        },
+        {
+          title: 'Custom Tool package.json Support',
+          description:
+            'Custom Tools now support using package.json to define dependencies, automatically installing npm/bun packages, supporting any third-party libraries.',
+        },
+      ],
+      fixed: [
+        'Fixed bugs related to AI Pricing Service and LSP Tool',
+        'Fixed API Usage Tab refresh issue',
+        'Fixed OpenAI compatible type path handling (automatically appends /v1)',
+      ],
+    },
+    zh: {
+      added: [
+        {
+          title: 'Hooks 系统',
+          description:
+            '新增事件驱动的 Hooks 机制，支持在关键事件（用户提交、工具调用前后、会话开始/结束、停止等）触发自定义脚本，实现操作拦截、参数修改、审计日志等功能。',
+          videoUrl: 'https://cdn.talkcody.com/images/talkcody-stop-hook.mp4',
+        },
+        {
+          title: '自动代码审查',
+          description:
+            '支持自动代码审查（Auto Code Review），在文件变更后自动运行 Code Review Agent 进行代码审查。',
+          videoUrl: 'https://cdn.talkcody.com/images/TalkCody-code-review.mp4',
+        },
+        {
+          title: 'API 使用量仪表板',
+          description:
+            '新增 API 使用量可视化页面，展示 Token 使用量、成本、请求数的图表统计，支持按今日/本周/本月筛选。',
+          videoUrl: 'https://cdn.talkcody.com/images/talkcody-api-usage.mp4',
+        },
+        {
+          title: 'LSP 工具',
+          description:
+            '新增完整的 LSP（Language Server Protocol）工具，支持跳转定义、查找引用、悬停提示、文档符号、工作区符号、跳转实现、调用层级分析等操作。',
+        },
+        {
+          title: '自定义 Plan 和 Code Review 模型',
+          description: '支持在设置中为 Plan Agent 和 Code Review Agent 分别配置专用模型。',
+        },
+        {
+          title: 'Plan 内容直接展示',
+          description: '在 call-agent-tool-result 中直接展示 Plan 文件内容，无需手动打开文件。',
+        },
+        {
+          title: 'Custom Tool 支持 package.json',
+          description:
+            'Custom Tool 现在支持使用 package.json 定义依赖，自动安装 npm/bun 依赖包，支持任意第三方库。',
+        },
+      ],
+      fixed: [
+        '修复 AI Pricing Service 和 LSP Tool 的相关 Bug',
+        '修复 API Usage Tab 刷新问题',
+        '修复 OpenAI 兼容类型的路径处理（自动追加 /v1）',
+      ],
+    },
+  },
+  {
     version: '0.3.0',
     date: '2026-01-19',
     en: {

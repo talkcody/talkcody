@@ -146,12 +146,14 @@ const renderVideoPreview = (
   captionsLabel: string,
   captionsLang: string
 ) => (
-  <div className="space-y-2">
-    <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">{label}</div>
-    <div className="overflow-hidden rounded-xl border bg-black/90 shadow-sm">
+  <div className="w-full space-y-2">
+    <div className="w-full overflow-hidden rounded-xl border bg-black/90 shadow-sm">
       <video
         className="aspect-video w-full object-cover"
+        autoPlay
+        muted
         controls
+        loop
         playsInline
         preload="metadata"
         src={videoUrl}
@@ -179,9 +181,7 @@ const renderFeatureCards = (
         key={`${item.title}-${item.videoUrl ?? 'text'}-${index}`}
         className="rounded-2xl border border-border/70 bg-gradient-to-br from-background via-background to-muted/40 p-4 shadow-sm sm:p-5"
       >
-        <div
-          className={item.videoUrl ? 'grid gap-4 sm:grid-cols-[minmax(0,1fr)_260px]' : 'space-y-2'}
-        >
+        <div className={item.videoUrl ? 'flex flex-col gap-4' : 'space-y-2'}>
           <div className="space-y-2">
             <h5 className="text-base font-semibold text-foreground">
               {renderItemText(item.title)}
@@ -322,7 +322,7 @@ export function WhatsNewDialog({ forceOpen, onForceOpenChange }: WhatsNewDialogP
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto bg-gradient-to-br from-background via-background to-muted/30">
+      <DialogContent className="max-w-fit min-w-4/5 max-h-[80vh] overflow-y-auto bg-gradient-to-br from-background via-background to-muted/30">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Sparkles className="h-5 w-5 text-yellow-500" />

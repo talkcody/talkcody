@@ -8,6 +8,30 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 All notable changes to TalkCody are documented here.
 
+## [0.3.1] - 2026-01-25
+
+### Added
+
+- **Hooks System**: New event-driven Hooks mechanism that supports triggering custom scripts at key events (user submission, before/after tool calls, session start/end, stop, etc.), enabling operation interception, parameter modification, audit logs, and other functionalities
+- **Auto Code Review**: Support for automatic code review (Auto Code Review), which automatically runs the Code Review Agent after file changes
+- **LSP Tools**: New complete LSP (Language Server Protocol) tools, supporting go-to-definition, find references, hover hints, document symbols, workspace symbols, go-to-implementation, call hierarchy analysis, and other operations
+- **API Usage Dashboard**: New API usage visualization page, displaying chart statistics for Token usage, costs, and request counts, with filtering by today/this week/this month
+- **Custom Plan and Code Review Models**: Support for configuring dedicated models for Plan Agent and Code Review Agent in settings
+- **Direct Plan Content Display**: Display Plan file content directly in call-agent-tool-result without manually opening the file
+- **Custom Tool package.json Support**: Custom Tools now support using package.json to define dependencies, automatically installing npm/bun packages, supporting any third-party libraries
+- Support for customizing Plan Agent and Code Review Agent Models
+
+### Fixed
+
+- Fixed bugs related to AI Pricing Service and LSP Tool
+- Fixed API Usage Tab refresh issue
+- Fixed OpenAI compatible type path handling (automatically appends /v1)
+
+### Acknowledgments
+
+- Thanks to @qingzhongli for fixing OpenAI compatible type path handling
+- Thanks to @MiaMia-Li for completing the "TalkCody Free Usage Guide" documentation
+
 ## [0.3.0] - 2026-01-19
 
 ### Added

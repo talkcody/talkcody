@@ -207,7 +207,8 @@ Provide a file path and a 1-based line/character position as shown in editors.`,
 
       if (selectedConnection) {
         serverId = selectedConnection.serverId;
-        if (!lspService.incrementRefCount(serverId)) {
+        const incremented = lspService.incrementRefCount?.(serverId);
+        if (incremented === false) {
           // Server was cleaned up between selection and increment
           serverId = null;
         }
@@ -229,7 +230,7 @@ Provide a file path and a 1-based line/character position as shown in editors.`,
         }
         const content = await repositoryService.readFileWithCache(resolvedPath);
         await lspService.openDocument(serverId, resolvedPath, lspLanguageId, content);
-        lspConnectionManager.register(resolvedPath, serverId, language, workspaceRoot);
+        lspConnectionManager.register?.(resolvedPath, serverId, language, workspaceRoot);
         didOpenDocument = true;
       }
 
@@ -317,7 +318,7 @@ Provide a file path and a 1-based line/character position as shown in editors.`,
       try {
         if (serverId && didOpenDocument && resolvedPath) {
           await lspService.closeDocument(serverId, resolvedPath);
-          lspConnectionManager.unregister(resolvedPath);
+          lspConnectionManager.unregister?.(resolvedPath);
         }
       } catch (error) {
         logger.warn('[LSP Tool] Failed to close document:', error);
