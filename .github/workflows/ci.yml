@@ -12,12 +12,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+        uses: actions/checkout@v4
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@8f24390df009a496891208e5e36b8a1de1f45135
+        uses: oven-sh/setup-bun@v1
         with:
-          bun-version: 1.1.21
+          bun-version: latest
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -30,12 +30,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
-        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+        uses: actions/checkout@v4
 
       - name: Setup Bun
-        uses: oven-sh/setup-bun@8f24390df009a496891208e5e36b8a1de1f45135
+        uses: oven-sh/setup-bun@v1
         with:
-          bun-version: 1.1.21
+          bun-version: latest
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -79,6 +79,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
 
       - name: Cache cargo registry
         uses: actions/cache@v4
@@ -104,6 +106,8 @@ jobs:
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
+        with:
+          toolchain: stable
 
       - name: Install system dependencies
         run: |
@@ -142,8 +146,6 @@ jobs:
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
         with:
           toolchain: stable
-          profile: minimal
-          override: true
 
       - name: Install system dependencies
         run: |
