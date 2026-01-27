@@ -1178,7 +1178,9 @@ mod tests {
         }
     }
 
+    /// This test uses Tauri test infrastructure that may not work on Windows CI
     #[test]
+    #[cfg(not(target_os = "windows"))]
     fn test_emit_to_window_uses_webview_window_target() {
         let app = tauri::test::mock_app();
         let target_window = tauri::WebviewWindowBuilder::new(
@@ -1228,7 +1230,9 @@ mod tests {
         ));
     }
 
+    /// This test uses Tauri test infrastructure that may not work on Windows CI
     #[tokio::test]
+    #[cfg(not(target_os = "windows"))]
     async fn test_stream_fetch_emits_end_event_on_invalid_url() {
         let app = tauri::test::mock_app();
         let target_window = tauri::WebviewWindowBuilder::new(
