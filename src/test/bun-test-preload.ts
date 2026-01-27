@@ -3,10 +3,38 @@
  * This enables tests that require DOM (window, document) to run with bun test.
  */
 
-import { mock } from 'bun:test';
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  vi as bunVi,
+  describe,
+  expect,
+  it,
+  mock,
+} from 'bun:test';
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 
 GlobalRegistrator.register();
+
+// Provide a minimal Vitest-compatible API for Bun test runs.
+const bunCompatVi = {
+  ...bunVi,
+  mock: (id: string, factory: () => unknown) => mock.module(id, factory),
+};
+
+mock.module('vitest', () => ({
+  describe,
+  it,
+  test: it,
+  expect,
+  beforeAll,
+  beforeEach,
+  afterAll,
+  afterEach,
+  vi: bunCompatVi,
+}));
 
 // ============================================
 // Tauri API Mocks for Bun environment

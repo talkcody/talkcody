@@ -81,7 +81,7 @@ jobs:
         uses: dtolnay/rust-toolchain@f7ccc83f9ed1e5b9c81d8a67d7ad1a747e22a561
 
       - name: Cache cargo registry
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -111,7 +111,7 @@ jobs:
           sudo apt-get install -y libglib2.0-dev pkg-config
 
       - name: Cache cargo registry
-        uses: actions/cache@0c45773b623bea8c8e75f6c82b208c3cf94ea4f9
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry

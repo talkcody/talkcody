@@ -10,11 +10,11 @@ const translations = {
     documentation: "Documentation",
     blog: "Blog",
     github: "GitHub",
-    resources: "Resources",
+    legal: "Legal",
     community: "Community",
     quickStart: "Quick Start",
     downloads: "Downloads",
-    api: "API Reference",
+    changelog: "Changelog",
     examples: "Examples",
     viewOnGitHub: "View on GitHub",
     starOnGitHub: "Star on GitHub",
@@ -23,6 +23,10 @@ const translations = {
     features: "Features",
     privacy: "Privacy",
     security: "Security",
+    terms: "Terms",
+    githubLabel: "GitHub",
+    xLabel: "X",
+    openSource: "Open Source",
     allRightsReserved: "All rights reserved.",
     builtWith: "Built with",
     and: "and",
@@ -32,11 +36,11 @@ const translations = {
     documentation: "文档",
     blog: "博客",
     github: "GitHub",
-    resources: "资源",
+    legal: "法律",
     community: "社区",
     quickStart: "快速开始",
     downloads: "下载",
-    api: "API 参考",
+    changelog: "更新日志",
     examples: "示例",
     viewOnGitHub: "在 GitHub 上查看",
     starOnGitHub: "在 GitHub 上 Star",
@@ -45,6 +49,10 @@ const translations = {
     features: "功能",
     privacy: "隐私",
     security: "安全",
+    terms: "条款",
+    githubLabel: "GitHub",
+    xLabel: "X",
+    openSource: "开源",
     allRightsReserved: "保留所有权利。",
     builtWith: "使用",
     and: "和",
@@ -52,7 +60,8 @@ const translations = {
 };
 
 export function Footer({ lang }: { lang: string }) {
-  const t = translations[lang as keyof typeof translations] || translations.en;
+  const locale = (lang in translations ? lang : "en") as keyof typeof translations;
+  const t = translations[locale];
 
   return (
     <footer className="mt-auto border-t bg-muted/30">
@@ -97,7 +106,7 @@ export function Footer({ lang }: { lang: string }) {
               <ul className="space-y-2.5 text-sm">
                 <li>
                   <Link
-                    href={`/${lang}/docs`}
+                    href={`/${locale}/docs`}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   >
                     {t.quickStart}
@@ -105,7 +114,7 @@ export function Footer({ lang }: { lang: string }) {
                 </li>
                 <li>
                   <Link
-                    href={`/${lang}/docs/introduction/client-downloads`}
+                    href={`/${locale}/docs/introduction/client-downloads`}
                     className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                   >
                     {/* <Download className="h-3 w-3" /> */}
@@ -114,47 +123,38 @@ export function Footer({ lang }: { lang: string }) {
                 </li>
                 <li>
                   <Link
-                    href={`/${lang}/docs`}
+                    href={`/${locale}/docs/changelog`}
                     className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                   >
                     {/* <Code className="h-3 w-3" /> */}
-                    {t.api}
+                    {t.changelog}
                   </Link>
                 </li>
               </ul>
             </div>
 
-            {/* Resources */}
+            {/* Legal */}
             <div className="space-y-3">
               <h4 className="text-sm font-semibold flex items-center gap-2">
                 {/* <FileText className="h-4 w-4" /> */}
-                {t.resources}
+                {t.legal}
               </h4>
               <ul className="space-y-2.5 text-sm">
                 <li>
                   <Link
-                    href={`/${lang}/blog`}
+                    href={`/${locale}/privacy`}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    {t.blog}
+                    {t.privacy}
                   </Link>
                 </li>
                 <li>
                   <Link
-                    href={`/${lang}/docs`}
-                    className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
-                  >
-                    {/* <Zap className="h-3 w-3" /> */}
-                    {t.features}
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    href={`/${lang}/docs`}
+                    href={`/${locale}/terms`}
                     className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                   >
                     {/* <Shield className="h-3 w-3" /> */}
-                    {t.security}
+                    {t.terms}
                   </Link>
                 </li>
               </ul>
@@ -172,7 +172,7 @@ export function Footer({ lang }: { lang: string }) {
                     rel="noopener noreferrer"
                     className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                   >
-                    GitHub
+                    {t.githubLabel}
                   </a>
                 </li>
                 <li>
@@ -182,12 +182,12 @@ export function Footer({ lang }: { lang: string }) {
                     rel="noopener noreferrer"
                     className="text-muted-foreground hover:text-foreground transition-colors"
                   >
-                    X
+                    {t.xLabel}
                   </a>
                 </li>
                 <li>
                   <Link
-                    href={`/${lang}/docs`}
+                    href={`/${locale}/docs`}
                     className="text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1.5"
                   >
                     {t.support}
@@ -211,7 +211,7 @@ export function Footer({ lang }: { lang: string }) {
               rel="noopener noreferrer"
               className="hover:text-foreground transition-colors"
             >
-              Open Source
+              {t.openSource}
             </a>
           </div>
         </div>
