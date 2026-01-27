@@ -57,7 +57,7 @@ jobs:
           bun-version: 1.1.21
 
       - name: Cache Bun
-        uses: actions/cache@b0c6a92ce4b122f5cc2f8e91ac44bb4f1c69f350
+        uses: actions/cache@v4
         with:
           path: |
             ~/.bun
@@ -72,15 +72,6 @@ jobs:
       - name: Run tests
         run: bun run test
 
-      - name: Upload coverage
-        if: ${{ always() && secrets.CODECOV_TOKEN != '' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.fork == false) }}
-        uses: codecov/codecov-action@79066c46f8dcdf8d7355f820dbac958c5b4cb9d3
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: ./coverage/coverage-final.json
-          flags: unittests
-          name: codecov-umbrella
-
   test-rust-windows:
     name: Rust Tests (Windows)
     runs-on: windows-latest
@@ -94,7 +85,7 @@ jobs:
           toolchain: stable
 
       - name: Cache cargo registry
-        uses: actions/cache@b0c6a92ce4b122f5cc2f8e91ac44bb4f1c69f350
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
@@ -126,7 +117,7 @@ jobs:
           sudo apt-get install -y libgtk-3-dev libglib2.0-dev pkg-config
 
       - name: Cache cargo registry
-        uses: actions/cache@b0c6a92ce4b122f5cc2f8e91ac44bb4f1c69f350
+        uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
