@@ -1,5 +1,6 @@
 import {
   Bot,
+  Cloud,
   Code,
   FileCode,
   GitBranch,
@@ -23,6 +24,7 @@ import { LintSettings } from '@/components/settings/lint-settings';
 import { LspSettings } from '@/components/settings/lsp-settings';
 import { ModelTypeSettings } from '@/components/settings/model-type-settings';
 import { TerminalSettings } from '@/components/settings/terminal-settings';
+import { WebdavSettings } from '@/components/settings/webdav-settings';
 import { WorktreeSettings } from '@/components/settings/worktree-settings';
 import { ShortcutSettingsPanel } from '@/components/shortcuts/shortcut-settings';
 import { Separator } from '@/components/ui/separator';
@@ -128,6 +130,13 @@ export function SettingsPage() {
               <Zap className="size-4" />
               {t.Settings.tabs.hooks}
             </TabsTrigger>
+            <TabsTrigger
+              value="webdav"
+              className="w-full justify-start gap-2 rounded-md px-3 py-2"
+            >
+              <Cloud className="size-4" />
+              WebDAV
+            </TabsTrigger>
 
             <Separator className="my-2" />
 
@@ -175,6 +184,10 @@ export function SettingsPage() {
 
             <TabsContent value="hooks" className="mt-0 flex-none space-y-6">
               <HooksSettings />
+            </TabsContent>
+
+            <TabsContent value="webdav" className="mt-0 flex-none space-y-6">
+              <WebdavSettings />
             </TabsContent>
 
             <TabsContent value="shortcuts" className="mt-0 flex-none space-y-6">

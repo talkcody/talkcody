@@ -206,3 +206,18 @@ export type {
   QuestionAnswer,
   QuestionOption,
 } from './user-question';
+// Sync types
+export type {
+  ChunkData,
+  ChunkDiff,
+  ChunkMetadata,
+  ConflictResolution,
+  SyncConfig,
+  SyncDirection,
+  SyncEvent,
+  SyncProgress,
+  SyncResult,
+  SyncState,
+  WebDAVConfig,
+} from './sync';
+export { SyncStatus, SyncEventType } from './sync';
