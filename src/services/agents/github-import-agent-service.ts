@@ -231,7 +231,7 @@ function extractMarkdownPathsFromJson(html: string, basePath: string): string[] 
         if (
           !normalizedBase ||
           filePath === normalizedBase ||
-          filePath.startsWith(normalizedBase + '/')
+          filePath.startsWith(`${normalizedBase}/`)
         ) {
           paths.push(filePath);
         }

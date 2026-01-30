@@ -262,6 +262,7 @@ export interface LocaleDefinition {
       language: string;
       customTools: string;
       hooks: string;
+      webdav: string;
     };
     hooksScopeHint: string;
     account: {
@@ -668,6 +669,59 @@ export interface LocaleDefinition {
       enabledToast: string;
       disabledToast: string;
       blockedPrompt: string;
+    };
+    webdav: {
+      title: string;
+      description: string;
+      status: {
+        title: string;
+        configured: string;
+        status: string;
+        lastSync: string;
+        syncing: string;
+      };
+      serverUrl: string;
+      serverUrlPlaceholder: string;
+      serverUrlHint: string;
+      username: string;
+      usernamePlaceholder: string;
+      usernameHint: string;
+      password: string;
+      passwordPlaceholder: string;
+      passwordHint: string;
+      syncPath: string;
+      syncPathPlaceholder: string;
+      syncPathHint: string;
+      autoSync: string;
+      autoSyncDescription: string;
+      syncInterval: string;
+      syncIntervalUnit: string;
+      testConnection: string;
+      testing: string;
+      saveConfig: string;
+      saving: string;
+      clearConfig: string;
+      syncNow: string;
+      help: {
+        title: string;
+        jianguoyun: string;
+        nextcloud: string;
+        network: string;
+        firstTime: string;
+      };
+      messages: {
+        testSuccess: string;
+        testSuccessPathNotExists: string;
+        testFailed: (error: string) => string;
+        saveSuccess: string;
+        saveFailed: (error: string) => string;
+        clearSuccess: string;
+        clearFailed: (error: string) => string;
+        syncSuccess: string;
+        syncFailed: (error: string) => string;
+        connectFailed: (error: string) => string;
+        createPathFailed: (error: string) => string;
+      };
     };
   };
 

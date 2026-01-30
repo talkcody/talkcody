@@ -140,7 +140,10 @@ function upsertTasks(existing: Task[], incoming: Task[]): Task[] {
   const indexById = new Map<string, number>();
 
   for (let i = 0; i < existing.length; i += 1) {
-    indexById.set(existing[i]!.id, i);
+    const task = existing[i];
+    if (task?.id) {
+      indexById.set(task.id, i);
+    }
   }
 
   for (const task of incoming) {

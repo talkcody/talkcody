@@ -156,7 +156,7 @@ export class GitHubImporter {
       }
       if (response.status === 403) {
         const resetTime = response.headers.get('X-RateLimit-Reset');
-        const resetDate = resetTime ? new Date(Number.parseInt(resetTime) * 1000) : null;
+        const resetDate = resetTime ? new Date(Number.parseInt(resetTime, 10) * 1000) : null;
         const rateLimitError = new Error(
           `GitHub API rate limit exceeded. ${resetDate ? `Resets at ${resetDate.toLocaleString()}` : 'Please try again later.'}`
         );
@@ -268,7 +268,7 @@ export class GitHubImporter {
     // Create temporary directory for cloning
     const agentSkillService = await getAgentSkillService();
     const skillsDir = await agentSkillService.getSkillsDirPath();
-    const tempClonePath = await join(skillsDir, '.temp-clone-' + Date.now());
+    const tempClonePath = await join(skillsDir, `.temp-clone-${Date.now()}`);
 
     try {
       // Create temp directory
