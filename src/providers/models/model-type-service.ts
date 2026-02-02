@@ -5,11 +5,7 @@
 import { logger } from '@/lib/logger';
 import { modelService } from '@/providers/stores/provider-store';
 import { settingsManager } from '@/stores/settings-store';
-import {
-  DEFAULT_MODELS_BY_TYPE,
-  MODEL_TYPE_SETTINGS_KEYS,
-  type ModelType,
-} from '@/types/model-types';
+import { DEFAULT_MODELS_BY_TYPE, MODEL_TYPE_SETTINGS_KEYS, ModelType } from '@/types/model-types';
 
 export class ModelTypeService {
   /**
@@ -92,6 +88,13 @@ export class ModelTypeService {
   async clearModelForType(modelType: ModelType): Promise<void> {
     const settingsKey = MODEL_TYPE_SETTINGS_KEYS[modelType];
     await settingsManager.set(settingsKey, '');
+  }
+
+  /**
+   * Get the default model type
+   */
+  getDefaultModelType(): ModelType {
+    return ModelType.MAIN;
   }
 }
 

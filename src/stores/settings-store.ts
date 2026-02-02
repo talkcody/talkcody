@@ -63,6 +63,9 @@ interface SettingsState {
   // MiniMax Cookie (for manual session cookie configuration)
   minimax_cookie: string;
 
+  // Kimi Cookie (for manual token configuration)
+  kimi_cookie: string;
+
   // Shortcuts
   shortcuts: ShortcutSettings;
 
@@ -168,6 +171,10 @@ interface SettingsActions {
   setMinimaxCookie: (cookie: string) => Promise<void>;
   getMinimaxCookie: () => string;
 
+  // Kimi Cookie
+  setKimiCookie: (cookie: string) => Promise<void>;
+  getKimiCookie: () => string;
+
   // Shortcuts
   getShortcutConfig: (action: ShortcutAction) => ShortcutConfig;
   setShortcutConfig: (action: ShortcutAction, config: ShortcutConfig) => Promise<void>;
@@ -253,6 +260,7 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
   model_type_code_review: '',
   apiKeys: {} as ApiKeySettings,
   minimax_cookie: '',
+  kimi_cookie: '',
   shortcuts: DEFAULT_SHORTCUTS,
   last_seen_version: '',
   sidebar_view: 'files',
@@ -466,6 +474,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         'model_type_code_review',
         'onboarding_completed',
         'minimax_cookie',
+        'kimi_cookie',
         'last_seen_version',
         'sidebar_view',
         'terminal_shell',
@@ -990,6 +999,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     return get().minimax_cookie || '';
   },
 
+  // Kimi Cookie
+  setKimiCookie: async (cookie: string) => {
+    await settingsDb.set('kimi_cookie', cookie);
+    set({ kimi_cookie: cookie });
+  },
+
+  getKimiCookie: () => {
+    return get().kimi_cookie || '';
+  },
+
   // Worktree Settings
   setWorktreeRootPath: async (path: string) => {
     await settingsDb.set('worktree_root_path', path);
@@ -1252,6 +1271,10 @@ export const settingsManager = {
   // MiniMax Cookie
   setMinimaxCookie: (cookie: string) => useSettingsStore.getState().setMinimaxCookie(cookie),
   getMinimaxCookie: () => useSettingsStore.getState().getMinimaxCookie(),
+
+  // Kimi Cookie
+  setKimiCookie: (cookie: string) => useSettingsStore.getState().setKimiCookie(cookie),
+  getKimiCookie: () => useSettingsStore.getState().getKimiCookie(),
 
   // Worktree Settings
   setWorktreeRootPath: (path: string) => useSettingsStore.getState().setWorktreeRootPath(path),

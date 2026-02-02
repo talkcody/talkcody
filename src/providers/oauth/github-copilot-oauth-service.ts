@@ -1,16 +1,12 @@
 // src/providers/oauth/github-copilot-oauth-service.ts
-// Core OAuth service for GitHub Copilot authentication
-// Uses @opeoginni/github-copilot-openai-compatible for OpenAI-compatible API
-// Reference: https://github.com/sst/opencode-copilot-auth/blob/main/index.mjs
+// Core OAuth service for GitHub Copilot authentication (Rust-backed).
+// Non-auth helpers (fetch, vision detection) remain; OAuth flow is delegated to Rust.
 
 import { createGitHubCopilotOpenAICompatible } from '@opeoginni/github-copilot-openai-compatible';
 import { logger } from '@/lib/logger';
-import { simpleFetch } from '@/lib/tauri-fetch';
+import { llmClient } from '@/services/llm/llm-client';
 
 type FetchFn = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
-
-const CLIENT_ID = 'Iv1.b507a08c87ecfe98';
-const ACCESS_TOKEN_URL = 'https://github.com/login/oauth/access_token';
 
 // Copilot headers for API requests
 export const COPILOT_HEADERS = {
@@ -46,12 +42,10 @@ export interface GitHubCopilotOAuthTokens {
   enterpriseUrl?: string; // Enterprise URL (optional)
 }
 
-export interface DeviceCodeResult {
-  deviceCode: string;
+export interface OAuthFlowResult {
   userCode: string;
   verificationUri: string;
-  expiresIn: number;
-  interval: number;
+  deviceCode: string;
 }
 
 export interface TokenExchangeResult {
@@ -60,310 +54,111 @@ export interface TokenExchangeResult {
   error?: string;
 }
 
-export interface OAuthFlowResult {
-  userCode: string;
-  verificationUri: string;
-  deviceCode: string;
-}
-
 /**
- * Normalize domain URL by removing protocol and trailing slash
+ * Start Device Code OAuth flow - delegates to Rust.
  */
-function normalizeDomain(url: string): string {
-  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
-}
-
-/**
- * Get Copilot API URLs based on domain
- */
-function getCopilotUrls(domain: string) {
+export async function startDeviceCodeFlow(enterpriseUrl?: string): Promise<OAuthFlowResult> {
+  logger.info('[GitHubCopilotOAuth] Starting device code flow via Rust');
+  const result = await llmClient.startGitHubCopilotOAuthDeviceCode({ enterpriseUrl });
   return {
-    DEVICE_CODE_URL: `https://${domain}/login/device/code`,
-    ACCESS_TOKEN_URL: `https://${domain}/login/oauth/access_token`,
-    COPILOT_API_KEY_URL: `https://api.${domain}/copilot_internal/v2/token`,
+    deviceCode: result.deviceCode,
+    userCode: result.userCode,
+    verificationUri: result.verificationUri,
   };
 }
 
 /**
- * Start Device Code OAuth flow - returns device code and user code for display
- */
-export async function startDeviceCodeFlow(enterpriseUrl?: string): Promise<OAuthFlowResult> {
-  const domain = enterpriseUrl ? normalizeDomain(enterpriseUrl) : 'github.com';
-  const urls = getCopilotUrls(domain);
-
-  try {
-    logger.info('[GitHubCopilotOAuth] Starting device code flow, domain:', domain);
-
-    const response = await simpleFetch(urls.DEVICE_CODE_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        ...COPILOT_HEADERS,
-      },
-      body: JSON.stringify({
-        client_id: CLIENT_ID,
-        scope: 'read:user',
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error('[GitHubCopilotOAuth] Device code request failed:', response.status, errorText);
-      throw new Error(`Device code request failed: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    logger.info('[GitHubCopilotOAuth] Device code flow started successfully');
-
-    return {
-      deviceCode: data.device_code,
-      userCode: data.user_code,
-      verificationUri: data.verification_uri,
-    };
-  } catch (error) {
-    logger.error('[GitHubCopilotOAuth] Failed to start device code flow:', error);
-    throw new Error(
-      `Failed to start OAuth flow: ${error instanceof Error ? error.message : 'Unknown error'}`
-    );
-  }
-}
-
-/**
- * Poll for access token after user completes authorization
+ * Poll for access token - delegates to Rust.
  */
 export async function pollForAccessToken(
   deviceCode: string,
-  enterpriseUrl?: string,
-  onProgress?: (status: 'pending' | 'authorized' | 'success' | 'failed', message?: string) => void
+  enterpriseUrl?: string
 ): Promise<TokenExchangeResult> {
-  const domain = enterpriseUrl ? normalizeDomain(enterpriseUrl) : 'github.com';
-  const urls = getCopilotUrls(domain);
-  const intervalMs = 5 * 1000; // 5 second polling interval
+  logger.info('[GitHubCopilotOAuth] Polling for access token via Rust');
+  const result = await llmClient.pollGitHubCopilotOAuthDeviceCode({
+    deviceCode,
+    enterpriseUrl,
+  });
 
-  // Start with the device code polling interval if provided
-  const maxAttempts = 600; // Maximum polling time (about 30 minutes)
-  let attempts = 0;
-
-  logger.info('[GitHubCopilotOAuth] Starting to poll for access token');
-
-  while (attempts < maxAttempts) {
-    try {
-      const response = await simpleFetch(urls.ACCESS_TOKEN_URL, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Accept: 'application/json',
-          'User-Agent': COPILOT_HEADERS['User-Agent'],
-        },
-        body: JSON.stringify({
-          client_id: CLIENT_ID,
-          device_code: deviceCode,
-          grant_type: 'urn:ietf:params:oauth:grant-type:device_code',
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        logger.error('[GitHubCopilotOAuth] Token request failed:', response.status, errorText);
-        return {
-          type: 'failed',
-          error: `Token request failed: ${response.status}`,
-        };
-      }
-
-      const data = await response.json();
-
-      if (data.access_token) {
-        logger.info('[GitHubCopilotOAuth] Access token received');
-
-        // Now get the Copilot API token
-        const copilotResult = await getCopilotApiToken(data.access_token, enterpriseUrl);
-
-        if (copilotResult.type === 'success' && copilotResult.tokens) {
-          return {
-            type: 'success',
-            tokens: copilotResult.tokens,
-          };
-        }
-        // Handle failed case with type guard
-        const failedResult = copilotResult as { type: 'failed'; error?: string };
-        return {
-          type: 'failed',
-          error: failedResult.error || 'Failed to get Copilot token',
-        };
-      }
-
-      if (data.error === 'authorization_pending') {
-        onProgress?.('pending', 'Waiting for authorization...');
-        logger.debug('[GitHubCopilotOAuth] Authorization pending, polling...');
-      } else if (data.error === 'authorization_declined') {
-        onProgress?.('failed', 'Authorization declined');
-        return {
-          type: 'failed',
-          error: 'Authorization declined by user',
-        };
-      } else if (data.error === 'expired_token') {
-        onProgress?.('failed', 'Device code expired');
-        return {
-          type: 'failed',
-          error: 'Device code expired. Please restart the OAuth flow.',
-        };
-      } else if (data.error === 'slow_down') {
-        // Rate limiting - increase polling interval
-        logger.info('[GitHubCopilotOAuth] Rate limited, increasing polling interval');
-      } else if (data.error) {
-        onProgress?.('failed', `Error: ${data.error}`);
-        return {
-          type: 'failed',
-          error: `OAuth error: ${data.error}`,
-        };
-      }
-
-      attempts++;
-      await new Promise((resolve) => setTimeout(resolve, intervalMs));
-    } catch (error) {
-      logger.error('[GitHubCopilotOAuth] Token polling error:', error);
-      return {
-        type: 'failed',
-        error: `Token polling failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-      };
-    }
+  if (result.type === 'success' && result.tokens) {
+    return {
+      type: 'success',
+      tokens: {
+        accessToken: result.tokens.accessToken,
+        copilotToken: result.tokens.copilotToken,
+        expiresAt: result.tokens.expiresAt,
+        enterpriseUrl: result.tokens.enterpriseUrl,
+      },
+    };
   }
 
-  onProgress?.('failed', 'Polling timeout');
+  if (result.type === 'pending') {
+    return { type: 'pending' };
+  }
+
   return {
     type: 'failed',
-    error: 'Polling timeout. Please restart the OAuth flow.',
+    error: result.error || 'Token exchange failed',
   };
 }
 
 /**
- * Get Copilot API token using OAuth access token
+ * Get Copilot API token using stored OAuth access token - delegates to Rust refresh.
  */
 export async function getCopilotApiToken(
-  accessToken: string,
-  enterpriseUrl?: string
+  _accessToken: string,
+  _enterpriseUrl?: string
 ): Promise<
   { type: 'success'; tokens: GitHubCopilotOAuthTokens } | { type: 'failed'; error?: string }
 > {
-  const domain = enterpriseUrl ? normalizeDomain(enterpriseUrl) : 'github.com';
-  const copilotApiUrl = `https://api.${domain}/copilot_internal/v2/token`;
-
   try {
-    logger.info('[GitHubCopilotOAuth] Getting Copilot API token');
-
-    const response = await simpleFetch(copilotApiUrl, {
-      method: 'GET',
-      headers: {
-        Accept: 'application/json',
-        Authorization: `Bearer ${accessToken}`,
-        ...COPILOT_HEADERS,
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error(
-        '[GitHubCopilotOAuth] Copilot token request failed:',
-        response.status,
-        errorText
-      );
-      return {
-        type: 'failed',
-        error: `Copilot token request failed: ${response.status}`,
-      };
-    }
-
-    const data = await response.json();
-
-    if (!data.token) {
-      logger.error('[GitHubCopilotOAuth] No token in response:', data);
-      return {
-        type: 'failed',
-        error: 'Invalid Copilot token response',
-      };
-    }
-
-    logger.info('[GitHubCopilotOAuth] Copilot API token received successfully');
-
+    logger.info('[GitHubCopilotOAuth] Getting Copilot API token via Rust');
+    const tokens = await llmClient.refreshGitHubCopilotOAuthToken();
     return {
       type: 'success',
       tokens: {
-        accessToken,
-        copilotToken: data.token,
-        expiresAt: data.expires_at * 1000, // Convert to milliseconds
-        enterpriseUrl,
+        accessToken: tokens.accessToken,
+        copilotToken: tokens.copilotToken,
+        expiresAt: tokens.expiresAt,
+        enterpriseUrl: tokens.enterpriseUrl,
       },
     };
   } catch (error) {
     logger.error('[GitHubCopilotOAuth] Failed to get Copilot token:', error);
     return {
       type: 'failed',
-      error: `Failed to get Copilot token: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      error: error instanceof Error ? error.message : 'Failed to get Copilot token',
     };
   }
 }
 
 /**
- * Refresh OAuth access token
+ * Refresh Copilot token - delegates to Rust.
  */
-export async function refreshAccessToken(
-  refreshToken: string
-): Promise<{ type: 'success'; accessToken: string } | { type: 'failed'; error?: string }> {
+export async function refreshAccessToken(): Promise<
+  | { type: 'success'; accessToken: string; copilotToken: string; expiresAt: number }
+  | { type: 'failed'; error?: string }
+> {
   try {
-    logger.info('[GitHubCopilotOAuth] Refreshing access token');
-
-    const response = await simpleFetch(ACCESS_TOKEN_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Accept: 'application/json',
-        'User-Agent': COPILOT_HEADERS['User-Agent'],
-      },
-      body: JSON.stringify({
-        grant_type: 'refresh_token',
-        refresh_token: refreshToken,
-        client_id: CLIENT_ID,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.error('[GitHubCopilotOAuth] Token refresh failed:', response.status, errorText);
-      return {
-        type: 'failed',
-        error: `Token refresh failed: ${response.status}`,
-      };
-    }
-
-    const data = await response.json();
-
-    if (!data.access_token) {
-      return {
-        type: 'failed',
-        error: 'Invalid token refresh response',
-      };
-    }
-
-    logger.info('[GitHubCopilotOAuth] Access token refreshed successfully');
-
+    logger.info('[GitHubCopilotOAuth] Refreshing token via Rust');
+    const tokens = await llmClient.refreshGitHubCopilotOAuthToken();
     return {
       type: 'success',
-      accessToken: data.access_token,
+      accessToken: tokens.accessToken,
+      copilotToken: tokens.copilotToken,
+      expiresAt: tokens.expiresAt,
     };
   } catch (error) {
     logger.error('[GitHubCopilotOAuth] Token refresh error:', error);
     return {
       type: 'failed',
-      error: `Token refresh failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      error: error instanceof Error ? error.message : 'Token refresh failed',
     };
   }
 }
 
 /**
- * Check if Copilot token is expired or about to expire
+ * Check if Copilot token is expired or about to expire (within 1 minute)
  */
 export function isCopilotTokenExpired(expiresAt: number): boolean {
   const bufferMs = 60 * 1000; // 1 minute buffer
@@ -469,6 +264,13 @@ export function isVisionRequest(body: unknown): boolean {
 }
 
 /**
+ * Normalize domain URL by removing protocol and trailing slash
+ */
+function normalizeDomain(url: string): string {
+  return url.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
+
+/**
  * Get the base URL for Copilot API
  */
 export function getCopilotBaseUrl(enterpriseUrl?: string): string {
@@ -476,13 +278,6 @@ export function getCopilotBaseUrl(enterpriseUrl?: string): string {
     return `https://copilot-api.${normalizeDomain(enterpriseUrl)}`;
   }
   return 'https://api.githubcopilot.com';
-}
-
-/**
- * Get client ID (for display purposes)
- */
-export function getClientId(): string {
-  return CLIENT_ID;
 }
 
 /**

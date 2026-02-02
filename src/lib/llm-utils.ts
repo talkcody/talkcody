@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { logger } from '@/lib/logger';
 import { parseModelIdentifier } from '@/providers/core/provider-utils';
-import type { Message as ModelMessage } from '@/services/llm/types';
+import type { Message as ModelMessage, ProviderOptions } from '@/services/llm/types';
 import type { ConvertMessagesOptions, ToolMessageContent, UIMessage } from '@/types/agent';
 
 const MAX_LINES = 2000;
@@ -200,16 +200,25 @@ export async function convertMessages(
         }
 
         // tool-call should be in assistant message format
+        const toolCallPart: {
+          type: 'tool-call';
+          toolCallId: string;
+          toolName: string;
+          input: unknown;
+          providerMetadata?: ProviderOptions;
+        } = {
+          type: 'tool-call' as const,
+          toolCallId: toolContent.toolCallId,
+          toolName: toolContent.toolName,
+          input: toolContent.input || {},
+        };
+        // Include providerMetadata if present (for Gemini 3 models with thoughtSignature)
+        if (toolContent.providerMetadata) {
+          toolCallPart.providerMetadata = toolContent.providerMetadata;
+        }
         convertedMessages.push({
           role: 'assistant' as const,
-          content: [
-            {
-              type: 'tool-call',
-              toolCallId: toolContent.toolCallId,
-              toolName: toolContent.toolName,
-              input: toolContent.input || {},
-            },
-          ],
+          content: [toolCallPart],
         });
       } else if (toolContent.type === 'tool-result') {
         // Handle undefined or null output

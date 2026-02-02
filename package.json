@@ -42,7 +42,6 @@
     "@modelcontextprotocol/sdk": "^1.17.5",
     "@monaco-editor/react": "4.7.0",
     "@mozilla/readability": "^0.6.0",
-    "@openrouter/ai-sdk-provider": "1.5.4",
     "@opeoginni/github-copilot-openai-compatible": "1.0.0",
     "@radix-ui/react-alert-dialog": "^1.1.14",
     "@radix-ui/react-avatar": "^1.1.10",

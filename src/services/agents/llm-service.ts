@@ -747,6 +747,7 @@ export class LLMService {
                         toolCallId: delta.toolCallId,
                         toolName: delta.toolName,
                         input: delta.input,
+                        providerMetadata: delta.providerMetadata ?? undefined,
                       },
                       streamCallbacks
                     );
@@ -1101,12 +1102,17 @@ export class LLMService {
                   input = { value: input };
                 }
               }
-              return {
+              const part: ContentPart = {
                 type: 'tool-call' as const,
                 toolCallId: tc.toolCallId,
                 toolName: tc.toolName,
                 input,
-              } satisfies ContentPart;
+              };
+              // Include providerMetadata if present (for Gemini 3 models with thoughtSignature)
+              if (tc.providerMetadata) {
+                part.providerMetadata = tc.providerMetadata;
+              }
+              return part;
             });
 
             const combinedAssistantContent: ContentPart[] = [...assistantContent, ...toolCallParts];

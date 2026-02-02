@@ -1,4 +1,4 @@
-// src/stores/provider-store.ts
+// src/providers/stores/provider-store.ts
 // Unified state management for providers and models
 
 import { create } from 'zustand';
@@ -66,6 +66,9 @@ interface ProviderStoreState {
 interface ProviderStoreActions {
   // Initialization
   initialize: () => Promise<void>;
+
+  // OAuth sync
+  syncOAuthStatus: () => Promise<void>;
 
   // Synchronous getters (legacy placeholders)
   getProviderModel: (modelIdentifier: string) => ReturnType<ProviderFactory>;
@@ -333,6 +336,15 @@ export const useProviderStore = create<ProviderStore>((set, get) => ({
         isLoading: false,
         isInitialized: true, // Mark as initialized even on error to avoid infinite retries
       });
+    }
+  },
+
+  syncOAuthStatus: async () => {
+    try {
+      const oauthConfig = await loadOAuthConfig();
+      set({ oauthConfig });
+    } catch (error) {
+      logger.error('[ProviderStore] OAuth sync failed:', error);
     }
   },
 
@@ -620,47 +632,22 @@ export const modelService = {
       return '';
     }
 
-    const modelType = (agent as { modelType?: string })?.modelType;
-    if (!modelType) {
+    if (!agent.modelType) {
       logger.warn('Agent has no modelType defined');
       return '';
     }
 
-    if (!isValidModelType(modelType)) {
-      logger.warn(`Invalid modelType: ${modelType}`);
-      return '';
+    const modelType = await modelTypeService.resolveModelType(agent.modelType);
+
+    if (!modelType) {
+      throw new Error(`No models configured for type: ${agent.modelType}`);
     }
-    return await modelTypeService.resolveModelType(modelType as ModelType);
+
+    return modelType;
   },
 
-  setCurrentModel: async (modelIdentifier: string) => {
-    const { settingsManager } = await import('@/stores/settings-store');
-    const { agentRegistry } = await import('@/services/agents/agent-registry');
-    const { MODEL_TYPE_SETTINGS_KEYS } = await import('@/types/model-types');
-
-    const agentId = await settingsManager.getAgentId();
-    let agent = await agentRegistry.getWithResolvedTools(agentId);
-
-    if (!agent) {
-      agent = await agentRegistry.getWithResolvedTools('planner');
-    }
-
-    if (!agent) {
-      throw new Error('Unable to resolve agent for model selection');
-    }
-
-    const modelType = (agent as { modelType?: string })?.modelType;
-    if (!modelType) {
-      throw new Error('Agent has no modelType defined');
-    }
-
-    const settingsKey =
-      MODEL_TYPE_SETTINGS_KEYS[modelType as keyof typeof MODEL_TYPE_SETTINGS_KEYS];
-    if (!settingsKey) {
-      throw new Error(`No settings key found for modelType: ${modelType}`);
-    }
-
-    await settingsManager.set(settingsKey, modelIdentifier);
-    logger.info(`Model updated to ${modelIdentifier} for modelType ${modelType}`);
+  getBestProviderForModel: async (modelKey: string) => {
+    await useProviderStore.getState().initialize();
+    return useProviderStore.getState().getBestProviderForModel(modelKey);
   },
 };

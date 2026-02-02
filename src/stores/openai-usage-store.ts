@@ -3,6 +3,7 @@
 
 import { create } from 'zustand';
 import { logger } from '@/lib/logger';
+import { isOpenAIOAuthConnected } from '@/providers/oauth/openai-oauth-store';
 import type { OpenAIUsageData } from '@/services/openai-usage-service';
 import { fetchOpenAIUsage } from '@/services/openai-usage-service';
 
@@ -24,6 +25,9 @@ interface OpenAIUsageState {
 
   // Initialization state
   isInitialized: boolean;
+
+  // Last known OAuth connection status
+  lastAuthConnected: boolean | null;
 }
 
 interface OpenAIUsageActions {
@@ -61,6 +65,7 @@ export const useOpenAIUsageStore = create<OpenAIUsageStore>((set, get) => ({
   lastFetchedAt: null,
   autoRefreshEnabled: false,
   isInitialized: false,
+  lastAuthConnected: null,
 
   // Initialize store
   initialize: async () => {
@@ -76,7 +81,7 @@ export const useOpenAIUsageStore = create<OpenAIUsageStore>((set, get) => ({
 
   // Fetch usage data
   fetchUsage: async () => {
-    const { isLoading, lastFetchedAt } = get();
+    const { isLoading, lastFetchedAt, lastAuthConnected } = get();
 
     // Avoid concurrent fetches
     if (isLoading) {
@@ -84,13 +89,32 @@ export const useOpenAIUsageStore = create<OpenAIUsageStore>((set, get) => ({
       return;
     }
 
+    const isConnected = await isOpenAIOAuthConnected();
+
+    // Clear cached data when OAuth disconnects so UI prompts reconnection
+    if (!isConnected) {
+      if (lastAuthConnected !== false) {
+        logger.info('[OpenAIUsageStore] OAuth disconnected, clearing usage data');
+        set({
+          usageData: null,
+          lastFetchedAt: null,
+          error: null,
+          lastAuthConnected: false,
+        });
+      }
+      return;
+    }
+
+    // If connection state changed from disconnected to connected, force refresh
+    const shouldForceRefresh = lastAuthConnected === false;
+
     // Check cache freshness
-    if (lastFetchedAt && Date.now() - lastFetchedAt < CACHE_DURATION_MS) {
+    if (!shouldForceRefresh && lastFetchedAt && Date.now() - lastFetchedAt < CACHE_DURATION_MS) {
       logger.debug('[OpenAIUsageStore] Using cached data');
       return;
     }
 
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, lastAuthConnected: true });
 
     try {
       logger.info('[OpenAIUsageStore] Fetching usage data');
@@ -147,6 +171,7 @@ export const useOpenAIUsageStore = create<OpenAIUsageStore>((set, get) => ({
       usageData: null,
       lastFetchedAt: null,
       error: null,
+      lastAuthConnected: null,
     });
   },
 

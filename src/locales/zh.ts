@@ -238,7 +238,7 @@ const zh: LocaleDefinition = {
       planModeTooltip: 'AI 将先创建详细计划供您审批，然后再进行更改',
       actModeTooltip: 'AI 将直接执行任务，无需计划审批',
       toggleTerminal: '切换终端',
-      searchFiles: '搜索文件 (Cmd+P)',
+      searchFiles: '搜索文件 (Cmd+O)',
       searchContent: '搜索内容 (Cmd+G)',
       inputTokens: 'Tokens',
       outputTokens: 'Tokens',
@@ -1942,6 +1942,38 @@ const zh: LocaleDefinition = {
 
     plan: {
       title: '编码计划',
+    },
+  },
+
+  kimiUsage: {
+    title: 'Kimi Coding Plan 使用情况',
+    description: '监控您的 Kimi Coding Plan 使用情况',
+    notConfigured: 'Token 未配置',
+    configurePrompt: '请在设置中添加您的 Kimi Token 以查看使用统计',
+    configureButton: '前往设置',
+    sessionExpired: '会话已过期',
+    sessionExpiredDescription: '您的 Kimi 会话已过期，请在设置中更新您的 Token。',
+    updateCookie: '更新 Token',
+    error: '加载使用情况时出错',
+    retry: '重试',
+    refresh: '刷新',
+    refreshing: '刷新中...',
+    noData: '无使用数据',
+    noDataDescription: '无法加载使用数据，请尝试刷新。',
+    used: '已使用',
+    remaining: '剩余',
+    resetsIn: '重置时间',
+    lastValidated: '上次验证',
+    criticalWarning: '警告：您即将达到使用限制！',
+
+    weekly: {
+      title: '每周使用量',
+      description: '当前每周编码计划窗口内的使用情况',
+    },
+
+    fiveHour: {
+      title: '5 小时会话使用量',
+      description: '当前 5 小时编码计划窗口内的使用情况',
     },
   },
 

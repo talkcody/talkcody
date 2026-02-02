@@ -1,0 +1,121 @@
+{
+  "version": 1,
+  "provider_id": "aiGateway",
+  "protocol": "OpenAiCompatible",
+  "model": "google/gemini-2.5-flash-lite",
+  "endpoint_path": "completions",
+  "request": {
+    "method": "POST",
+    "url": "https://ai-gateway.vercel.sh/v1/chat/completions",
+    "headers": {
+      "content-type": "application/json",
+      "x-title": "TalkCody",
+      "authorization": "REDACTED",
+      "http-referer": "https://talkcody.com"
+    },
+    "body": {
+      "messages": [
+        {
+          "content": "You are an AI assistant that generates concise, descriptive titles for tasks.\n\nUser's message: \"How is Talkcody's custom tool implemented?\"\n\nGenerate a short, clear title (5-10 words) that captures the essence of what the user is asking or discussing.\n\nGuidelines:\n1. Keep it concise (5-10 words maximum)\n2. Use title case (capitalize first letter of main words)\n3. Be specific and descriptive\n4. Avoid generic titles like \"New Chat\" or \"Question\"\n5. Focus on the main topic or intent\n\nExamples:\n- \"Fix Login Bug\"\n- \"Create User Dashboard\"\n- \"Explain React Hooks\"\n- \"Database Schema Design\"\n- \"API Rate Limiting Issue\"\n\nGenerate the title in English.\n\nProvide ONLY the title without any quotes, explanations, or additional formatting.",
+          "role": "user"
+        }
+      ],
+      "model": "google/gemini-2.5-flash-lite",
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      }
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "cache-control": "no-cache",
+      "transfer-encoding": "chunked",
+      "x-matched-path": "/v1/chat/completions",
+      "x-vercel-id": "sfo1::cle1::gvn5c-1770013937383-0e2e6f6d0f49",
+      "server": "Vercel",
+      "access-control-allow-origin": "*",
+      "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+      "access-control-allow-headers": "Content-Type, Authorization, ai-gateway-auth-method, ai-gateway-protocol-version, ai-model-id, ai-language-model-id, ai-language-model-specification-version, ai-image-model-specification-version, ai-embedding-model-specification-version, ai-language-model-streaming, http-referer, x-title, anthropic-beta",
+      "content-type": "text/event-stream",
+      "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+      "x-vercel-cache": "MISS",
+      "date": "Mon, 02 Feb 2026 06:32:17 GMT",
+      "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS"
+    },
+    "sse_events": [
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGEGTKR2GYM1RCD95J6RJXHG\",\"object\":\"chat.completion.chunk\",\"created\":1770013937,\"model\":\"google/gemini-2.5-flash-lite\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_il3ypecaye\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGEGTKR2GYM1RCD95J6RJXHG\",\"object\":\"chat.completion.chunk\",\"created\":1770013937,\"model\":\"google/gemini-2.5-flash-lite\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Talk\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_il3ypecaye\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGEGTKR2GYM1RCD95J6RJXHG\",\"object\":\"chat.completion.chunk\",\"created\":1770013937,\"model\":\"google/gemini-2.5-flash-lite\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"cody Custom\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_il3ypecaye\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGEGTKR2GYM1RCD95J6RJXHG\",\"object\":\"chat.completion.chunk\",\"created\":1770013937,\"model\":\"google/gemini-2.5-flash-lite\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Tool Implementation Details\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_il3ypecaye\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGEGTKR2GYM1RCD95J6RJXHG\",\"object\":\"chat.completion.chunk\",\"created\":1770013937,\"model\":\"google/gemini-2.5-flash-lite\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"google\":{\"promptFeedback\":null,\"groundingMetadata\":null,\"urlContextMetadata\":null,\"safetyRatings\":null,\"usageMetadata\":{\"promptTokenCount\":184,\"candidatesTokenCount\":7,\"totalTokenCount\":191,\"trafficType\":\"ON_DEMAND\"}},\"gateway\":{\"routing\":{\"originalModelId\":\"google/gemini-2.5-flash-lite\",\"resolvedProvider\":\"vertex\",\"resolvedProviderApiModelId\":\"gemini-2.5-flash-lite\",\"internalResolvedModelId\":\"vertex:gemini-2.5-flash-lite\",\"fallbacksAvailable\":[\"google\"],\"internalReasoning\":\"Selected vertex as preferred provider for gemini-2.5-flash-lite. 1 fallback(s) available: google\",\"planningReasoning\":\"System credentials planned for: vertex, google. Total execution order: vertex(system) → google(system)\",\"canonicalSlug\":\"google/gemini-2.5-flash-lite\",\"finalProvider\":\"vertex\",\"attempts\":[{\"provider\":\"vertex\",\"internalModelId\":\"vertex:gemini-2.5-flash-lite\",\"providerApiModelId\":\"gemini-2.5-flash-lite\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1914343.708586,\"endTime\":1914747.865653,\"statusCode\":200}],\"modelAttemptCount\":1,\"modelAttempts\":[{\"modelId\":\"google/gemini-2.5-flash-lite\",\"canonicalSlug\":\"google/gemini-2.5-flash-lite\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"vertex\",\"internalModelId\":\"vertex:gemini-2.5-flash-lite\",\"providerApiModelId\":\"gemini-2.5-flash-lite\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1914343.708586,\"endTime\":1914747.865653,\"statusCode\":200}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.0000212\",\"marketCost\":\"0.0000212\",\"generationId\":\"gen_01KGEGTKR2GYM1RCD95J6RJXHG\",\"billableWebSearchCalls\":0}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":184,\"completion_tokens\":7,\"total_tokens\":191,\"cost\":0.0000212,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":0,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.0000212},\"system_fingerprint\":\"fp_il3ypecaye\",\"generationId\":\"gen_01KGEGTKR2GYM1RCD95J6RJXHG\"}"
+      },
+      {
+        "event": null,
+        "data": "[DONE]"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "google/gemini-2.5-flash-lite",
+    "messages": [
+      {
+        "role": "user",
+        "content": "You are an AI assistant that generates concise, descriptive titles for tasks.\n\nUser's message: \"How is Talkcody's custom tool implemented?\"\n\nGenerate a short, clear title (5-10 words) that captures the essence of what the user is asking or discussing.\n\nGuidelines:\n1. Keep it concise (5-10 words maximum)\n2. Use title case (capitalize first letter of main words)\n3. Be specific and descriptive\n4. Avoid generic titles like \"New Chat\" or \"Question\"\n5. Focus on the main topic or intent\n\nExamples:\n- \"Fix Login Bug\"\n- \"Create User Dashboard\"\n- \"Explain React Hooks\"\n- \"Database Schema Design\"\n- \"API Rate Limiting Issue\"\n\nGenerate the title in English.\n\nProvide ONLY the title without any quotes, explanations, or additional formatting.",
+        "providerOptions": null
+      }
+    ],
+    "tools": null,
+    "temperature": null,
+    "max_tokens": null,
+    "top_p": null,
+    "top_k": null,
+    "provider_options": null,
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "text-start"
+    },
+    {
+      "type": "text-delta",
+      "text": "Talk"
+    },
+    {
+      "type": "text-delta",
+      "text": "cody Custom"
+    },
+    {
+      "type": "text-delta",
+      "text": " Tool Implementation Details"
+    },
+    {
+      "type": "usage",
+      "input_tokens": 184,
+      "output_tokens": 7,
+      "total_tokens": 191,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "done",
+      "finish_reason": "stop"
+    }
+  ]
+}

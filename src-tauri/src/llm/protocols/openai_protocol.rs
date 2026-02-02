@@ -1,4 +1,10 @@
-use crate::llm::protocols::{LlmProtocol, ProtocolStreamState, ToolCallAccum};
+use crate::llm::protocols::{
+    self,
+    header_builder::{HeaderBuildContext, ProtocolHeaderBuilder},
+    request_builder::{ProtocolRequestBuilder, RequestBuildContext},
+    stream_parser::{self, ProtocolStreamParser, StreamParseContext, StreamParseState},
+    LlmProtocol, ProtocolStreamState, ToolCallAccum,
+};
 use crate::llm::types::{ContentPart, Message, MessageContent, StreamEvent, ToolDefinition};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -72,6 +78,7 @@ impl OpenAiProtocol {
                             tool_call_id,
                             tool_name,
                             input,
+                            provider_metadata: _,
                         } => {
                             mapped.push(json!({
                                 "type": "tool_call",
@@ -159,6 +166,7 @@ impl OpenAiProtocol {
                     tool_call_id,
                     tool_name,
                     input,
+                    provider_metadata: _,
                 } = part
                 {
                     if tool_name.trim().is_empty() {
@@ -227,7 +235,7 @@ impl OpenAiProtocol {
         Some(result)
     }
 
-    fn parse_tool_delta(&self, delta: &Value, state: &mut ProtocolStreamState) {
+    fn parse_tool_delta(&self, delta: &Value, state: &mut StreamParseState) {
         let tool_calls = delta.get("tool_calls").and_then(|v| v.as_array());
         if tool_calls.is_none() {
             return;
@@ -286,6 +294,7 @@ impl OpenAiProtocol {
                     },
                     tool_name: name.to_string(),
                     arguments: String::new(),
+                    thought_signature: None,
                 });
 
             if !tool_call_id.is_empty() {
@@ -301,6 +310,13 @@ impl OpenAiProtocol {
                     }
                 } else if acc.arguments.is_empty() {
                     acc.arguments = args_val.to_string();
+                }
+            }
+
+            // Extract thought_signature for Gemini 3 models if present
+            if acc.thought_signature.is_none() {
+                if let Some(thought_sig) = entry.get("thought_signature").and_then(|v| v.as_str()) {
+                    acc.thought_signature = Some(thought_sig.to_string());
                 }
             }
 
@@ -322,7 +338,7 @@ impl OpenAiProtocol {
         }
     }
 
-    fn emit_tool_calls(&self, state: &mut ProtocolStreamState, force: bool) {
+    fn emit_tool_calls(&self, state: &mut StreamParseState, force: bool) {
         for key in state.tool_call_order.clone() {
             if state.emitted_tool_calls.contains(&key) {
                 continue;
@@ -342,10 +358,20 @@ impl OpenAiProtocol {
                         .unwrap_or_else(|_| Value::String(acc.arguments.clone()))
                 };
 
+                // Build provider_metadata with thought_signature if present (for Gemini 3 models)
+                let provider_metadata = acc.thought_signature.as_ref().map(|sig| {
+                    json!({
+                        "google": {
+                            "thoughtSignature": sig
+                        }
+                    })
+                });
+
                 state.pending_events.push(StreamEvent::ToolCall {
                     tool_call_id: acc.tool_call_id.clone(),
                     tool_name: acc.tool_name.clone(),
                     input: input_value,
+                    provider_metadata,
                 });
                 state.emitted_tool_calls.insert(key);
             }
@@ -353,51 +379,36 @@ impl OpenAiProtocol {
     }
 }
 
-impl LlmProtocol for OpenAiProtocol {
-    fn name(&self) -> &str {
-        "openai"
-    }
+// ============================================================================
+// New Modular Trait Implementations
+// ============================================================================
 
-    fn endpoint_path(&self) -> &'static str {
-        "chat/completions"
-    }
-
-    fn build_request(
-        &self,
-        model: &str,
-        messages: &[Message],
-        tools: Option<&[ToolDefinition]>,
-        temperature: Option<f32>,
-        max_tokens: Option<i32>,
-        top_p: Option<f32>,
-        top_k: Option<i32>,
-        provider_options: Option<&Value>,
-        extra_body: Option<&Value>,
-    ) -> Result<Value, String> {
+impl ProtocolRequestBuilder for OpenAiProtocol {
+    fn build_request(&self, ctx: RequestBuildContext) -> Result<Value, String> {
         let mut body = json!({
-            "model": model,
-            "messages": self.build_messages(messages),
+            "model": ctx.model,
+            "messages": self.build_messages(ctx.messages),
             "stream": true,
             "stream_options": { "include_usage": true }
         });
 
-        if let Some(tools) = self.build_tools(tools) {
+        if let Some(tools) = self.build_tools(ctx.tools) {
             body["tools"] = Value::Array(tools);
         }
-        if let Some(temperature) = temperature {
+        if let Some(temperature) = ctx.temperature {
             body["temperature"] = json!(temperature);
         }
-        if let Some(max_tokens) = max_tokens {
+        if let Some(max_tokens) = ctx.max_tokens {
             body["max_tokens"] = json!(max_tokens);
         }
-        if let Some(top_p) = top_p {
+        if let Some(top_p) = ctx.top_p {
             body["top_p"] = json!(top_p);
         }
-        if let Some(top_k) = top_k {
+        if let Some(top_k) = ctx.top_k {
             body["top_k"] = json!(top_k);
         }
 
-        if let Some(options) = provider_options {
+        if let Some(options) = ctx.provider_options {
             if let Some(openai_opts) = options.get("openai") {
                 if let Some(reasoning) = openai_opts.get("reasoningEffort") {
                     body["reasoning_effort"] = reasoning.clone();
@@ -410,7 +421,13 @@ impl LlmProtocol for OpenAiProtocol {
             }
         }
 
-        if let Some(extra) = extra_body {
+        let has_reasoning_effort = body.get("reasoning_effort").is_some();
+        let has_reasoning = body.get("reasoning").is_some();
+        if has_reasoning_effort && has_reasoning {
+            body["reasoning"] = Value::Null;
+        }
+
+        if let Some(extra) = ctx.extra_body {
             if let Some(obj) = body.as_object_mut() {
                 if let Some(extra_obj) = extra.as_object() {
                     for (k, v) in extra_obj {
@@ -420,16 +437,21 @@ impl LlmProtocol for OpenAiProtocol {
             }
         }
 
+        if body.get("reasoning") == Some(&Value::Null) {
+            body.as_object_mut().map(|obj| obj.remove("reasoning"));
+        }
+
         Ok(body)
     }
+}
 
+impl ProtocolStreamParser for OpenAiProtocol {
     fn parse_stream_event(
         &self,
-        _event_type: Option<&str>,
-        data: &str,
-        state: &mut ProtocolStreamState,
+        ctx: StreamParseContext,
+        state: &mut StreamParseState,
     ) -> Result<Option<StreamEvent>, String> {
-        if data.trim() == "[DONE]" {
+        if self.is_done_event(ctx.data) {
             self.emit_tool_calls(state, true);
             // Emit ReasoningEnd if reasoning was started
             if state.reasoning_started {
@@ -449,9 +471,9 @@ impl LlmProtocol for OpenAiProtocol {
             }));
         }
 
-        let payload: Value = serde_json::from_str(data).map_err(|e| e.to_string())?;
+        let payload: Value = serde_json::from_str(ctx.data).map_err(|e| e.to_string())?;
+
         // Only emit Usage event when there's meaningful usage data
-        // Some providers send empty usage in every chunk, so we filter those out
         if let Some(usage) = payload.get("usage") {
             let input_tokens = usage
                 .get("prompt_tokens")
@@ -463,7 +485,6 @@ impl LlmProtocol for OpenAiProtocol {
                 .unwrap_or(0);
             let total_tokens = usage.get("total_tokens").and_then(|v| v.as_i64());
 
-            // Only emit if we have non-zero values or explicit total_tokens
             let has_meaningful_data =
                 input_tokens > 0 || output_tokens > 0 || total_tokens.is_some_and(|v| v > 0);
 
@@ -484,19 +505,17 @@ impl LlmProtocol for OpenAiProtocol {
                 state.finish_reason = Some(finish_reason.to_string());
             }
             if let Some(delta) = choice.get("delta") {
-                if !state.text_started {
-                    state.text_started = true;
-                    state.pending_events.push(StreamEvent::TextStart);
-                }
+                // Handle reasoning_content (DeepSeek-style) and reasoning (OpenRouter/MiniMax-style)
+                // BEFORE text handling to ensure reasoning events are emitted even without text content
+                let reasoning_text = delta
+                    .get("reasoning_content")
+                    .and_then(|v| v.as_str())
+                    .or_else(|| delta.get("reasoning").and_then(|v| v.as_str()));
 
-                // Handle reasoning_content (DeepSeek-style reasoning)
-                if let Some(reasoning_content) =
-                    delta.get("reasoning_content").and_then(|v| v.as_str())
-                {
-                    if !reasoning_content.is_empty() {
+                if let Some(reasoning) = reasoning_text {
+                    if !reasoning.is_empty() {
                         if !state.reasoning_started {
                             state.reasoning_started = true;
-                            // Generate a stable reasoning ID
                             state.reasoning_id =
                                 Some(format!("reasoning_{}", uuid::Uuid::new_v4()));
                             state.pending_events.push(StreamEvent::ReasoningStart {
@@ -507,19 +526,28 @@ impl LlmProtocol for OpenAiProtocol {
                         if let Some(ref id) = state.reasoning_id {
                             state.pending_events.push(StreamEvent::ReasoningDelta {
                                 id: id.clone(),
-                                text: reasoning_content.to_string(),
+                                text: reasoning.to_string(),
                                 provider_metadata: None,
                             });
                         }
                     }
                 }
 
+                // Only emit TextStart/TextDelta when there's actual text content
+                // Don't emit it for tool_calls-only or reasoning-only deltas
                 if let Some(content) = delta.get("content").and_then(|v| v.as_str()) {
-                    state.pending_events.push(StreamEvent::TextDelta {
-                        text: content.to_string(),
-                    });
+                    if !content.is_empty() {
+                        if !state.text_started {
+                            state.text_started = true;
+                            state.pending_events.push(StreamEvent::TextStart);
+                        }
+                        state.pending_events.push(StreamEvent::TextDelta {
+                            text: content.to_string(),
+                        });
+                    }
                 }
 
+                // Handle tool calls (may come without text content)
                 self.parse_tool_delta(delta, state);
             }
         }
@@ -545,19 +573,16 @@ impl LlmProtocol for OpenAiProtocol {
 
         Ok(None)
     }
+}
 
-    fn build_headers(
-        &self,
-        api_key: Option<&str>,
-        oauth_token: Option<&str>,
-        extra_headers: Option<&HashMap<String, String>>,
-    ) -> HashMap<String, String> {
+impl ProtocolHeaderBuilder for OpenAiProtocol {
+    fn build_base_headers(&self, ctx: HeaderBuildContext) -> HashMap<String, String> {
         let mut headers = HashMap::new();
         headers.insert("Content-Type".to_string(), "application/json".to_string());
-        if let Some(token) = oauth_token.or(api_key) {
+        if let Some(token) = ctx.oauth_token.or(ctx.api_key) {
             headers.insert("Authorization".to_string(), format!("Bearer {}", token));
         }
-        if let Some(extra) = extra_headers {
+        if let Some(extra) = ctx.extra_headers {
             for (k, v) in extra {
                 headers.insert(k.to_string(), v.to_string());
             }
@@ -566,9 +591,105 @@ impl LlmProtocol for OpenAiProtocol {
     }
 }
 
+// ============================================================================
+// Legacy Trait Implementation (delegates to modular traits)
+// ============================================================================
+
+impl LlmProtocol for OpenAiProtocol {
+    fn name(&self) -> &str {
+        "openai"
+    }
+
+    fn endpoint_path(&self) -> &'static str {
+        "chat/completions"
+    }
+
+    fn build_request(
+        &self,
+        model: &str,
+        messages: &[Message],
+        tools: Option<&[ToolDefinition]>,
+        temperature: Option<f32>,
+        max_tokens: Option<i32>,
+        top_p: Option<f32>,
+        top_k: Option<i32>,
+        provider_options: Option<&Value>,
+        extra_body: Option<&Value>,
+    ) -> Result<Value, String> {
+        let ctx = RequestBuildContext {
+            model,
+            messages,
+            tools,
+            temperature,
+            max_tokens,
+            top_p,
+            top_k,
+            provider_options,
+            extra_body,
+        };
+        ProtocolRequestBuilder::build_request(self, ctx)
+    }
+
+    fn parse_stream_event(
+        &self,
+        event_type: Option<&str>,
+        data: &str,
+        state: &mut ProtocolStreamState,
+    ) -> Result<Option<StreamEvent>, String> {
+        let ctx = StreamParseContext { event_type, data };
+        let mut new_state = stream_parser::StreamParseState {
+            finish_reason: state.finish_reason.clone(),
+            text_started: state.text_started,
+            reasoning_started: state.reasoning_started,
+            reasoning_id: state.reasoning_id.clone(),
+            pending_events: std::mem::take(&mut state.pending_events),
+            tool_calls: std::mem::take(&mut state.tool_calls),
+            tool_call_order: std::mem::take(&mut state.tool_call_order),
+            emitted_tool_calls: std::mem::take(&mut state.emitted_tool_calls),
+            tool_call_index_map: std::mem::take(&mut state.tool_call_index_map),
+            content_block_types: std::mem::take(&mut state.content_block_types),
+            content_block_ids: std::mem::take(&mut state.content_block_ids),
+            current_thinking_id: state.current_thinking_id.clone(),
+        };
+
+        let result = ProtocolStreamParser::parse_stream_event(self, ctx, &mut new_state);
+
+        // Sync state back
+        state.finish_reason = new_state.finish_reason;
+        state.text_started = new_state.text_started;
+        state.reasoning_started = new_state.reasoning_started;
+        state.reasoning_id = new_state.reasoning_id;
+        state.pending_events = new_state.pending_events;
+        state.tool_calls = new_state.tool_calls;
+        state.tool_call_order = new_state.tool_call_order;
+        state.emitted_tool_calls = new_state.emitted_tool_calls;
+        state.tool_call_index_map = new_state.tool_call_index_map;
+        state.content_block_types = new_state.content_block_types;
+        state.content_block_ids = new_state.content_block_ids;
+        state.current_thinking_id = new_state.current_thinking_id;
+
+        result
+    }
+
+    fn build_headers(
+        &self,
+        api_key: Option<&str>,
+        oauth_token: Option<&str>,
+        extra_headers: Option<&HashMap<String, String>>,
+    ) -> HashMap<String, String> {
+        let ctx = HeaderBuildContext {
+            api_key,
+            oauth_token,
+            extra_headers,
+        };
+        ProtocolHeaderBuilder::build_base_headers(self, ctx)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::protocols::ProtocolStreamState;
     use serde_json::json;
     use std::collections::HashMap;
 
@@ -595,30 +716,24 @@ mod tests {
             "choices": [{ "finish_reason": "stop", "delta": {} }]
         });
 
-        // Parse first reasoning chunk - TextStart is emitted first
-        let event = protocol
-            .parse_stream_event(None, &first.to_string(), &mut state)
-            .expect("parse first")
-            .expect("event");
+        // Parse first reasoning chunk - ReasoningStart is emitted first (no TextStart for reasoning-only)
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &first.to_string(),
+            &mut state,
+        )
+        .expect("parse first")
+        .expect("event");
 
         match event {
-            StreamEvent::TextStart => {
-                // Expected - TextStart is always emitted first
-            }
-            _ => panic!("Expected TextStart, got {:?}", event),
-        }
-
-        // ReasoningStart is in pending_events
-        assert!(!state.pending_events.is_empty(), "Expected pending events");
-        let start_event = state.pending_events.remove(0);
-        match start_event {
             StreamEvent::ReasoningStart { .. } => {
-                // Expected
+                // Expected - ReasoningStart is emitted without TextStart for reasoning-only content
             }
-            _ => panic!("Expected ReasoningStart, got {:?}", start_event),
+            _ => panic!("Expected ReasoningStart, got {:?}", event),
         }
 
-        // ReasoningDelta is also in pending_events
+        // ReasoningDelta is in pending_events
         assert!(!state.pending_events.is_empty(), "Expected pending events");
         let delta_event = state.pending_events.remove(0);
         match delta_event {
@@ -629,10 +744,14 @@ mod tests {
         }
 
         // Parse second reasoning chunk
-        let event = protocol
-            .parse_stream_event(None, &second.to_string(), &mut state)
-            .expect("parse second")
-            .expect("event");
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &second.to_string(),
+            &mut state,
+        )
+        .expect("parse second")
+        .expect("event");
 
         match event {
             StreamEvent::ReasoningDelta { text, .. } => {
@@ -642,10 +761,14 @@ mod tests {
         }
 
         // Parse done - should emit ReasoningEnd
-        let event = protocol
-            .parse_stream_event(None, &done.to_string(), &mut state)
-            .expect("parse done")
-            .expect("event");
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &done.to_string(),
+            &mut state,
+        )
+        .expect("parse done")
+        .expect("event");
 
         match event {
             StreamEvent::ReasoningEnd { .. } => {
@@ -668,24 +791,271 @@ mod tests {
             }]
         });
 
-        let result = protocol
-            .parse_stream_event(None, &data.to_string(), &mut state)
-            .expect("parse");
+        let result = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &data.to_string(),
+            &mut state,
+        )
+        .expect("parse");
 
-        // Empty reasoning_content should emit TextStart but not start reasoning
-        match result {
-            Some(StreamEvent::TextStart) => {
-                // Expected - TextStart is always emitted when delta is present
-            }
-            _ => panic!(
-                "Expected TextStart for empty reasoning_content, got {:?}",
-                result
-            ),
-        }
+        // Empty reasoning_content with no text content should not emit any event
+        assert!(
+            result.is_none(),
+            "Expected no event for empty reasoning_content without text, got {:?}",
+            result
+        );
         assert!(
             !state.reasoning_started,
             "Reasoning should not start for empty content"
         );
+        assert!(
+            !state.text_started,
+            "Text should not start for empty content"
+        );
+    }
+
+    #[test]
+    fn parse_stream_emits_reasoning_events_from_reasoning_field() {
+        // Tests the "reasoning" field used by OpenRouter/MiniMax providers
+        let protocol = OpenAiProtocol;
+        let mut state = ProtocolStreamState::default();
+
+        let first = json!({
+            "choices": [{
+                "delta": {
+                    "reasoning": "The"
+                }
+            }]
+        });
+        let second = json!({
+            "choices": [{
+                "delta": {
+                    "reasoning": " user"
+                }
+            }]
+        });
+        let third = json!({
+            "choices": [{
+                "delta": {
+                    "reasoning": " is"
+                }
+            }]
+        });
+        let done = json!({
+            "choices": [{ "finish_reason": "stop", "delta": {} }]
+        });
+
+        // Parse first reasoning chunk - should emit ReasoningStart
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &first.to_string(),
+            &mut state,
+        )
+        .expect("parse first")
+        .expect("event");
+
+        match event {
+            StreamEvent::ReasoningStart { .. } => {
+                // Expected - ReasoningStart is emitted for reasoning-only content
+            }
+            _ => panic!("Expected ReasoningStart, got {:?}", event),
+        }
+
+        // ReasoningDelta is in pending_events
+        assert!(!state.pending_events.is_empty(), "Expected pending events");
+        let delta_event = state.pending_events.remove(0);
+        match delta_event {
+            StreamEvent::ReasoningDelta { text, .. } => {
+                assert_eq!(text, "The");
+            }
+            _ => panic!("Expected ReasoningDelta, got {:?}", delta_event),
+        }
+
+        // Parse second reasoning chunk
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &second.to_string(),
+            &mut state,
+        )
+        .expect("parse second")
+        .expect("event");
+
+        match event {
+            StreamEvent::ReasoningDelta { text, .. } => {
+                assert_eq!(text, " user");
+            }
+            _ => panic!("Expected ReasoningDelta, got {:?}", event),
+        }
+
+        // Parse third reasoning chunk
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &third.to_string(),
+            &mut state,
+        )
+        .expect("parse third")
+        .expect("event");
+
+        match event {
+            StreamEvent::ReasoningDelta { text, .. } => {
+                assert_eq!(text, " is");
+            }
+            _ => panic!("Expected ReasoningDelta, got {:?}", event),
+        }
+
+        // Parse done - should emit ReasoningEnd
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &done.to_string(),
+            &mut state,
+        )
+        .expect("parse done")
+        .expect("event");
+
+        match event {
+            StreamEvent::ReasoningEnd { .. } => {
+                // Expected
+            }
+            _ => panic!("Expected ReasoningEnd, got {:?}", event),
+        }
+    }
+
+    #[test]
+    fn parse_stream_handles_empty_reasoning_field() {
+        // Tests empty "reasoning" field used by OpenRouter/MiniMax providers
+        let protocol = OpenAiProtocol;
+        let mut state = ProtocolStreamState::default();
+
+        let data = json!({
+            "choices": [{
+                "delta": {
+                    "reasoning": "",
+                    "content": ""
+                }
+            }]
+        });
+
+        let result = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &data.to_string(),
+            &mut state,
+        )
+        .expect("parse");
+
+        // Empty reasoning with no text content should not emit any event
+        assert!(
+            result.is_none(),
+            "Expected no event for empty reasoning without text, got {:?}",
+            result
+        );
+        assert!(
+            !state.reasoning_started,
+            "Reasoning should not start for empty content"
+        );
+        assert!(
+            !state.text_started,
+            "Text should not start for empty content"
+        );
+    }
+
+    #[test]
+    fn parse_stream_handles_reasoning_field_with_regular_content() {
+        // Tests mixed "reasoning" field and content used by OpenRouter/MiniMax providers
+        let protocol = OpenAiProtocol;
+        let mut state = ProtocolStreamState::default();
+
+        let data = json!({
+            "choices": [{
+                "delta": {
+                    "reasoning": "Let me analyze this",
+                    "content": "The answer is 42"
+                }
+            }]
+        });
+
+        // Process all events
+        let mut events = Vec::new();
+        if let Some(event) = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &data.to_string(),
+            &mut state,
+        )
+        .expect("parse")
+        {
+            events.push(event);
+        }
+        while let Some(pending) = state.pending_events.get(0).cloned() {
+            state.pending_events.remove(0);
+            events.push(pending);
+        }
+
+        // Should have: TextStart, ReasoningStart, ReasoningDelta, TextDelta
+        assert!(
+            events.iter().any(|e| matches!(e, StreamEvent::TextStart)),
+            "Expected TextStart"
+        );
+        assert!(
+            events
+                .iter()
+                .any(|e| matches!(e, StreamEvent::ReasoningStart { .. })),
+            "Expected ReasoningStart"
+        );
+        assert!(
+            events.iter().any(|e| matches!(e, StreamEvent::ReasoningDelta { text, .. } if text == "Let me analyze this")),
+            "Expected ReasoningDelta with 'Let me analyze this'"
+        );
+        assert!(
+            events.iter().any(
+                |e| matches!(e, StreamEvent::TextDelta { text, .. } if text == "The answer is 42")
+            ),
+            "Expected TextDelta with 'The answer is 42'"
+        );
+    }
+
+    #[test]
+    fn parse_stream_prefers_reasoning_content_over_reasoning_field() {
+        // When both fields are present, reasoning_content should take precedence
+        let protocol = OpenAiProtocol;
+        let mut state = ProtocolStreamState::default();
+
+        let data = json!({
+            "choices": [{
+                "delta": {
+                    "reasoning_content": "DeepSeek reasoning",
+                    "reasoning": "MiniMax reasoning"
+                }
+            }]
+        });
+
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &data.to_string(),
+            &mut state,
+        )
+        .expect("parse")
+        .expect("event");
+
+        match event {
+            StreamEvent::ReasoningStart { .. } => {}
+            _ => panic!("Expected ReasoningStart, got {:?}", event),
+        }
+
+        let delta_event = state.pending_events.remove(0);
+        match delta_event {
+            StreamEvent::ReasoningDelta { text, .. } => {
+                // Should use reasoning_content (DeepSeek) not reasoning (MiniMax)
+                assert_eq!(text, "DeepSeek reasoning");
+            }
+            _ => panic!("Expected ReasoningDelta, got {:?}", delta_event),
+        }
     }
 
     #[test]
@@ -704,9 +1074,13 @@ mod tests {
 
         // Process all events
         let mut events = Vec::new();
-        if let Some(event) = protocol
-            .parse_stream_event(None, &data.to_string(), &mut state)
-            .expect("parse")
+        if let Some(event) = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &data.to_string(),
+            &mut state,
+        )
+        .expect("parse")
         {
             events.push(event);
         }
@@ -746,6 +1120,7 @@ mod tests {
                 tool_call_id: "call_1".to_string(),
                 tool_name: "webFetch".to_string(),
                 input: json!({ "url": "https://example.com" }),
+                provider_metadata: None,
             }]),
             provider_options: Some(json!({
                 "openaiCompatible": { "reasoning_content": "" }
@@ -765,6 +1140,7 @@ mod tests {
                 tool_call_id: "call_1".to_string(),
                 tool_name: "webFetch".to_string(),
                 input: json!({ "url": "https://example.com" }),
+                provider_metadata: None,
             }]),
             provider_options: None,
         }];
@@ -782,27 +1158,55 @@ mod tests {
             provider_options: None,
         }];
 
-        let body = protocol
-            .build_request(
-                "gpt-4o",
-                &messages,
-                None,
-                Some(0.2),
-                Some(120),
-                None,
-                None,
-                Some(&json!({
-                    "openai": { "reasoningEffort": "medium" },
-                    "openrouter": { "effort": "low" }
-                })),
-                Some(&json!({ "extra_param": true })),
-            )
-            .expect("build request");
+        let body = protocols::LlmProtocol::build_request(
+            &protocol,
+            "gpt-4o",
+            &messages,
+            None,
+            Some(0.2),
+            Some(120),
+            None,
+            None,
+            Some(&json!({
+                "openai": { "reasoningEffort": "medium" },
+                "openrouter": { "effort": "low" }
+            })),
+            Some(&json!({ "extra_param": true })),
+        )
+        .expect("build request");
 
         assert_eq!(body.get("reasoning_effort"), Some(&json!("medium")));
-        assert_eq!(body.get("reasoning"), Some(&json!({ "effort": "low" })));
+        assert!(body.get("reasoning").is_none());
         assert_eq!(body.get("extra_param"), Some(&json!(true)));
         assert_eq!(body.get("max_tokens"), Some(&json!(120)));
+    }
+
+    #[test]
+    fn build_request_includes_openrouter_reasoning_when_only_openrouter_is_set() {
+        let protocol = OpenAiProtocol;
+        let messages = vec![Message::User {
+            content: MessageContent::Text("hi".to_string()),
+            provider_options: None,
+        }];
+
+        let body = protocols::LlmProtocol::build_request(
+            &protocol,
+            "minimax-m2.1",
+            &messages,
+            None,
+            Some(0.2),
+            Some(120),
+            None,
+            None,
+            Some(&json!({
+                "openrouter": { "effort": "low" }
+            })),
+            None,
+        )
+        .expect("build request");
+
+        assert!(body.get("reasoning_effort").is_none());
+        assert_eq!(body.get("reasoning"), Some(&json!({ "effort": "low" })));
     }
 
     #[test]
@@ -835,23 +1239,36 @@ mod tests {
             "choices": [{ "finish_reason": "tool_calls", "delta": {} }]
         });
 
-        let _ = protocol
-            .parse_stream_event(None, &first.to_string(), &mut state)
-            .expect("parse first");
-        let _ = protocol
-            .parse_stream_event(None, &second.to_string(), &mut state)
-            .expect("parse second");
+        let _ = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &first.to_string(),
+            &mut state,
+        )
+        .expect("parse first");
+        let _ = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &second.to_string(),
+            &mut state,
+        )
+        .expect("parse second");
         state.text_started = true;
-        let event = protocol
-            .parse_stream_event(None, &done.to_string(), &mut state)
-            .expect("parse done")
-            .expect("event");
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &done.to_string(),
+            &mut state,
+        )
+        .expect("parse done")
+        .expect("event");
 
         match event {
             StreamEvent::ToolCall {
                 tool_call_id,
                 tool_name,
                 input,
+                provider_metadata: _,
             } => {
                 assert_eq!(tool_call_id, "call_1");
                 assert_eq!(tool_name, "readFile");
@@ -895,9 +1312,13 @@ mod tests {
 
         let mut events: Vec<StreamEvent> = Vec::new();
 
-        let parsed = protocol
-            .parse_stream_event(None, &first.to_string(), &mut state)
-            .expect("parse first");
+        let parsed = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &first.to_string(),
+            &mut state,
+        )
+        .expect("parse first");
         if let Some(event) = parsed {
             events.push(event);
         }
@@ -906,9 +1327,13 @@ mod tests {
             events.push(pending);
         }
 
-        let parsed = protocol
-            .parse_stream_event(None, &second.to_string(), &mut state)
-            .expect("parse second");
+        let parsed = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &second.to_string(),
+            &mut state,
+        )
+        .expect("parse second");
         if let Some(event) = parsed {
             events.push(event);
         }
@@ -918,9 +1343,13 @@ mod tests {
         }
 
         state.text_started = true;
-        let parsed = protocol
-            .parse_stream_event(None, &done.to_string(), &mut state)
-            .expect("parse done");
+        let parsed = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &done.to_string(),
+            &mut state,
+        )
+        .expect("parse done");
         if let Some(event) = parsed {
             events.push(event);
         }
@@ -956,5 +1385,126 @@ mod tests {
             Some(&"Bearer oauth".to_string())
         );
         assert_eq!(headers.get("X-Test"), Some(&"1".to_string()));
+    }
+
+    #[test]
+    fn parse_stream_emits_tool_call_with_thought_signature() {
+        let protocol = OpenAiProtocol;
+        let mut state = ProtocolStreamState::default();
+
+        // Simulate Gemini 3 Pro style tool call with thought_signature
+        let first = json!({
+            "choices": [{
+                "delta": {
+                    "tool_calls": [{
+                        "index": 0,
+                        "id": "call_gemini_1",
+                        "thought_signature": "test-signature-abc123",
+                        "function": { "name": "readFile", "arguments": "{\"path\":\"/tmp/test.rs\"}" }
+                    }]
+                }
+            }]
+        });
+        let done = json!({
+            "choices": [{ "finish_reason": "tool_calls", "delta": {} }]
+        });
+
+        let _ = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &first.to_string(),
+            &mut state,
+        )
+        .expect("parse first");
+        state.text_started = true;
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &done.to_string(),
+            &mut state,
+        )
+        .expect("parse done")
+        .expect("event");
+
+        match event {
+            StreamEvent::ToolCall {
+                tool_call_id,
+                tool_name,
+                input,
+                provider_metadata,
+            } => {
+                assert_eq!(tool_call_id, "call_gemini_1");
+                assert_eq!(tool_name, "readFile");
+                assert_eq!(input.get("path"), Some(&json!("/tmp/test.rs")));
+                // Verify thought_signature is passed in provider_metadata
+                let metadata = provider_metadata.expect("provider_metadata should be present");
+                let google = metadata.get("google").expect("google field should exist");
+                assert_eq!(
+                    google.get("thoughtSignature"),
+                    Some(&json!("test-signature-abc123"))
+                );
+            }
+            _ => panic!(
+                "Expected ToolCall event with thought_signature, got {:?}",
+                event
+            ),
+        }
+    }
+
+    #[test]
+    fn parse_stream_handles_tool_call_without_thought_signature() {
+        let protocol = OpenAiProtocol;
+        let mut state = ProtocolStreamState::default();
+
+        // Simulate standard OpenAI style tool call without thought_signature
+        let first = json!({
+            "choices": [{
+                "delta": {
+                    "tool_calls": [{
+                        "index": 0,
+                        "id": "call_std_1",
+                        "function": { "name": "glob", "arguments": "{\"pattern\":\"*.rs\"}" }
+                    }]
+                }
+            }]
+        });
+        let done = json!({
+            "choices": [{ "finish_reason": "tool_calls", "delta": {} }]
+        });
+
+        let _ = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &first.to_string(),
+            &mut state,
+        )
+        .expect("parse first");
+        state.text_started = true;
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            None,
+            &done.to_string(),
+            &mut state,
+        )
+        .expect("parse done")
+        .expect("event");
+
+        match event {
+            StreamEvent::ToolCall {
+                tool_call_id,
+                tool_name,
+                provider_metadata,
+                ..
+            } => {
+                assert_eq!(tool_call_id, "call_std_1");
+                assert_eq!(tool_name, "glob");
+                // provider_metadata should be None when no thought_signature
+                assert!(provider_metadata.is_none());
+            }
+            _ => panic!(
+                "Expected ToolCall event without thought_signature, got {:?}",
+                event
+            ),
+        }
     }
 }

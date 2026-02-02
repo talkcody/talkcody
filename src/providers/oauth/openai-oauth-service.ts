@@ -144,16 +144,10 @@ export function isTokenExpired(expiresAt: number): boolean {
   return Date.now() + bufferMs >= expiresAt;
 }
 
-/**
- * Get redirect URI (for display purposes)
- */
 export function getRedirectUri(): string {
   return OAUTH_REDIRECT_URI;
 }
 
-/**
- * Get OAuth client ID (for display purposes)
- */
 export function getClientId(): string {
   return CLIENT_ID;
 }

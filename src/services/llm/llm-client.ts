@@ -276,6 +276,54 @@ export class LlmClient {
     await invoke('llm_openai_oauth_disconnect');
   }
 
+  async startGitHubCopilotOAuthDeviceCode(params: { enterpriseUrl?: string }): Promise<{
+    deviceCode: string;
+    userCode: string;
+    verificationUri: string;
+    expiresIn: number;
+    interval: number;
+  }> {
+    return invoke('llm_github_copilot_oauth_start_device_code', params);
+  }
+
+  async pollGitHubCopilotOAuthDeviceCode(params: {
+    deviceCode: string;
+    enterpriseUrl?: string;
+  }): Promise<{
+    type: 'success' | 'failed' | 'pending';
+    tokens?: {
+      accessToken: string;
+      copilotToken: string;
+      expiresAt: number;
+      enterpriseUrl?: string;
+    };
+    error?: string;
+  }> {
+    return invoke('llm_github_copilot_oauth_poll_device_code', params);
+  }
+
+  async refreshGitHubCopilotOAuthToken(): Promise<{
+    accessToken: string;
+    copilotToken: string;
+    expiresAt: number;
+    enterpriseUrl?: string;
+  }> {
+    return invoke('llm_github_copilot_oauth_refresh');
+  }
+
+  async disconnectGitHubCopilotOAuth(): Promise<void> {
+    await invoke('llm_github_copilot_oauth_disconnect');
+  }
+
+  async getGitHubCopilotOAuthTokens(): Promise<{
+    accessToken?: string | null;
+    copilotToken?: string | null;
+    expiresAt?: number | null;
+    enterpriseUrl?: string | null;
+  }> {
+    return invoke('llm_github_copilot_oauth_tokens');
+  }
+
   async getOAuthStatus(): Promise<{
     anthropic?: {
       expiresAt?: number | null;

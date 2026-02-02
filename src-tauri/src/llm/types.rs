@@ -179,6 +179,8 @@ pub enum ContentPart {
         #[serde(rename = "toolName")]
         tool_name: String,
         input: serde_json::Value,
+        #[serde(default)]
+        provider_metadata: Option<serde_json::Value>,
     },
     #[serde(rename = "tool-result")]
     ToolResult {
@@ -219,6 +221,8 @@ pub enum StreamEvent {
         #[serde(rename = "toolName")]
         tool_name: String,
         input: serde_json::Value,
+        #[serde(default)]
+        provider_metadata: Option<serde_json::Value>,
     },
     ReasoningStart {
         id: String,

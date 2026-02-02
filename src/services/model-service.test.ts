@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ModelType } from '@/types/model-types';
 import type { AgentDefinition } from '@/types/agent';
 import { settingsManager } from '@/stores/settings-store';
-import { agentRegistry } from './agents/agent-registry';
+import { agentRegistry } from '@/services/agents/agent-registry';
 import { logger } from '@/lib/logger';
 
 // Import the modelService from provider-store (new location)
@@ -35,9 +35,18 @@ vi.mock('@/stores/settings-store', () => ({
   },
 }));
 
-vi.mock('./agents/agent-registry', () => ({
+vi.mock('@/services/agents/agent-registry', () => ({
   agentRegistry: {
     getWithResolvedTools: vi.fn(),
+  },
+}));
+
+vi.mock('@/lib/logger', () => ({
+  logger: {
+    warn: vi.fn(),
+    error: vi.fn(),
+    info: vi.fn(),
+    debug: vi.fn(),
   },
 }));
 
@@ -52,6 +61,7 @@ vi.mock('@/providers/models/model-sync-service', () => ({
 vi.mock('@/providers/models/model-type-service', () => ({
   modelTypeService: {
     resolveModelType: vi.fn(),
+    getDefaultModelType: vi.fn().mockReturnValue('main'),
   },
 }));
 

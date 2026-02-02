@@ -22,6 +22,7 @@ export interface ToolCallInfo {
   toolCallId: string;
   toolName: string;
   input: unknown;
+  providerMetadata?: Record<string, unknown>;
 }
 
 export interface ToolExecutionOptions {

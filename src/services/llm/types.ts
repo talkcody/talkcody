@@ -38,6 +38,7 @@ export type ContentPart =
       toolCallId: string;
       toolName: string;
       input: unknown;
+      providerMetadata?: ProviderOptions;
     }
   | {
       type: 'tool-result';
@@ -92,6 +93,7 @@ export type StreamEvent =
       toolCallId: string;
       toolName: string;
       input: unknown;
+      providerMetadata?: ProviderOptions;
     }
   | {
       type: 'reasoning-start';

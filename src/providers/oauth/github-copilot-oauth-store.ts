@@ -1,25 +1,15 @@
 // src/providers/oauth/github-copilot-oauth-store.ts
-// Zustand store for GitHub Copilot OAuth state management
-// Uses Device Code Flow with frontend polling (no callback server needed)
+// Zustand store for GitHub Copilot OAuth state management (Rust-backed).
 
 import { create } from 'zustand';
 import { logger } from '@/lib/logger';
+import { llmClient } from '@/services/llm/llm-client';
 import {
   type GitHubCopilotOAuthTokens,
-  getCopilotApiToken,
   isCopilotTokenExpired,
   pollForAccessToken,
-  refreshAccessToken,
   startDeviceCodeFlow,
 } from './github-copilot-oauth-service';
-
-// Storage keys for OAuth tokens in settings database
-const STORAGE_KEYS = {
-  ACCESS_TOKEN: 'github_copilot_oauth_access_token',
-  COPILOT_TOKEN: 'github_copilot_oauth_copilot_token',
-  EXPIRES_AT: 'github_copilot_oauth_expires_at',
-  ENTERPRISE_URL: 'github_copilot_oauth_enterprise_url',
-} as const;
 
 interface GitHubCopilotOAuthState {
   // Connection state
@@ -28,9 +18,7 @@ interface GitHubCopilotOAuthState {
   isPolling: boolean;
   error: string | null;
 
-  // Tokens
-  accessToken: string | null;
-  copilotToken: string | null;
+  // Tokens (metadata only; actual tokens stored in Rust)
   expiresAt: number | null;
   enterpriseUrl: string | null;
 
@@ -44,10 +32,10 @@ interface GitHubCopilotOAuthState {
 }
 
 interface GitHubCopilotOAuthActions {
-  // Initialize from storage
+  // Initialize from Rust storage
   initialize: () => Promise<void>;
 
-  // OAuth flow - Device Code Flow with frontend polling
+  // OAuth flow - Device Code Flow with polling
   startOAuth: (enterpriseUrl?: string) => Promise<{ userCode: string; verificationUri: string }>;
   pollForToken: () => Promise<void>;
   disconnect: () => Promise<void>;
@@ -59,11 +47,13 @@ interface GitHubCopilotOAuthActions {
 
 type GitHubCopilotOAuthStore = GitHubCopilotOAuthState & GitHubCopilotOAuthActions;
 
-// Helper to get settings database
-async function getSettingsDb() {
-  const { settingsDb } = await import('@/stores/settings-store');
-  await settingsDb.initialize();
-  return settingsDb;
+async function loadOAuthSnapshot() {
+  try {
+    return await llmClient.getOAuthStatus();
+  } catch (error) {
+    logger.warn('[GitHubCopilotOAuth] Failed to read OAuth status from Rust:', error);
+    return null;
+  }
 }
 
 export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, get) => ({
@@ -72,8 +62,6 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
   isLoading: false,
   isPolling: false,
   error: null,
-  accessToken: null,
-  copilotToken: null,
   expiresAt: null,
   enterpriseUrl: null,
   deviceCode: null,
@@ -81,7 +69,7 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
   verificationUri: null,
   isInitialized: false,
 
-  // Initialize from storage
+  // Initialize from Rust storage
   initialize: async () => {
     const { isInitialized, isLoading } = get();
     if (isInitialized || isLoading) return;
@@ -90,33 +78,27 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
 
     try {
       logger.info('[GitHubCopilotOAuth] Initializing store');
-      const db = await getSettingsDb();
 
-      const values = await db.getBatch([
-        STORAGE_KEYS.ACCESS_TOKEN,
-        STORAGE_KEYS.COPILOT_TOKEN,
-        STORAGE_KEYS.EXPIRES_AT,
-        STORAGE_KEYS.ENTERPRISE_URL,
-      ]);
+      const snapshot = await loadOAuthSnapshot();
+      const isConnected = snapshot?.githubCopilot?.isConnected || false;
 
-      const accessToken = values[STORAGE_KEYS.ACCESS_TOKEN] || null;
-      const copilotToken = values[STORAGE_KEYS.COPILOT_TOKEN] || null;
-      const expiresAtStr = values[STORAGE_KEYS.EXPIRES_AT];
-      // Check for empty string or invalid number
-      const expiresAt =
-        expiresAtStr && expiresAtStr.trim() ? Number.parseInt(expiresAtStr, 10) || null : null;
-      const enterpriseUrl = values[STORAGE_KEYS.ENTERPRISE_URL] || null;
-
-      const isConnected = !!(accessToken && copilotToken && expiresAt);
+      // Load token metadata from Rust
+      let expiresAt: number | null = null;
+      let enterpriseUrl: string | null = null;
+      try {
+        const tokens = await llmClient.getGitHubCopilotOAuthTokens();
+        expiresAt = tokens.expiresAt ?? null;
+        enterpriseUrl = tokens.enterpriseUrl ?? null;
+      } catch (e) {
+        logger.warn('[GitHubCopilotOAuth] Failed to load token metadata:', e);
+      }
 
       logger.info('[GitHubCopilotOAuth] Initialized', { isConnected });
 
       set({
-        accessToken,
-        copilotToken,
+        isConnected,
         expiresAt,
         enterpriseUrl,
-        isConnected,
         isLoading: false,
         isInitialized: true,
       });
@@ -130,8 +112,7 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
     }
   },
 
-  // Start OAuth flow - Device Code Flow with frontend polling
-  // GitHub OAuth Device Code Flow doesn't use HTTP callbacks, so we poll directly
+  // Start OAuth flow - Device Code Flow
   startOAuth: async (enterpriseUrl?: string) => {
     set({ isLoading: true, error: null, isPolling: false });
 
@@ -147,10 +128,8 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
         isPolling: true,
       });
 
-      logger.info('[GitHubCopilotOAuth] OAuth flow started, starting polling...');
+      logger.info('[GitHubCopilotOAuth] OAuth flow started');
 
-      // Start polling in the background
-      // The UI will show polling state, user can also manually trigger polling
       return {
         userCode: result.userCode,
         verificationUri: result.verificationUri,
@@ -177,40 +156,24 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
     set({ isPolling: true, error: null });
 
     try {
-      const result = await pollForAccessToken(
-        deviceCode,
-        enterpriseUrl || undefined,
-        (status, message) => {
-          logger.info('[GitHubCopilotOAuth] Polling status:', status, message);
-          set({ isPolling: status === 'pending' });
-        }
-      );
+      const result = await pollForAccessToken(deviceCode, enterpriseUrl || undefined);
 
       if (result.type === 'success' && result.tokens) {
-        // Save tokens to database
-        const { accessToken, copilotToken, expiresAt } = result.tokens;
-        const db = await getSettingsDb();
-        await db.setBatch({
-          [STORAGE_KEYS.ACCESS_TOKEN]: accessToken,
-          [STORAGE_KEYS.COPILOT_TOKEN]: copilotToken,
-          [STORAGE_KEYS.EXPIRES_AT]: expiresAt.toString(),
-          [STORAGE_KEYS.ENTERPRISE_URL]: enterpriseUrl || '',
-        });
-
         logger.info('[GitHubCopilotOAuth] OAuth completed successfully');
 
         set({
-          accessToken,
-          copilotToken,
-          expiresAt,
-          enterpriseUrl: enterpriseUrl || null,
           isConnected: true,
+          expiresAt: result.tokens.expiresAt,
+          enterpriseUrl: result.tokens.enterpriseUrl || null,
           deviceCode: null,
           userCode: null,
           verificationUri: null,
           isLoading: false,
           isPolling: false,
         });
+      } else if (result.type === 'pending') {
+        // Still pending, keep polling state
+        set({ isPolling: true });
       } else {
         throw new Error(result.error || 'Token exchange failed');
       }
@@ -225,24 +188,16 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
     }
   },
 
-  // Disconnect and clear tokens
+  // Disconnect and clear tokens via Rust
   disconnect: async () => {
     set({ isLoading: true, error: null });
 
     try {
-      const db = await getSettingsDb();
-      await db.setBatch({
-        [STORAGE_KEYS.ACCESS_TOKEN]: '',
-        [STORAGE_KEYS.COPILOT_TOKEN]: '',
-        [STORAGE_KEYS.EXPIRES_AT]: '',
-        [STORAGE_KEYS.ENTERPRISE_URL]: '',
-      });
+      await llmClient.disconnectGitHubCopilotOAuth();
 
       logger.info('[GitHubCopilotOAuth] Disconnected');
 
       set({
-        accessToken: null,
-        copilotToken: null,
         expiresAt: null,
         enterpriseUrl: null,
         isConnected: false,
@@ -262,12 +217,12 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
     }
   },
 
-  // Get a valid Copilot token (refresh if needed)
+  // Get a valid Copilot token (refresh if needed) via Rust
   getValidCopilotToken: async () => {
     const state = get();
 
-    if (!state.isConnected || !state.accessToken) {
-      logger.warn('[GitHubCopilotOAuth] Not connected or no access token');
+    if (!state.isConnected) {
+      logger.warn('[GitHubCopilotOAuth] Not connected');
       return null;
     }
 
@@ -276,25 +231,23 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
       logger.info('[GitHubCopilotOAuth] Token expired, refreshing...');
       const success = await get().refreshTokenIfNeeded();
       if (!success) {
-        logger.error('[GitHubCopilotOAuth] Token refresh failed, keeping existing token');
-        // Don't call disconnect() - keep the existing token and let the API fail naturally
-        // This allows users to continue using until they can re-authenticate
-        return state.copilotToken;
+        logger.error('[GitHubCopilotOAuth] Token refresh failed');
+        return null;
       }
     }
 
-    return get().copilotToken;
+    try {
+      const tokens = await llmClient.getGitHubCopilotOAuthTokens();
+      return tokens.copilotToken ?? null;
+    } catch (error) {
+      logger.error('[GitHubCopilotOAuth] Failed to get token:', error);
+      return null;
+    }
   },
 
-  // Refresh token if needed
-  // Note: GitHub OAuth device code flow doesn't provide refresh token.
-  // We directly use the OAuth access token to get a new Copilot API token.
+  // Refresh token if needed via Rust
   refreshTokenIfNeeded: async () => {
-    const { accessToken, expiresAt, enterpriseUrl } = get();
-
-    if (!accessToken) {
-      return false;
-    }
+    const { expiresAt } = get();
 
     // Only refresh if expired
     if (expiresAt && !isCopilotTokenExpired(expiresAt)) {
@@ -302,32 +255,13 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
     }
 
     try {
-      // Directly use OAuth access token to get new Copilot API token
-      const copilotResult = await getCopilotApiToken(accessToken, enterpriseUrl || undefined);
-
-      if (copilotResult.type === 'failed' || !copilotResult.tokens) {
-        const errorMessage = 'error' in copilotResult ? copilotResult.error : 'Unknown error';
-        logger.error('[GitHubCopilotOAuth] Copilot token refresh failed:', errorMessage);
-        // Don't disconnect - let the existing token be used and fail naturally on API call
-        return false;
-      }
-
-      const { copilotToken, expiresAt: newExpiresAt } = copilotResult.tokens;
-
-      // Save to database
-      const db = await getSettingsDb();
-      await db.setBatch({
-        [STORAGE_KEYS.ACCESS_TOKEN]: accessToken,
-        [STORAGE_KEYS.COPILOT_TOKEN]: copilotToken,
-        [STORAGE_KEYS.EXPIRES_AT]: newExpiresAt.toString(),
-        [STORAGE_KEYS.ENTERPRISE_URL]: enterpriseUrl || '',
-      });
+      const tokens = await llmClient.refreshGitHubCopilotOAuthToken();
 
       logger.info('[GitHubCopilotOAuth] Token refreshed successfully');
 
       set({
-        copilotToken,
-        expiresAt: newExpiresAt,
+        expiresAt: tokens.expiresAt,
+        enterpriseUrl: tokens.enterpriseUrl || null,
       });
 
       return true;
@@ -374,9 +308,15 @@ export async function getGitHubCopilotOAuthTokens(): Promise<{
   if (!state.isConnected) {
     return null;
   }
-  return {
-    accessToken: state.accessToken,
-    copilotToken: state.copilotToken,
-    enterpriseUrl: state.enterpriseUrl,
-  };
+  try {
+    const tokens = await llmClient.getGitHubCopilotOAuthTokens();
+    return {
+      accessToken: tokens.accessToken ?? null,
+      copilotToken: tokens.copilotToken ?? null,
+      enterpriseUrl: tokens.enterpriseUrl ?? null,
+    };
+  } catch (error) {
+    logger.error('[GitHubCopilotOAuth] Failed to get tokens:', error);
+    return null;
+  }
 }

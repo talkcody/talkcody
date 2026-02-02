@@ -1,4 +1,10 @@
-use crate::llm::protocols::{LlmProtocol, ProtocolStreamState, ToolCallAccum};
+use crate::llm::protocols::{
+    self,
+    header_builder::{HeaderBuildContext, ProtocolHeaderBuilder},
+    request_builder::{ProtocolRequestBuilder, RequestBuildContext},
+    stream_parser::{ProtocolStreamParser, StreamParseContext, StreamParseState},
+    LlmProtocol, ProtocolStreamState, ToolCallAccum,
+};
 use crate::llm::types::{ContentPart, Message, MessageContent, StreamEvent, ToolDefinition};
 use serde_json::{json, Value};
 use std::collections::HashMap;
@@ -76,6 +82,7 @@ impl ClaudeProtocol {
                             tool_call_id,
                             tool_name,
                             input,
+                            provider_metadata: _,
                         } => {
                             mapped.push(json!({
                                 "type": "tool_use",
@@ -257,6 +264,7 @@ impl LlmProtocol for ClaudeProtocol {
                                         tool_call_id: id.clone(),
                                         tool_name: name,
                                         arguments,
+                                        thought_signature: None,
                                     },
                                 );
                                 state.tool_call_order.push(id);
@@ -348,6 +356,7 @@ impl LlmProtocol for ClaudeProtocol {
                             tool_call_id: acc.tool_call_id.clone(),
                             tool_name: acc.tool_name.clone(),
                             input: input_value,
+                            provider_metadata: None,
                         }));
                     }
                 }
@@ -416,6 +425,7 @@ impl LlmProtocol for ClaudeProtocol {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::protocols::ProtocolStreamState;
     use serde_json::json;
 
     #[test]
@@ -433,9 +443,13 @@ mod tests {
                 "input": {}
             }
         });
-        let start_event = protocol
-            .parse_stream_event(Some("content_block_start"), &start.to_string(), &mut state)
-            .unwrap();
+        let start_event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            Some("content_block_start"),
+            &start.to_string(),
+            &mut state,
+        )
+        .unwrap();
         assert!(start_event.is_none());
 
         let delta = json!({
@@ -446,24 +460,33 @@ mod tests {
                 "partial_json": "{\"path\":\"/tmp\",\"pattern\":\"**/*.rs\"}"
             }
         });
-        let delta_event = protocol
-            .parse_stream_event(Some("content_block_delta"), &delta.to_string(), &mut state)
-            .unwrap();
+        let delta_event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            Some("content_block_delta"),
+            &delta.to_string(),
+            &mut state,
+        )
+        .unwrap();
         assert!(delta_event.is_none());
 
         let stop = json!({
             "type": "content_block_stop",
             "index": 4
         });
-        let stop_event = protocol
-            .parse_stream_event(Some("content_block_stop"), &stop.to_string(), &mut state)
-            .unwrap();
+        let stop_event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            Some("content_block_stop"),
+            &stop.to_string(),
+            &mut state,
+        )
+        .unwrap();
 
         match stop_event {
             Some(StreamEvent::ToolCall {
                 tool_call_id,
                 tool_name,
                 input,
+                provider_metadata: _,
             }) => {
                 assert_eq!(tool_call_id, "call_1");
                 assert_eq!(tool_name, "glob");
@@ -491,19 +514,19 @@ mod tests {
             },
         ];
 
-        let body = protocol
-            .build_request(
-                "claude-3",
-                &messages,
-                None,
-                Some(0.2),
-                Some(256),
-                Some(0.9),
-                None,
-                Some(&json!({ "anthropic": { "thinking": { "type": "enabled" } } })),
-                Some(&json!({ "max_output_tokens": 128 })),
-            )
-            .expect("build request");
+        let body = protocols::LlmProtocol::build_request(
+            &protocol,
+            "claude-3",
+            &messages,
+            None,
+            Some(0.2),
+            Some(256),
+            Some(0.9),
+            None,
+            Some(&json!({ "anthropic": { "thinking": { "type": "enabled" } } })),
+            Some(&json!({ "max_output_tokens": 128 })),
+        )
+        .expect("build request");
 
         assert_eq!(body.get("system"), Some(&json!("system")));
         assert!(
@@ -539,9 +562,13 @@ mod tests {
                 "id": "think-1"
             }
         });
-        let _ = protocol
-            .parse_stream_event(Some("content_block_start"), &start.to_string(), &mut state)
-            .expect("start");
+        let _ = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            Some("content_block_start"),
+            &start.to_string(),
+            &mut state,
+        )
+        .expect("start");
 
         let delta = json!({
             "type": "content_block_delta",
@@ -552,10 +579,14 @@ mod tests {
             }
         });
 
-        let event = protocol
-            .parse_stream_event(Some("content_block_delta"), &delta.to_string(), &mut state)
-            .expect("delta")
-            .expect("event");
+        let event = protocols::LlmProtocol::parse_stream_event(
+            &protocol,
+            Some("content_block_delta"),
+            &delta.to_string(),
+            &mut state,
+        )
+        .expect("delta")
+        .expect("event");
 
         match event {
             StreamEvent::ReasoningDelta {

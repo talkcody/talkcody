@@ -407,7 +407,7 @@ impl ApiKeyManager {
     }
 }
 
-fn normalize_domain(url: &str) -> String {
+pub fn normalize_domain(url: &str) -> String {
     url.trim()
         .trim_start_matches("https://")
         .trim_start_matches("http://")

@@ -2,9 +2,25 @@ use crate::llm::types::{Message, StreamEvent, ToolDefinition};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
+// Re-export new modular traits
+pub mod header_builder;
+pub mod request_builder;
+pub mod stream_parser;
+
+pub use header_builder::ProtocolHeaderBuilder;
+pub use request_builder::ProtocolRequestBuilder;
+pub use stream_parser::ProtocolStreamParser;
+
+/// Legacy protocol trait - kept for backward compatibility during migration
+/// New code should use the modular traits: ProtocolRequestBuilder, ProtocolStreamParser, ProtocolHeaderBuilder
 pub trait LlmProtocol: Send + Sync {
+    // Note: This trait no longer requires ProtocolRequestBuilder, ProtocolStreamParser, ProtocolHeaderBuilder
+    // to maintain backward compatibility with existing implementations (ClaudeProtocol, OpenAiProtocol).
+    // New implementations should implement the modular traits separately.
     fn name(&self) -> &str;
     fn endpoint_path(&self) -> &'static str;
+
+    /// Legacy method
     fn build_request(
         &self,
         model: &str,
@@ -17,12 +33,16 @@ pub trait LlmProtocol: Send + Sync {
         provider_options: Option<&Value>,
         extra_body: Option<&Value>,
     ) -> Result<Value, String>;
+
+    /// Legacy method
     fn parse_stream_event(
         &self,
         event_type: Option<&str>,
         data: &str,
         state: &mut ProtocolStreamState,
     ) -> Result<Option<StreamEvent>, String>;
+
+    /// Legacy method
     fn build_headers(
         &self,
         api_key: Option<&str>,
@@ -43,7 +63,6 @@ pub struct ProtocolStreamState {
     pub text_started: bool,
     pub content_block_types: HashMap<usize, String>,
     pub content_block_ids: HashMap<usize, String>,
-    // Reasoning content tracking for DeepSeek-style reasoning_content
     pub reasoning_started: bool,
     pub reasoning_id: Option<String>,
 }
@@ -53,7 +72,9 @@ pub struct ToolCallAccum {
     pub tool_call_id: String,
     pub tool_name: String,
     pub arguments: String,
+    pub thought_signature: Option<String>,
 }
 
 pub mod claude_protocol;
 pub mod openai_protocol;
+pub mod openai_responses_protocol;

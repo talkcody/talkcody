@@ -1,4 +1,4 @@
-import type { Message as ModelMessage } from '@/services/llm/types';
+import type { Message as ModelMessage, ProviderOptions } from '@/services/llm/types';
 import type { ModelType } from './model-types';
 import type { OutputFormatType } from './output-format';
 import type { ToolInput, ToolOutput, ToolWithUI } from './tool';
@@ -33,6 +33,7 @@ export interface ToolMessageContent {
   toolName: string;
   input?: ToolInput;
   output?: ToolOutput;
+  providerMetadata?: ProviderOptions;
 }
 
 export interface MessageAttachment {

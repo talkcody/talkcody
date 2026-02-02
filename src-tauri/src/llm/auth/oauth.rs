@@ -7,6 +7,8 @@ use std::time::{Duration, Instant};
 use tauri::State;
 use tokio::sync::Mutex;
 
+use crate::llm::auth::api_key_manager::normalize_domain;
+
 const OPENAI_CLIENT_ID: &str = "app_EMoamEEZ73f0CkXaXp7hrann";
 const OPENAI_REDIRECT_URI: &str = "http://localhost:1455/auth/callback";
 const OPENAI_AUTH_URL: &str = "https://auth.openai.com/authorize";
@@ -21,6 +23,12 @@ const GITHUB_COPILOT_ACCESS_TOKEN_KEY: &str = "github_copilot_oauth_access_token
 const GITHUB_COPILOT_COPILOT_TOKEN_KEY: &str = "github_copilot_oauth_copilot_token";
 const GITHUB_COPILOT_EXPIRES_AT_KEY: &str = "github_copilot_oauth_expires_at";
 const GITHUB_COPILOT_ENTERPRISE_URL_KEY: &str = "github_copilot_oauth_enterprise_url";
+
+const GITHUB_COPILOT_CLIENT_ID: &str = "Iv1.b507a08c87ecfe98";
+const GITHUB_COPILOT_USER_AGENT: &str = "GitHubCopilotChat/0.35.0";
+const GITHUB_COPILOT_EDITOR_VERSION: &str = "vscode/1.105.1";
+const GITHUB_COPILOT_PLUGIN_VERSION: &str = "copilot-chat/0.35.0";
+const GITHUB_COPILOT_INTEGRATION_ID: &str = "vscode-chat";
 
 const OAUTH_STATE_TIMEOUT: Duration = Duration::from_secs(600); // 10 minutes
 
@@ -598,6 +606,371 @@ pub async fn llm_claude_oauth_disconnect(state: State<'_, LlmState>) -> Result<(
         .await?;
     api_keys.set_setting("claude_oauth_expires_at", "").await?;
     Ok(())
+}
+
+// ============================================================================
+// GitHub Copilot OAuth (Device Code Flow)
+// ============================================================================
+
+#[derive(Deserialize)]
+pub struct GitHubCopilotOAuthStartRequest {
+    #[serde(rename = "enterpriseUrl")]
+    pub enterprise_url: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct GitHubCopilotDeviceCodeResponse {
+    device_code: String,
+    user_code: String,
+    verification_uri: String,
+    expires_in: i64,
+    interval: i64,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitHubCopilotOAuthStartResponse {
+    pub device_code: String,
+    pub user_code: String,
+    pub verification_uri: String,
+    pub expires_in: i64,
+    pub interval: i64,
+}
+
+#[derive(Deserialize)]
+pub struct GitHubCopilotOAuthPollRequest {
+    pub device_code: String,
+    #[serde(rename = "enterpriseUrl")]
+    pub enterprise_url: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct GitHubCopilotAccessTokenResponse {
+    access_token: Option<String>,
+    error: Option<String>,
+    error_description: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitHubCopilotOAuthTokens {
+    pub access_token: String,
+    pub copilot_token: String,
+    pub expires_at: i64,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enterprise_url: Option<String>,
+}
+
+#[derive(Serialize)]
+pub struct GitHubCopilotTokenExchangeResponse {
+    #[serde(rename = "type")]
+    pub result_type: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tokens: Option<GitHubCopilotOAuthTokens>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub error: Option<String>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GitHubCopilotOAuthTokenSnapshot {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub access_token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub copilot_token: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub expires_at: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub enterprise_url: Option<String>,
+}
+
+fn github_copilot_domain(enterprise_url: Option<&str>) -> String {
+    enterprise_url
+        .map(normalize_domain)
+        .filter(|value| !value.trim().is_empty())
+        .unwrap_or_else(|| "github.com".to_string())
+}
+
+async fn github_copilot_api_token(
+    client: &reqwest::Client,
+    access_token: &str,
+    enterprise_url: Option<&str>,
+) -> Result<(String, i64), String> {
+    let domain = github_copilot_domain(enterprise_url);
+    let url = format!("https://api.{}/copilot_internal/v2/token", domain);
+
+    let response = client
+        .get(&url)
+        .header("Accept", "application/json")
+        .header("Authorization", format!("Bearer {}", access_token))
+        .header("User-Agent", GITHUB_COPILOT_USER_AGENT)
+        .header("Editor-Version", GITHUB_COPILOT_EDITOR_VERSION)
+        .header("Editor-Plugin-Version", GITHUB_COPILOT_PLUGIN_VERSION)
+        .header("Copilot-Integration-Id", GITHUB_COPILOT_INTEGRATION_ID)
+        .send()
+        .await
+        .map_err(|e| format!("Copilot token request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        return Err(format!(
+            "Copilot token request failed ({}): {}",
+            status, text
+        ));
+    }
+
+    let payload: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse Copilot token response: {}", e))?;
+    let token = payload
+        .get("token")
+        .and_then(|value| value.as_str())
+        .ok_or("Missing Copilot token in response")?
+        .to_string();
+    let expires_at = payload
+        .get("expires_at")
+        .and_then(|value| value.as_i64())
+        .ok_or("Missing Copilot expires_at in response")?;
+
+    Ok((token, expires_at * 1000))
+}
+
+#[tauri::command]
+pub async fn llm_github_copilot_oauth_start_device_code(
+    request: GitHubCopilotOAuthStartRequest,
+) -> Result<GitHubCopilotOAuthStartResponse, String> {
+    let domain = github_copilot_domain(request.enterprise_url.as_deref());
+    let url = format!("https://{}/login/device/code", domain);
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json")
+        .header("User-Agent", GITHUB_COPILOT_USER_AGENT)
+        .header("Editor-Version", GITHUB_COPILOT_EDITOR_VERSION)
+        .header("Editor-Plugin-Version", GITHUB_COPILOT_PLUGIN_VERSION)
+        .header("Copilot-Integration-Id", GITHUB_COPILOT_INTEGRATION_ID)
+        .json(&serde_json::json!({
+            "client_id": GITHUB_COPILOT_CLIENT_ID,
+            "scope": "read:user"
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("Device code request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        return Err(format!("Device code request failed ({}): {}", status, text));
+    }
+
+    let data: GitHubCopilotDeviceCodeResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse device code response: {}", e))?;
+
+    Ok(GitHubCopilotOAuthStartResponse {
+        device_code: data.device_code,
+        user_code: data.user_code,
+        verification_uri: data.verification_uri,
+        expires_in: data.expires_in,
+        interval: data.interval,
+    })
+}
+
+#[tauri::command]
+pub async fn llm_github_copilot_oauth_poll_device_code(
+    request: GitHubCopilotOAuthPollRequest,
+    state: State<'_, LlmState>,
+) -> Result<GitHubCopilotTokenExchangeResponse, String> {
+    let domain = github_copilot_domain(request.enterprise_url.as_deref());
+    let url = format!("https://{}/login/oauth/access_token", domain);
+
+    let client = reqwest::Client::new();
+    let response = client
+        .post(&url)
+        .header("Content-Type", "application/json")
+        .header("Accept", "application/json")
+        .header("User-Agent", GITHUB_COPILOT_USER_AGENT)
+        .json(&serde_json::json!({
+            "client_id": GITHUB_COPILOT_CLIENT_ID,
+            "device_code": request.device_code,
+            "grant_type": "urn:ietf:params:oauth:grant-type:device_code"
+        }))
+        .send()
+        .await
+        .map_err(|e| format!("Token request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        let status = response.status();
+        let text = response
+            .text()
+            .await
+            .unwrap_or_else(|_| "Unknown error".to_string());
+        return Ok(GitHubCopilotTokenExchangeResponse {
+            result_type: "failed".to_string(),
+            tokens: None,
+            error: Some(format!("Token request failed ({}): {}", status, text)),
+        });
+    }
+
+    let data: GitHubCopilotAccessTokenResponse = response
+        .json()
+        .await
+        .map_err(|e| format!("Failed to parse access token response: {}", e))?;
+
+    if let Some(access_token) = data.access_token {
+        let (copilot_token, expires_at_ms) =
+            github_copilot_api_token(&client, &access_token, request.enterprise_url.as_deref())
+                .await?;
+
+        let api_keys = state.api_keys.lock().await;
+        api_keys
+            .set_setting(GITHUB_COPILOT_ACCESS_TOKEN_KEY, &access_token)
+            .await?;
+        api_keys
+            .set_setting(GITHUB_COPILOT_COPILOT_TOKEN_KEY, &copilot_token)
+            .await?;
+        api_keys
+            .set_setting(GITHUB_COPILOT_EXPIRES_AT_KEY, &expires_at_ms.to_string())
+            .await?;
+        api_keys
+            .set_setting(
+                GITHUB_COPILOT_ENTERPRISE_URL_KEY,
+                request.enterprise_url.as_deref().unwrap_or(""),
+            )
+            .await?;
+
+        return Ok(GitHubCopilotTokenExchangeResponse {
+            result_type: "success".to_string(),
+            tokens: Some(GitHubCopilotOAuthTokens {
+                access_token,
+                copilot_token,
+                expires_at: expires_at_ms,
+                enterprise_url: request.enterprise_url,
+            }),
+            error: None,
+        });
+    }
+
+    if let Some(error) = data.error {
+        if error == "authorization_pending" || error == "slow_down" {
+            return Ok(GitHubCopilotTokenExchangeResponse {
+                result_type: "pending".to_string(),
+                tokens: None,
+                error: None,
+            });
+        }
+
+        let message = data
+            .error_description
+            .unwrap_or_else(|| format!("OAuth error: {}", error));
+        return Ok(GitHubCopilotTokenExchangeResponse {
+            result_type: "failed".to_string(),
+            tokens: None,
+            error: Some(message),
+        });
+    }
+
+    Ok(GitHubCopilotTokenExchangeResponse {
+        result_type: "failed".to_string(),
+        tokens: None,
+        error: Some("Unknown OAuth response".to_string()),
+    })
+}
+
+#[tauri::command]
+pub async fn llm_github_copilot_oauth_refresh(
+    state: State<'_, LlmState>,
+) -> Result<GitHubCopilotOAuthTokens, String> {
+    let api_keys = state.api_keys.lock().await;
+    let access_token = api_keys
+        .get_setting(GITHUB_COPILOT_ACCESS_TOKEN_KEY)
+        .await?
+        .unwrap_or_default();
+    if access_token.trim().is_empty() {
+        return Err("Missing GitHub Copilot OAuth access token".to_string());
+    }
+
+    let enterprise_url = api_keys
+        .get_setting(GITHUB_COPILOT_ENTERPRISE_URL_KEY)
+        .await?
+        .filter(|value| !value.trim().is_empty());
+
+    let client = reqwest::Client::new();
+    let (copilot_token, expires_at_ms) =
+        github_copilot_api_token(&client, &access_token, enterprise_url.as_deref()).await?;
+
+    api_keys
+        .set_setting(GITHUB_COPILOT_COPILOT_TOKEN_KEY, &copilot_token)
+        .await?;
+    api_keys
+        .set_setting(GITHUB_COPILOT_EXPIRES_AT_KEY, &expires_at_ms.to_string())
+        .await?;
+
+    Ok(GitHubCopilotOAuthTokens {
+        access_token,
+        copilot_token,
+        expires_at: expires_at_ms,
+        enterprise_url,
+    })
+}
+
+#[tauri::command]
+pub async fn llm_github_copilot_oauth_disconnect(state: State<'_, LlmState>) -> Result<(), String> {
+    let api_keys = state.api_keys.lock().await;
+    api_keys
+        .set_setting(GITHUB_COPILOT_ACCESS_TOKEN_KEY, "")
+        .await?;
+    api_keys
+        .set_setting(GITHUB_COPILOT_COPILOT_TOKEN_KEY, "")
+        .await?;
+    api_keys
+        .set_setting(GITHUB_COPILOT_EXPIRES_AT_KEY, "")
+        .await?;
+    api_keys
+        .set_setting(GITHUB_COPILOT_ENTERPRISE_URL_KEY, "")
+        .await?;
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn llm_github_copilot_oauth_tokens(
+    state: State<'_, LlmState>,
+) -> Result<GitHubCopilotOAuthTokenSnapshot, String> {
+    let api_keys = state.api_keys.lock().await;
+    let access_token = api_keys
+        .get_setting(GITHUB_COPILOT_ACCESS_TOKEN_KEY)
+        .await?
+        .filter(|value| !value.trim().is_empty());
+    let copilot_token = api_keys
+        .get_setting(GITHUB_COPILOT_COPILOT_TOKEN_KEY)
+        .await?
+        .filter(|value| !value.trim().is_empty());
+    let expires_at = api_keys
+        .get_setting(GITHUB_COPILOT_EXPIRES_AT_KEY)
+        .await?
+        .and_then(|value| value.parse::<i64>().ok());
+    let enterprise_url = api_keys
+        .get_setting(GITHUB_COPILOT_ENTERPRISE_URL_KEY)
+        .await?
+        .filter(|value| !value.trim().is_empty());
+
+    Ok(GitHubCopilotOAuthTokenSnapshot {
+        access_token,
+        copilot_token,
+        expires_at,
+        enterprise_url,
+    })
 }
 
 // ============================================================================

@@ -42,6 +42,9 @@ export interface StreamProcessorState {
   reasoningBlocks: ReasoningBlock[];
   textParts: string[];
   contentOrder: Array<{ type: 'reasoning' | 'text'; index: number }>;
+  // Track whether actual text content was received (not just TextStart event)
+  // This helps distinguish between "assistant message created by reasoning" vs "assistant message with text"
+  hasReceivedText: boolean;
 }
 
 /**
@@ -60,10 +63,19 @@ export class StreamProcessor {
     reasoningBlocks: [],
     textParts: [],
     contentOrder: [],
+    hasReceivedText: false,
   };
 
   constructor() {
     this.resetState();
+  }
+
+  /**
+   * Check if an assistant message needs to be created.
+   * Returns true if no assistant message has been created yet (neither text nor reasoning).
+   */
+  private needsAssistantMessage(): boolean {
+    return !this.state.isAnswering;
   }
 
   /**
@@ -83,6 +95,7 @@ export class StreamProcessor {
       reasoningBlocks: [],
       textParts: [],
       contentOrder: [],
+      hasReceivedText: false,
     };
   }
 
@@ -110,6 +123,7 @@ export class StreamProcessor {
       reasoningBlocks: [],
       textParts: [],
       contentOrder: [],
+      hasReceivedText: false,
     };
   }
 
@@ -213,9 +227,9 @@ export class StreamProcessor {
   processTextStart(callbacks: StreamProcessorCallbacks): void {
     const t = getTranslations();
     callbacks.onStatus?.(t.StreamProcessor.status.answering);
-    // Only call onAssistantMessageStart if not already answering
+    // Only call onAssistantMessageStart if no assistant message exists yet
     // This prevents duplicate message creation when reasoning comes before text-start
-    if (!this.state.isAnswering) {
+    if (this.needsAssistantMessage()) {
       this.state.isAnswering = true;
       callbacks.onAssistantMessageStart?.();
     }
@@ -226,13 +240,15 @@ export class StreamProcessor {
    */
   processTextDelta(text: string, callbacks: StreamProcessorCallbacks): void {
     const t = getTranslations();
-    if (!this.state.isAnswering) {
+    // Create assistant message if needed (no text or reasoning received yet)
+    if (this.needsAssistantMessage()) {
       callbacks.onStatus?.(t.StreamProcessor.status.answering);
       this.state.isAnswering = true;
       callbacks.onAssistantMessageStart?.();
     }
 
     if (text) {
+      this.state.hasReceivedText = true;
       this.state.currentStepText += text;
       this.state.fullText += text;
       callbacks.onChunk(text);
@@ -253,7 +269,12 @@ export class StreamProcessor {
   }
 
   processToolCall(
-    toolCall: { toolCallId: string; toolName: string; input: unknown },
+    toolCall: {
+      toolCallId: string;
+      toolName: string;
+      input: unknown;
+      providerMetadata?: Record<string, unknown>;
+    },
     callbacks: StreamProcessorCallbacks
   ): void {
     // logger.info('Processing tool call:', {
@@ -365,7 +386,8 @@ export class StreamProcessor {
 
     // Call onAssistantMessageStart on first reasoning (similar to processTextDelta)
     // This ensures assistant message is created even when only reasoning is returned
-    if (!this.state.isAnswering && !context.suppressReasoning && text && text.trim()) {
+    // Use needsAssistantMessage() to handle cases where TextStart was emitted but no text received
+    if (this.needsAssistantMessage() && !context.suppressReasoning && text && text.trim()) {
       this.state.isAnswering = true;
       callbacks.onAssistantMessageStart?.();
     }

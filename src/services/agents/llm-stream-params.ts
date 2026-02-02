@@ -45,6 +45,11 @@ export class LLMStreamParams {
       options.reasoningEffort
     );
 
+    const { providerId } = parseModelIdentifier(options.modelIdentifier);
+    const normalizedProviderId = providerId?.toLowerCase();
+    const includeOpenAI = !normalizedProviderId || normalizedProviderId === 'openai';
+    const includeOpenRouter = normalizedProviderId === 'openrouter';
+
     const providerOptionsMap: ProviderOptions = {
       google: {
         thinkingConfig: {
@@ -55,17 +60,23 @@ export class LLMStreamParams {
       anthropic: {
         thinking: { type: 'enabled', budgetTokens: 12_000 },
       },
-      openai: {
-        reasoningEffort: normalizedReasoningEffort,
-      },
-      openrouter: {
-        effort: normalizedReasoningEffort,
-      },
       moonshot: {
         thinking: { type: 'enabled' },
         temperature: 1.0,
       },
     };
+
+    if (includeOpenAI) {
+      providerOptionsMap.openai = {
+        reasoningEffort: normalizedReasoningEffort,
+      };
+    }
+
+    if (includeOpenRouter) {
+      providerOptionsMap.openrouter = {
+        effort: normalizedReasoningEffort,
+      };
+    }
 
     return Object.keys(providerOptionsMap).length > 0 ? providerOptionsMap : undefined;
   }

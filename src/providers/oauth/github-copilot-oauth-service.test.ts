@@ -1,9 +1,26 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { mockLogger } from '@/test/mocks';
 import {
   createGitHubCopilotFetch,
   isVisionRequest,
+  startDeviceCodeFlow,
+  pollForAccessToken,
+  refreshAccessToken,
 } from './github-copilot-oauth-service';
+
+// Mock llmClient
+const mockStartDeviceCode = vi.fn();
+const mockPollDeviceCode = vi.fn();
+const mockRefreshToken = vi.fn();
+const mockGetTokens = vi.fn();
+
+vi.mock('@/services/llm/llm-client', () => ({
+  llmClient: {
+    startGitHubCopilotOAuthDeviceCode: (...args: unknown[]) => mockStartDeviceCode(...args),
+    pollGitHubCopilotOAuthDeviceCode: (...args: unknown[]) => mockPollDeviceCode(...args),
+    refreshGitHubCopilotOAuthToken: (...args: unknown[]) => mockRefreshToken(...args),
+    getGitHubCopilotOAuthTokens: (...args: unknown[]) => mockGetTokens(...args),
+  },
+}));
 
 // Create mock functions
 const mockStreamFetch = vi.fn();
@@ -21,6 +38,121 @@ vi.mock('./github-copilot-oauth-store', () => ({
 describe('github-copilot-oauth-service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  describe('startDeviceCodeFlow', () => {
+    it('should start device code flow via Rust', async () => {
+      mockStartDeviceCode.mockResolvedValue({
+        deviceCode: 'device-123',
+        userCode: 'USER-123',
+        verificationUri: 'https://github.com/login/device',
+        expiresIn: 900,
+        interval: 5,
+      });
+
+      const result = await startDeviceCodeFlow();
+
+      expect(mockStartDeviceCode).toHaveBeenCalledWith({ enterpriseUrl: undefined });
+      expect(result).toEqual({
+        deviceCode: 'device-123',
+        userCode: 'USER-123',
+        verificationUri: 'https://github.com/login/device',
+      });
+    });
+
+    it('should pass enterprise URL when provided', async () => {
+      mockStartDeviceCode.mockResolvedValue({
+        deviceCode: 'device-123',
+        userCode: 'USER-123',
+        verificationUri: 'https://enterprise.github.com/login/device',
+        expiresIn: 900,
+        interval: 5,
+      });
+
+      await startDeviceCodeFlow('https://enterprise.github.com');
+
+      expect(mockStartDeviceCode).toHaveBeenCalledWith({
+        enterpriseUrl: 'https://enterprise.github.com',
+      });
+    });
+  });
+
+  describe('pollForAccessToken', () => {
+    it('should return success when tokens received', async () => {
+      mockPollDeviceCode.mockResolvedValue({
+        type: 'success',
+        tokens: {
+          accessToken: 'access-123',
+          copilotToken: 'copilot-123',
+          expiresAt: 1234567890,
+          enterpriseUrl: undefined,
+        },
+      });
+
+      const result = await pollForAccessToken('device-123');
+
+      expect(mockPollDeviceCode).toHaveBeenCalledWith({
+        deviceCode: 'device-123',
+        enterpriseUrl: undefined,
+      });
+      expect(result.type).toBe('success');
+      expect(result.tokens).toEqual({
+        accessToken: 'access-123',
+        copilotToken: 'copilot-123',
+        expiresAt: 1234567890,
+        enterpriseUrl: undefined,
+      });
+    });
+
+    it('should return pending when authorization pending', async () => {
+      mockPollDeviceCode.mockResolvedValue({
+        type: 'pending',
+      });
+
+      const result = await pollForAccessToken('device-123');
+
+      expect(result.type).toBe('pending');
+    });
+
+    it('should return failed on error', async () => {
+      mockPollDeviceCode.mockResolvedValue({
+        type: 'failed',
+        error: 'Authorization declined',
+      });
+
+      const result = await pollForAccessToken('device-123');
+
+      expect(result.type).toBe('failed');
+      expect(result.error).toBe('Authorization declined');
+    });
+  });
+
+  describe('refreshAccessToken', () => {
+    it('should refresh token via Rust', async () => {
+      mockRefreshToken.mockResolvedValue({
+        accessToken: 'new-access-123',
+        copilotToken: 'new-copilot-123',
+        expiresAt: 1234567890,
+      });
+
+      const result = await refreshAccessToken();
+
+      expect(mockRefreshToken).toHaveBeenCalled();
+      expect(result.type).toBe('success');
+      if (result.type === 'success') {
+        expect(result.accessToken).toBe('new-access-123');
+        expect(result.copilotToken).toBe('new-copilot-123');
+        expect(result.expiresAt).toBe(1234567890);
+      }
+    });
+
+    it('should return failed on error', async () => {
+      mockRefreshToken.mockRejectedValue(new Error('Network error'));
+
+      const result = await refreshAccessToken();
+
+      expect(result.type).toBe('failed');
+    });
   });
 
   describe('isVisionRequest', () => {

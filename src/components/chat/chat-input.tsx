@@ -455,8 +455,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     const handleModelSelect = useCallback(
       async (modelKey: string) => {
         try {
-          // Set the current model
-          await modelService.setCurrentModel(modelKey);
+          // Set the current model via settings
+          const { settingsManager } = await import('@/stores/settings-store');
+          await settingsManager.set('current_model', modelKey);
 
           // Add pending image attachments if any
           if (pendingImageAttachments.length > 0) {

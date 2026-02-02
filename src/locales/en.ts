@@ -245,7 +245,7 @@ const en: LocaleDefinition = {
       planModeTooltip: 'AI will create a detailed plan for your approval before making changes',
       actModeTooltip: 'AI will execute tasks directly without requiring plan approval',
       toggleTerminal: 'Toggle Terminal',
-      searchFiles: 'Search Files (Cmd+P)',
+      searchFiles: 'Search Files (Cmd+O)',
       searchContent: 'Search Content (Cmd+G)',
       inputTokens: 'Tokens',
       outputTokens: 'Tokens',
@@ -1996,6 +1996,39 @@ const en: LocaleDefinition = {
 
     plan: {
       title: 'Coding Plan',
+    },
+  },
+
+  kimiUsage: {
+    title: 'Kimi Coding Plan Usage',
+    description: 'Monitor your Kimi Coding Plan usage',
+    notConfigured: 'Token Not Configured',
+    configurePrompt: 'Add your Kimi token in settings to view usage statistics',
+    configureButton: 'Go to Settings',
+    sessionExpired: 'Session Expired',
+    sessionExpiredDescription:
+      'Your Kimi session has expired. Please update your token in settings.',
+    updateCookie: 'Update Token',
+    error: 'Error Loading Usage',
+    retry: 'Retry',
+    refresh: 'Refresh',
+    refreshing: 'Refreshing...',
+    noData: 'No Usage Data',
+    noDataDescription: 'Unable to load usage data. Please try refreshing.',
+    used: 'Used',
+    remaining: 'Remaining',
+    resetsIn: 'Resets in',
+    lastValidated: 'Last validated',
+    criticalWarning: 'Warning: You are approaching your usage limit!',
+
+    weekly: {
+      title: 'Weekly Usage',
+      description: 'Usage within your current weekly coding plan window',
+    },
+
+    fiveHour: {
+      title: '5-Hour Session Usage',
+      description: 'Usage within your current 5-hour coding plan window',
     },
   },
 

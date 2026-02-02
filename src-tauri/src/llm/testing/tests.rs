@@ -1,8 +1,8 @@
 use super::fixtures::{load_fixture, parse_sse_body, ProviderFixture, RecordedResponse};
 use super::mock_server::MockProviderServer;
 use crate::llm::protocols::{
-    claude_protocol::ClaudeProtocol, openai_protocol::OpenAiProtocol, LlmProtocol,
-    ProtocolStreamState,
+    claude_protocol::ClaudeProtocol, openai_protocol::OpenAiProtocol,
+    openai_responses_protocol::OpenAiResponsesProtocol, LlmProtocol, ProtocolStreamState,
 };
 use serde_json::Value;
 use std::path::PathBuf;
@@ -22,7 +22,13 @@ fn load_fixtures_for_test(
 ) -> Vec<ProviderFixture> {
     let dir = recordings_dir();
     let suffix = format!("__{}.json", channel);
-    let protocol_tag = format!("__{}__", protocol);
+    // Match both the exact protocol and OpenAiCompatible variants
+    // OpenAiCompatible providers use OpenAI-compatible protocol
+    let protocol_tags: Vec<String> = if protocol == "openai" {
+        vec!["__openai__".to_string(), "__OpenAiCompatible__".to_string()]
+    } else {
+        vec![format!("__{}__", protocol)]
+    };
     let mut matches = Vec::new();
 
     let entries = std::fs::read_dir(&dir)
@@ -31,12 +37,24 @@ fn load_fixtures_for_test(
         let entry = entry.expect("read dir entry");
         let file_name = entry.file_name();
         let file_name = file_name.to_string_lossy();
-        if !file_name.ends_with(&suffix) || !file_name.contains(&protocol_tag) {
+        if !file_name.ends_with(&suffix) {
+            continue;
+        }
+        // Check if any protocol tag matches
+        if !protocol_tags.iter().any(|tag| file_name.contains(tag)) {
             continue;
         }
         if let Some(provider_id) = provider_id {
-            let prefix = format!("{}__{}__", provider_id, protocol);
-            if !file_name.starts_with(&prefix) {
+            // For prefix matching, we need to check against both protocol variants
+            let prefixes: Vec<String> = if protocol == "openai" {
+                vec![
+                    format!("{}__openai__", provider_id),
+                    format!("{}__OpenAiCompatible__", provider_id),
+                ]
+            } else {
+                vec![format!("{}__{}__", provider_id, protocol)]
+            };
+            if !prefixes.iter().any(|prefix| file_name.starts_with(prefix)) {
                 continue;
             }
         }
@@ -63,7 +81,8 @@ fn load_fixtures_for_test(
 
 fn protocol_for_fixture(fixture: &ProviderFixture) -> Box<dyn LlmProtocol> {
     match fixture.protocol.as_str() {
-        "openai" => Box::new(OpenAiProtocol),
+        "openai" | "OpenAiCompatible" => Box::new(OpenAiProtocol),
+        "openai_responses" => Box::new(OpenAiResponsesProtocol),
         "anthropic" => Box::new(ClaudeProtocol),
         other => panic!("Unknown protocol in fixture: {}", other),
     }
@@ -149,7 +168,7 @@ fn assert_request_matches_fixture(protocol: &dyn LlmProtocol, fixture: &Provider
 
 #[test]
 fn openai_fixture_roundtrip() {
-    let fixtures = load_fixtures_for_test(None, "openai", "api");
+    let fixtures = load_fixtures_for_test(None, "openai", "custom");
     for fixture in fixtures {
         let protocol = protocol_for_fixture(&fixture);
         assert_request_matches_fixture(protocol.as_ref(), &fixture);
@@ -197,7 +216,7 @@ fn claude_fixture_roundtrip() {
 
 #[tokio::test]
 async fn mock_server_replays_openai_fixture() {
-    let fixtures = load_fixtures_for_test(None, "openai", "api");
+    let fixtures = load_fixtures_for_test(None, "openai", "custom");
     for fixture in fixtures {
         let server = MockProviderServer::start(fixture.clone()).expect("mock server");
         let url = format!("{}/{}", server.base_url(), fixture.endpoint_path);

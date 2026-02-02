@@ -1,23 +1,24 @@
-use crate::llm::protocols::{
-    claude_protocol::ClaudeProtocol, openai_protocol::OpenAiProtocol, LlmProtocol,
+use crate::llm::protocols::{claude_protocol::ClaudeProtocol, openai_protocol::OpenAiProtocol};
+use crate::llm::providers::{
+    DefaultProvider, GithubCopilotProvider, MoonshotProvider, OpenAiProvider, Provider,
 };
-use crate::llm::types::{ProtocolType, ProviderConfig};
+use crate::llm::types::ProtocolType;
+use crate::llm::types::ProviderConfig;
 use std::collections::HashMap;
 
 pub struct ProviderRegistry {
     providers: HashMap<String, ProviderConfig>,
-    protocols: HashMap<ProtocolType, Box<dyn LlmProtocol>>,
+    // Protocol implementations (kept for backward compatibility during migration)
+    openai_protocol: OpenAiProtocol,
+    claude_protocol: ClaudeProtocol,
 }
 
 impl Clone for ProviderRegistry {
     fn clone(&self) -> Self {
-        let mut protocols: HashMap<ProtocolType, Box<dyn LlmProtocol>> = HashMap::new();
-        protocols.insert(ProtocolType::OpenAiCompatible, Box::new(OpenAiProtocol));
-        protocols.insert(ProtocolType::Claude, Box::new(ClaudeProtocol));
-
         Self {
             providers: self.providers.clone(),
-            protocols,
+            openai_protocol: OpenAiProtocol,
+            claude_protocol: ClaudeProtocol,
         }
     }
 }
@@ -29,13 +30,10 @@ impl ProviderRegistry {
             providers.insert(provider.id.clone(), provider);
         }
 
-        let mut protocols: HashMap<ProtocolType, Box<dyn LlmProtocol>> = HashMap::new();
-        protocols.insert(ProtocolType::OpenAiCompatible, Box::new(OpenAiProtocol));
-        protocols.insert(ProtocolType::Claude, Box::new(ClaudeProtocol));
-
         Self {
             providers,
-            protocols,
+            openai_protocol: OpenAiProtocol,
+            claude_protocol: ClaudeProtocol,
         }
     }
 
@@ -51,8 +49,94 @@ impl ProviderRegistry {
         self.providers.values().cloned().collect()
     }
 
-    pub fn protocol(&self, protocol: ProtocolType) -> Option<&dyn LlmProtocol> {
-        self.protocols.get(&protocol).map(|p| p.as_ref())
+    /// Create a provider instance for the given provider ID
+    /// This is the new way to get a provider with its specific logic
+    pub fn create_provider(&self, id: &str) -> Option<Box<dyn Provider>> {
+        let config = self.providers.get(id)?;
+
+        // Create the appropriate provider based on ID
+        let provider: Box<dyn Provider> = match id {
+            "openai" => Box::new(OpenAiProvider::new(config.clone())),
+            "github_copilot" => Box::new(GithubCopilotProvider::new(config.clone())),
+            "moonshot" => Box::new(MoonshotProvider::new(config.clone())),
+            // Use DefaultProvider for all other providers
+            _ => Box::new(DefaultProvider::new(config.clone())),
+        };
+
+        Some(provider)
+    }
+
+    /// Legacy method - kept for backward compatibility
+    pub fn protocol(&self, protocol: ProtocolType) -> Option<LegacyProtocolAdapter> {
+        match protocol {
+            ProtocolType::OpenAiCompatible => {
+                Some(LegacyProtocolAdapter::new(&self.openai_protocol))
+            }
+            ProtocolType::Claude => Some(LegacyProtocolAdapter::new(&self.claude_protocol)),
+        }
+    }
+}
+
+/// Adapter for backward compatibility with old protocol system
+pub struct LegacyProtocolAdapter<'a> {
+    protocol: &'a dyn crate::llm::protocols::LlmProtocol,
+}
+
+impl<'a> LegacyProtocolAdapter<'a> {
+    pub fn new(protocol: &'a dyn crate::llm::protocols::LlmProtocol) -> Self {
+        Self { protocol }
+    }
+
+    pub fn name(&self) -> &str {
+        self.protocol.name()
+    }
+
+    pub fn endpoint_path(&self) -> &'static str {
+        self.protocol.endpoint_path()
+    }
+
+    pub fn build_request(
+        &self,
+        model: &str,
+        messages: &[crate::llm::types::Message],
+        tools: Option<&[crate::llm::types::ToolDefinition]>,
+        temperature: Option<f32>,
+        max_tokens: Option<i32>,
+        top_p: Option<f32>,
+        top_k: Option<i32>,
+        provider_options: Option<&serde_json::Value>,
+        extra_body: Option<&serde_json::Value>,
+    ) -> Result<serde_json::Value, String> {
+        self.protocol.build_request(
+            model,
+            messages,
+            tools,
+            temperature,
+            max_tokens,
+            top_p,
+            top_k,
+            provider_options,
+            extra_body,
+        )
+    }
+
+    pub fn parse_stream_event(
+        &self,
+        event_type: Option<&str>,
+        data: &str,
+        state: &mut crate::llm::protocols::ProtocolStreamState,
+    ) -> Result<Option<crate::llm::types::StreamEvent>, String> {
+        self.protocol.parse_stream_event(event_type, data, state)
+    }
+
+    pub fn build_headers(
+        &self,
+        api_key: Option<&str>,
+        oauth_token: Option<&str>,
+        extra_headers: Option<&std::collections::HashMap<String, String>>,
+    ) -> std::collections::HashMap<String, String> {
+        self.protocol
+            .build_headers(api_key, oauth_token, extra_headers)
     }
 }
 
@@ -92,5 +176,20 @@ mod tests {
         registry.register_provider(provider_config("openai"));
         let provider = registry.provider("openai").expect("provider exists");
         assert_eq!(provider.name, "openai");
+    }
+
+    #[test]
+    fn create_provider_returns_specific_provider() {
+        let mut registry = ProviderRegistry::new(Vec::new());
+        registry.register_provider(provider_config("openai"));
+        registry.register_provider(provider_config("github_copilot"));
+
+        let openai = registry.create_provider("openai");
+        assert!(openai.is_some());
+        assert_eq!(openai.unwrap().id(), "openai");
+
+        let copilot = registry.create_provider("github_copilot");
+        assert!(copilot.is_some());
+        assert_eq!(copilot.unwrap().id(), "github_copilot");
     }
 }

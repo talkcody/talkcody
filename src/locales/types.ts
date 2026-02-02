@@ -1865,6 +1865,38 @@ export interface LocaleDefinition {
     };
   };
 
+  kimiUsage: {
+    title: string;
+    description: string;
+    notConfigured: string;
+    configurePrompt: string;
+    configureButton: string;
+    sessionExpired: string;
+    sessionExpiredDescription: string;
+    updateCookie: string;
+    error: string;
+    refreshing: string;
+    retry: string;
+    noData: string;
+    noDataDescription: string;
+    refresh: string;
+    used: string;
+    remaining: string;
+    resetsIn: string;
+    lastValidated: string;
+    criticalWarning: string;
+
+    weekly: {
+      title: string;
+      description: string;
+    };
+
+    fiveHour: {
+      title: string;
+      description: string;
+    };
+  };
+
   apiUsage: {
     title: string;
     description: string;

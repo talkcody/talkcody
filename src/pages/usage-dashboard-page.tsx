@@ -5,6 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
   ApiUsageTab,
   GitHubCopilotUsageTab,
+  KimiUsageTab,
   MinimaxUsageTab,
   OpenAIUsageTab,
   ZhipuUsageTab,
@@ -25,12 +26,13 @@ export function UsageDashboardPage() {
 
         {/* Tabs */}
         <Tabs defaultValue="api-usage" className="w-full">
-          <TabsList className="grid w-full max-w-3xl grid-cols-5">
+          <TabsList className="grid w-full max-w-3xl grid-cols-6">
             <TabsTrigger value="api-usage">{t.apiUsage.tabLabel}</TabsTrigger>
             <TabsTrigger value="openai">OpenAI</TabsTrigger>
             <TabsTrigger value="github-copilot">GitHub Copilot</TabsTrigger>
             <TabsTrigger value="zhipu">Zhipu AI</TabsTrigger>
             <TabsTrigger value="minimax">MiniMax</TabsTrigger>
+            <TabsTrigger value="kimi">Kimi</TabsTrigger>
           </TabsList>
           <TabsContent value="api-usage" className="mt-6">
             <ApiUsageTab />
@@ -46,6 +48,9 @@ export function UsageDashboardPage() {
           </TabsContent>
           <TabsContent value="minimax" className="mt-6">
             <MinimaxUsageTab />
+          </TabsContent>
+          <TabsContent value="kimi" className="mt-6">
+            <KimiUsageTab />
           </TabsContent>
         </Tabs>
       </div>
