@@ -204,7 +204,7 @@ export const RepositoryLayout = memo(function RepositoryLayout() {
     try {
       const project = await databaseService.getProject(projectId);
       if (project) {
-        await settingsManager.setProject(projectId);
+        await settingsManager.setCurrentProjectId(projectId);
 
         if (project.root_path) {
           await openRepository(project.root_path, projectId);

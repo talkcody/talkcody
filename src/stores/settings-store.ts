@@ -5,6 +5,7 @@ import { GROK_CODE_FAST } from '@/providers/config/model-config';
 import { PROVIDER_CONFIGS } from '@/providers/config/provider-config';
 import type { TursoClient } from '@/services/database/turso-client';
 import { databaseService } from '@/services/database-service';
+import { taskStore } from '@/stores/task-store';
 import type { ApiKeySettings, CustomProviderApiKeys } from '@/types/api-keys';
 import type { ShortcutAction, ShortcutConfig, ShortcutSettings } from '@/types/shortcuts';
 import { DEFAULT_SHORTCUTS } from '@/types/shortcuts';
@@ -707,8 +708,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   setCurrentProjectId: async (projectId: string) => {
+    const currentProject = get().project;
     await settingsDb.set('project', projectId);
     set({ project: projectId });
+    if (currentProject !== projectId) {
+      taskStore.getState().setCurrentTaskId(null);
+    }
   },
 
   setCurrentRootPath: (rootPath: string) => {
