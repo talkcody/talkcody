@@ -5,7 +5,7 @@ use crate::llm::auth::api_key_manager::ApiKeyManager;
 use crate::llm::protocols::{
     header_builder::HeaderBuildContext,
     request_builder::RequestBuildContext,
-    stream_parser::{ProtocolStreamParser, StreamParseContext, StreamParseState},
+    stream_parser::{StreamParseContext, StreamParseState},
     ProtocolHeaderBuilder,
 };
 use crate::llm::types::ProtocolType;

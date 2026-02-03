@@ -76,16 +76,14 @@ export function createEventQueue<T>() {
 }
 
 export function normalizeStreamEvent(event: StreamEvent): StreamEvent {
-  if (event.type === 'reasoning-start' || event.type === 'reasoning-delta') {
-    if ('provider_metadata' in event && event.provider_metadata) {
-      const { provider_metadata, ...rest } = event as StreamEvent & {
-        provider_metadata?: unknown;
-      };
-      return {
-        ...(rest as StreamEvent),
-        providerMetadata: provider_metadata as Record<string, unknown>,
-      } as StreamEvent;
-    }
+  if ('provider_metadata' in event && event.provider_metadata) {
+    const { provider_metadata, ...rest } = event as StreamEvent & {
+      provider_metadata?: unknown;
+    };
+    return {
+      ...(rest as StreamEvent),
+      providerMetadata: provider_metadata as Record<string, unknown>,
+    } as StreamEvent;
   }
   return event;
 }
@@ -94,7 +92,7 @@ export function isTerminalEvent(event: StreamEvent): boolean {
   return event.type === 'done' || event.type === 'error';
 }
 
-export function logStreamEvent(event: StreamEvent, requestId: number): void {
+export function logStreamEvent(event: StreamEvent, requestId: string): void {
   switch (event.type) {
     case 'error':
       logger.error(`[LLM Stream ${requestId}] Error: ${event.message}`);

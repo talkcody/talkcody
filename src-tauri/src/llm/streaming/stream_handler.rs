@@ -1,7 +1,6 @@
 use crate::llm::auth::api_key_manager::ApiKeyManager;
 use crate::llm::protocols::stream_parser::StreamParseState;
 use crate::llm::protocols::ProtocolStreamState;
-use crate::llm::protocols::ToolCallAccum;
 use crate::llm::providers::provider::ProviderContext;
 use crate::llm::providers::provider_registry::ProviderRegistry;
 use crate::llm::testing::fixtures::FixtureInput;
@@ -35,13 +34,13 @@ impl StreamHandler {
         &self,
         window: tauri::Window,
         request: StreamTextRequest,
-        request_id: u32,
-    ) -> Result<u32, String> {
+        request_id: String,
+    ) -> Result<String, String> {
         // Use provided request_id if non-zero, otherwise generate one
-        let request_id = if request_id > 0 {
+        let request_id = if request_id != "0" {
             request_id
         } else {
-            REQUEST_COUNTER.fetch_add(1, Ordering::SeqCst)
+            REQUEST_COUNTER.fetch_add(1, Ordering::SeqCst).to_string()
         };
         let event_name = format!("llm-stream-{}", request_id);
 
@@ -90,12 +89,6 @@ impl StreamHandler {
             "[LLM Stream {}] Resolved base URL: {}",
             request_id,
             built_request.url
-        );
-
-        log::info!(
-            "[LLM Stream {}] Provider model name: {}",
-            request_id,
-            provider_model_name
         );
 
         // Initialize tracing span if trace_context is provided
@@ -195,19 +188,7 @@ impl StreamHandler {
             );
         }
 
-        log::info!(
-            "[LLM Stream {}] Credentials obtained, auth type: {:?}",
-            request_id,
-            provider_config.auth_type
-        );
-
         let headers = built_request.headers.clone();
-        log::debug!(
-            "[LLM Stream {}] Built headers with {} entries",
-            request_id,
-            headers.len()
-        );
-
         let body = built_request.body.clone();
 
         // Record request event for tracing
@@ -221,17 +202,6 @@ impl StreamHandler {
         }
 
         let test_config = TestConfig::from_env();
-
-        // Log request body size only (not content) to avoid leaking sensitive data
-        if test_config.mode != TestMode::Off {
-            if let Ok(body_str) = serde_json::to_string_pretty(&body) {
-                log::debug!(
-                    "[LLM Stream {}] Request body size: {} bytes",
-                    request_id,
-                    body_str.len()
-                );
-            }
-        }
 
         let base_url = if test_config.mode != TestMode::Off {
             test_config
@@ -261,7 +231,6 @@ impl StreamHandler {
         } else {
             built_request.url.clone()
         };
-        log::info!("[LLM Stream {}] Request URL: {}", request_id, url);
 
         let mut recorder = Recorder::from_test_config(
             &test_config,
@@ -382,11 +351,6 @@ impl StreamHandler {
             log::error!("[LLM Stream {}] Request failed: {}", request_id, err);
             format!("Request failed: {}", err)
         })?;
-        log::info!(
-            "[LLM Stream {}] HTTP response received, status: {}",
-            request_id,
-            response.status()
-        );
 
         let status = response.status().as_u16();
         if status >= 400 {
@@ -479,12 +443,6 @@ impl StreamHandler {
             };
 
             chunk_count += 1;
-            log::debug!(
-                "[LLM Stream {}] Received chunk #{}, buffer size: {}",
-                request_id,
-                chunk_count,
-                buffer.len()
-            );
 
             let bytes = match chunk {
                 Ok(b) => b,
@@ -597,7 +555,7 @@ impl StreamHandler {
                                 recorder.record_expected_event(&event);
                             }
                             Self::append_text_delta(&mut response_text, &event);
-                            self.emit_stream_event(&window, &event_name, request_id, &event);
+                            self.emit_stream_event(&window, &event_name, &request_id, &event);
 
                             if !trace_ttft_emitted {
                                 if let (Some(ref span_id), Some(client_start_ms)) =
@@ -628,7 +586,7 @@ impl StreamHandler {
                                     self.emit_stream_event(
                                         &window,
                                         &event_name,
-                                        request_id,
+                                        &request_id,
                                         &pending,
                                     );
                                 }
@@ -657,7 +615,7 @@ impl StreamHandler {
                                     self.emit_stream_event(
                                         &window,
                                         &event_name,
-                                        request_id,
+                                        &request_id,
                                         &pending,
                                     );
                                 }
@@ -700,14 +658,6 @@ impl StreamHandler {
             }
         }
 
-        log::info!(
-            "[LLM Stream {}] Stream ended, total chunks: {}, emitting Done event",
-            request_id,
-            chunk_count
-        );
-        if response_text.is_empty() {
-            log::info!("[LLM Stream {}] Final response: <empty>", request_id);
-        }
         if let Some(recorder) = recorder.as_mut() {
             if state.finish_reason.as_deref() == Some("tool_calls") {
                 recorder.record_expected_event(&StreamEvent::Done {
@@ -848,7 +798,6 @@ impl StreamHandler {
     }
 
     fn parse_sse_event(raw: &str) -> Option<SseEvent> {
-        log::debug!("[LLM Stream] Parsing SSE event (len={} bytes)", raw.len());
         let mut event: Option<String> = None;
         let mut data_lines = Vec::new();
         for line in raw.lines() {
@@ -879,10 +828,10 @@ impl StreamHandler {
         &self,
         window: &tauri::Window,
         event_name: &str,
-        request_id: u32,
+        request_id: &str,
         event: &StreamEvent,
     ) {
-        log::info!("[LLM Stream {}] Emitting event: {:?}", request_id, event);
+        // log::info!("[LLM Stream {}] Emitting event: {:?}", request_id, event);
         let _ = window.emit(event_name, event);
     }
 
@@ -956,7 +905,7 @@ mod tests {
         OpenAiResponsesProtocol,
     };
     use crate::llm::protocols::request_builder::{ProtocolRequestBuilder, RequestBuildContext};
-    use crate::llm::protocols::ProtocolStreamState;
+    use crate::llm::protocols::{ProtocolStreamState, ToolCallAccum};
     use crate::llm::providers::provider::Provider;
     use crate::llm::providers::provider_configs::builtin_providers;
     use crate::llm::providers::OpenAiProvider;

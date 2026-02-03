@@ -28,6 +28,56 @@ export interface ChangelogEntry {
 // Only include the most recent versions that users care about
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '0.3.3',
+    date: '2026-02-02',
+    en: {
+      added: [
+        {
+          title: 'LLM Tracing',
+          description:
+            'Added complete LLM tracing functionality, supporting recording and viewing detailed AI request processes, execution time, Token usage, and Tool call details for debugging and prompt optimization.',
+        },
+        {
+          title: 'Kimi Coding Plan Usage',
+          description: 'Added support for displaying Kimi Coding Plan usage statistics.',
+        },
+      ],
+      changed: [
+        'Rust Backend LLM Architecture Refactoring: Refactored the LLM processing logic on the Rust side, laying the foundation for supporting 10-20 tasks in parallel.',
+      ],
+      fixed: [
+        'Fixed window state save and restore bugs, improving multi-window experience.',
+        'Fixed Issue #36: Optimized UI rendering logic in specific scenarios.',
+        'Fixed Issue #39: Improved Bash tool execution feedback for complex commands.',
+        'Fixed Issue #40: Fixed infinite refresh bug on Agents page.',
+        'Fixed Kimi Coding Plan bugs.',
+      ],
+    },
+    zh: {
+      added: [
+        {
+          title: 'LLM Tracing',
+          description:
+            '新增完整的 LLM 追踪功能，支持记录和查看所有 AI 请求的详细过程、耗时、Token 使用情况以及 Tool 调用细节，方便调试和优化 Prompt。',
+        },
+        {
+          title: 'Kimi Coding Plan Usage',
+          description: '支持展示 Kimi Coding Plan 的用量统计。',
+        },
+      ],
+      changed: [
+        'Rust 后端 LLM 架构重构：重构了 Rust 端的 LLM 处理逻辑，为支持10到20个 Task 并行处理奠定基础。',
+      ],
+      fixed: [
+        '修复窗口状态保存和恢复的 Bug，提升多窗口体验。',
+        '修复 Issue #36：优化了特定场景下的 UI 渲染逻辑。',
+        '修复 Issue #39：改进了 Bash 工具在某些复杂命令下的执行反馈。',
+        '修复 Issue #40: Agents 页面无限刷新的 bug。',
+        '修复了 Kimi Coding Plan 的bug。',
+      ],
+    },
+  },
+  {
     version: '0.3.2',
     date: '2026-01-27',
     en: {

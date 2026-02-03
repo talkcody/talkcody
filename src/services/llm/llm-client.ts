@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core';
 import { logger } from '@/lib/logger';
+import { generateId } from '@/lib/utils';
 import {
   createEventQueue,
   isTerminalEvent,
@@ -17,31 +18,23 @@ import type {
 } from './types';
 
 export type StreamTextResult = {
-  requestId: number;
+  requestId: string;
   events: AsyncGenerator<StreamEvent, void, unknown>;
 };
-
-// Request ID counter for generating unique IDs
-let requestIdCounter = 1000;
 
 export class LlmClient {
   async streamText(
     request: StreamTextRequest,
     abortSignal?: AbortSignal
   ): Promise<StreamTextResult> {
-    logger.info(`[LLM Client] Starting streamText for model: ${request.model}`);
     const clientStartMs = Date.now();
 
     // Generate request ID first and set up listener BEFORE calling Rust
     // This prevents race condition where events are emitted before listener is ready
-    const requestId = ++requestIdCounter;
+    const requestId = generateId(16);
     const eventName = `llm-stream-${requestId}`;
     const stream = new LlmEventStream();
     const queue = createEventQueue<StreamEvent>();
-
-    logger.info(
-      `[LLM Client ${requestId}] Generated requestId, setting up listener for: ${eventName}`
-    );
 
     // Named abort handler for proper cleanup
     let onAbort: (() => void) | null = null;
@@ -99,9 +92,7 @@ export class LlmClient {
       requestId,
       traceContext,
     };
-    logger.info(
-      `[LLM Client ${requestId}] Sending request with traceContext: ${JSON.stringify(requestPayload.traceContext)}`
-    );
+
     let response: StreamResponse;
     try {
       response = await invoke<StreamResponse>('llm_stream_text', {
@@ -121,8 +112,6 @@ export class LlmClient {
       );
     }
 
-    logger.info(`[LLM Client] Stream started with requestId: ${response.request_id}`);
-
     return {
       requestId,
       events: queue.iterate(),
@@ -133,22 +122,16 @@ export class LlmClient {
     request: StreamTextRequest,
     abortSignal?: AbortSignal
   ): Promise<{ text: string; finishReason?: string | null }> {
-    logger.info(`[LLM Client] collectText called for model: ${request.model}`);
     const { events } = await this.streamText(request, abortSignal);
     let text = '';
     let finishReason: string | null = null;
-    let eventCount = 0;
 
     for await (const event of events) {
-      eventCount++;
       if (event.type === 'text-delta') {
         text += event.text;
       }
       if (event.type === 'done') {
         finishReason = event.finish_reason ?? null;
-        logger.info(
-          `[LLM Client] Done event received after ${eventCount} events, finishReason: ${finishReason}`
-        );
       }
       if (event.type === 'error') {
         logger.error(
@@ -156,10 +139,6 @@ export class LlmClient {
         );
       }
     }
-
-    logger.info(
-      `[LLM Client] collectText completed with ${eventCount} events, text length: ${text.length}`
-    );
 
     return { text, finishReason };
   }

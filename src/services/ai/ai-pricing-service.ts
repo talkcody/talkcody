@@ -29,7 +29,6 @@ class AIPricingService {
       logger.error(`Pricing information not available for model: ${modelId}`);
       return 0;
     }
-    logger.info(`model:`, model);
 
     const parseRate = (value: string | undefined, fallback: number): number => {
       const parsed = Number.parseFloat(value ?? '');

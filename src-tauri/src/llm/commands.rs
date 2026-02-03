@@ -23,8 +23,10 @@ pub async fn llm_stream_text(
     }; // Locks released here before long-running stream operation
 
     let handler = StreamHandler::new(registry, api_keys);
-    // Use provided request_id if available, otherwise generate one
-    let request_id = request.request_id.unwrap_or(0);
+    let request_id = request
+        .request_id
+        .clone()
+        .unwrap_or_else(|| "0".to_string());
     let request_id = handler
         .stream_completion(window, request, request_id)
         .await?;

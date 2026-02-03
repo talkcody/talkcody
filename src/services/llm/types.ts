@@ -77,12 +77,12 @@ export type StreamTextRequest = {
   topP?: number | null;
   topK?: number | null;
   providerOptions?: ProviderOptions;
-  requestId?: number | null;
+  requestId?: string | null;
   traceContext?: TraceContext | null;
 };
 
 export type StreamResponse = {
-  request_id: number;
+  request_id: string;
 };
 
 export type StreamEvent =

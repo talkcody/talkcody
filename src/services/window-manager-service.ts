@@ -219,8 +219,8 @@ export class WindowManagerService {
       }
     }
 
-    // Create new window with isNewWindow=true
-    const label = await WindowManagerService.createProjectWindow(projectId, rootPath, false);
+    // Create new window with provided isNewWindow flag (defaults to false if reused, but openProjectInWindow typically implies isNewWindow behavior when creating)
+    const label = await WindowManagerService.createProjectWindow(projectId, rootPath, forceNew);
     return label;
   }
 }

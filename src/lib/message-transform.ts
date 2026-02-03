@@ -1,5 +1,4 @@
 import type { ContentPart, Message as ModelMessage } from '@/services/llm/types';
-import { logger } from './logger';
 
 export namespace MessageTransform {
   function shouldApplyCaching(providerId: string, modelId: string): boolean {
@@ -108,7 +107,6 @@ export namespace MessageTransform {
     }
 
     const { usesDeepseek, usesMoonshot } = resolveReasoningProviders(modelId, providerId);
-    logger.info('Applying reasoning content to messages', { usesDeepseek, usesMoonshot });
     const latestAssistantContent = getLatestAssistantContent(msgs);
     const includesToolCall =
       getHasToolCall(assistantContent) ||
@@ -116,12 +114,10 @@ export namespace MessageTransform {
     const reasoningText = assistantContent ? getReasoningText(assistantContent) : '';
     const shouldIncludeReasoningContent =
       usesDeepseek || reasoningText.length > 0 || (usesMoonshot && includesToolCall);
-    logger.info('Determined reasoning content inclusion', { shouldIncludeReasoningContent });
 
     // Transform assistant content for providers that require reasoning_content
     if (assistantContent && (usesDeepseek || usesMoonshot || shouldIncludeReasoningContent)) {
       const extracted = extractReasoning(assistantContent);
-      logger.info('Extracted reasoning content', extracted.reasoningText);
       const reasoningContent =
         usesMoonshot && shouldIncludeReasoningContent && extracted.reasoningText.length === 0
           ? ' '

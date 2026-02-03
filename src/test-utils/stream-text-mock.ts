@@ -36,7 +36,7 @@ export function createStreamTextMock(options: {
   }
 
   return {
-    requestId: 1,
+    requestId: 'mock-request-id',
     events: iterate(),
   };
 }

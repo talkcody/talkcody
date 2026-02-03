@@ -558,6 +558,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         model_type_code_review: rawSettings.model_type_code_review || '',
         apiKeys: apiKeys as ApiKeySettings,
         minimax_cookie: rawSettings.minimax_cookie || '',
+        kimi_cookie: rawSettings.kimi_cookie || '',
         shortcuts: shortcuts as ShortcutSettings,
         last_seen_version: rawSettings.last_seen_version || '',
         sidebar_view: rawSettings.sidebar_view || 'files',

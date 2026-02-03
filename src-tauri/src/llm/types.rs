@@ -123,14 +123,14 @@ pub struct StreamTextRequest {
     #[serde(rename = "providerOptions")]
     pub provider_options: Option<serde_json::Value>,
     #[serde(rename = "requestId")]
-    pub request_id: Option<u32>,
+    pub request_id: Option<String>,
     #[serde(rename = "traceContext")]
     pub trace_context: Option<TraceContext>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamResponse {
-    pub request_id: u32,
+    pub request_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

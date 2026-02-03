@@ -197,7 +197,6 @@ class MessageService {
     }
   }
 
-  @timedMethod('addToolMessage')
   async addToolMessage(taskId: string, toolMessage: UIMessage): Promise<void> {
     // Handle nested tool messages (only update parent's nestedMessages array)
     if (toolMessage.parentToolCallId) {

@@ -26,10 +26,6 @@ export function WindowProvider({ children }: { children: React.ReactNode }) {
     invoke<string>('get_current_window_label')
       .then(async (label) => {
         setWindowLabel(label);
-        if (label === 'main') {
-          await WindowStateStore.clearAll();
-          logger.info('[WindowContext] Cleared window state on main window startup');
-        }
       })
       .catch((error) => {
         logger.error('Failed to get window label:', error);
