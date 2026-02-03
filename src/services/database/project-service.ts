@@ -138,7 +138,7 @@ export class ProjectService {
     }
 
     // Extract repository name from path
-    const pathSegments = rootPath.split('/');
+    const pathSegments = rootPath.split(/[/\\]/);
     const repoName = pathSegments[pathSegments.length - 1] || 'Unnamed Repository';
 
     // Create a new project for this repository
