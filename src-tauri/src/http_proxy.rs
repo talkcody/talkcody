@@ -1,8 +1,10 @@
 use bytes::Bytes;
 use futures_util::StreamExt;
+use reqwest::Method;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::net::{IpAddr, ToSocketAddrs};
+use std::str::FromStr;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 use tauri::{Emitter, Manager};
@@ -215,13 +217,19 @@ pub async fn proxy_fetch(request: ProxyRequest) -> Result<ProxyResponse, String>
         .build()
         .map_err(|e| format!("Failed to build client: {}", e))?;
 
-    // Build the request
+    // Build the request - support both standard and WebDAV methods
     let mut req_builder = match request.method.to_uppercase().as_str() {
         "GET" => client.get(&request.url),
         "POST" => client.post(&request.url),
         "PUT" => client.put(&request.url),
         "DELETE" => client.delete(&request.url),
         "PATCH" => client.patch(&request.url),
+        // WebDAV methods
+        "PROPFIND" | "MKCOL" | "MOVE" | "COPY" | "LOCK" | "UNLOCK" => {
+            let method = Method::from_str(&request.method)
+                .map_err(|_| format!("Invalid HTTP method: {}", request.method))?;
+            client.request(method, &request.url)
+        }
         _ => return Err(format!("Unsupported HTTP method: {}", request.method)),
     };
 
@@ -354,13 +362,19 @@ async fn stream_fetch_inner<R: tauri::Runtime>(
             format!("Failed to build client: {}", e)
         })?;
 
-    // Build the request
+    // Build the request - support both standard and WebDAV methods
     let mut req_builder = match request.method.to_uppercase().as_str() {
         "GET" => client.get(&request.url),
         "POST" => client.post(&request.url),
         "PUT" => client.put(&request.url),
         "DELETE" => client.delete(&request.url),
         "PATCH" => client.patch(&request.url),
+        // WebDAV methods
+        "PROPFIND" | "MKCOL" | "MOVE" | "COPY" | "LOCK" | "UNLOCK" => {
+            let method = Method::from_str(&request.method)
+                .map_err(|_| format!("Invalid HTTP method: {}", request.method))?;
+            client.request(method, &request.url)
+        }
         _ => {
             let err = format!("Unsupported HTTP method: {}", request.method);
             emit_end(0, Some(err.clone()));
@@ -1079,12 +1093,34 @@ mod tests {
     #[test]
     fn test_stream_fetch_validates_unsupported_methods() {
         // Test that only supported methods are allowed
-        let valid_methods = ["GET", "POST", "PUT", "DELETE", "PATCH"];
+        let valid_methods = [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "PATCH",
+            "PROPFIND",
+            "MKCOL",
+            "MOVE",
+            "COPY",
+            "LOCK",
+            "UNLOCK",
+        ];
         for method in valid_methods {
             let upper = method.to_uppercase();
             assert!(matches!(
                 upper.as_str(),
-                "GET" | "POST" | "PUT" | "DELETE" | "PATCH"
+                "GET"
+                    | "POST"
+                    | "PUT"
+                    | "DELETE"
+                    | "PATCH"
+                    | "PROPFIND"
+                    | "MKCOL"
+                    | "MOVE"
+                    | "COPY"
+                    | "LOCK"
+                    | "UNLOCK"
             ));
         }
     }

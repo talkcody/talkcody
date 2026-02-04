@@ -190,13 +190,21 @@ impl ScriptExecutor {
     #[allow(dead_code)]
     pub async fn validate_runtime(script_type: &str) -> Result<(), String> {
         let command = match script_type {
-            "python" => "python3",
+            "python" => {
+                if cfg!(target_os = "windows") {
+                    "python"
+                } else {
+                    "python3"
+                }
+            }
             "bash" | "sh" => "bash",
             "nodejs" | "javascript" => "node",
             _ => return Err(format!("Unknown script type: {}", script_type)),
         };
 
-        match Command::new("which").arg(command).output().await {
+        let lookup_tool = if cfg!(target_os = "windows") { "where" } else { "which" };
+
+        match Command::new(lookup_tool).arg(command).output().await {
             Ok(output) => {
                 if output.status.success() {
                     Ok(())
@@ -214,6 +222,7 @@ mod tests {
     use super::*;
 
     #[tokio::test]
+    #[cfg(not(target_os = "windows"))]
     async fn test_validate_runtime_bash() {
         // Bash should be available on all Unix systems
         assert!(ScriptExecutor::validate_runtime("bash").await.is_ok());

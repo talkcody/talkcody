@@ -186,6 +186,19 @@ export type {
 } from './skill';
 // Skill permission types
 export type { SkillScriptPermissionLevel } from './skill-permission';
+// Sync types
+export type {
+  ChunkData,
+  ChunkDiff,
+  ChunkMetadata,
+  SyncConfig,
+  SyncEvent,
+  SyncProgress,
+  SyncResult,
+  SyncState,
+  WebDAVConfig,
+} from './sync';
+export { ConflictResolution, SyncDirection, SyncEventType, SyncStatus } from './sync';
 // Task and Project types
 export type {
   CreateProjectData,
