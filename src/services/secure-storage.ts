@@ -1,21 +1,54 @@
 import { BaseDirectory, exists, readTextFile, remove, writeTextFile } from '@tauri-apps/plugin-fs';
 import { logger } from '@/lib/logger';
 
-const AUTH_FILE_NAME = 'talkcody-auth.json';
+const AUTH_FILE_NAME = 'talkcody-auth.dat';
+const LEGACY_AUTH_FILE_NAME = 'talkcody-auth.json';
 
 interface AuthData {
   auth_token?: string;
 }
 
 class SecureStorageService {
+  private async readAuthDataFile(fileName: string): Promise<AuthData | null> {
+    try {
+      const fileExists = await exists(fileName, { baseDir: BaseDirectory.AppData });
+      if (!fileExists) {
+        return null;
+      }
+      const content = await readTextFile(fileName, { baseDir: BaseDirectory.AppData });
+      return JSON.parse(content) as AuthData;
+    } catch (error) {
+      logger.error('[Secure Storage] Failed to read auth data from', fileName, error);
+      return null;
+    }
+  }
+
+  private async removeAuthFile(fileName: string): Promise<void> {
+    const fileExists = await exists(fileName, { baseDir: BaseDirectory.AppData });
+    if (fileExists) {
+      await remove(fileName, { baseDir: BaseDirectory.AppData });
+    }
+  }
+
+  private async removeLegacyAuthFile(): Promise<void> {
+    await this.removeAuthFile(LEGACY_AUTH_FILE_NAME);
+  }
+
   private async readAuthData(): Promise<AuthData> {
     try {
-      const fileExists = await exists(AUTH_FILE_NAME, { baseDir: BaseDirectory.AppData });
-      if (!fileExists) {
-        return {};
+      const currentData = await this.readAuthDataFile(AUTH_FILE_NAME);
+      if (currentData) {
+        return currentData;
       }
-      const content = await readTextFile(AUTH_FILE_NAME, { baseDir: BaseDirectory.AppData });
-      return JSON.parse(content) as AuthData;
+
+      const legacyData = await this.readAuthDataFile(LEGACY_AUTH_FILE_NAME);
+      if (legacyData) {
+        await this.writeAuthData(legacyData);
+        await this.removeLegacyAuthFile();
+        return legacyData;
+      }
+
+      return {};
     } catch (error) {
       logger.error('Failed to read auth data:', error);
       return {};
@@ -32,6 +65,7 @@ class SecureStorageService {
     const data = await this.readAuthData();
     data.auth_token = token;
     await this.writeAuthData(data);
+    await this.removeLegacyAuthFile();
   }
 
   async getAuthToken(): Promise<string | null> {
@@ -46,10 +80,8 @@ class SecureStorageService {
 
   async removeAuthToken(): Promise<void> {
     try {
-      const fileExists = await exists(AUTH_FILE_NAME, { baseDir: BaseDirectory.AppData });
-      if (fileExists) {
-        await remove(AUTH_FILE_NAME, { baseDir: BaseDirectory.AppData });
-      }
+      await this.removeAuthFile(AUTH_FILE_NAME);
+      await this.removeLegacyAuthFile();
     } catch (error) {
       logger.error('Failed to remove auth token:', error);
     }

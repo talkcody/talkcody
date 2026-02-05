@@ -28,6 +28,7 @@ import {
 import { Switch } from '@/components/ui/switch';
 import { useTranslation } from '@/hooks/use-locale';
 import { logger } from '@/lib/logger';
+import { refreshModelConfigs } from '@/providers/config/model-config';
 import { customModelService, type FetchedModel } from '@/providers/custom/custom-model-service';
 import { customProviderService } from '@/providers/custom/custom-provider-service';
 import { useProviderStore } from '@/providers/stores/provider-store';
@@ -233,7 +234,7 @@ export function AddCustomProviderDialog({
         onProviderSaved?.();
       } else {
         // Add mode - save and proceed to model step
-        await customProviderService.addCustomProvider(providerId, providerConfig);
+        await useProviderStore.getState().addCustomProvider(providerConfig);
         toast.success(t.CustomProviderDialog.providerAdded);
         setSavedProviderId(providerId);
         setStep('model');
@@ -339,6 +340,8 @@ export function AddCustomProviderDialog({
     setIsAddingModels(true);
     try {
       await customModelService.addCustomModels(modelsToAdd);
+      await refreshModelConfigs();
+      await useProviderStore.getState().refresh();
       toast.success(t.Settings.customModelsDialog.addedModels(Object.keys(modelsToAdd).length));
       onOpenChange(false);
     } catch (error) {

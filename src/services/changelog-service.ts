@@ -28,6 +28,40 @@ export interface ChangelogEntry {
 // Only include the most recent versions that users care about
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
+    version: '0.3.4',
+    date: '2026-02-04',
+    en: {
+      changed: [
+        {
+          title: 'User Abort Handling',
+          description: 'Optimized the user abort handling process before Hook is triggered.',
+        },
+      ],
+      fixed: [
+        'Fixed multiple cross-platform path separator compatibility issues.',
+        'Fixed issue where current task was not reset when switching projects.',
+        'Fixed Issue #43 & #44: Custom model loss bug.',
+        'Fixed Gemini model schema error and Google AI API 400 error.',
+        'Fixed Issue #45: GitHub Skill import bug.',
+      ],
+    },
+    zh: {
+      changed: [
+        {
+          title: '用户中止处理',
+          description: '优化了用户在 Hook 触发前中止操作的处理流程。',
+        },
+      ],
+      fixed: [
+        '修复了多处跨平台路径分隔符兼容性问题。',
+        '修复了切换项目时未重置当前任务的问题。',
+        '修复 Issue #43 & #44：自定义模型丢失的 bug。',
+        '修复了 Gemini 模型 Schema 错误及 Google AI API 400 错误。',
+        '修复 Issue #45：GitHub Skill 导入的 bug。',
+      ],
+    },
+  },
+  {
     version: '0.3.3',
     date: '2026-02-02',
     en: {

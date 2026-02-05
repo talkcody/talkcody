@@ -152,12 +152,25 @@ pub fn parse_sse_body(body: &str) -> Vec<RecordedSseEvent> {
 
 #[cfg(test)]
 pub fn assert_json_matches(expected: &Value, actual: &Value) -> Result<(), String> {
-    match expected {
-        Value::String(value) if value == ANY_VALUE_SENTINEL => Ok(()),
-        Value::Object(expected_map) => {
-            let actual_map = actual
-                .as_object()
-                .ok_or_else(|| format!("Expected object, found {}", describe_json(actual)))?;
+    match (expected, actual) {
+        (Value::String(expected_str), Value::String(actual_str)) => {
+            if expected_str == ANY_VALUE_SENTINEL {
+                return Ok(());
+            }
+            // Normalize CRLF to LF for string comparison to avoid platform-specific failures
+            let norm_expected = expected_str.replace("\r\n", "\n");
+            let norm_actual = actual_str.replace("\r\n", "\n");
+            if norm_expected == norm_actual {
+                Ok(())
+            } else {
+                Err(format!(
+                    "Value mismatch: expected {}, got {}",
+                    describe_json(expected),
+                    describe_json(actual)
+                ))
+            }
+        }
+        (Value::Object(expected_map), Value::Object(actual_map)) => {
             for (key, expected_value) in expected_map {
                 let actual_value = actual_map
                     .get(key)
@@ -167,10 +180,7 @@ pub fn assert_json_matches(expected: &Value, actual: &Value) -> Result<(), Strin
             }
             Ok(())
         }
-        Value::Array(expected_array) => {
-            let actual_array = actual
-                .as_array()
-                .ok_or_else(|| format!("Expected array, found {}", describe_json(actual)))?;
+        (Value::Array(expected_array), Value::Array(actual_array)) => {
             if expected_array.len() != actual_array.len() {
                 return Err(format!(
                     "Array length mismatch: expected {}, got {}",
@@ -186,22 +196,13 @@ pub fn assert_json_matches(expected: &Value, actual: &Value) -> Result<(), Strin
             }
             Ok(())
         }
-        Value::Number(expected_num) => {
-            // Compare numbers with tolerance for floating point precision
-            if let Some(actual_num) = actual.as_number() {
-                let expected_f64 = expected_num.as_f64().unwrap_or(0.0);
-                let actual_f64 = actual_num.as_f64().unwrap_or(0.0);
-                // Use relative tolerance for large numbers, absolute for small
-                let tolerance = (expected_f64.abs() * 1e-6).max(1e-9);
-                if (expected_f64 - actual_f64).abs() <= tolerance {
-                    Ok(())
-                } else {
-                    Err(format!(
-                        "Value mismatch: expected {}, got {}",
-                        describe_json(expected),
-                        describe_json(actual)
-                    ))
-                }
+        (Value::Number(expected_num), Value::Number(actual_num)) => {
+            let expected_f64 = expected_num.as_f64().unwrap_or(0.0);
+            let actual_f64 = actual_num.as_f64().unwrap_or(0.0);
+            // Use relative tolerance for large numbers, absolute for small
+            let tolerance = (expected_f64.abs() * 1e-6).max(1e-9);
+            if (expected_f64 - actual_f64).abs() <= tolerance {
+                Ok(())
             } else {
                 Err(format!(
                     "Value mismatch: expected {}, got {}",
@@ -210,7 +211,7 @@ pub fn assert_json_matches(expected: &Value, actual: &Value) -> Result<(), Strin
                 ))
             }
         }
-        _ => {
+        (expected, actual) => {
             if expected == actual {
                 Ok(())
             } else {
