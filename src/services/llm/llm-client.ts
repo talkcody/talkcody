@@ -253,7 +253,7 @@ export class LlmClient {
     expiresIn: number;
     interval: number;
   }> {
-    return invoke('llm_github_copilot_oauth_start_device_code', params);
+    return invoke('llm_github_copilot_oauth_start_device_code', { request: params ?? {} });
   }
 
   async pollGitHubCopilotOAuthDeviceCode(params: {
@@ -269,7 +269,7 @@ export class LlmClient {
     };
     error?: string;
   }> {
-    return invoke('llm_github_copilot_oauth_poll_device_code', params);
+    return invoke('llm_github_copilot_oauth_poll_device_code', { request: params });
   }
 
   async refreshGitHubCopilotOAuthToken(): Promise<{

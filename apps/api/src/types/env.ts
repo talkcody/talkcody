@@ -12,7 +12,7 @@ export interface Env {
   NODE_ENV?: string;
   RELEASES_BUCKET?: R2Bucket;
   TALKCODY_DAILY_TOKEN_LIMIT?: string;
-  EXA_API_KEY?: string;
+  SERPER_API_KEY?: string;
 }
 
 // Cloudflare R2 Bucket type
@@ -86,7 +86,7 @@ declare global {
       GOOGLE_REDIRECT_URI?: string;
       NODE_ENV?: string;
       TALKCODY_DAILY_TOKEN_LIMIT?: string;
-      EXA_API_KEY?: string;
+      SERPER_API_KEY?: string;
     }
   }
 }

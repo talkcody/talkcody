@@ -62,4 +62,45 @@ describe('llmClient', () => {
     });
   });
 
+  it('wraps GitHub Copilot OAuth device code payload for Rust command', async () => {
+    const params = {
+      enterpriseUrl: 'https://github.acme.test',
+    };
+
+    (invoke as any).mockResolvedValue({
+      deviceCode: 'device-123',
+      userCode: 'user-123',
+      verificationUri: 'https://github.com/login/device',
+      expiresIn: 900,
+      interval: 5,
+    });
+
+    await llmClient.startGitHubCopilotOAuthDeviceCode(params);
+
+    expect(invoke).toHaveBeenCalledWith('llm_github_copilot_oauth_start_device_code', {
+      request: {
+        enterpriseUrl: 'https://github.acme.test',
+      },
+    });
+  });
+
+  it('wraps GitHub Copilot OAuth polling payload for Rust command', async () => {
+    const params = {
+      deviceCode: 'device-123',
+      enterpriseUrl: 'https://github.acme.test',
+    };
+
+    (invoke as any).mockResolvedValue({
+      type: 'pending',
+    });
+
+    await llmClient.pollGitHubCopilotOAuthDeviceCode(params);
+
+    expect(invoke).toHaveBeenCalledWith('llm_github_copilot_oauth_poll_device_code', {
+      request: {
+        deviceCode: 'device-123',
+        enterpriseUrl: 'https://github.acme.test',
+      },
+    });
+  });
 });

@@ -2,5 +2,5 @@
   "title": "功能",
   "icon": "Sparkles",
   "defaultOpen": true,
-  "pages": [ "openai-plus-plan", "github-copilot", "ai-agents", "commands", "tools", "hooks", "custom-tools", "skills", "mcp-servers", "plan-mode", "worktree", "coding-plan", "web-search", "voice-input", "code-lint", "lsp", "terminal", "multi-window", "search", "share-link"]
+  "pages": [ "openai-plus-plan", "github-copilot", "ai-agents", "commands", "tools", "hooks", "custom-tools", "skills", "mcp-servers", "plan-mode", "worktree", "coding-plan", "web-search", "voice-input", "code-lint", "lsp", "terminal", "multi-window", "search", "share-link", "telegram-remote" ]
 }

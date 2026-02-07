@@ -22,6 +22,7 @@ import { HooksSettings } from '@/components/settings/hooks-settings';
 import { LintSettings } from '@/components/settings/lint-settings';
 import { LspSettings } from '@/components/settings/lsp-settings';
 import { ModelTypeSettings } from '@/components/settings/model-type-settings';
+import { RemoteControlSettings } from '@/components/settings/remote-control-settings';
 import { TerminalSettings } from '@/components/settings/terminal-settings';
 import { WorktreeSettings } from '@/components/settings/worktree-settings';
 import { ShortcutSettingsPanel } from '@/components/shortcuts/shortcut-settings';
@@ -131,6 +132,14 @@ export function SettingsPage() {
 
             <Separator className="my-2" />
 
+            <TabsTrigger
+              value="remote-control"
+              className="w-full justify-start gap-2 rounded-md px-3 py-2"
+            >
+              <Bot className="size-4" />
+              {t.Settings.tabs.remoteControl || 'Remote Control'}
+            </TabsTrigger>
+
             <TabsTrigger value="about" className="w-full justify-start gap-2 rounded-md px-3 py-2">
               <Info className="size-4" />
               {t.Settings.tabs.about}
@@ -183,6 +192,10 @@ export function SettingsPage() {
 
             <TabsContent value="general" className="mt-0 flex-none space-y-6">
               <GeneralSettings />
+            </TabsContent>
+
+            <TabsContent value="remote-control" className="mt-0 flex-none space-y-6">
+              <RemoteControlSettings />
             </TabsContent>
 
             <TabsContent value="about" className="mt-0 flex-none space-y-6">

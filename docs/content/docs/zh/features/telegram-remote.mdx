@@ -1,0 +1,80 @@
+---
+title: Telegram 远程控制
+description: 通过 Telegram 在手机上发送消息，桌面端 TalkCody 执行任务并回传结果。
+icon: MessageCircle
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## 功能简介
+
+Telegram 远程控制让你在手机 Telegram 里发送消息，桌面端 TalkCody 在后台执行任务，并将结果流式回传到手机。
+
+适合场景：
+
+- 远程启动任务、随时查看进度
+- 在通勤或外出时获取任务结果
+- 处理需要长时间运行的任务
+
+## 使用前准备
+
+1. 在 Telegram 中创建 Bot 并拿到 Bot Token。
+2. 确保桌面端 TalkCody 正在运行。
+
+<Callout type="warning">
+请不要公开 Bot Token。
+</Callout>
+
+## 配置步骤
+
+1. 打开 TalkCody 设置页。
+2. 找到「Telegram 远程控制」。
+3. 打开开关。
+4. 填写 Bot Token。
+5. 填写允许的 Chat ID（可选）：
+   - 留空：允许所有聊天
+   - 多个 Chat ID 用逗号分隔
+6. 设置轮询超时（5-60 秒）。
+7. 保存设置。
+
+## 获取 Chat ID
+
+可在 Telegram 中给 Bot 发送一条消息，然后在 TalkCody 日志中查看 `chat_id`，或使用常见的 Chat ID 工具机器人获取。
+
+## 指令说明
+
+| 指令 | 作用 | 示例 |
+|------|------|------|
+| `/new` | 新建任务 | `/new 帮我总结今天的会议记录` |
+| `/status` | 查看当前任务状态 | `/status` |
+| `/stop` | 停止当前任务 | `/stop` |
+| `/approve` | 批准文件编辑 | `/approve` |
+| `/reject` | 拒绝文件编辑 | `/reject` |
+| `/help` | 查看帮助 | `/help` |
+
+## 核心流程
+
+1. Telegram 消息进入后，TalkCody 创建或复用对应任务。
+2. 执行任务时会持续把结果更新到 Telegram。
+3. 任务完成后会分段发送完整结果。
+
+## 常见问题
+
+### 1. 为什么没有收到回复？
+
+- 请确认 TalkCody 正在运行。
+- 请确认 Bot Token 正确。
+- 如果设置了允许的 Chat ID，请确认当前 Chat ID 在白名单中。
+- 轮询超时过小可能导致频繁请求失败，建议 10-30 秒。
+
+### 2. 支持群聊吗？
+
+当前版本不支持群聊，只支持私聊。
+
+### 3. 如何停止任务？
+
+发送 `/stop` 即可停止当前任务。
+
+<Callout type="info">
+如果需要查看更多技术细节，可参考 specs 目录中的 Telegram 远程控制架构说明。
+</Callout>

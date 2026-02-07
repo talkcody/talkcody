@@ -43,6 +43,12 @@ interface SettingsState {
   hooks_enabled: boolean;
   trace_enabled: boolean;
 
+  // Remote Control
+  telegram_remote_enabled: boolean;
+  telegram_remote_token: string;
+  telegram_remote_allowed_chats: string;
+  telegram_remote_poll_timeout: string;
+
   // Project Settings
   project: string;
   current_root_path: string;
@@ -253,6 +259,10 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
   auto_code_review_global: false,
   hooks_enabled: false,
   trace_enabled: true,
+  telegram_remote_enabled: false,
+  telegram_remote_token: '',
+  telegram_remote_allowed_chats: '',
+  telegram_remote_poll_timeout: '25',
   project: DEFAULT_PROJECT,
   current_root_path: '',
   custom_tools_dir: '',
@@ -332,6 +342,10 @@ class SettingsDatabase {
       auto_code_review_global: 'false',
       hooks_enabled: 'false',
       trace_enabled: 'true',
+      telegram_remote_enabled: 'false',
+      telegram_remote_token: '',
+      telegram_remote_allowed_chats: '',
+      telegram_remote_poll_timeout: '25',
       model_type_main: '',
       model_type_small: '',
       model_type_image_generator: '',
@@ -468,6 +482,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         'auto_code_review_global',
         'hooks_enabled',
         'trace_enabled',
+        'telegram_remote_enabled',
+        'telegram_remote_token',
+        'telegram_remote_allowed_chats',
+        'telegram_remote_poll_timeout',
         'reasoning_effort',
         'project',
         'current_root_path',
@@ -554,6 +572,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         auto_code_review_global: rawSettings.auto_code_review_global === 'true',
         hooks_enabled: rawSettings.hooks_enabled === 'true',
         trace_enabled: rawSettings.trace_enabled !== 'false',
+        telegram_remote_enabled: rawSettings.telegram_remote_enabled === 'true',
+        telegram_remote_token: rawSettings.telegram_remote_token || '',
+        telegram_remote_allowed_chats: rawSettings.telegram_remote_allowed_chats || '',
+        telegram_remote_poll_timeout: rawSettings.telegram_remote_poll_timeout || '25',
         project: rawSettings.project || DEFAULT_PROJECT,
         current_root_path: rawSettings.current_root_path || '',
         custom_tools_dir: rawSettings.custom_tools_dir || '',

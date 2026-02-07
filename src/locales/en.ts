@@ -270,6 +270,7 @@ const en: LocaleDefinition = {
       language: 'Language',
       customTools: 'Custom Tools',
       hooks: 'Hooks',
+      remoteControl: 'Remote Control',
     },
     account: {
       title: 'Account Settings',
@@ -535,6 +536,25 @@ const en: LocaleDefinition = {
     general: {
       title: 'General Settings',
       description: 'Configure language and theme preferences',
+    },
+    remoteControl: {
+      title: 'Telegram Remote Control',
+      description: 'Control TalkCody from Telegram while the app runs in background',
+      enabled: 'Enable Telegram Remote Control',
+      tokenLabel: 'Bot Token',
+      tokenPlaceholder: 'Enter Telegram bot token',
+      allowedChatsLabel: 'Allowed Chat IDs',
+      allowedChatsPlaceholder: 'Comma-separated chat IDs (optional)',
+      pollTimeoutLabel: 'Polling Timeout (seconds)',
+      pollTimeoutPlaceholder: '25',
+      pollTimeoutHint: 'Recommended 10-30 seconds. Accepts 5-60 seconds.',
+      save: 'Save Remote Control Settings',
+      saved: 'Remote control settings saved',
+      saveFailed: 'Failed to save remote control settings',
+      errors: {
+        tokenMissing: 'Telegram bot token is required when enabled',
+        pollTimeoutRange: 'Polling timeout must be between 5 and 60 seconds',
+      },
     },
     shortcuts: {
       title: 'Keyboard Shortcuts',
@@ -1459,6 +1479,21 @@ const en: LocaleDefinition = {
     },
   },
 
+  RemoteControl: {
+    help: '/help - show commands\n/new <text> - start a new task\n/status - task status\n/approve - approve pending edit\n/reject - reject pending edit\n/stop - stop current task',
+    unknownCommand: 'Unknown command. Send /help for available commands.',
+    processing: 'Working on it... I will update you shortly.',
+    noActiveTask: 'No active task for this chat yet.',
+    noPendingApproval: 'No pending file edits to approve.',
+    approved: 'Approved. Continuing execution.',
+    rejected: 'Rejected. I have stopped the edit.',
+    stopped: 'Stopped the current task.',
+    gatewayError: (message) => `Gateway warning: ${message}`,
+    approvalPrompt: (filePath) =>
+      `Approval required for file edit: ${filePath}\nReply with /approve to apply or /reject to cancel.`,
+    status: (status) => `Current task status: ${status}`,
+  },
+
   StreamProcessor: {
     status: {
       answering: 'Answering',
@@ -1521,7 +1556,7 @@ const en: LocaleDefinition = {
     baseUrl: 'Base URL',
     baseUrlPlaceholderOpenAI: 'https://api.example.com/v1',
     baseUrlPlaceholderAnthropic: 'https://api.example.com',
-    baseUrlHint: 'The base URL for the API endpoint',
+    baseUrlHint: 'Enter the base URL only (no /v1/messages, /chat/completions, or /responses)',
     apiKey: 'API Key',
     apiKeyPlaceholder: 'Enter your API key',
     enabled: 'Enabled',

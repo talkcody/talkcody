@@ -29,10 +29,10 @@ pub async fn llm_stream_text(
     request: StreamTextRequest,
     state: State<'_, LlmState>,
 ) -> Result<StreamResponse, String> {
-    log::info!(
-        "[llm_stream_text] Received request with trace_context: {:?}",
-        request.trace_context
-    );
+    // log::info!(
+    //     "[llm_stream_text] Received request with trace_context: {:?}",
+    //     request.trace_context
+    // );
 
     // Clone data within lock scope to minimize lock duration
     let (registry, api_keys) = {

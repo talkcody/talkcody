@@ -263,6 +263,7 @@ const zh: LocaleDefinition = {
       language: '语言',
       customTools: '自定义工具',
       hooks: 'Hooks',
+      remoteControl: '远程控制',
     },
     account: {
       title: '账户设置',
@@ -516,6 +517,25 @@ const zh: LocaleDefinition = {
     general: {
       title: '常规设置',
       description: '配置语言和主题偏好',
+    },
+    remoteControl: {
+      title: 'Telegram 远程控制',
+      description: '在应用后台运行时通过 Telegram 控制 TalkCody',
+      enabled: '启用 Telegram 远程控制',
+      tokenLabel: 'Bot Token',
+      tokenPlaceholder: '输入 Telegram bot token',
+      allowedChatsLabel: '允许的 Chat ID',
+      allowedChatsPlaceholder: '逗号分隔的 chat ID（可选）',
+      pollTimeoutLabel: '轮询超时（秒）',
+      pollTimeoutPlaceholder: '25',
+      pollTimeoutHint: '推荐 10-30 秒，可填写 5-60 秒。',
+      save: '保存远程控制设置',
+      saved: '远程控制设置已保存',
+      saveFailed: '保存远程控制设置失败',
+      errors: {
+        tokenMissing: '启用后需要填写 Telegram bot token',
+        pollTimeoutRange: '轮询超时必须在 5 到 60 秒之间',
+      },
     },
     shortcuts: {
       title: '键盘快捷键',
@@ -1416,6 +1436,21 @@ const zh: LocaleDefinition = {
     },
   },
 
+  RemoteControl: {
+    help: '/help - 查看命令\n/new <内容> - 新建任务\n/status - 任务状态\n/approve - 批准待处理编辑\n/reject - 拒绝待处理编辑\n/stop - 停止当前任务',
+    unknownCommand: '未知命令。发送 /help 查看可用命令。',
+    processing: '处理中... 稍后会更新结果。',
+    noActiveTask: '当前聊天没有进行中的任务。',
+    noPendingApproval: '没有待审批的文件编辑。',
+    approved: '已批准，继续执行。',
+    rejected: '已拒绝，已停止编辑。',
+    stopped: '已停止当前任务。',
+    gatewayError: (message) => `网关提示：${message}`,
+    approvalPrompt: (filePath) =>
+      `需要批准文件编辑：${filePath}\n回复 /approve 以应用，或 /reject 以取消。`,
+    status: (status) => `当前任务状态：${status}`,
+  },
+
   StreamProcessor: {
     status: {
       answering: '正在回答',
@@ -1476,7 +1511,7 @@ const zh: LocaleDefinition = {
     baseUrl: 'Base URL',
     baseUrlPlaceholderOpenAI: 'https://api.example.com/v1',
     baseUrlPlaceholderAnthropic: 'https://api.example.com',
-    baseUrlHint: 'API 端点的基础 URL',
+    baseUrlHint: '仅填写基础 URL（不要包含 /v1/messages、/chat/completions 或 /responses）',
     apiKey: 'API 密钥',
     apiKeyPlaceholder: '输入您的 API 密钥',
     enabled: '启用',

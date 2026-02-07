@@ -202,13 +202,118 @@ pub trait Provider: Send + Sync {
     ) -> Result<BuiltRequest, String> {
         let base_url = self.resolve_base_url(ctx).await?;
         let endpoint_path = self.resolve_endpoint_path(ctx).await;
+        let normalized_base_url = normalize_provider_base_url(&base_url, ctx.provider_config);
         let credentials = self.get_credentials(ctx.api_key_manager).await?;
         let headers = self.build_headers(ctx, &credentials).await?;
         let body = self.build_request(ctx).await?;
 
-        let url = format!("{}/{}", base_url.trim_end_matches('/'), endpoint_path);
+        let url = format!(
+            "{}/{}",
+            normalized_base_url.trim_end_matches('/'),
+            endpoint_path
+        );
 
         Ok(BuiltRequest { url, headers, body })
+    }
+}
+
+fn normalize_provider_base_url(base_url: &str, provider_config: &ProviderConfig) -> String {
+    let trimmed = base_url.trim_end_matches('/');
+    if !is_custom_provider_id(&provider_config.id) {
+        return trimmed.to_string();
+    }
+
+    let without_endpoint = if trimmed.ends_with("/chat/completions") {
+        trimmed.trim_end_matches("/chat/completions")
+    } else if trimmed.ends_with("/messages") {
+        trimmed.trim_end_matches("/messages")
+    } else if trimmed.ends_with("/responses") {
+        trimmed.trim_end_matches("/responses")
+    } else if trimmed.ends_with("/v1/messages") {
+        trimmed.trim_end_matches("/messages")
+    } else if trimmed.ends_with("/v1/chat/completions") {
+        trimmed.trim_end_matches("/chat/completions")
+    } else if trimmed.ends_with("/v1/responses") {
+        trimmed.trim_end_matches("/responses")
+    } else {
+        trimmed
+    };
+
+    if provider_config.id.starts_with("anthropic-") && !has_v1_segment(without_endpoint) {
+        format!("{}/v1", without_endpoint.trim_end_matches('/'))
+    } else {
+        without_endpoint.to_string()
+    }
+}
+
+fn is_custom_provider_id(provider_id: &str) -> bool {
+    provider_id.starts_with("openai-compatible-") || provider_id.starts_with("anthropic-")
+}
+
+fn has_v1_segment(base_url: &str) -> bool {
+    base_url.split('/').any(|segment| segment == "v1")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn custom_provider_config(id: &str, protocol: ProtocolType) -> ProviderConfig {
+        ProviderConfig {
+            id: id.to_string(),
+            name: "Custom".to_string(),
+            protocol,
+            base_url: "https://api.example.com/v1".to_string(),
+            api_key_name: "custom_test".to_string(),
+            supports_oauth: false,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: crate::llm::types::AuthType::Bearer,
+        }
+    }
+
+    #[test]
+    fn normalize_custom_provider_base_url_strips_openai_chat_endpoint() {
+        let config =
+            custom_provider_config("openai-compatible-test", ProtocolType::OpenAiCompatible);
+        let normalized =
+            normalize_provider_base_url("https://api.example.com/v1/chat/completions", &config);
+        assert_eq!(normalized, "https://api.example.com/v1");
+    }
+
+    #[test]
+    fn normalize_custom_provider_base_url_strips_messages_endpoint() {
+        let config = custom_provider_config("anthropic-test", ProtocolType::Claude);
+        let normalized =
+            normalize_provider_base_url("https://api.example.com/v1/messages", &config);
+        assert_eq!(normalized, "https://api.example.com/v1");
+    }
+
+    #[test]
+    fn normalize_custom_provider_base_url_appends_v1_for_anthropic_root() {
+        let config = custom_provider_config("anthropic-test", ProtocolType::Claude);
+        let normalized = normalize_provider_base_url("https://api.example.com", &config);
+        assert_eq!(normalized, "https://api.example.com/v1");
+    }
+
+    #[test]
+    fn normalize_custom_provider_base_url_keeps_root() {
+        let config =
+            custom_provider_config("openai-compatible-test", ProtocolType::OpenAiCompatible);
+        let normalized = normalize_provider_base_url("https://api.example.com/v1", &config);
+        assert_eq!(normalized, "https://api.example.com/v1");
+    }
+
+    #[test]
+    fn normalize_non_custom_provider_base_url_is_unchanged() {
+        let mut config = custom_provider_config("openai", ProtocolType::OpenAiCompatible);
+        config.id = "openai".to_string();
+        let normalized = normalize_provider_base_url("https://api.openai.com/v1", &config);
+        assert_eq!(normalized, "https://api.openai.com/v1");
     }
 }
 

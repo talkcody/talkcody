@@ -1,0 +1,323 @@
+{
+  "version": 1,
+  "provider_id": "aiGateway",
+  "protocol": "OpenAiCompatible",
+  "model": "google/gemini-3-flash",
+  "endpoint_path": "v1/chat/completions",
+  "request": {
+    "method": "POST",
+    "url": "https://ai-gateway.vercel.sh/v1/chat/completions",
+    "headers": {
+      "content-type": "application/json",
+      "authorization": "REDACTED",
+      "http-referer": "https://talkcody.com",
+      "x-title": "TalkCody"
+    },
+    "body": {
+      "max_tokens": 15000,
+      "messages": [
+        {
+          "content": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-07T04:24:37.153Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+          "role": "system"
+        },
+        {
+          "content": "who is kaisen kang",
+          "role": "user"
+        }
+      ],
+      "model": "google/gemini-3-flash",
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 1.0,
+      "tools": [
+        {
+          "function": {
+            "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+            "name": "webSearch",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Fetch and extract content from a web url",
+            "name": "webFetch",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "top_p": 0.949999988079071
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "access-control-allow-origin": "*",
+      "access-control-allow-headers": "Content-Type, Authorization, ai-gateway-auth-method, ai-gateway-protocol-version, ai-model-id, ai-language-model-id, ai-language-model-specification-version, ai-image-model-specification-version, ai-embedding-model-specification-version, ai-language-model-streaming, http-referer, x-title, anthropic-beta",
+      "cache-control": "no-cache",
+      "vary": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+      "x-vercel-id": "sfo1::cle1::8rpzh-1770438447046-2138fe583e72",
+      "strict-transport-security": "max-age=63072000; includeSubDomains; preload",
+      "x-matched-path": "/v1/chat/completions",
+      "server": "Vercel",
+      "transfer-encoding": "chunked",
+      "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+      "date": "Sat, 07 Feb 2026 04:27:32 GMT",
+      "content-type": "text/event-stream",
+      "x-vercel-cache": "MISS"
+    },
+    "sse_events": [
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Kaisen Kang is a prominent technology entrepreneur, computer scientist, and executive known for his significant contributions to the fields of\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" graph database systems and artificial intelligence. He is currently the **Co-founder and CEO of Denser.ai**, a company specializing in enterprise-grade AI search and retrieval-augmented generation (RAG) technologies.\\n\\nBefore founding Denser.ai, Kang played a pivotal role in the development and scaling of TigerGraph, one of\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" the world's leading graph database platforms.\\n\\n#### Professional Summary and Key Roles\\n\\nThroughout his career, Kang has focused on high-performance computing, distributed systems, and the intersection of structured data (graphs) with unstructured data processing (AI).\\n\\n| Aspect | Details |\\n| :--- | :--- |\\n| **\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Current Position** | Co-founder and CEO, Denser.ai |\\n| **Previous Major Role** | VP of Engineering & Founding Member, TigerGraph |\\n| **Education** | Ph.D. in Computer Science |\\n| **Specializations** | Graph Databases, Vector Search, RAG, Distributed\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Systems |\\n| **Location** | Silicon Valley / San Francisco Bay Area |\\n\\n#### Career at TigerGraph\\n\\nKaisen Kang was a foundational member of the engineering team at TigerGraph. During his tenure, which spanned over eight years, he was instrumental in transforming the company from an early-stage startup into a major\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" player in the enterprise database market.\\n\\n*   **Engineering Leadership:** As the Vice President of Engineering, he led the teams responsible for the core engine development, ensuring the platform could handle massive scale and complex analytical queries.\\n*   **Architectural Contributions:** He contributed to the design of the \\\"Native Parallel Graph\\\" (\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"NPG) architecture, which allows for high-performance deep-link analytics that traditional relational databases struggle to perform.\\n*   **Scale and Performance:** His work focused on distributed system performance, allowing TigerGraph to support petabytes of data and billions of vertices and edges for Fortune 500 clients.\\n\\n#### Founding\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Denser.ai\\n\\nRecognizing the shift in the industry toward Generative AI and the limitations of Large Language Models (LLMs) regarding \\\"hallucinations\\\" and data freshness, Kang co-founded **Denser.ai**. The company's mission is to provide businesses with a more reliable way to search and\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" interact with their internal data.\\n\\n*   **Focus on RAG:** Under Kang's leadership, Denser.ai focuses on Retrieval-Augmented Generation (RAG). This technology combines the power of LLMs with a company's private, verified data sources to provide accurate, cited answers.\\n*   **Hybrid Search\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\":** He advocates for the integration of traditional keyword search, vector search, and graph-based search to improve the precision of AI applications.\\n*   **Enterprise Adoption:** Denser.ai aims to lower the barrier to entry for enterprises looking to deploy AI-driven chatbots and search engines that are both secure and easy to manage\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" without deep technical expertise.\\n\\n#### Academic Background and Research\\n\\nKaisen Kang’s professional success is rooted in a strong academic foundation in computer science.\\n\\n*   **Ph.D. Research:** He earned his Ph.D. in Computer Science, focusing on large-scale data management and distributed systems. \\n*   **\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Publications:** He has authored numerous research papers in top-tier database and systems conferences (such as SIGMOD and VLDB), focusing on graph query optimization and high-availability systems.\\n*   **Stanford Affiliation:** He has maintained connections with the academic community, including research collaborations and discussions at Stanford University regarding the future\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" of graph-enhanced AI.\\n\\n#### Technical Philosophy and Influence\\n\\nKang is frequently cited in technical discussions regarding the \\\"Knowledge Graph vs. Vector Database\\\" debate. He often argues that the future of AI does not lie in choosing one over the other, but in a unified approach:\\n\\n> \\\"The most effective AI systems of\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" the future will leverage Knowledge Graphs for structured truth and Vector Databases for semantic understanding. By combining these, we can eliminate hallucinations and provide truly intelligent enterprise search.\\\"\\n\\nHis work continues to influence how modern enterprises architect their data stacks to support the next generation of AI-driven applications.\"},\"logprobs\":null,\"finish_reason\":null}],\"system_fingerprint\":\"fp_vmzcwh69g8\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"object\":\"chat.completion.chunk\",\"created\":1770438452,\"model\":\"google/gemini-3-flash\",\"choices\":[{\"index\":0,\"delta\":{\"provider_metadata\":{\"google\":{\"promptFeedback\":null,\"groundingMetadata\":null,\"urlContextMetadata\":null,\"safetyRatings\":null,\"usageMetadata\":{\"thoughtsTokenCount\":569,\"promptTokenCount\":600,\"candidatesTokenCount\":861,\"totalTokenCount\":2030,\"trafficType\":\"ON_DEMAND\"}},\"gateway\":{\"routing\":{\"originalModelId\":\"google/gemini-3-flash\",\"resolvedProvider\":\"vertex\",\"resolvedProviderApiModelId\":\"gemini-3-flash-preview\",\"internalResolvedModelId\":\"vertex:gemini-3-flash-preview\",\"fallbacksAvailable\":[\"google\"],\"internalReasoning\":\"Selected vertex as preferred provider for gemini-3-flash. 1 fallback(s) available: google\",\"planningReasoning\":\"System credentials planned for: vertex, google. Total execution order: vertex(system) → google(system)\",\"canonicalSlug\":\"google/gemini-3-flash\",\"finalProvider\":\"vertex\",\"attempts\":[{\"provider\":\"vertex\",\"internalModelId\":\"vertex:gemini-3-flash-preview\",\"providerApiModelId\":\"gemini-3-flash-preview\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1441790.696825,\"endTime\":1447095.016374,\"statusCode\":200}],\"modelAttemptCount\":1,\"modelAttempts\":[{\"modelId\":\"google/gemini-3-flash\",\"canonicalSlug\":\"google/gemini-3-flash\",\"success\":true,\"providerAttemptCount\":1,\"providerAttempts\":[{\"provider\":\"vertex\",\"internalModelId\":\"vertex:gemini-3-flash-preview\",\"providerApiModelId\":\"gemini-3-flash-preview\",\"credentialType\":\"system\",\"success\":true,\"startTime\":1441790.696825,\"endTime\":1447095.016374,\"statusCode\":200}]}],\"totalProviderAttemptCount\":1},\"cost\":\"0.00459\",\"marketCost\":\"0.00459\",\"generationId\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\",\"billableWebSearchCalls\":0}}},\"logprobs\":null,\"finish_reason\":\"stop\"}],\"usage\":{\"prompt_tokens\":600,\"completion_tokens\":861,\"total_tokens\":1461,\"cost\":0.00459,\"is_byok\":false,\"prompt_tokens_details\":{\"cached_tokens\":0,\"audio_tokens\":0,\"video_tokens\":0},\"cost_details\":{\"upstream_inference_cost\":null,\"upstream_inference_prompt_cost\":0,\"upstream_inference_completions_cost\":0},\"completion_tokens_details\":{\"reasoning_tokens\":569,\"image_tokens\":0},\"cache_creation_input_tokens\":0,\"market_cost\":0.00459},\"system_fingerprint\":\"fp_vmzcwh69g8\",\"generationId\":\"gen_01KGV5NKZB9PBSG9Z6DKXY26Y2\"}"
+      },
+      {
+        "event": null,
+        "data": "[DONE]"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "google/gemini-3-flash",
+    "messages": [
+      {
+        "role": "system",
+        "content": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-07T04:24:37.153Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+        "providerOptions": {
+          "anthropic": {
+            "cacheControl": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "user",
+        "content": "who is kaisen kang",
+        "providerOptions": null
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "name": "webSearch",
+        "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "webFetch",
+        "description": "Fetch and extract content from a web url",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      }
+    ],
+    "temperature": 1.0,
+    "max_tokens": 15000,
+    "top_p": 0.95,
+    "top_k": null,
+    "provider_options": {
+      "anthropic": {
+        "thinking": {
+          "budgetTokens": 12000,
+          "type": "enabled"
+        }
+      },
+      "google": {
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingBudget": 8192
+        }
+      },
+      "moonshot": {
+        "temperature": 1,
+        "thinking": {
+          "type": "enabled"
+        }
+      }
+    },
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "text-start"
+    },
+    {
+      "type": "text-delta",
+      "text": "Kaisen Kang is a prominent technology entrepreneur, computer scientist, and executive known for his significant contributions to the fields of"
+    },
+    {
+      "type": "text-delta",
+      "text": " graph database systems and artificial intelligence. He is currently the **Co-founder and CEO of Denser.ai**, a company specializing in enterprise-grade AI search and retrieval-augmented generation (RAG) technologies.\n\nBefore founding Denser.ai, Kang played a pivotal role in the development and scaling of TigerGraph, one of"
+    },
+    {
+      "type": "text-delta",
+      "text": " the world's leading graph database platforms.\n\n#### Professional Summary and Key Roles\n\nThroughout his career, Kang has focused on high-performance computing, distributed systems, and the intersection of structured data (graphs) with unstructured data processing (AI).\n\n| Aspect | Details |\n| :--- | :--- |\n| **"
+    },
+    {
+      "type": "text-delta",
+      "text": "Current Position** | Co-founder and CEO, Denser.ai |\n| **Previous Major Role** | VP of Engineering & Founding Member, TigerGraph |\n| **Education** | Ph.D. in Computer Science |\n| **Specializations** | Graph Databases, Vector Search, RAG, Distributed"
+    },
+    {
+      "type": "text-delta",
+      "text": " Systems |\n| **Location** | Silicon Valley / San Francisco Bay Area |\n\n#### Career at TigerGraph\n\nKaisen Kang was a foundational member of the engineering team at TigerGraph. During his tenure, which spanned over eight years, he was instrumental in transforming the company from an early-stage startup into a major"
+    },
+    {
+      "type": "text-delta",
+      "text": " player in the enterprise database market.\n\n*   **Engineering Leadership:** As the Vice President of Engineering, he led the teams responsible for the core engine development, ensuring the platform could handle massive scale and complex analytical queries.\n*   **Architectural Contributions:** He contributed to the design of the \"Native Parallel Graph\" ("
+    },
+    {
+      "type": "text-delta",
+      "text": "NPG) architecture, which allows for high-performance deep-link analytics that traditional relational databases struggle to perform.\n*   **Scale and Performance:** His work focused on distributed system performance, allowing TigerGraph to support petabytes of data and billions of vertices and edges for Fortune 500 clients.\n\n#### Founding"
+    },
+    {
+      "type": "text-delta",
+      "text": " Denser.ai\n\nRecognizing the shift in the industry toward Generative AI and the limitations of Large Language Models (LLMs) regarding \"hallucinations\" and data freshness, Kang co-founded **Denser.ai**. The company's mission is to provide businesses with a more reliable way to search and"
+    },
+    {
+      "type": "text-delta",
+      "text": " interact with their internal data.\n\n*   **Focus on RAG:** Under Kang's leadership, Denser.ai focuses on Retrieval-Augmented Generation (RAG). This technology combines the power of LLMs with a company's private, verified data sources to provide accurate, cited answers.\n*   **Hybrid Search"
+    },
+    {
+      "type": "text-delta",
+      "text": ":** He advocates for the integration of traditional keyword search, vector search, and graph-based search to improve the precision of AI applications.\n*   **Enterprise Adoption:** Denser.ai aims to lower the barrier to entry for enterprises looking to deploy AI-driven chatbots and search engines that are both secure and easy to manage"
+    },
+    {
+      "type": "text-delta",
+      "text": " without deep technical expertise.\n\n#### Academic Background and Research\n\nKaisen Kang’s professional success is rooted in a strong academic foundation in computer science.\n\n*   **Ph.D. Research:** He earned his Ph.D. in Computer Science, focusing on large-scale data management and distributed systems. \n*   **"
+    },
+    {
+      "type": "text-delta",
+      "text": "Publications:** He has authored numerous research papers in top-tier database and systems conferences (such as SIGMOD and VLDB), focusing on graph query optimization and high-availability systems.\n*   **Stanford Affiliation:** He has maintained connections with the academic community, including research collaborations and discussions at Stanford University regarding the future"
+    },
+    {
+      "type": "text-delta",
+      "text": " of graph-enhanced AI.\n\n#### Technical Philosophy and Influence\n\nKang is frequently cited in technical discussions regarding the \"Knowledge Graph vs. Vector Database\" debate. He often argues that the future of AI does not lie in choosing one over the other, but in a unified approach:\n\n> \"The most effective AI systems of"
+    },
+    {
+      "type": "text-delta",
+      "text": " the future will leverage Knowledge Graphs for structured truth and Vector Databases for semantic understanding. By combining these, we can eliminate hallucinations and provide truly intelligent enterprise search.\"\n\nHis work continues to influence how modern enterprises architect their data stacks to support the next generation of AI-driven applications."
+    },
+    {
+      "type": "usage",
+      "input_tokens": 600,
+      "output_tokens": 861,
+      "total_tokens": 1461,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "done",
+      "finish_reason": "stop"
+    }
+  ]
+}

@@ -693,8 +693,8 @@ pub async fn llm_claude_oauth_disconnect(state: State<'_, LlmState>) -> Result<(
 // ============================================================================
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GitHubCopilotOAuthStartRequest {
-    #[serde(rename = "enterpriseUrl")]
     pub enterprise_url: Option<String>,
 }
 
@@ -718,9 +718,9 @@ pub struct GitHubCopilotOAuthStartResponse {
 }
 
 #[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct GitHubCopilotOAuthPollRequest {
     pub device_code: String,
-    #[serde(rename = "enterpriseUrl")]
     pub enterprise_url: Option<String>,
 }
 

@@ -45,3 +45,21 @@ describe('CustomProviderService - private IP support', () => {
     });
   });
 });
+
+describe('CustomProviderService - base URL validation', () => {
+  it('rejects base URLs that include endpoint paths', async () => {
+    const { customProviderService } = await import('@/providers/custom/custom-provider-service');
+
+    const validation = customProviderService.validateProviderConfig({
+      name: 'Acme',
+      type: 'openai-compatible',
+      baseUrl: 'https://api.acme.com/v1/chat/completions',
+      apiKey: 'key',
+    });
+
+    expect(validation.isValid).toBe(false);
+    expect(validation.errors).toContain(
+      'Base URL should not include endpoint paths (e.g., /v1/messages)'
+    );
+  });
+});

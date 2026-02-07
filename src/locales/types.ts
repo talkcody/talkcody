@@ -262,6 +262,7 @@ export interface LocaleDefinition {
       language: string;
       customTools: string;
       hooks: string;
+      remoteControl: string;
     };
     hooksScopeHint: string;
     account: {
@@ -510,6 +511,25 @@ export interface LocaleDefinition {
     general: {
       title: string;
       description: string;
+    };
+    remoteControl: {
+      title: string;
+      description: string;
+      enabled: string;
+      tokenLabel: string;
+      tokenPlaceholder: string;
+      allowedChatsLabel: string;
+      allowedChatsPlaceholder: string;
+      pollTimeoutLabel: string;
+      pollTimeoutPlaceholder: string;
+      pollTimeoutHint: string;
+      save: string;
+      saved: string;
+      saveFailed: string;
+      errors: {
+        tokenMissing: string;
+        pollTimeoutRange: string;
+      };
     };
     shortcuts: {
       title: string;
@@ -1409,6 +1429,20 @@ export interface LocaleDefinition {
     tooltip: {
       deleteServer: string;
     };
+  };
+
+  RemoteControl: {
+    help: string;
+    unknownCommand: string;
+    processing: string;
+    noActiveTask: string;
+    noPendingApproval: string;
+    approved: string;
+    rejected: string;
+    stopped: string;
+    gatewayError: (message: string) => string;
+    approvalPrompt: (filePath: string) => string;
+    status: (status: string) => string;
   };
 
   StreamProcessor: {

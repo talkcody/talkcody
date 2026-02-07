@@ -206,7 +206,15 @@ class CustomProviderService {
     // Validate URL format
     if (config.baseUrl) {
       try {
-        new URL(config.baseUrl);
+        const parsed = new URL(config.baseUrl);
+        const normalizedPath = parsed.pathname.replace(/\/+$/, '');
+        if (
+          normalizedPath.endsWith('/messages') ||
+          normalizedPath.endsWith('/chat/completions') ||
+          normalizedPath.endsWith('/responses')
+        ) {
+          errors.push('Base URL should not include endpoint paths (e.g., /v1/messages)');
+        }
       } catch {
         errors.push('Invalid base URL format');
       }

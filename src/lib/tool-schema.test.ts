@@ -13,7 +13,7 @@ const createNonGeminiToolDefinition = (schema: unknown) =>
   });
 
 describe('toToolInputJsonSchema', () => {
-  it('converts Zod schema to JSON schema', () => {
+  it('converts Zod v4 schemas to JSON schema', () => {
     const inputSchema = z.object({
       message: z.string(),
     });
@@ -30,6 +30,24 @@ describe('toToolInputJsonSchema', () => {
     );
 
     expect((jsonSchema as Record<string, unknown>)._def).toBeUndefined();
+  });
+
+  it('converts Zod v3 schemas to JSON schema', async () => {
+    const { z: z3 } = await import('zod/v3');
+    const inputSchema = z3.object({
+      message: z3.string(),
+    });
+
+    const jsonSchema = toToolInputJsonSchema(inputSchema);
+
+    expect(jsonSchema).toEqual(
+      expect.objectContaining({
+        type: 'object',
+        properties: {
+          message: expect.objectContaining({ type: 'string' }),
+        },
+      })
+    );
   });
 
   it('adds enum type when Zod enum contains strings', () => {

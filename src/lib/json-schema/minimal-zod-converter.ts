@@ -17,7 +17,8 @@ export type JSONSchema7 = {
 } & Record<string, unknown>;
 
 type ZodDef = {
-  type?: string;
+  type?: unknown;
+  typeName?: string;
   innerType?: unknown;
   schema?: unknown;
   shape?: unknown;
@@ -47,8 +48,8 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function getDef(schema: unknown): ZodDef | null {
   if (!schema || typeof schema !== 'object') return null;
-  const record = schema as ZodSchemaLike;
-  const def = record.def ?? record._def;
+  const record = schema as ZodSchemaLike & { _zod?: { def?: ZodDef } };
+  const def = record.def ?? record._def ?? record._zod?.def;
   if (!def || typeof def !== 'object') return null;
   return def;
 }
@@ -66,7 +67,18 @@ function getObjectShape(schema: unknown): Record<string, unknown> | null {
 }
 
 function getInnerSchema(def: ZodDef): unknown {
-  return def.innerType ?? def.schema;
+  return def.innerType ?? def.schema ?? def.type;
+}
+
+function toZodType(def: ZodDef | null | undefined): string | undefined {
+  if (!def) return undefined;
+  if (typeof def.type === 'string') {
+    return def.type;
+  }
+  if (typeof def.typeName === 'string') {
+    return def.typeName.replace(/^Zod/, '').replace(/^Zod/, '').toLowerCase();
+  }
+  return undefined;
 }
 
 function unwrapSchema(schema: unknown): {
@@ -82,7 +94,7 @@ function unwrapSchema(schema: unknown): {
 
   while (true) {
     const def = getDef(current);
-    const type = def?.type;
+    const type = toZodType(def);
     if (!type) break;
 
     if (type === 'optional' || type === 'default' || type === 'prefault') {
@@ -167,7 +179,7 @@ function wrapNullable(schema: JSONSchema7): JSONSchema7 {
 function convertInternal(schema: unknown): { json: JSONSchema7 | null; optional: boolean } {
   const { base, optional, nullable, defaultValue } = unwrapSchema(schema);
   const def = getDef(base);
-  const type = def?.type;
+  const type = toZodType(def);
 
   if (!type) {
     return { json: null, optional };
@@ -206,7 +218,7 @@ function convertInternal(schema: unknown): { json: JSONSchema7 | null; optional:
       break;
     }
     case 'enum':
-    case 'nativeEnum': {
+    case 'nativeenum': {
       const enumValues = extractEnumValues(def?.values ?? def?.entries ?? def?.options);
       const enumType = inferEnumType(enumValues);
       json = enumType ? { type: enumType, enum: enumValues } : { enum: enumValues };
@@ -216,7 +228,7 @@ function convertInternal(schema: unknown): { json: JSONSchema7 | null; optional:
       json = { type: 'null' };
       break;
     case 'array': {
-      const itemSchema = convertSchema(def?.element ?? def?.items) ?? {};
+      const itemSchema = convertSchema(def?.element ?? def?.items ?? def?.type) ?? {};
       json = { type: 'array', items: itemSchema };
       break;
     }
@@ -300,9 +312,14 @@ export function convertZodToJsonSchema(schema: unknown): JSONSchema7 | null {
 }
 
 export function convertSchema(schema: unknown): JSONSchema7 | null {
-  const def = getDef(schema);
-  if (def?.type) {
+  if (!schema || typeof schema !== 'object') {
+    return null;
+  }
+
+  const record = schema as Record<string, unknown>;
+  if ('def' in record || '_def' in record || '~standard' in record || '_zod' in record) {
     return convertZodToJsonSchema(schema);
   }
+
   return null;
 }

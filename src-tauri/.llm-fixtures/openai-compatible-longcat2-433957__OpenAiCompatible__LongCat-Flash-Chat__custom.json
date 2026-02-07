@@ -1,0 +1,1555 @@
+{
+  "version": 1,
+  "provider_id": "openai-compatible-longcat2-433957",
+  "protocol": "OpenAiCompatible",
+  "model": "LongCat-Flash-Chat",
+  "endpoint_path": "openai/chat/completions",
+  "request": {
+    "method": "POST",
+    "url": "https://api.longcat.chat/openai/chat/completions",
+    "headers": {
+      "content-type": "application/json",
+      "authorization": "REDACTED"
+    },
+    "body": {
+      "max_tokens": 15000,
+      "messages": [
+        {
+          "content": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-07T04:24:37.153Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+          "role": "system"
+        },
+        {
+          "content": "what’s the talkcody",
+          "role": "user"
+        },
+        {
+          "content": "I don't know what \"talkcody\" refers to. This could be:\n\n1. A typo or misspelling of another term\n2. A very new or niche product/service that hasn't gained widespread recognition\n3. A personal project or local business with limited online presence\n4. A term in a specific community or field that isn't widely documented\n\nIf you can provide more context about:\n- What field or industry this relates to\n- Where you heard or saw this term\n- Any additional spelling variations\n- What you're trying to find out about it\n\nI'd be happy to help you investigate further.",
+          "role": "assistant"
+        },
+        {
+          "content": "请搜索网络",
+          "role": "user"
+        },
+        {
+          "content": null,
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"query\":\"talkcody\"}",
+                "name": "webSearch"
+              },
+              "id": "call_75a89e560629485a9f95b4f9",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "[\n  {\n    \"title\": \"TalkCody - Free and Open Source AI Coding Agent\",\n    \"url\": \"https://www.talkcody.com/\",\n    \"content\": \"Generate correct code as quickly and cost-effectively as possible. The next generation of AI-powered development with multi-model support, privacy-first ...\"\n  },\n  {\n    \"title\": \"Open source agent for parallel coding tasks. -/github.com/talkcody ...\",\n    \"url\": \"https://www.facebook.com/0xSojalSec/posts/open-source-agent-for-parallel-coding-tasks-githubcomtalkcodytalkcody/1431873948467004/\",\n    \"content\": \"#OpenAl just dropped an open-source coding agent. #CodexCLI is a local tool that turns plain language into working code.\"\n  },\n  {\n    \"title\": \"TalkCody - Code is cheap, show me your talk. Free Open Source AI ...\",\n    \"url\": \"https://github.com/talkcody/talkcody\",\n    \"content\": \"TalkCody is an AI Coding Agent that actually works the way you do—in parallel, with control, and privately. Unlike cloud-only AI tools that lock you into a ...\"\n  },\n  {\n    \"title\": \"Issues · talkcody/talkcody - GitHub\",\n    \"url\": \"https://github.com/talkcody/talkcody/issues\",\n    \"content\": \"TalkCody - Code is cheap, show me your talk. Free Open Source AI Coding Agent. - talkcody/talkcody.\"\n  },\n  {\n    \"title\": \"TalkCody - AI Tool For Coding\",\n    \"url\": \"https://theresanaiforthat.com/ai/talkcody/\",\n    \"content\": \"TalkCody is a free and open-source AI coding agent that aims to revolutionize AI-powered development. The tool focuses on generating correct ...\"\n  },\n  {\n    \"title\": \"TalkCody - Moge.AI\",\n    \"url\": \"https://moge.ai/product/talkcody\",\n    \"content\": \"What is TalkCody? TalkCody is a free, open-source coding agent engineered for developers who demand both performance and autonomy. Built with Rust and Tauri ...\"\n  },\n  {\n    \"title\": \"https://www.talkcody.com/blog/four-level-parallelism ... - Instagram\",\n    \"url\": \"https://www.instagram.com/p/DUMQYTVj394/\",\n    \"content\": \"GPT-5.2-Codex is now integrated into Visual Studio, JetBrains, Xcode, and Eclipse, bringing AI directly into the coding workflow. Developers can ...\"\n  }\n]",
+          "role": "tool",
+          "tool_call_id": "call_75a89e560629485a9f95b4f9"
+        }
+      ],
+      "model": "LongCat-Flash-Chat",
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "tools": [
+        {
+          "function": {
+            "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+            "name": "webSearch",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Fetch and extract content from a web url",
+            "name": "webFetch",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "connection": "keep-alive",
+      "m-traceid": "-749907362720338464",
+      "server": "openresty",
+      "content-type": "text/event-stream",
+      "date": "Sat, 07 Feb 2026 04:33:56 GMT",
+      "transfer-encoding": "chunked"
+    },
+    "sse_events": [
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"Based\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" on\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" the search\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" results,\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results,\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" **Talk\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **Talk\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"Cody\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"** is\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" a **\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"free and\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" open-source\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" AI coding\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" agent**\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent**\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" designed to\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" assist\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" developers with\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" code\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" generation and\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" development tasks\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\". Here\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" are the\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" key details\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\":\\n\\n###\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n###\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Key Features\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\":\\n1\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\". **\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"Multi\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"-model\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" support**\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support**\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" \"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** \",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"– Works\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" with various\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" AI models\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" for\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" code generation\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\".\\n2\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\". **\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"Privacy-first\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" approach\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"** \"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** \",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"– Unlike\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" cloud-only\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" tools,\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools,\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" it emphasizes\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" local execution\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" and data\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" privacy.\\n\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"3.\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3.\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" **Parallel\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" coding tasks\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"** \"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** \",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"– Can\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438835,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" handle multiple\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" coding operations\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" simultaneously.\\n\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"4.\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4.\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" **Local\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" tool\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" integration**\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration**\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" –\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** –\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Turns\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" plain language\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" into\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" working code\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" (similar\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" to GitHub\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Copilot\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" but open\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"-source).\\n\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"5.\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5.\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" **Built\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" with Rust\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" and\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Tauri\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"** \"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** \",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"– Ens\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ens\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"ures performance\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" and cross\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"-platform compatibility\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\".\\n\\n###\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n###\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Official\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Resources\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\":\\n-\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n-\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" **Website\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"**: [\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"https\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"://www\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\".talk\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talk\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"cody\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\".com/](\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"https://\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"www.t\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.t\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"alkc\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkc\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"ody.com\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"/)\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"  \\n-\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n-\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" **GitHub\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Repository\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"**: [\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"https://\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"github.com\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"/talk\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talk\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"cody\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"/talk\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talk\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"cody\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"](https\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"://github\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\".com/t\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/t\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"alkc\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkc\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"ody/t\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/t\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"alkc\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkc\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"ody)\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"  \\n\\n###\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n###\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Additional\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Notes:\\n\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"- Position\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Position\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"ed as\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" a\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" privacy\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"-focused alternative\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" to proprietary\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" AI coding\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" tools.\\n\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"- Integ\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integ\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"rates with\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" IDEs\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" like Visual\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Studio,\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio,\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" JetBr\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBr\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438836,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"ains,\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains,\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" Xcode,\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode,\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" and Eclipse\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\".\\n-\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n-\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" The slogan\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" *\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"\\\"Code\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" is cheap\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\", show\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" me your\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" talk\\\"\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"* suggests\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" a focus\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" on efficient\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" communication\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" between developers\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" and AI\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\".\\n\\n\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\n\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"If you\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" need more\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" specific details\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" (e\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\".g.,\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g.,\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" setup\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" instructions,\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup instructions,\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" use cases\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup instructions, use cases\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\",\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup instructions, use cases,\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" or comparisons\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup instructions, use cases, or comparisons\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" with\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup instructions, use cases, or comparisons with\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" other tools\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup instructions, use cases, or comparisons with other tools\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"), let\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup instructions, use cases, or comparisons with other tools), let\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\" me know\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup instructions, use cases, or comparisons with other tools), let me know\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{\"content\":\"!\"},\"index\":0,\"finish_reason\":null,\"matched_stop\":null,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup instructions, use cases, or comparisons with other tools), let me know!\",\"lastOne\":false}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"e91f543f61304781ac371a9f2515630f\",\"object\":\"chat.completion.chunk\",\"created\":1770438837,\"model\":\"longcat-flash-chatai-api\",\"choices\":[{\"delta\":{},\"index\":0,\"finish_reason\":\"stop\",\"matched_stop\":2,\"logprobs\":null}],\"content\":\"Based on the search results, **TalkCody** is a **free and open-source AI coding agent** designed to assist developers with code generation and development tasks. Here are the key details:\\n\\n### Key Features:\\n1. **Multi-model support** – Works with various AI models for code generation.\\n2. **Privacy-first approach** – Unlike cloud-only tools, it emphasizes local execution and data privacy.\\n3. **Parallel coding tasks** – Can handle multiple coding operations simultaneously.\\n4. **Local tool integration** – Turns plain language into working code (similar to GitHub Copilot but open-source).\\n5. **Built with Rust and Tauri** – Ensures performance and cross-platform compatibility.\\n\\n### Official Resources:\\n- **Website**: [https://www.talkcody.com/](https://www.talkcody.com/)  \\n- **GitHub Repository**: [https://github.com/talkcody/talkcody](https://github.com/talkcody/talkcody)  \\n\\n### Additional Notes:\\n- Positioned as a privacy-focused alternative to proprietary AI coding tools.\\n- Integrates with IDEs like Visual Studio, JetBrains, Xcode, and Eclipse.\\n- The slogan *\\\"Code is cheap, show me your talk\\\"* suggests a focus on efficient communication between developers and AI.\\n\\nIf you need more specific details (e.g., setup instructions, use cases, or comparisons with other tools), let me know!\",\"usage\":{\"completion_tokens\":295,\"prompt_tokens\":1657,\"total_tokens\":1952,\"cache_write_tokens\":0,\"cache_read_tokens\":0,\"input_tokens\":0,\"output_tokens\":0,\"cached_tokens\":0},\"lastOne\":true}"
+      },
+      {
+        "event": null,
+        "data": "[DONE]"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "LongCat-Flash-Chat",
+    "messages": [
+      {
+        "role": "system",
+        "content": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-07T04:24:37.153Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+        "providerOptions": {
+          "anthropic": {
+            "cacheControl": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "user",
+        "content": "what’s the talkcody",
+        "providerOptions": null
+      },
+      {
+        "role": "assistant",
+        "content": "I don't know what \"talkcody\" refers to. This could be:\n\n1. A typo or misspelling of another term\n2. A very new or niche product/service that hasn't gained widespread recognition\n3. A personal project or local business with limited online presence\n4. A term in a specific community or field that isn't widely documented\n\nIf you can provide more context about:\n- What field or industry this relates to\n- Where you heard or saw this term\n- Any additional spelling variations\n- What you're trying to find out about it\n\nI'd be happy to help you investigate further.",
+        "providerOptions": null
+      },
+      {
+        "role": "user",
+        "content": "请搜索网络",
+        "providerOptions": null
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool-call",
+            "toolCallId": "call_75a89e560629485a9f95b4f9",
+            "toolName": "webSearch",
+            "input": {
+              "query": "talkcody"
+            },
+            "provider_metadata": null
+          }
+        ],
+        "providerOptions": null
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool-result",
+            "toolCallId": "call_75a89e560629485a9f95b4f9",
+            "toolName": "webSearch",
+            "output": {
+              "type": "text",
+              "value": "[\n  {\n    \"title\": \"TalkCody - Free and Open Source AI Coding Agent\",\n    \"url\": \"https://www.talkcody.com/\",\n    \"content\": \"Generate correct code as quickly and cost-effectively as possible. The next generation of AI-powered development with multi-model support, privacy-first ...\"\n  },\n  {\n    \"title\": \"Open source agent for parallel coding tasks. -/github.com/talkcody ...\",\n    \"url\": \"https://www.facebook.com/0xSojalSec/posts/open-source-agent-for-parallel-coding-tasks-githubcomtalkcodytalkcody/1431873948467004/\",\n    \"content\": \"#OpenAl just dropped an open-source coding agent. #CodexCLI is a local tool that turns plain language into working code.\"\n  },\n  {\n    \"title\": \"TalkCody - Code is cheap, show me your talk. Free Open Source AI ...\",\n    \"url\": \"https://github.com/talkcody/talkcody\",\n    \"content\": \"TalkCody is an AI Coding Agent that actually works the way you do—in parallel, with control, and privately. Unlike cloud-only AI tools that lock you into a ...\"\n  },\n  {\n    \"title\": \"Issues · talkcody/talkcody - GitHub\",\n    \"url\": \"https://github.com/talkcody/talkcody/issues\",\n    \"content\": \"TalkCody - Code is cheap, show me your talk. Free Open Source AI Coding Agent. - talkcody/talkcody.\"\n  },\n  {\n    \"title\": \"TalkCody - AI Tool For Coding\",\n    \"url\": \"https://theresanaiforthat.com/ai/talkcody/\",\n    \"content\": \"TalkCody is a free and open-source AI coding agent that aims to revolutionize AI-powered development. The tool focuses on generating correct ...\"\n  },\n  {\n    \"title\": \"TalkCody - Moge.AI\",\n    \"url\": \"https://moge.ai/product/talkcody\",\n    \"content\": \"What is TalkCody? TalkCody is a free, open-source coding agent engineered for developers who demand both performance and autonomy. Built with Rust and Tauri ...\"\n  },\n  {\n    \"title\": \"https://www.talkcody.com/blog/four-level-parallelism ... - Instagram\",\n    \"url\": \"https://www.instagram.com/p/DUMQYTVj394/\",\n    \"content\": \"GPT-5.2-Codex is now integrated into Visual Studio, JetBrains, Xcode, and Eclipse, bringing AI directly into the coding workflow. Developers can ...\"\n  }\n]"
+            }
+          }
+        ],
+        "providerOptions": null
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "name": "webSearch",
+        "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "webFetch",
+        "description": "Fetch and extract content from a web url",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      }
+    ],
+    "temperature": null,
+    "max_tokens": 15000,
+    "top_p": null,
+    "top_k": null,
+    "provider_options": {
+      "anthropic": {
+        "thinking": {
+          "budgetTokens": 12000,
+          "type": "enabled"
+        }
+      },
+      "google": {
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingBudget": 8192
+        }
+      },
+      "moonshot": {
+        "temperature": 1,
+        "thinking": {
+          "type": "enabled"
+        }
+      }
+    },
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "text-start"
+    },
+    {
+      "type": "text-delta",
+      "text": "Based"
+    },
+    {
+      "type": "text-delta",
+      "text": " on"
+    },
+    {
+      "type": "text-delta",
+      "text": " the search"
+    },
+    {
+      "type": "text-delta",
+      "text": " results,"
+    },
+    {
+      "type": "text-delta",
+      "text": " **Talk"
+    },
+    {
+      "type": "text-delta",
+      "text": "Cody"
+    },
+    {
+      "type": "text-delta",
+      "text": "** is"
+    },
+    {
+      "type": "text-delta",
+      "text": " a **"
+    },
+    {
+      "type": "text-delta",
+      "text": "free and"
+    },
+    {
+      "type": "text-delta",
+      "text": " open-source"
+    },
+    {
+      "type": "text-delta",
+      "text": " AI coding"
+    },
+    {
+      "type": "text-delta",
+      "text": " agent**"
+    },
+    {
+      "type": "text-delta",
+      "text": " designed to"
+    },
+    {
+      "type": "text-delta",
+      "text": " assist"
+    },
+    {
+      "type": "text-delta",
+      "text": " developers with"
+    },
+    {
+      "type": "text-delta",
+      "text": " code"
+    },
+    {
+      "type": "text-delta",
+      "text": " generation and"
+    },
+    {
+      "type": "text-delta",
+      "text": " development tasks"
+    },
+    {
+      "type": "text-delta",
+      "text": ". Here"
+    },
+    {
+      "type": "text-delta",
+      "text": " are the"
+    },
+    {
+      "type": "text-delta",
+      "text": " key details"
+    },
+    {
+      "type": "text-delta",
+      "text": ":\n\n###"
+    },
+    {
+      "type": "text-delta",
+      "text": " Key Features"
+    },
+    {
+      "type": "text-delta",
+      "text": ":\n1"
+    },
+    {
+      "type": "text-delta",
+      "text": ". **"
+    },
+    {
+      "type": "text-delta",
+      "text": "Multi"
+    },
+    {
+      "type": "text-delta",
+      "text": "-model"
+    },
+    {
+      "type": "text-delta",
+      "text": " support**"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "– Works"
+    },
+    {
+      "type": "text-delta",
+      "text": " with various"
+    },
+    {
+      "type": "text-delta",
+      "text": " AI models"
+    },
+    {
+      "type": "text-delta",
+      "text": " for"
+    },
+    {
+      "type": "text-delta",
+      "text": " code generation"
+    },
+    {
+      "type": "text-delta",
+      "text": ".\n2"
+    },
+    {
+      "type": "text-delta",
+      "text": ". **"
+    },
+    {
+      "type": "text-delta",
+      "text": "Privacy-first"
+    },
+    {
+      "type": "text-delta",
+      "text": " approach"
+    },
+    {
+      "type": "text-delta",
+      "text": "** "
+    },
+    {
+      "type": "text-delta",
+      "text": "– Unlike"
+    },
+    {
+      "type": "text-delta",
+      "text": " cloud-only"
+    },
+    {
+      "type": "text-delta",
+      "text": " tools,"
+    },
+    {
+      "type": "text-delta",
+      "text": " it emphasizes"
+    },
+    {
+      "type": "text-delta",
+      "text": " local execution"
+    },
+    {
+      "type": "text-delta",
+      "text": " and data"
+    },
+    {
+      "type": "text-delta",
+      "text": " privacy.\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "3."
+    },
+    {
+      "type": "text-delta",
+      "text": " **Parallel"
+    },
+    {
+      "type": "text-delta",
+      "text": " coding tasks"
+    },
+    {
+      "type": "text-delta",
+      "text": "** "
+    },
+    {
+      "type": "text-delta",
+      "text": "– Can"
+    },
+    {
+      "type": "text-delta",
+      "text": " handle multiple"
+    },
+    {
+      "type": "text-delta",
+      "text": " coding operations"
+    },
+    {
+      "type": "text-delta",
+      "text": " simultaneously.\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "4."
+    },
+    {
+      "type": "text-delta",
+      "text": " **Local"
+    },
+    {
+      "type": "text-delta",
+      "text": " tool"
+    },
+    {
+      "type": "text-delta",
+      "text": " integration**"
+    },
+    {
+      "type": "text-delta",
+      "text": " –"
+    },
+    {
+      "type": "text-delta",
+      "text": " Turns"
+    },
+    {
+      "type": "text-delta",
+      "text": " plain language"
+    },
+    {
+      "type": "text-delta",
+      "text": " into"
+    },
+    {
+      "type": "text-delta",
+      "text": " working code"
+    },
+    {
+      "type": "text-delta",
+      "text": " (similar"
+    },
+    {
+      "type": "text-delta",
+      "text": " to GitHub"
+    },
+    {
+      "type": "text-delta",
+      "text": " Copilot"
+    },
+    {
+      "type": "text-delta",
+      "text": " but open"
+    },
+    {
+      "type": "text-delta",
+      "text": "-source).\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "5."
+    },
+    {
+      "type": "text-delta",
+      "text": " **Built"
+    },
+    {
+      "type": "text-delta",
+      "text": " with Rust"
+    },
+    {
+      "type": "text-delta",
+      "text": " and"
+    },
+    {
+      "type": "text-delta",
+      "text": " Tauri"
+    },
+    {
+      "type": "text-delta",
+      "text": "** "
+    },
+    {
+      "type": "text-delta",
+      "text": "– Ens"
+    },
+    {
+      "type": "text-delta",
+      "text": "ures performance"
+    },
+    {
+      "type": "text-delta",
+      "text": " and cross"
+    },
+    {
+      "type": "text-delta",
+      "text": "-platform compatibility"
+    },
+    {
+      "type": "text-delta",
+      "text": ".\n\n###"
+    },
+    {
+      "type": "text-delta",
+      "text": " Official"
+    },
+    {
+      "type": "text-delta",
+      "text": " Resources"
+    },
+    {
+      "type": "text-delta",
+      "text": ":\n-"
+    },
+    {
+      "type": "text-delta",
+      "text": " **Website"
+    },
+    {
+      "type": "text-delta",
+      "text": "**: ["
+    },
+    {
+      "type": "text-delta",
+      "text": "https"
+    },
+    {
+      "type": "text-delta",
+      "text": "://www"
+    },
+    {
+      "type": "text-delta",
+      "text": ".talk"
+    },
+    {
+      "type": "text-delta",
+      "text": "cody"
+    },
+    {
+      "type": "text-delta",
+      "text": ".com/]("
+    },
+    {
+      "type": "text-delta",
+      "text": "https://"
+    },
+    {
+      "type": "text-delta",
+      "text": "www.t"
+    },
+    {
+      "type": "text-delta",
+      "text": "alkc"
+    },
+    {
+      "type": "text-delta",
+      "text": "ody.com"
+    },
+    {
+      "type": "text-delta",
+      "text": "/)"
+    },
+    {
+      "type": "text-delta",
+      "text": "  \n-"
+    },
+    {
+      "type": "text-delta",
+      "text": " **GitHub"
+    },
+    {
+      "type": "text-delta",
+      "text": " Repository"
+    },
+    {
+      "type": "text-delta",
+      "text": "**: ["
+    },
+    {
+      "type": "text-delta",
+      "text": "https://"
+    },
+    {
+      "type": "text-delta",
+      "text": "github.com"
+    },
+    {
+      "type": "text-delta",
+      "text": "/talk"
+    },
+    {
+      "type": "text-delta",
+      "text": "cody"
+    },
+    {
+      "type": "text-delta",
+      "text": "/talk"
+    },
+    {
+      "type": "text-delta",
+      "text": "cody"
+    },
+    {
+      "type": "text-delta",
+      "text": "](https"
+    },
+    {
+      "type": "text-delta",
+      "text": "://github"
+    },
+    {
+      "type": "text-delta",
+      "text": ".com/t"
+    },
+    {
+      "type": "text-delta",
+      "text": "alkc"
+    },
+    {
+      "type": "text-delta",
+      "text": "ody/t"
+    },
+    {
+      "type": "text-delta",
+      "text": "alkc"
+    },
+    {
+      "type": "text-delta",
+      "text": "ody)"
+    },
+    {
+      "type": "text-delta",
+      "text": "  \n\n###"
+    },
+    {
+      "type": "text-delta",
+      "text": " Additional"
+    },
+    {
+      "type": "text-delta",
+      "text": " Notes:\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "- Position"
+    },
+    {
+      "type": "text-delta",
+      "text": "ed as"
+    },
+    {
+      "type": "text-delta",
+      "text": " a"
+    },
+    {
+      "type": "text-delta",
+      "text": " privacy"
+    },
+    {
+      "type": "text-delta",
+      "text": "-focused alternative"
+    },
+    {
+      "type": "text-delta",
+      "text": " to proprietary"
+    },
+    {
+      "type": "text-delta",
+      "text": " AI coding"
+    },
+    {
+      "type": "text-delta",
+      "text": " tools.\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "- Integ"
+    },
+    {
+      "type": "text-delta",
+      "text": "rates with"
+    },
+    {
+      "type": "text-delta",
+      "text": " IDEs"
+    },
+    {
+      "type": "text-delta",
+      "text": " like Visual"
+    },
+    {
+      "type": "text-delta",
+      "text": " Studio,"
+    },
+    {
+      "type": "text-delta",
+      "text": " JetBr"
+    },
+    {
+      "type": "text-delta",
+      "text": "ains,"
+    },
+    {
+      "type": "text-delta",
+      "text": " Xcode,"
+    },
+    {
+      "type": "text-delta",
+      "text": " and Eclipse"
+    },
+    {
+      "type": "text-delta",
+      "text": ".\n-"
+    },
+    {
+      "type": "text-delta",
+      "text": " The slogan"
+    },
+    {
+      "type": "text-delta",
+      "text": " *"
+    },
+    {
+      "type": "text-delta",
+      "text": "\"Code"
+    },
+    {
+      "type": "text-delta",
+      "text": " is cheap"
+    },
+    {
+      "type": "text-delta",
+      "text": ", show"
+    },
+    {
+      "type": "text-delta",
+      "text": " me your"
+    },
+    {
+      "type": "text-delta",
+      "text": " talk\""
+    },
+    {
+      "type": "text-delta",
+      "text": "* suggests"
+    },
+    {
+      "type": "text-delta",
+      "text": " a focus"
+    },
+    {
+      "type": "text-delta",
+      "text": " on efficient"
+    },
+    {
+      "type": "text-delta",
+      "text": " communication"
+    },
+    {
+      "type": "text-delta",
+      "text": " between developers"
+    },
+    {
+      "type": "text-delta",
+      "text": " and AI"
+    },
+    {
+      "type": "text-delta",
+      "text": ".\n\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "If you"
+    },
+    {
+      "type": "text-delta",
+      "text": " need more"
+    },
+    {
+      "type": "text-delta",
+      "text": " specific details"
+    },
+    {
+      "type": "text-delta",
+      "text": " (e"
+    },
+    {
+      "type": "text-delta",
+      "text": ".g.,"
+    },
+    {
+      "type": "text-delta",
+      "text": " setup"
+    },
+    {
+      "type": "text-delta",
+      "text": " instructions,"
+    },
+    {
+      "type": "text-delta",
+      "text": " use cases"
+    },
+    {
+      "type": "text-delta",
+      "text": ","
+    },
+    {
+      "type": "text-delta",
+      "text": " or comparisons"
+    },
+    {
+      "type": "text-delta",
+      "text": " with"
+    },
+    {
+      "type": "text-delta",
+      "text": " other tools"
+    },
+    {
+      "type": "text-delta",
+      "text": "), let"
+    },
+    {
+      "type": "text-delta",
+      "text": " me know"
+    },
+    {
+      "type": "text-delta",
+      "text": "!"
+    },
+    {
+      "type": "usage",
+      "input_tokens": 1657,
+      "output_tokens": 295,
+      "total_tokens": 1952,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "done",
+      "finish_reason": "stop"
+    }
+  ]
+}

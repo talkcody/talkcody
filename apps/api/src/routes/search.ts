@@ -1,4 +1,4 @@
-// Search API route - Proxies Exa search requests with rate limiting
+// Search API route - Proxies Serper search requests with rate limiting
 
 import { Hono } from 'hono';
 import { getOptionalAuth, optionalAuthMiddleware } from '../middlewares/auth';
@@ -7,29 +7,15 @@ import type { HonoContext } from '../types/context';
 
 const search = new Hono<HonoContext>();
 
-// Exa API types
-interface ExaSearchResult {
+// Serper API types
+interface SerperSearchResult {
   title: string;
-  url: string;
-  publishedDate?: string;
-  author?: string;
-  text?: string;
-  summary?: string;
-  highlights?: string[];
-  highlightScores?: number[];
-  image?: string;
-  favicon?: string;
-  id?: string;
+  link: string;
+  snippet?: string;
 }
 
-interface ExaSearchResponse {
-  requestId: string;
-  results: ExaSearchResult[];
-  searchType: string;
-  context?: string;
-  costDollars?: {
-    total: number;
-  };
+interface SerperSearchResponse {
+  organic?: SerperSearchResult[];
 }
 
 // Web search result format (frontend compatible)
@@ -57,62 +43,55 @@ interface SearchResponse {
 }
 
 /**
- * Get EXA_API_KEY from environment
+ * Get SERPER_API_KEY from environment
  */
-function getExaApiKey(env?: HonoContext['Bindings']): string | undefined {
+function getSerperApiKey(env?: HonoContext['Bindings']): string | undefined {
   if (typeof Bun !== 'undefined') {
-    return Bun.env.EXA_API_KEY;
+    return Bun.env.SERPER_API_KEY;
   }
-  return env?.EXA_API_KEY;
+  return env?.SERPER_API_KEY;
 }
 
 /**
- * Call Exa API
+ * Call Serper API
  */
-async function callExaApi(
+async function callSerperApi(
   query: string,
   numResults: number,
-  type: string,
   apiKey: string
-): Promise<ExaSearchResponse> {
-  const endpoint = 'https://api.exa.ai/search';
+): Promise<SerperSearchResponse> {
+  const endpoint = 'https://google.serper.dev/search';
 
   const body = {
-    query,
-    type,
-    numResults,
-    contents: {
-      text: true,
-    },
+    q: query,
+    num: numResults,
   };
 
   const response = await fetch(endpoint, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
-      'x-api-key': apiKey,
+      'X-API-KEY': apiKey,
     },
     body: JSON.stringify(body),
   });
 
   if (!response.ok) {
     const errorText = await response.text();
-    throw new Error(`Exa API error: ${response.status} - ${errorText}`);
+    throw new Error(`Serper API error: ${response.status} - ${errorText}`);
   }
 
-  return (await response.json()) as ExaSearchResponse;
+  return (await response.json()) as SerperSearchResponse;
 }
 
 /**
- * Transform Exa results to WebSearchResult format
+ * Transform Serper results to WebSearchResult format
  */
-function transformExaResults(exaResults: ExaSearchResult[]): WebSearchResult[] {
-  return exaResults.map((result) => ({
+function transformSerperResults(serperResults: SerperSearchResult[]): WebSearchResult[] {
+  return serperResults.map((result) => ({
     title: result.title,
-    url: result.url,
-    content: result.text
-      ? result.text.substring(0, 1000) // Limit to 1000 chars for preview
-      : result.summary || '',
+    url: result.link,
+    content: (result.snippet || '').substring(0, 10000),
   }));
 }
 
@@ -160,7 +139,6 @@ search.post('/', optionalAuthMiddleware, async (c) => {
   }
 
   const numResults = Math.min(requestBody.numResults || 10, 20);
-  const type = requestBody.type || 'auto';
 
   // Check rate limits
   try {
@@ -180,10 +158,10 @@ search.post('/', optionalAuthMiddleware, async (c) => {
       );
     }
 
-    // Get Exa API key
-    const exaApiKey = getExaApiKey(c.env);
-    if (!exaApiKey) {
-      console.error('EXA_API_KEY is not configured');
+    // Get Serper API key
+    const serperApiKey = getSerperApiKey(c.env);
+    if (!serperApiKey) {
+      console.error('SERPER_API_KEY is not configured');
       return c.json(
         {
           error: 'Search service not configured',
@@ -192,11 +170,11 @@ search.post('/', optionalAuthMiddleware, async (c) => {
       );
     }
 
-    // Call Exa API
-    const exaResponse = await callExaApi(requestBody.query, numResults, type, exaApiKey);
+    // Call Serper API
+    const serperResponse = await callSerperApi(requestBody.query, numResults, serperApiKey);
 
     // Transform results
-    const results = transformExaResults(exaResponse.results);
+    const results = transformSerperResults(serperResponse.organic || []);
 
     // Record usage
     await searchUsageService.recordSearch(deviceId, userId);
@@ -218,8 +196,8 @@ search.post('/', optionalAuthMiddleware, async (c) => {
   } catch (error) {
     console.error('Search API error:', error);
 
-    // Handle Exa API errors
-    if (error instanceof Error && error.message.includes('Exa API error')) {
+    // Handle Serper API errors
+    if (error instanceof Error && error.message.includes('Serper API error')) {
       return c.json(
         {
           error: 'Search provider error',
@@ -270,11 +248,11 @@ search.get('/usage', optionalAuthMiddleware, async (c) => {
  * Health check for search endpoint
  */
 search.get('/health', async (c) => {
-  const exaApiKey = getExaApiKey(c.env);
+  const serperApiKey = getSerperApiKey(c.env);
 
   return c.json({
-    status: exaApiKey ? 'ok' : 'not_configured',
-    provider: 'exa',
+    status: serperApiKey ? 'ok' : 'not_configured',
+    provider: 'serper',
     timestamp: new Date().toISOString(),
   });
 });

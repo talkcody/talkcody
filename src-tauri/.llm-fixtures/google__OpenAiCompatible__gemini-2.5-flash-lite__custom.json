@@ -1,0 +1,113 @@
+{
+  "version": 1,
+  "provider_id": "google",
+  "protocol": "OpenAiCompatible",
+  "model": "gemini-2.5-flash-lite",
+  "endpoint_path": "v1beta/chat/completions",
+  "request": {
+    "method": "POST",
+    "url": "https://generativelanguage.googleapis.com/v1beta/chat/completions",
+    "headers": {
+      "content-type": "application/json",
+      "authorization": "REDACTED"
+    },
+    "body": {
+      "messages": [
+        {
+          "content": "You are an AI assistant that generates concise, descriptive titles for tasks.\n\nUser's message: \"what’s the talkcody\"\n\nGenerate a short, clear title (5-10 words) that captures the essence of what the user is asking or discussing.\n\nGuidelines:\n1. Keep it concise (5-10 words maximum)\n2. Use title case (capitalize first letter of main words)\n3. Be specific and descriptive\n4. Avoid generic titles like \"New Chat\" or \"Question\"\n5. Focus on the main topic or intent\n\nExamples:\n- \"Fix Login Bug\"\n- \"Create User Dashboard\"\n- \"Explain React Hooks\"\n- \"Database Schema Design\"\n- \"API Rate Limiting Issue\"\n\nGenerate the title in English.\n\nProvide ONLY the title without any quotes, explanations, or additional formatting.",
+          "role": "user"
+        }
+      ],
+      "model": "gemini-2.5-flash-lite",
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      }
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "content-type": "text/event-stream",
+      "x-xss-protection": "0",
+      "alt-svc": "h3=\":443\"; ma=2592000,h3-29=\":443\"; ma=2592000",
+      "accept-ranges": "none",
+      "date": "Sat, 07 Feb 2026 04:31:09 GMT",
+      "x-frame-options": "SAMEORIGIN",
+      "p3p": "CP=\"This is not a P3P policy! See g.co/p3phelp for more info.\"",
+      "vary": "Origin,Accept-Encoding",
+      "transfer-encoding": "chunked",
+      "server-timing": "gfet4t7; dur=331",
+      "cache-control": "private",
+      "server": "scaffolding on HTTPServer2",
+      "expires": "Sat, 07 Feb 2026 04:31:09 GMT",
+      "set-cookie": "NID=528=WSy6racjR5_DutT_mzRntRhqP4UEZVw4qfkLw10ZtHhwCwOvSptjvVXs2rTVPMmTVYMmrbVTdC6HOOxNmx5hGDE6qJWYkbMDwndvfVX0clIWoZae6B0LM583EAWS-VMRQ3zcE_QzIyhC7B6ChM4i5gbU0ppLo1wE-7kkEiX5RKvwcaEK5uZfZzzNCjQ-rhfQuaVhnIgS; expires=Sun, 09-Aug-2026 04:31:09 GMT; path=/; domain=.generativelanguage.googleapis.com; HttpOnly",
+      "x-content-type-options": "nosniff"
+    },
+    "sse_events": [
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"Clarify\",\"role\":\"assistant\"},\"index\":0}],\"created\":1770438669,\"id\":\"DcCGaeOUJZONjrEP-Jra4Q0\",\"model\":\"gemini-2.5-flash-lite\",\"object\":\"chat.completion.chunk\",\"usage\":{\"completion_tokens\":2,\"prompt_tokens\":182,\"total_tokens\":184}}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" Meaning of \\\"Talkcody\\\"\",\"role\":\"assistant\"},\"finish_reason\":\"stop\",\"index\":0}],\"created\":1770438669,\"id\":\"DcCGaeOUJZONjrEP-Jra4Q0\",\"model\":\"gemini-2.5-flash-lite\",\"object\":\"chat.completion.chunk\",\"usage\":{\"completion_tokens\":9,\"prompt_tokens\":182,\"total_tokens\":191}}"
+      },
+      {
+        "event": null,
+        "data": "[DONE]"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "gemini-2.5-flash-lite",
+    "messages": [
+      {
+        "role": "user",
+        "content": "You are an AI assistant that generates concise, descriptive titles for tasks.\n\nUser's message: \"what’s the talkcody\"\n\nGenerate a short, clear title (5-10 words) that captures the essence of what the user is asking or discussing.\n\nGuidelines:\n1. Keep it concise (5-10 words maximum)\n2. Use title case (capitalize first letter of main words)\n3. Be specific and descriptive\n4. Avoid generic titles like \"New Chat\" or \"Question\"\n5. Focus on the main topic or intent\n\nExamples:\n- \"Fix Login Bug\"\n- \"Create User Dashboard\"\n- \"Explain React Hooks\"\n- \"Database Schema Design\"\n- \"API Rate Limiting Issue\"\n\nGenerate the title in English.\n\nProvide ONLY the title without any quotes, explanations, or additional formatting.",
+        "providerOptions": null
+      }
+    ],
+    "tools": null,
+    "temperature": null,
+    "max_tokens": null,
+    "top_p": null,
+    "top_k": null,
+    "provider_options": null,
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "usage",
+      "input_tokens": 182,
+      "output_tokens": 2,
+      "total_tokens": 184,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "text-start"
+    },
+    {
+      "type": "text-delta",
+      "text": "Clarify"
+    },
+    {
+      "type": "usage",
+      "input_tokens": 182,
+      "output_tokens": 9,
+      "total_tokens": 191,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "text-delta",
+      "text": " Meaning of \"Talkcody\""
+    },
+    {
+      "type": "done",
+      "finish_reason": "stop"
+    }
+  ]
+}

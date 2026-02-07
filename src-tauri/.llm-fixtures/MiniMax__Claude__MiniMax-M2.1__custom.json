@@ -1,0 +1,495 @@
+{
+  "version": 1,
+  "provider_id": "MiniMax",
+  "protocol": "Claude",
+  "model": "MiniMax-M2.1",
+  "endpoint_path": "anthropic/v1/messages",
+  "request": {
+    "method": "POST",
+    "url": "https://api.minimaxi.com/anthropic/v1/messages",
+    "headers": {
+      "content-type": "application/json",
+      "x-api-key": "REDACTED",
+      "anthropic-version": "2023-06-01"
+    },
+    "body": {
+      "max_tokens": 15000,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "who is kaisen kang",
+              "type": "text"
+            }
+          ],
+          "role": "user"
+        },
+        {
+          "content": [
+            {
+              "id": "call_function_ts7f50iarsrk_1",
+              "input": {
+                "query": "Kaisen Kang"
+              },
+              "name": "webSearch",
+              "type": "tool_use"
+            }
+          ],
+          "role": "assistant"
+        },
+        {
+          "content": [
+            {
+              "content": "[\n  {\n    \"title\": \"Kaisen Kang | OLAP Database & Performance Expert\",\n    \"url\": \"https://kangkaisen.com/\",\n    \"content\": \"I'm Kaisen Kang. I'm a Database Engineer currently residing in Singapore. I focus on OLAP database query engine. CelerData Query Team Leader; StarRocks PMC ...\"\n  },\n  {\n    \"title\": \"Kaisen Kang - CelerData - LinkedIn Singapore\",\n    \"url\": \"https://sg.linkedin.com/in/kaisen-kang\",\n    \"content\": \"Experience: CelerData · Location: Singapore · 183 connections on LinkedIn. View Kaisen Kang's profile on LinkedIn, a professional community of 1 billion ...\"\n  },\n  {\n    \"title\": \"Kaisen Kang - Medium\",\n    \"url\": \"https://medium.com/@kangkaisen\",\n    \"content\": \"Read writing from Kaisen Kang on Medium. kangkaisen.com StarRocks Query Team Leader, StarRocks PMC, Apache Kylin PMC(Inactive), Apache Doris PMC (Retired)\"\n  },\n  {\n    \"title\": \"StarRocks Query Optimizer (Kaisen Kang) - YouTube\",\n    \"url\": \"https://www.youtube.com/watch?v=hzMOXfTkg-4\",\n    \"content\": \"CMU Database Group - SQL or Death? Seminar Series (2025) Speaker: Kaisen Kang (https://www.linkedin.com/in/kaisen-kang-3628b922b/) March 31, ...\"\n  },\n  {\n    \"title\": \"Work Experience | Kaisen Kang\",\n    \"url\": \"https://kangkaisen.com/about.html\",\n    \"content\": \"Hello, I'm Kaisen Kang, I'm a Database Engineer currently residing in Singapore.I focus on OLAP database query engine.\"\n  },\n  {\n    \"title\": \"Blog - TalkCody\",\n    \"url\": \"https://www.talkcody.com/blog\",\n    \"content\": \"December 28, 2025 •Kaisen Kang. An in-depth analysis of TalkCody's four-level parallel architecture, from project-level to tool-level ...\"\n  },\n  {\n    \"title\": \"About us - CelerData\",\n    \"url\": \"https://celerdata.com/about-us\",\n    \"content\": \"Kaisen Kang Engineering Lead. Dorian Zheng Engineering Lead. Yan Zhang Staff Engineer. Allen Li Support Lead.\"\n  },\n  {\n    \"title\": \"2 \\\"Kaisen Kang\\\" profiles - LinkedIn\",\n    \"url\": \"https://www.linkedin.com/pub/dir/Kaisen/Kang\",\n    \"content\": \"2Results for \\\"Kaisen Kang\\\" · Kaisen Kang · 康凯森. 西安电子科技大学 — 学生. Xi'an Metropolitan Area. 西安电子科技大学. LinkedIn © 2025; About ...\"\n  },\n  {\n    \"title\": \"https://www.talkcody.com/blog/four-level-parallelism ... - Instagram\",\n    \"url\": \"https://www.instagram.com/p/DUMQYTVj394/\",\n    \"content\": \"December 28, 2025 Kaisen Kang TalkCody Four-Level Parallelism: Redefining the Efficiency Boundaries of AI Coding An in-depth analysis of ...\"\n  },\n  {\n    \"title\": \"StarRocks Query Optimizer from CMU Database Group - Class Central\",\n    \"url\": \"https://www.classcentral.com/course/youtube-starrocks-query-optimizer-kaisen-kang-442516\",\n    \"content\": \"Explore the inner workings of the StarRocks Query Optimizer in this 57-minute technical seminar presented by Kaisen Kang as part of the CMU Database Group's ...\"\n  }\n]",
+              "name": "webSearch",
+              "tool_use_id": "call_function_ts7f50iarsrk_1",
+              "type": "tool_result"
+            }
+          ],
+          "role": "user"
+        },
+        {
+          "content": [
+            {
+              "id": "call_function_klvoufty7o3z_1",
+              "input": {
+                "url": "https://kangkaisen.com/"
+              },
+              "name": "webFetch",
+              "type": "tool_use"
+            }
+          ],
+          "role": "assistant"
+        },
+        {
+          "content": [
+            {
+              "content": "{\n  \"title\": \"Kaisen Kang | OLAP Database & Performance Expert\",\n  \"url\": \"https://kangkaisen.com/\",\n  \"content\": \"I'm a Database Engineer currently residing in Singapore. I focus on OLAP database query engine.\\n  CelerData Query Team Leader StarRocks PMC & Committer Apache Kylin PMC & Committer (Inactive) Apache Doris PMC & Committer (Retired)     Check out my public shares     My Public Shares   These are some of my public sharing     Check out my projects     My OLAP database contributions   Over the past ten years, I have been actively involved in OLAP database-related work, making significant contributions to the open-source communities of Apache Kylin, Apache Doris, and StarRocks.             TalkCody  Free Open Source AI Coding Agent with multi-model support including OpenAI, Claude, Gemini, and DeepSeek. Features multimodal input, MCP servers, agents marketplace, plan mode, built-in terminal, and native performance powered by Rust + Tauri.          279         33                      OLAP Database Performance Tuning Guide    Fundamentals of Performance OptimizationDatabase PrinciplesPerformance Optimization MethodologyPerformance Optimization ToolsPerformance Optimization Case Studies            373         40                      StarRocks    My team and I built an extremely fast StarRocks query engine, including:StarRocks Vectorized Execution EngineStarRocks Cost-based Query OptimizerStarRocks Pipeline Execution EngineGlobal Low Cardinality Dictionary Optimization            9800         1900                 Some of my writing     My Writings   Here are some of my recent database posts.\",\n  \"publishedDate\": null,\n  \"contentLength\": 1507\n}",
+              "name": "webFetch",
+              "tool_use_id": "call_function_klvoufty7o3z_1",
+              "type": "tool_result"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "model": "MiniMax-M2.1",
+      "stream": true,
+      "system": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-07T04:24:37.153Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+      "temperature": 1.0,
+      "thinking": {
+        "budgetTokens": 12000,
+        "type": "enabled"
+      },
+      "tools": [
+        {
+          "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "name": "webSearch"
+        },
+        {
+          "description": "Fetch and extract content from a web url",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "type": "object"
+          },
+          "name": "webFetch"
+        }
+      ],
+      "top_p": 0.949999988079071
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "vary": "Accept-Encoding",
+      "date": "Sat, 07 Feb 2026 04:28:47 GMT",
+      "minimax-request-id": "f5b6e33e14a438e90605d5bd71602a0d",
+      "alb_request_id": "347d8fd4d85b6ea4a7d0bd6357b2642fa8f86bbf",
+      "trace-id": "05d5f27ae1e83d3d138bd0125ea9099b",
+      "alb_receive_time": "1770438522.331",
+      "cache-control": "no-cache",
+      "connection": "keep-alive",
+      "content-type": "text/event-stream; charset=utf-8",
+      "transfer-encoding": "chunked",
+      "x-session-id": "0118695d0720efc7a4b02e5655098fbc"
+    },
+    "sse_events": [
+      {
+        "event": "message_start",
+        "data": "{\"type\":\"message_start\",\"message\":{\"id\":\"05d5f27ae1e83d3d138bd0125ea9099b\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"MiniMax-M2.1\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":389,\"output_tokens\":0,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":1596},\"service_tier\":\"standard\"}}"
+      },
+      {
+        "event": "ping",
+        "data": "{\"type\":\"ping\"}"
+      },
+      {
+        "event": "content_block_start",
+        "data": "{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"Based\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" on the search results and the personal website content, I now have comprehensive information about Kaisen Kang. Let me compile this into a well-organized answer.\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"4e5c414f54d6ac4f56404b4026a018be222ce37ff995d09f4f4e6f855ea04983\"}}"
+      },
+      {
+        "event": "content_block_stop",
+        "data": "{\"type\":\"content_block_stop\",\"index\":0}"
+      },
+      {
+        "event": "content_block_start",
+        "data": "{\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n## Kaisen Kang\\n\\nKaisen Kang is a **Database Engineer and OLAP (Online Analytical Processing) database expert** currently residing in\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Singapore. He specializes in query engine optimization and has over a decade of experience in the database field.\\n\\n### Professional Background\\n\\n| Role | Organization | Status |\\n|\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"------|-------------|--------|\\n| Query Team Leader | CelerData | Current |\\n| PMC & Committer | StarRocks | Active |\\n| PMC & Committer | Apache K\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"ylin | Inactive |\\n| PMC & Committer | Apache Doris | Retired |\\n\\n### Key Achievements\\n\\n- **Expertise\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Areas**: OLAP database query engines, performance optimization, and distributed database systems\\n- **Open Source Contributions**: Over\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" 10 years of active contributions to major OLAP open-source projects including **Apache Kylin**, **Apache Doris**, and **StarRocks**\\n-\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" **Speaking Engagements**: Presented at CMU Database Group's SQL or Death? Seminar Series (March 2025) on StarRocks\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" Query Optimizer\\n\\n### Projects at CelerData\\n\\nAt CelerData, Kaisen leads the Query Team that built an extremely fast StarRocks\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" query engine, including:\\n- StarRocks Vectorized Execution Engine\\n- StarRocks Cost-based Query Optimizer\\n- StarRocks Pipeline Execution Engine\\n- Global Low Cardinality Dictionary Optimization\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\n\\n### Personal Projects\\n\\n- **TalkCody**: A free open-source AI coding agent with multi-model support (OpenAI, Claude, Gemini, DeepSeek), featuring multimodal input,\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" MCP servers, and built-in terminal\\n- **OLAP Database Performance Tuning Guide**: A comprehensive guide covering fundamentals, optimization methodologies, and\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" case studies\\n\\n### Online Presence\\n\\n- **Website**: [kangkaisen.com](https://kangkaisen.com/)\\n- **LinkedIn**: [linked\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"in.com/in/kaisen-kang](https://sg.linkedin.com/in/kaisen-kang)\\n- **Medium**: [@kangkaisen](https://medium.com/@kangk\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"aisen)\\n- **GitHub**: StarRocks project contributions\\n\\nKaisen is recognized as a thought leader in the database community, particularly in the\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" areas of OLAP performance optimization and query engine design.\"}}"
+      },
+      {
+        "event": "content_block_stop",
+        "data": "{\"type\":\"content_block_stop\",\"index\":1}"
+      },
+      {
+        "event": "message_delta",
+        "data": "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"input_tokens\":389,\"output_tokens\":488,\"cache_creation_input_tokens\":0,\"cache_read_input_tokens\":1596}}"
+      },
+      {
+        "event": "message_stop",
+        "data": "{\"type\":\"message_stop\"}"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "MiniMax-M2.1",
+    "messages": [
+      {
+        "role": "system",
+        "content": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-07T04:24:37.153Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+        "providerOptions": {
+          "anthropic": {
+            "cacheControl": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "user",
+        "content": "who is kaisen kang",
+        "providerOptions": {
+          "openaiCompatible": {
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool-call",
+            "toolCallId": "call_function_ts7f50iarsrk_1",
+            "toolName": "webSearch",
+            "input": {
+              "query": "Kaisen Kang"
+            },
+            "provider_metadata": null
+          }
+        ],
+        "providerOptions": {
+          "openaiCompatible": {
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool-result",
+            "toolCallId": "call_function_ts7f50iarsrk_1",
+            "toolName": "webSearch",
+            "output": {
+              "type": "text",
+              "value": "[\n  {\n    \"title\": \"Kaisen Kang | OLAP Database & Performance Expert\",\n    \"url\": \"https://kangkaisen.com/\",\n    \"content\": \"I'm Kaisen Kang. I'm a Database Engineer currently residing in Singapore. I focus on OLAP database query engine. CelerData Query Team Leader; StarRocks PMC ...\"\n  },\n  {\n    \"title\": \"Kaisen Kang - CelerData - LinkedIn Singapore\",\n    \"url\": \"https://sg.linkedin.com/in/kaisen-kang\",\n    \"content\": \"Experience: CelerData · Location: Singapore · 183 connections on LinkedIn. View Kaisen Kang's profile on LinkedIn, a professional community of 1 billion ...\"\n  },\n  {\n    \"title\": \"Kaisen Kang - Medium\",\n    \"url\": \"https://medium.com/@kangkaisen\",\n    \"content\": \"Read writing from Kaisen Kang on Medium. kangkaisen.com StarRocks Query Team Leader, StarRocks PMC, Apache Kylin PMC(Inactive), Apache Doris PMC (Retired)\"\n  },\n  {\n    \"title\": \"StarRocks Query Optimizer (Kaisen Kang) - YouTube\",\n    \"url\": \"https://www.youtube.com/watch?v=hzMOXfTkg-4\",\n    \"content\": \"CMU Database Group - SQL or Death? Seminar Series (2025) Speaker: Kaisen Kang (https://www.linkedin.com/in/kaisen-kang-3628b922b/) March 31, ...\"\n  },\n  {\n    \"title\": \"Work Experience | Kaisen Kang\",\n    \"url\": \"https://kangkaisen.com/about.html\",\n    \"content\": \"Hello, I'm Kaisen Kang, I'm a Database Engineer currently residing in Singapore.I focus on OLAP database query engine.\"\n  },\n  {\n    \"title\": \"Blog - TalkCody\",\n    \"url\": \"https://www.talkcody.com/blog\",\n    \"content\": \"December 28, 2025 •Kaisen Kang. An in-depth analysis of TalkCody's four-level parallel architecture, from project-level to tool-level ...\"\n  },\n  {\n    \"title\": \"About us - CelerData\",\n    \"url\": \"https://celerdata.com/about-us\",\n    \"content\": \"Kaisen Kang Engineering Lead. Dorian Zheng Engineering Lead. Yan Zhang Staff Engineer. Allen Li Support Lead.\"\n  },\n  {\n    \"title\": \"2 \\\"Kaisen Kang\\\" profiles - LinkedIn\",\n    \"url\": \"https://www.linkedin.com/pub/dir/Kaisen/Kang\",\n    \"content\": \"2Results for \\\"Kaisen Kang\\\" · Kaisen Kang · 康凯森. 西安电子科技大学 — 学生. Xi'an Metropolitan Area. 西安电子科技大学. LinkedIn © 2025; About ...\"\n  },\n  {\n    \"title\": \"https://www.talkcody.com/blog/four-level-parallelism ... - Instagram\",\n    \"url\": \"https://www.instagram.com/p/DUMQYTVj394/\",\n    \"content\": \"December 28, 2025 Kaisen Kang TalkCody Four-Level Parallelism: Redefining the Efficiency Boundaries of AI Coding An in-depth analysis of ...\"\n  },\n  {\n    \"title\": \"StarRocks Query Optimizer from CMU Database Group - Class Central\",\n    \"url\": \"https://www.classcentral.com/course/youtube-starrocks-query-optimizer-kaisen-kang-442516\",\n    \"content\": \"Explore the inner workings of the StarRocks Query Optimizer in this 57-minute technical seminar presented by Kaisen Kang as part of the CMU Database Group's ...\"\n  }\n]"
+            }
+          }
+        ],
+        "providerOptions": {
+          "openaiCompatible": {
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "tool-call",
+            "toolCallId": "call_function_klvoufty7o3z_1",
+            "toolName": "webFetch",
+            "input": {
+              "url": "https://kangkaisen.com/"
+            },
+            "provider_metadata": null
+          }
+        ],
+        "providerOptions": null
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool-result",
+            "toolCallId": "call_function_klvoufty7o3z_1",
+            "toolName": "webFetch",
+            "output": {
+              "type": "text",
+              "value": "{\n  \"title\": \"Kaisen Kang | OLAP Database & Performance Expert\",\n  \"url\": \"https://kangkaisen.com/\",\n  \"content\": \"I'm a Database Engineer currently residing in Singapore. I focus on OLAP database query engine.\\n  CelerData Query Team Leader StarRocks PMC & Committer Apache Kylin PMC & Committer (Inactive) Apache Doris PMC & Committer (Retired)     Check out my public shares     My Public Shares   These are some of my public sharing     Check out my projects     My OLAP database contributions   Over the past ten years, I have been actively involved in OLAP database-related work, making significant contributions to the open-source communities of Apache Kylin, Apache Doris, and StarRocks.             TalkCody  Free Open Source AI Coding Agent with multi-model support including OpenAI, Claude, Gemini, and DeepSeek. Features multimodal input, MCP servers, agents marketplace, plan mode, built-in terminal, and native performance powered by Rust + Tauri.          279         33                      OLAP Database Performance Tuning Guide    Fundamentals of Performance OptimizationDatabase PrinciplesPerformance Optimization MethodologyPerformance Optimization ToolsPerformance Optimization Case Studies            373         40                      StarRocks    My team and I built an extremely fast StarRocks query engine, including:StarRocks Vectorized Execution EngineStarRocks Cost-based Query OptimizerStarRocks Pipeline Execution EngineGlobal Low Cardinality Dictionary Optimization            9800         1900                 Some of my writing     My Writings   Here are some of my recent database posts.\",\n  \"publishedDate\": null,\n  \"contentLength\": 1507\n}"
+            }
+          }
+        ],
+        "providerOptions": null
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "name": "webSearch",
+        "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "webFetch",
+        "description": "Fetch and extract content from a web url",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      }
+    ],
+    "temperature": 1.0,
+    "max_tokens": 15000,
+    "top_p": 0.95,
+    "top_k": 20,
+    "provider_options": {
+      "anthropic": {
+        "thinking": {
+          "budgetTokens": 12000,
+          "type": "enabled"
+        }
+      },
+      "google": {
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingBudget": 8192
+        }
+      },
+      "moonshot": {
+        "temperature": 1,
+        "thinking": {
+          "type": "enabled"
+        }
+      }
+    },
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "reasoning-start",
+      "id": "thinking",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "thinking",
+      "text": "",
+      "provider_metadata": {
+        "anthropic": {
+          "signature": "4e5c414f54d6ac4f56404b4026a018be222ce37ff995d09f4f4e6f855ea04983"
+        }
+      }
+    },
+    {
+      "type": "text-delta",
+      "text": "\n## Kaisen Kang\n\nKaisen Kang is a **Database Engineer and OLAP (Online Analytical Processing) database expert** currently residing in"
+    },
+    {
+      "type": "text-delta",
+      "text": " Singapore. He specializes in query engine optimization and has over a decade of experience in the database field.\n\n### Professional Background\n\n| Role | Organization | Status |\n|"
+    },
+    {
+      "type": "text-delta",
+      "text": "------|-------------|--------|\n| Query Team Leader | CelerData | Current |\n| PMC & Committer | StarRocks | Active |\n| PMC & Committer | Apache K"
+    },
+    {
+      "type": "text-delta",
+      "text": "ylin | Inactive |\n| PMC & Committer | Apache Doris | Retired |\n\n### Key Achievements\n\n- **Expertise"
+    },
+    {
+      "type": "text-delta",
+      "text": " Areas**: OLAP database query engines, performance optimization, and distributed database systems\n- **Open Source Contributions**: Over"
+    },
+    {
+      "type": "text-delta",
+      "text": " 10 years of active contributions to major OLAP open-source projects including **Apache Kylin**, **Apache Doris**, and **StarRocks**\n-"
+    },
+    {
+      "type": "text-delta",
+      "text": " **Speaking Engagements**: Presented at CMU Database Group's SQL or Death? Seminar Series (March 2025) on StarRocks"
+    },
+    {
+      "type": "text-delta",
+      "text": " Query Optimizer\n\n### Projects at CelerData\n\nAt CelerData, Kaisen leads the Query Team that built an extremely fast StarRocks"
+    },
+    {
+      "type": "text-delta",
+      "text": " query engine, including:\n- StarRocks Vectorized Execution Engine\n- StarRocks Cost-based Query Optimizer\n- StarRocks Pipeline Execution Engine\n- Global Low Cardinality Dictionary Optimization"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n\n### Personal Projects\n\n- **TalkCody**: A free open-source AI coding agent with multi-model support (OpenAI, Claude, Gemini, DeepSeek), featuring multimodal input,"
+    },
+    {
+      "type": "text-delta",
+      "text": " MCP servers, and built-in terminal\n- **OLAP Database Performance Tuning Guide**: A comprehensive guide covering fundamentals, optimization methodologies, and"
+    },
+    {
+      "type": "text-delta",
+      "text": " case studies\n\n### Online Presence\n\n- **Website**: [kangkaisen.com](https://kangkaisen.com/)\n- **LinkedIn**: [linked"
+    },
+    {
+      "type": "text-delta",
+      "text": "in.com/in/kaisen-kang](https://sg.linkedin.com/in/kaisen-kang)\n- **Medium**: [@kangkaisen](https://medium.com/@kangk"
+    },
+    {
+      "type": "text-delta",
+      "text": "aisen)\n- **GitHub**: StarRocks project contributions\n\nKaisen is recognized as a thought leader in the database community, particularly in the"
+    },
+    {
+      "type": "text-delta",
+      "text": " areas of OLAP performance optimization and query engine design."
+    },
+    {
+      "type": "usage",
+      "input_tokens": 389,
+      "output_tokens": 488,
+      "total_tokens": null,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "done",
+      "finish_reason": "end_turn"
+    }
+  ]
+}

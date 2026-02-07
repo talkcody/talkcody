@@ -6,6 +6,7 @@ import { LspDownloadPrompt } from '@/components/lsp-download-prompt';
 import { MainContent } from '@/components/main-content';
 import { NavigationSidebar } from '@/components/navigation-sidebar';
 import { OnboardingWizard } from '@/components/onboarding';
+import { TelegramRemoteServiceRunner } from '@/components/remote/telegram-remote-runner';
 import { ThemeProvider } from '@/components/theme-provider';
 import { Toaster } from '@/components/ui/sonner';
 import { UpdateNotification } from '@/components/update-notification';
@@ -391,6 +392,7 @@ function AppContent() {
       </div>
 
       {/* Toast Notifications */}
+      <TelegramRemoteServiceRunner />
       <Toaster richColors />
 
       {/* Update Notification */}

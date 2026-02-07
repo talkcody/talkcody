@@ -41,6 +41,9 @@ function looksLikeJsonSchema(value: unknown): value is JSONSchema7 {
 }
 
 export function toToolInputJsonSchema(inputSchema: unknown): JSONSchema7 {
+  if (inputSchema == null) {
+    return FALLBACK_SCHEMA;
+  }
   if (looksLikeJsonSchema(inputSchema)) {
     return inputSchema;
   }

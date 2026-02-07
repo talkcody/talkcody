@@ -1,0 +1,1257 @@
+{
+  "version": 1,
+  "provider_id": "openai",
+  "protocol": "OpenAiCompatible",
+  "model": "gpt-5-mini",
+  "endpoint_path": "backend-api/codex/responses",
+  "request": {
+    "method": "POST",
+    "url": "https://chatgpt.com/backend-api/codex/responses",
+    "headers": {
+      "openai-organization": "user-KW8JMYbxYx01HPnjyStYjDIM",
+      "authorization": "REDACTED",
+      "openai-beta": "responses=experimental",
+      "content-type": "application/json",
+      "originator": "codex_cli_rs"
+    },
+    "body": {
+      "include": [
+        "reasoning.encrypted_content"
+      ],
+      "input": [
+        {
+          "content": [
+            {
+              "text": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-07T04:24:37.153Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+              "type": "input_text"
+            }
+          ],
+          "role": "developer",
+          "type": "message"
+        },
+        {
+          "content": [
+            {
+              "text": "who is kaisen kang",
+              "type": "input_text"
+            }
+          ],
+          "role": "user",
+          "type": "message"
+        }
+      ],
+      "instructions": "You are Codex, based on GPT-5. You are running as a coding agent in the Codex CLI on a user's computer.\n\n## General\n\n- When searching for text or files, prefer using `rg` or `rg --files` respectively because `rg` is much faster than alternatives like `grep`. (If the `rg` command is not found, then use alternatives.)\n\n## Editing constraints\n\n- Default to ASCII when editing or creating files. Only introduce non-ASCII or other Unicode characters when there is a clear justification and the file already uses them.\n- Add succinct code comments that explain what is going on if code is not self-explanatory. You should not add comments like \"Assigns the value to the variable\", but a brief comment might be useful ahead of a complex code block that the user would otherwise have to spend time parsing out. Usage of these comments should be rare.\n- Try to use apply_patch for single file edits, but it is fine to explore other options to make the edit if it does not work well. Do not use apply_patch for changes that are auto-generated (i.e. generating package.json or running a lint or format command like gofmt) or when scripting is more efficient (such as search and replacing a string across a codebase).\n- You may be in a dirty git worktree.\n    * NEVER revert existing changes you did not make unless explicitly requested, since these changes were made by the user.\n    * If asked to make a commit or code edits and there are unrelated changes to your work or changes that you didn't make in those files, don't revert those changes.\n    * If the changes are in files you've touched recently, you should read carefully and understand how you can work with the changes rather than reverting them.\n    * If the changes are in unrelated files, just ignore them and don't revert them.\n- Do not amend a commit unless explicitly requested to do so.\n- While you are working, you might notice unexpected changes that you didn't make. If this happens, STOP IMMEDIATELY and ask the user how they would like to proceed.\n- **NEVER** use destructive commands like `git reset --hard` or `git checkout --` unless specifically requested or approved by the user.\n\n## Plan tool\n\nWhen using the planning tool:\n- Skip using the planning tool for straightforward tasks (roughly the easiest 25%).\n- Do not make single-step plans.\n- When you made a plan, update it after having performed one of the sub-tasks that you shared on the plan.\n\n## Codex CLI harness, sandboxing, and approvals\n\nThe Codex CLI harness supports several different configurations for sandboxing and escalation approvals that the user can choose from.\n\nFilesystem sandboxing defines which files can be read or written. The options for `sandbox_mode` are:\n- **read-only**: The sandbox only permits reading files.\n- **workspace-write**: The sandbox permits reading files, and editing files in `cwd` and `writable_roots`. Editing files in other directories requires approval.\n- **danger-full-access**: No filesystem sandboxing - all commands are permitted.\n\nNetwork sandboxing defines whether network can be accessed without approval. Options for `network_access` are:\n- **restricted**: Requires approval\n- **enabled**: No approval needed\n\nApprovals are your mechanism to get user consent to run shell commands without the sandbox. Possible configuration options for `approval_policy` are\n- **untrusted**: The harness will escalate most commands for user approval, apart from a limited allowlist of safe \"read\" commands.\n- **on-failure**: The harness will allow all commands to run in the sandbox (if enabled), and failures will be escalated to the user for approval to run again without the sandbox.\n- **on-request**: Commands will be run in the sandbox by default, and you can specify in your tool call if you want to escalate a command to run without sandboxing. (Note that this mode is not always available. If it is, you'll see parameters for it in the `shell` command description.)\n- **never**: This is a non-interactive mode where you may NEVER ask the user for approval to run commands. Instead, you must always persist and work around constraints to solve the task for the user. You MUST do your utmost best to finish the task and validate your work before yielding. If this mode is paired with `danger-full-access`, take advantage of it to deliver the best outcome for the user. Further, in this mode, your default testing philosophy is overridden: Even if you don't see local patterns for testing, you may add tests and scripts to validate your work. Just remove them before yielding.\n\nWhen you are running with `approval_policy == on-request`, and sandboxing enabled, here are scenarios where you'll need to request approval:\n- You need to run a command that writes to a directory that requires it (e.g. running tests that write to /var)\n- You need to run a GUI app (e.g., open/xdg-open/osascript) to open browsers or files.\n- You are running sandboxed and need to run a command that requires network access (e.g. installing packages)\n- If you run a command that is important to solving the user's query, but it fails because of sandboxing, rerun the command with approval. ALWAYS proceed to use the `sandbox_permissions` and `justification` parameters - do not message the user before requesting approval for the command.\n- You are about to take a potentially destructive action such as an `rm` or `git reset` that the user did not explicitly ask for\n- (for all of these, you should weigh alternative paths that do not require approval)\n\nWhen `sandbox_mode` is set to read-only, you'll need to request approval for any command that isn't a read.\n\nYou will be told what filesystem sandboxing, network sandboxing, and approval mode are active in a developer or user message. If you are not told about this, assume that you are running with workspace-write, network sandboxing enabled, and approval on-failure.\n\nAlthough they introduce friction to the user because your work is paused until the user responds, you should leverage them when necessary to accomplish important work. If the completing the task requires escalated permissions, Do not let these settings or the sandbox deter you from attempting to accomplish the user's task unless it is set to \"never\", in which case never ask for approvals.\n\nWhen requesting approval to execute a command that will require escalated privileges:\n  - Provide the `sandbox_permissions` parameter with the value `\"require_escalated\"`\n  - Include a short, 1 sentence explanation for why you need escalated permissions in the justification parameter\n\n## Special user requests\n\n- If the user makes a simple request (such as asking for the time) which you can fulfill by running a terminal command (such as `date`), you should do so.\n- If the user asks for a \"review\", default to a code review mindset: prioritise identifying bugs, risks, behavioural regressions, and missing tests. Findings must be the primary focus of the response - keep summaries or overviews brief and only after enumerating the issues. Present findings first (ordered by severity with file/line references), follow with open questions or assumptions, and offer a change-summary only as a secondary detail. If no findings are discovered, state that explicitly and mention any residual risks or testing gaps.\n\n## Frontend tasks\nWhen doing frontend design tasks, avoid collapsing into \"AI slop\" or safe, average-looking layouts.\nAim for interfaces that feel intentional, bold, and a bit surprising.\n- Typography: Use expressive, purposeful fonts and avoid default stacks (Inter, Roboto, Arial, system).\n- Color & Look: Choose a clear visual direction; define CSS variables; avoid purple-on-white defaults. No purple bias or dark mode bias.\n- Motion: Use a few meaningful animations (page-load, staggered reveals) instead of generic micro-motions.\n- Background: Don't rely on flat, single-color backgrounds; use gradients, shapes, or subtle patterns to build atmosphere.\n- Overall: Avoid boilerplate layouts and interchangeable UI patterns. Vary themes, type families, and visual languages across outputs.\n- Ensure the page loads properly on both desktop and mobile\n\nException: If working within an existing website or design system, preserve the established patterns, structure, and visual language.\n\n## Presenting your work and final message\n\nYou are producing plain text that will later be styled by the CLI. Follow these rules exactly. Formatting should make results easy to scan, but not feel mechanical. Use judgment to decide how much structure adds value.\n\n- Default: be very concise; friendly coding teammate tone.\n- Ask only when needed; suggest ideas; mirror the user's style.\n- For substantial work, summarize clearly; follow final‑answer formatting.\n- Skip heavy formatting for simple confirmations.\n- Don't dump large files you've written; reference paths only.\n- No \"save/copy this file\" - User is on the same machine.\n- Offer logical next steps (tests, commits, build) briefly; add verify steps if you couldn't do something.\n- For code changes:\n  * Lead with a quick explanation of the change, and then give more details on the context covering where and why a change was made. Do not start this explanation with \"summary\", just jump right in.\n  * If there are natural next steps the user may want to take, suggest them at the end of your response. Do not make suggestions if there are no natural next steps.\n  * When suggesting multiple options, use numeric lists for the suggestions so the user can quickly respond with a single number.\n- The user does not command execution outputs. When asked to show the output of a command (e.g. `git show`), relay the important details in your answer or summarize the key lines so the user understands the result.\n\n### Final answer structure and style guidelines\n\n- Plain text; CLI handles styling. Use structure only when it helps scanability.\n- Headers: optional; short Title Case (1-3 words) wrapped in **…**; no blank line before the first bullet; add only if they truly help.\n- Bullets: use - ; merge related points; keep to one line when possible; 4–6 per list ordered by importance; keep phrasing consistent.\n- Monospace: backticks for commands/paths/env vars/code ids and inline examples; use for literal keyword bullets; never combine with **.\n- Code samples or multi-line snippets should be wrapped in fenced code blocks; include an info string as often as possible.\n- Structure: group related bullets; order sections general → specific → supporting; for subsections, start with a bolded keyword bullet, then items; match complexity to the task.\n- Tone: collaborative, concise, factual; present tense, active voice; self‑contained; no \"above/below\"; parallel wording.\n- Don'ts: no nested bullets/hierarchies; no ANSI codes; don't cram unrelated keywords; keep keyword lists short—wrap/reformat if long; avoid naming formatting styles in answers.\n- Adaptation: code explanations → precise, structured with code refs; simple tasks → lead with outcome; big changes → logical walkthrough + rationale + next actions; casual one-offs → plain sentences, no headers/bullets.\n- File References: When referencing files in your response follow the below rules:\n  * Use inline code to make file paths clickable.\n  * Each reference should have a stand alone path. Even if it's the same file.\n  * Accepted: absolute, workspace‑relative, a/ or b/ diff prefixes, or bare filename/suffix.\n  * Optionally include line/column (1‑based): :line[:column] or #Lline[Ccolumn] (column defaults to 1).\n  * Do not use URIs like file://, vscode://, or https://.\n  * Do not provide range of lines\n  * Examples: src/app.ts, src/app.ts:42, b/server/index.js#L10, C:\\repo\\project\\main.rs:12:5\n",
+      "model": "gpt-5.2-codex",
+      "reasoning": {
+        "effort": "high",
+        "summary": "auto"
+      },
+      "store": false,
+      "stream": true,
+      "text": {
+        "verbosity": "medium"
+      },
+      "tools": [
+        {
+          "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+          "name": "webSearch",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "type": "function"
+        },
+        {
+          "description": "Fetch and extract content from a web url",
+          "name": "webFetch",
+          "parameters": {
+            "additionalProperties": false,
+            "properties": {
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "type": "object"
+          },
+          "type": "function"
+        }
+      ]
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "x-codex-primary-reset-after-seconds": "17333",
+      "x-codex-credits-balance": "",
+      "transfer-encoding": "chunked",
+      "x-models-etag": "W/\"9fe07770f9496753deaabd5eec4d381d\"",
+      "x-codex-secondary-window-minutes": "10080",
+      "connection": "keep-alive",
+      "x-codex-secondary-used-percent": "32",
+      "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=Rbn5etx7tGV5%2B%2FIJz%2FbzKhoHfw5kEYTxcFFxBJWthL%2BaO%2BZtNnjDLjHet2pe%2B4RBOl50xcdkwVtx%2BQPgU%2B%2FHpaoIDZwWmDNyr%2FbvfN6MYwwayyqlH%2Bg%3D\"}]}",
+      "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.01,\"max_age\":604800}",
+      "cf-ray": "9ca0231b98edf017-SJC",
+      "x-codex-plan-type": "pro",
+      "referrer-policy": "strict-origin-when-cross-origin",
+      "alt-svc": "h3=\":443\"; ma=86400",
+      "x-codex-primary-reset-at": "1770455804",
+      "cf-cache-status": "DYNAMIC",
+      "cross-origin-opener-policy": "same-origin-allow-popups",
+      "x-codex-secondary-reset-after-seconds": "221501",
+      "x-codex-credits-has-credits": "False",
+      "x-codex-primary-window-minutes": "300",
+      "strict-transport-security": "max-age=31536000; includeSubDomains; preload",
+      "x-openai-proxy-wasm": "v0.1",
+      "date": "Sat, 07 Feb 2026 04:27:52 GMT",
+      "x-codex-primary-used-percent": "1",
+      "x-codex-primary-over-secondary-limit-percent": "0",
+      "server": "cloudflare",
+      "set-cookie": "__cf_bm=5UGPAx1jbT74QzhlmSmwvMNgewhAZ2yP4MuRC2g7bQ0-1770438470.9780257-1.0.1.1-j1u2iV1U0_p4LzHbOCCLVjNO7ZmoDRS_HQb_vsnt2SeiJuMEtarVi2BufcTFNJ3qibt3nK0wd4lig4eUz34Qb_MC4PQYBUyAD9_YWzJpo1XNQ1s3UYDcPpTlrenHjpZF; HttpOnly; Secure; Path=/; Domain=chatgpt.com; Expires=Sat, 07 Feb 2026 04:57:52 GMT",
+      "x-oai-request-id": "a3cf11fb-2ecd-4600-bfe8-07aeb1cd2582",
+      "x-codex-secondary-reset-at": "1770659973",
+      "x-content-type-options": "nosniff",
+      "x-codex-credits-unlimited": "False"
+    },
+    "sse_events": [
+      {
+        "event": "response.created",
+        "data": "{\"type\":\"response.created\",\"response\":{\"id\":\"resp_0d3332f3d205ed4e016986bf486dbc81918160bf129eab55f7\",\"object\":\"response\",\"created_at\":1770438472,\"status\":\"in_progress\",\"background\":false,\"completed_at\":null,\"error\":null,\"frequency_penalty\":0.0,\"incomplete_details\":null,\"instructions\":\"You are Codex, based on GPT-5. You are running as a coding agent in the Codex CLI on a user's computer.\\n\\n## General\\n\\n- When searching for text or files, prefer using `rg` or `rg --files` respectively because `rg` is much faster than alternatives like `grep`. (If the `rg` command is not found, then use alternatives.)\\n\\n## Editing constraints\\n\\n- Default to ASCII when editing or creating files. Only introduce non-ASCII or other Unicode characters when there is a clear justification and the file already uses them.\\n- Add succinct code comments that explain what is going on if code is not self-explanatory. You should not add comments like \\\"Assigns the value to the variable\\\", but a brief comment might be useful ahead of a complex code block that the user would otherwise have to spend time parsing out. Usage of these comments should be rare.\\n- Try to use apply_patch for single file edits, but it is fine to explore other options to make the edit if it does not work well. Do not use apply_patch for changes that are auto-generated (i.e. generating package.json or running a lint or format command like gofmt) or when scripting is more efficient (such as search and replacing a string across a codebase).\\n- You may be in a dirty git worktree.\\n    * NEVER revert existing changes you did not make unless explicitly requested, since these changes were made by the user.\\n    * If asked to make a commit or code edits and there are unrelated changes to your work or changes that you didn't make in those files, don't revert those changes.\\n    * If the changes are in files you've touched recently, you should read carefully and understand how you can work with the changes rather than reverting them.\\n    * If the changes are in unrelated files, just ignore them and don't revert them.\\n- Do not amend a commit unless explicitly requested to do so.\\n- While you are working, you might notice unexpected changes that you didn't make. If this happens, STOP IMMEDIATELY and ask the user how they would like to proceed.\\n- **NEVER** use destructive commands like `git reset --hard` or `git checkout --` unless specifically requested or approved by the user.\\n\\n## Plan tool\\n\\nWhen using the planning tool:\\n- Skip using the planning tool for straightforward tasks (roughly the easiest 25%).\\n- Do not make single-step plans.\\n- When you made a plan, update it after having performed one of the sub-tasks that you shared on the plan.\\n\\n## Codex CLI harness, sandboxing, and approvals\\n\\nThe Codex CLI harness supports several different configurations for sandboxing and escalation approvals that the user can choose from.\\n\\nFilesystem sandboxing defines which files can be read or written. The options for `sandbox_mode` are:\\n- **read-only**: The sandbox only permits reading files.\\n- **workspace-write**: The sandbox permits reading files, and editing files in `cwd` and `writable_roots`. Editing files in other directories requires approval.\\n- **danger-full-access**: No filesystem sandboxing - all commands are permitted.\\n\\nNetwork sandboxing defines whether network can be accessed without approval. Options for `network_access` are:\\n- **restricted**: Requires approval\\n- **enabled**: No approval needed\\n\\nApprovals are your mechanism to get user consent to run shell commands without the sandbox. Possible configuration options for `approval_policy` are\\n- **untrusted**: The harness will escalate most commands for user approval, apart from a limited allowlist of safe \\\"read\\\" commands.\\n- **on-failure**: The harness will allow all commands to run in the sandbox (if enabled), and failures will be escalated to the user for approval to run again without the sandbox.\\n- **on-request**: Commands will be run in the sandbox by default, and you can specify in your tool call if you want to escalate a command to run without sandboxing. (Note that this mode is not always available. If it is, you'll see parameters for it in the `shell` command description.)\\n- **never**: This is a non-interactive mode where you may NEVER ask the user for approval to run commands. Instead, you must always persist and work around constraints to solve the task for the user. You MUST do your utmost best to finish the task and validate your work before yielding. If this mode is paired with `danger-full-access`, take advantage of it to deliver the best outcome for the user. Further, in this mode, your default testing philosophy is overridden: Even if you don't see local patterns for testing, you may add tests and scripts to validate your work. Just remove them before yielding.\\n\\nWhen you are running with `approval_policy == on-request`, and sandboxing enabled, here are scenarios where you'll need to request approval:\\n- You need to run a command that writes to a directory that requires it (e.g. running tests that write to /var)\\n- You need to run a GUI app (e.g., open/xdg-open/osascript) to open browsers or files.\\n- You are running sandboxed and need to run a command that requires network access (e.g. installing packages)\\n- If you run a command that is important to solving the user's query, but it fails because of sandboxing, rerun the command with approval. ALWAYS proceed to use the `sandbox_permissions` and `justification` parameters - do not message the user before requesting approval for the command.\\n- You are about to take a potentially destructive action such as an `rm` or `git reset` that the user did not explicitly ask for\\n- (for all of these, you should weigh alternative paths that do not require approval)\\n\\nWhen `sandbox_mode` is set to read-only, you'll need to request approval for any command that isn't a read.\\n\\nYou will be told what filesystem sandboxing, network sandboxing, and approval mode are active in a developer or user message. If you are not told about this, assume that you are running with workspace-write, network sandboxing enabled, and approval on-failure.\\n\\nAlthough they introduce friction to the user because your work is paused until the user responds, you should leverage them when necessary to accomplish important work. If the completing the task requires escalated permissions, Do not let these settings or the sandbox deter you from attempting to accomplish the user's task unless it is set to \\\"never\\\", in which case never ask for approvals.\\n\\nWhen requesting approval to execute a command that will require escalated privileges:\\n  - Provide the `sandbox_permissions` parameter with the value `\\\"require_escalated\\\"`\\n  - Include a short, 1 sentence explanation for why you need escalated permissions in the justification parameter\\n\\n## Special user requests\\n\\n- If the user makes a simple request (such as asking for the time) which you can fulfill by running a terminal command (such as `date`), you should do so.\\n- If the user asks for a \\\"review\\\", default to a code review mindset: prioritise identifying bugs, risks, behavioural regressions, and missing tests. Findings must be the primary focus of the response - keep summaries or overviews brief and only after enumerating the issues. Present findings first (ordered by severity with file/line references), follow with open questions or assumptions, and offer a change-summary only as a secondary detail. If no findings are discovered, state that explicitly and mention any residual risks or testing gaps.\\n\\n## Frontend tasks\\nWhen doing frontend design tasks, avoid collapsing into \\\"AI slop\\\" or safe, average-looking layouts.\\nAim for interfaces that feel intentional, bold, and a bit surprising.\\n- Typography: Use expressive, purposeful fonts and avoid default stacks (Inter, Roboto, Arial, system).\\n- Color & Look: Choose a clear visual direction; define CSS variables; avoid purple-on-white defaults. No purple bias or dark mode bias.\\n- Motion: Use a few meaningful animations (page-load, staggered reveals) instead of generic micro-motions.\\n- Background: Don't rely on flat, single-color backgrounds; use gradients, shapes, or subtle patterns to build atmosphere.\\n- Overall: Avoid boilerplate layouts and interchangeable UI patterns. Vary themes, type families, and visual languages across outputs.\\n- Ensure the page loads properly on both desktop and mobile\\n\\nException: If working within an existing website or design system, preserve the established patterns, structure, and visual language.\\n\\n## Presenting your work and final message\\n\\nYou are producing plain text that will later be styled by the CLI. Follow these rules exactly. Formatting should make results easy to scan, but not feel mechanical. Use judgment to decide how much structure adds value.\\n\\n- Default: be very concise; friendly coding teammate tone.\\n- Ask only when needed; suggest ideas; mirror the user's style.\\n- For substantial work, summarize clearly; follow final‑answer formatting.\\n- Skip heavy formatting for simple confirmations.\\n- Don't dump large files you've written; reference paths only.\\n- No \\\"save/copy this file\\\" - User is on the same machine.\\n- Offer logical next steps (tests, commits, build) briefly; add verify steps if you couldn't do something.\\n- For code changes:\\n  * Lead with a quick explanation of the change, and then give more details on the context covering where and why a change was made. Do not start this explanation with \\\"summary\\\", just jump right in.\\n  * If there are natural next steps the user may want to take, suggest them at the end of your response. Do not make suggestions if there are no natural next steps.\\n  * When suggesting multiple options, use numeric lists for the suggestions so the user can quickly respond with a single number.\\n- The user does not command execution outputs. When asked to show the output of a command (e.g. `git show`), relay the important details in your answer or summarize the key lines so the user understands the result.\\n\\n### Final answer structure and style guidelines\\n\\n- Plain text; CLI handles styling. Use structure only when it helps scanability.\\n- Headers: optional; short Title Case (1-3 words) wrapped in **…**; no blank line before the first bullet; add only if they truly help.\\n- Bullets: use - ; merge related points; keep to one line when possible; 4–6 per list ordered by importance; keep phrasing consistent.\\n- Monospace: backticks for commands/paths/env vars/code ids and inline examples; use for literal keyword bullets; never combine with **.\\n- Code samples or multi-line snippets should be wrapped in fenced code blocks; include an info string as often as possible.\\n- Structure: group related bullets; order sections general → specific → supporting; for subsections, start with a bolded keyword bullet, then items; match complexity to the task.\\n- Tone: collaborative, concise, factual; present tense, active voice; self‑contained; no \\\"above/below\\\"; parallel wording.\\n- Don'ts: no nested bullets/hierarchies; no ANSI codes; don't cram unrelated keywords; keep keyword lists short—wrap/reformat if long; avoid naming formatting styles in answers.\\n- Adaptation: code explanations → precise, structured with code refs; simple tasks → lead with outcome; big changes → logical walkthrough + rationale + next actions; casual one-offs → plain sentences, no headers/bullets.\\n- File References: When referencing files in your response follow the below rules:\\n  * Use inline code to make file paths clickable.\\n  * Each reference should have a stand alone path. Even if it's the same file.\\n  * Accepted: absolute, workspace‑relative, a/ or b/ diff prefixes, or bare filename/suffix.\\n  * Optionally include line/column (1‑based): :line[:column] or #Lline[Ccolumn] (column defaults to 1).\\n  * Do not use URIs like file://, vscode://, or https://.\\n  * Do not provide range of lines\\n  * Examples: src/app.ts, src/app.ts:42, b/server/index.js#L10, C:\\\\repo\\\\project\\\\main.rs:12:5\\n\",\"max_output_tokens\":null,\"max_tool_calls\":null,\"model\":\"gpt-5.2-codex\",\"output\":[],\"parallel_tool_calls\":true,\"presence_penalty\":0.0,\"previous_response_id\":null,\"prompt_cache_key\":\"815ee72f-6cc8-49ff-9661-ea920cb22ca9\",\"prompt_cache_retention\":null,\"reasoning\":{\"effort\":\"high\",\"summary\":\"detailed\"},\"safety_identifier\":\"user-KW8JMYbxYx01HPnjyStYjDIM\",\"service_tier\":\"auto\",\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[{\"type\":\"function\",\"description\":\"Search the web for comprehensive and up-to-date information.\\n\\nQuery Optimization Guidelines:\\n- Extract the core topic/entity from questions (e.g., \\\"who is Elon Musk\\\" → \\\"Elon Musk\\\", \\\"what is React\\\" → \\\"React\\\")\\n- For comparisons (e.g., \\\"X vs Y\\\"), search for both terms together to get comparison results\\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \\\"React 19 features\\\" stays as-is)\\n- For \\\"latest\\\" or \\\"recent\\\" queries, include temporal keywords (e.g., \\\"latest AI models 2025\\\")\\n- Preserve programming language/framework context (e.g., \\\"error handling in Rust\\\" → \\\"Rust error handling\\\")\\n- For debugging queries, keep error messages and stack traces intact\\n- Use multiple searches only when topics are completely unrelated, not for comparisons\",\"name\":\"webSearch\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"],\"type\":\"object\"},\"strict\":true},{\"type\":\"function\",\"description\":\"Fetch and extract content from a web url\",\"name\":\"webFetch\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"url\":{\"type\":\"string\"}},\"required\":[\"url\"],\"type\":\"object\"},\"strict\":true}],\"top_logprobs\":0,\"top_p\":0.98,\"truncation\":\"disabled\",\"usage\":null,\"user\":null,\"metadata\":{}},\"sequence_number\":0}"
+      },
+      {
+        "event": "response.in_progress",
+        "data": "{\"type\":\"response.in_progress\",\"response\":{\"id\":\"resp_0d3332f3d205ed4e016986bf486dbc81918160bf129eab55f7\",\"object\":\"response\",\"created_at\":1770438472,\"status\":\"in_progress\",\"background\":false,\"completed_at\":null,\"error\":null,\"frequency_penalty\":0.0,\"incomplete_details\":null,\"instructions\":\"You are Codex, based on GPT-5. You are running as a coding agent in the Codex CLI on a user's computer.\\n\\n## General\\n\\n- When searching for text or files, prefer using `rg` or `rg --files` respectively because `rg` is much faster than alternatives like `grep`. (If the `rg` command is not found, then use alternatives.)\\n\\n## Editing constraints\\n\\n- Default to ASCII when editing or creating files. Only introduce non-ASCII or other Unicode characters when there is a clear justification and the file already uses them.\\n- Add succinct code comments that explain what is going on if code is not self-explanatory. You should not add comments like \\\"Assigns the value to the variable\\\", but a brief comment might be useful ahead of a complex code block that the user would otherwise have to spend time parsing out. Usage of these comments should be rare.\\n- Try to use apply_patch for single file edits, but it is fine to explore other options to make the edit if it does not work well. Do not use apply_patch for changes that are auto-generated (i.e. generating package.json or running a lint or format command like gofmt) or when scripting is more efficient (such as search and replacing a string across a codebase).\\n- You may be in a dirty git worktree.\\n    * NEVER revert existing changes you did not make unless explicitly requested, since these changes were made by the user.\\n    * If asked to make a commit or code edits and there are unrelated changes to your work or changes that you didn't make in those files, don't revert those changes.\\n    * If the changes are in files you've touched recently, you should read carefully and understand how you can work with the changes rather than reverting them.\\n    * If the changes are in unrelated files, just ignore them and don't revert them.\\n- Do not amend a commit unless explicitly requested to do so.\\n- While you are working, you might notice unexpected changes that you didn't make. If this happens, STOP IMMEDIATELY and ask the user how they would like to proceed.\\n- **NEVER** use destructive commands like `git reset --hard` or `git checkout --` unless specifically requested or approved by the user.\\n\\n## Plan tool\\n\\nWhen using the planning tool:\\n- Skip using the planning tool for straightforward tasks (roughly the easiest 25%).\\n- Do not make single-step plans.\\n- When you made a plan, update it after having performed one of the sub-tasks that you shared on the plan.\\n\\n## Codex CLI harness, sandboxing, and approvals\\n\\nThe Codex CLI harness supports several different configurations for sandboxing and escalation approvals that the user can choose from.\\n\\nFilesystem sandboxing defines which files can be read or written. The options for `sandbox_mode` are:\\n- **read-only**: The sandbox only permits reading files.\\n- **workspace-write**: The sandbox permits reading files, and editing files in `cwd` and `writable_roots`. Editing files in other directories requires approval.\\n- **danger-full-access**: No filesystem sandboxing - all commands are permitted.\\n\\nNetwork sandboxing defines whether network can be accessed without approval. Options for `network_access` are:\\n- **restricted**: Requires approval\\n- **enabled**: No approval needed\\n\\nApprovals are your mechanism to get user consent to run shell commands without the sandbox. Possible configuration options for `approval_policy` are\\n- **untrusted**: The harness will escalate most commands for user approval, apart from a limited allowlist of safe \\\"read\\\" commands.\\n- **on-failure**: The harness will allow all commands to run in the sandbox (if enabled), and failures will be escalated to the user for approval to run again without the sandbox.\\n- **on-request**: Commands will be run in the sandbox by default, and you can specify in your tool call if you want to escalate a command to run without sandboxing. (Note that this mode is not always available. If it is, you'll see parameters for it in the `shell` command description.)\\n- **never**: This is a non-interactive mode where you may NEVER ask the user for approval to run commands. Instead, you must always persist and work around constraints to solve the task for the user. You MUST do your utmost best to finish the task and validate your work before yielding. If this mode is paired with `danger-full-access`, take advantage of it to deliver the best outcome for the user. Further, in this mode, your default testing philosophy is overridden: Even if you don't see local patterns for testing, you may add tests and scripts to validate your work. Just remove them before yielding.\\n\\nWhen you are running with `approval_policy == on-request`, and sandboxing enabled, here are scenarios where you'll need to request approval:\\n- You need to run a command that writes to a directory that requires it (e.g. running tests that write to /var)\\n- You need to run a GUI app (e.g., open/xdg-open/osascript) to open browsers or files.\\n- You are running sandboxed and need to run a command that requires network access (e.g. installing packages)\\n- If you run a command that is important to solving the user's query, but it fails because of sandboxing, rerun the command with approval. ALWAYS proceed to use the `sandbox_permissions` and `justification` parameters - do not message the user before requesting approval for the command.\\n- You are about to take a potentially destructive action such as an `rm` or `git reset` that the user did not explicitly ask for\\n- (for all of these, you should weigh alternative paths that do not require approval)\\n\\nWhen `sandbox_mode` is set to read-only, you'll need to request approval for any command that isn't a read.\\n\\nYou will be told what filesystem sandboxing, network sandboxing, and approval mode are active in a developer or user message. If you are not told about this, assume that you are running with workspace-write, network sandboxing enabled, and approval on-failure.\\n\\nAlthough they introduce friction to the user because your work is paused until the user responds, you should leverage them when necessary to accomplish important work. If the completing the task requires escalated permissions, Do not let these settings or the sandbox deter you from attempting to accomplish the user's task unless it is set to \\\"never\\\", in which case never ask for approvals.\\n\\nWhen requesting approval to execute a command that will require escalated privileges:\\n  - Provide the `sandbox_permissions` parameter with the value `\\\"require_escalated\\\"`\\n  - Include a short, 1 sentence explanation for why you need escalated permissions in the justification parameter\\n\\n## Special user requests\\n\\n- If the user makes a simple request (such as asking for the time) which you can fulfill by running a terminal command (such as `date`), you should do so.\\n- If the user asks for a \\\"review\\\", default to a code review mindset: prioritise identifying bugs, risks, behavioural regressions, and missing tests. Findings must be the primary focus of the response - keep summaries or overviews brief and only after enumerating the issues. Present findings first (ordered by severity with file/line references), follow with open questions or assumptions, and offer a change-summary only as a secondary detail. If no findings are discovered, state that explicitly and mention any residual risks or testing gaps.\\n\\n## Frontend tasks\\nWhen doing frontend design tasks, avoid collapsing into \\\"AI slop\\\" or safe, average-looking layouts.\\nAim for interfaces that feel intentional, bold, and a bit surprising.\\n- Typography: Use expressive, purposeful fonts and avoid default stacks (Inter, Roboto, Arial, system).\\n- Color & Look: Choose a clear visual direction; define CSS variables; avoid purple-on-white defaults. No purple bias or dark mode bias.\\n- Motion: Use a few meaningful animations (page-load, staggered reveals) instead of generic micro-motions.\\n- Background: Don't rely on flat, single-color backgrounds; use gradients, shapes, or subtle patterns to build atmosphere.\\n- Overall: Avoid boilerplate layouts and interchangeable UI patterns. Vary themes, type families, and visual languages across outputs.\\n- Ensure the page loads properly on both desktop and mobile\\n\\nException: If working within an existing website or design system, preserve the established patterns, structure, and visual language.\\n\\n## Presenting your work and final message\\n\\nYou are producing plain text that will later be styled by the CLI. Follow these rules exactly. Formatting should make results easy to scan, but not feel mechanical. Use judgment to decide how much structure adds value.\\n\\n- Default: be very concise; friendly coding teammate tone.\\n- Ask only when needed; suggest ideas; mirror the user's style.\\n- For substantial work, summarize clearly; follow final‑answer formatting.\\n- Skip heavy formatting for simple confirmations.\\n- Don't dump large files you've written; reference paths only.\\n- No \\\"save/copy this file\\\" - User is on the same machine.\\n- Offer logical next steps (tests, commits, build) briefly; add verify steps if you couldn't do something.\\n- For code changes:\\n  * Lead with a quick explanation of the change, and then give more details on the context covering where and why a change was made. Do not start this explanation with \\\"summary\\\", just jump right in.\\n  * If there are natural next steps the user may want to take, suggest them at the end of your response. Do not make suggestions if there are no natural next steps.\\n  * When suggesting multiple options, use numeric lists for the suggestions so the user can quickly respond with a single number.\\n- The user does not command execution outputs. When asked to show the output of a command (e.g. `git show`), relay the important details in your answer or summarize the key lines so the user understands the result.\\n\\n### Final answer structure and style guidelines\\n\\n- Plain text; CLI handles styling. Use structure only when it helps scanability.\\n- Headers: optional; short Title Case (1-3 words) wrapped in **…**; no blank line before the first bullet; add only if they truly help.\\n- Bullets: use - ; merge related points; keep to one line when possible; 4–6 per list ordered by importance; keep phrasing consistent.\\n- Monospace: backticks for commands/paths/env vars/code ids and inline examples; use for literal keyword bullets; never combine with **.\\n- Code samples or multi-line snippets should be wrapped in fenced code blocks; include an info string as often as possible.\\n- Structure: group related bullets; order sections general → specific → supporting; for subsections, start with a bolded keyword bullet, then items; match complexity to the task.\\n- Tone: collaborative, concise, factual; present tense, active voice; self‑contained; no \\\"above/below\\\"; parallel wording.\\n- Don'ts: no nested bullets/hierarchies; no ANSI codes; don't cram unrelated keywords; keep keyword lists short—wrap/reformat if long; avoid naming formatting styles in answers.\\n- Adaptation: code explanations → precise, structured with code refs; simple tasks → lead with outcome; big changes → logical walkthrough + rationale + next actions; casual one-offs → plain sentences, no headers/bullets.\\n- File References: When referencing files in your response follow the below rules:\\n  * Use inline code to make file paths clickable.\\n  * Each reference should have a stand alone path. Even if it's the same file.\\n  * Accepted: absolute, workspace‑relative, a/ or b/ diff prefixes, or bare filename/suffix.\\n  * Optionally include line/column (1‑based): :line[:column] or #Lline[Ccolumn] (column defaults to 1).\\n  * Do not use URIs like file://, vscode://, or https://.\\n  * Do not provide range of lines\\n  * Examples: src/app.ts, src/app.ts:42, b/server/index.js#L10, C:\\\\repo\\\\project\\\\main.rs:12:5\\n\",\"max_output_tokens\":null,\"max_tool_calls\":null,\"model\":\"gpt-5.2-codex\",\"output\":[],\"parallel_tool_calls\":true,\"presence_penalty\":0.0,\"previous_response_id\":null,\"prompt_cache_key\":\"815ee72f-6cc8-49ff-9661-ea920cb22ca9\",\"prompt_cache_retention\":null,\"reasoning\":{\"effort\":\"high\",\"summary\":\"detailed\"},\"safety_identifier\":\"user-KW8JMYbxYx01HPnjyStYjDIM\",\"service_tier\":\"auto\",\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[{\"type\":\"function\",\"description\":\"Search the web for comprehensive and up-to-date information.\\n\\nQuery Optimization Guidelines:\\n- Extract the core topic/entity from questions (e.g., \\\"who is Elon Musk\\\" → \\\"Elon Musk\\\", \\\"what is React\\\" → \\\"React\\\")\\n- For comparisons (e.g., \\\"X vs Y\\\"), search for both terms together to get comparison results\\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \\\"React 19 features\\\" stays as-is)\\n- For \\\"latest\\\" or \\\"recent\\\" queries, include temporal keywords (e.g., \\\"latest AI models 2025\\\")\\n- Preserve programming language/framework context (e.g., \\\"error handling in Rust\\\" → \\\"Rust error handling\\\")\\n- For debugging queries, keep error messages and stack traces intact\\n- Use multiple searches only when topics are completely unrelated, not for comparisons\",\"name\":\"webSearch\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"],\"type\":\"object\"},\"strict\":true},{\"type\":\"function\",\"description\":\"Fetch and extract content from a web url\",\"name\":\"webFetch\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"url\":{\"type\":\"string\"}},\"required\":[\"url\"],\"type\":\"object\"},\"strict\":true}],\"top_logprobs\":0,\"top_p\":0.98,\"truncation\":\"disabled\",\"usage\":null,\"user\":null,\"metadata\":{}},\"sequence_number\":1}"
+      },
+      {
+        "event": "response.output_item.added",
+        "data": "{\"type\":\"response.output_item.added\",\"item\":{\"id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"type\":\"reasoning\",\"encrypted_content\":\"gAAAAABphr9ILC_25spa47Qt4c71iuorKQrSfZclDQlx7NUuUXPFT2FMlK-sIBOVZeZ3GlVs4pit5pPEfaBB1RaCjgSyW557xo43VxwaNl7yZeYP0qjaw0bSR_jsPHdhQ4bsmycqIM0EZm72_9Wwgyownzvuc4cJqXwqS0XvwLOBYNwCCdm6mD9HALgDgJES1M0VU6MmEmAoc-9TelVJD4G90mSKRNuSAJBLA-Fw6XONGdoDNaaZDfobQ1Zq7IoFwtYQzQA95UrC7TBS8w06efzTMSk8fvoMQXemDg5xZ0IHIMA06Ez0AQwnthoCf3PC-8svnKpVRZaFHg_uI17au00LKu_SjpNPybPauvxaKnaHsVcVbZjkGOHrmd3kmGY69ujoqMSONmX-oXDyuw13_enYbuzim8V2WMQr0BFYrhL5tpKEFC9ueXG8Sr7uNFpI4BbciA3yIMqbpAHoi5Zk535867uTf6xMkRXnlrwZHWXJgAFAWbsiFjZBAeJHQdNGH1Y0lmcoOwi9tzmrlcdOnggwcHvY34J_ZmQEeByB6kk2DqA6ycP3AdSOHYfWQ0i4YRuEHiu0Jx3PoY2UvE1cXCA3lc-LI2_E3V3HQBBh0uozveqTP3yYc1W3lpV75dKDX4OvpE24VHYB0cylv4cI3CZQ44Ggk4YP8fnFKMjsJvQgxA0nZ3ZY7B-R9cj0ghexbR8h13OVqh4349WIp6UMBPocElkqUyrgYasCORCEgZWNfdhIqbRNbJsyqI8qvXDPa7RsrqSIi5BkNFVgCRt-PW2nK-Ox5bXN_DPyWzuWxCrjN2e4JK2yLrE=\",\"summary\":[]},\"output_index\":0,\"sequence_number\":2}"
+      },
+      {
+        "event": "response.reasoning_summary_part.added",
+        "data": "{\"type\":\"response.reasoning_summary_part.added\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"output_index\":0,\"part\":{\"type\":\"summary_text\",\"text\":\"\"},\"sequence_number\":3,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\"**Providing\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"KSzsA\",\"output_index\":0,\"sequence_number\":4,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" guidance\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"TaczvEz\",\"output_index\":0,\"sequence_number\":5,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" on\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"vnG0kKFq0jAoh\",\"output_index\":0,\"sequence_number\":6,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" unknown\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"YG3XKowf\",\"output_index\":0,\"sequence_number\":7,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" person\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"oZWjNDTAq\",\"output_index\":0,\"sequence_number\":8,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\"**\\n\\nI\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"O6gGxZIyN0T\",\"output_index\":0,\"sequence_number\":9,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" don't\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"wfer7285GO\",\"output_index\":0,\"sequence_number\":10,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" have\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"JTgdhQjJQUL\",\"output_index\":0,\"sequence_number\":11,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" information\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"fT3T\",\"output_index\":0,\"sequence_number\":12,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" about\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"5MpJw3RS8N\",\"output_index\":0,\"sequence_number\":13,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" K\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"u9LqNLjwdfkCPQ\",\"output_index\":0,\"sequence_number\":14,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\"aisen\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"bXt993tiiCA\",\"output_index\":0,\"sequence_number\":15,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" Kang\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"R9KIk278DPV\",\"output_index\":0,\"sequence_number\":16,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\".\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"RST3P6vNbhEGWxd\",\"output_index\":0,\"sequence_number\":17,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" Suggest\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"ji0lRtql\",\"output_index\":0,\"sequence_number\":18,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" checking\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"htL7G57\",\"output_index\":0,\"sequence_number\":19,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" reliable\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"pVgm3k9\",\"output_index\":0,\"sequence_number\":20,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" sources\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"cMCXRIXE\",\"output_index\":0,\"sequence_number\":21,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" or\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"dsBNrbUMH6V7c\",\"output_index\":0,\"sequence_number\":22,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" social\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"5ahHauUUf\",\"output_index\":0,\"sequence_number\":23,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" media\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"ZiVBSp5A8G\",\"output_index\":0,\"sequence_number\":24,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" for\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"PjZktpSSeTSE\",\"output_index\":0,\"sequence_number\":25,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" more\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"EmChp7BW6fI\",\"output_index\":0,\"sequence_number\":26,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\" details\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"fmiEhGsv\",\"output_index\":0,\"sequence_number\":27,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.delta",
+        "data": "{\"type\":\"response.reasoning_summary_text.delta\",\"delta\":\".\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"obfuscation\":\"yT7rBOlfGx3GYxq\",\"output_index\":0,\"sequence_number\":28,\"summary_index\":0}"
+      },
+      {
+        "event": "response.reasoning_summary_text.done",
+        "data": "{\"type\":\"response.reasoning_summary_text.done\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"output_index\":0,\"sequence_number\":29,\"summary_index\":0,\"text\":\"**Providing guidance on unknown person**\\n\\nI don't have information about Kaisen Kang. Suggest checking reliable sources or social media for more details.\"}"
+      },
+      {
+        "event": "response.reasoning_summary_part.done",
+        "data": "{\"type\":\"response.reasoning_summary_part.done\",\"item_id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"output_index\":0,\"part\":{\"type\":\"summary_text\",\"text\":\"**Providing guidance on unknown person**\\n\\nI don't have information about Kaisen Kang. Suggest checking reliable sources or social media for more details.\"},\"sequence_number\":30,\"summary_index\":0}"
+      },
+      {
+        "event": "response.output_item.done",
+        "data": "{\"type\":\"response.output_item.done\",\"item\":{\"id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"type\":\"reasoning\",\"encrypted_content\":\"gAAAAABphr9KonqgHpcXq8PojAEl0mABkjFG3vwvElF2MxueW05XdI-KFt7zf5SByrZw0ywNzJC53SVbf4_8ARbiaqS5DVeP_uKagby65tlmacDTTcravPTqSBiudpDlvi09zBOvYEsiidzGf9FhY85Y0eLO0IqCp5p1-zt-EbmbEeRegM-MROSNRX1YtzvBNT1sAd35Au6Kx117WUAVo8zxof9Quz3hKZYiXZS3wtG4z993Ag3w40SwL-przSv5nqEAeA-17inO87oltWA6IZvTySR2oO1n-5y8BrHycqEdXB64Rm1t5WfAxuw1of7yVrYSSag1pbvGIfYhjyL6Kxyu9X2OBTLivEBgXKs7TFm0TIlTBDo9BJ9X1N-40CypP-bj3862twqM7jlOKwUd5vz1UKPwdOpkOxtC2aa7P_vARgSnFEq2TzVgcwUCEyqyMuDqBZtLpJlxk4izxm02C9LHfgZZhD6uVBVCLjUOIykvfx63sxA-6jRu0aA7RRBpS-JyIcGVlo6UkJY7ked4GAkepD2-n4gbRRX8NsefIVhtv37BK5oP53kiVQAXPB3LxQIf2gg36shs2KgQAD2CzLEsEpUha2EzzoKEf3wZqlBGw0WKeyB0BLAOVqe6qY4EVNLz6ZUW9MshdPKtAqoli4tK6jeRnYoDH6SyU7gUtmiTprreBGmd3vXRWC5srSf-sQmTiespWvb8O1W6d1bZdztIHgVCQpcDaIRe1jwD9lpIjBICpqiVa-gT6MO1Ia4KmrFv-tMO4OKzHNzMeEi98Mdzyz3c8IUcgtKdBvqV7jMXROOP4frdQoX0Eg5sCLTMjF1mTiu5khu0KCCtlBxoH2c7bXRruG7uXkcZM1cBjoaYwWtNAFLDHssU2hTlCYX9uEnWPNUMaLiNlfWHHoMKuKTxX3zXgU6no1x8aI6nmTmnQyifLW39JAXmbAp1AhqmwybtyhsDZqqrqxMg2D4_R6MusqtyS5tDQ-THYeTX_7ZjkNciVR-hR8Y=\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"**Providing guidance on unknown person**\\n\\nI don't have information about Kaisen Kang. Suggest checking reliable sources or social media for more details.\"}]},\"output_index\":0,\"sequence_number\":31}"
+      },
+      {
+        "event": "response.output_item.added",
+        "data": "{\"type\":\"response.output_item.added\",\"item\":{\"id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"type\":\"message\",\"status\":\"in_progress\",\"content\":[],\"role\":\"assistant\"},\"output_index\":1,\"sequence_number\":32}"
+      },
+      {
+        "event": "response.content_part.added",
+        "data": "{\"type\":\"response.content_part.added\",\"content_index\":0,\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"output_index\":1,\"part\":{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"\"},\"sequence_number\":33}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"I\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"u2gU1sIsLM4ZdtI\",\"output_index\":1,\"sequence_number\":34}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" don\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"CplCefqivmtU\",\"output_index\":1,\"sequence_number\":35}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"’t\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"vIAAzLdYcfbQ3u\",\"output_index\":1,\"sequence_number\":36}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" have\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"TqXO50kA3Xq\",\"output_index\":1,\"sequence_number\":37}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" a\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"bZLc3NxcS0Ei4O\",\"output_index\":1,\"sequence_number\":38}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" record\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"UexGOJFMa\",\"output_index\":1,\"sequence_number\":39}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" of\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"ZFAOqUZVESGqY\",\"output_index\":1,\"sequence_number\":40}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" a\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"644MIa8Yp8l995\",\"output_index\":1,\"sequence_number\":41}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" widely\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"XKn77Jrjp\",\"output_index\":1,\"sequence_number\":42}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" known\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"BIyG6gNWp1\",\"output_index\":1,\"sequence_number\":43}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" public\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"DGmTAzdrt\",\"output_index\":1,\"sequence_number\":44}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" figure\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"x89M4Y3nZ\",\"output_index\":1,\"sequence_number\":45}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" named\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"e0MA5Pyk7j\",\"output_index\":1,\"sequence_number\":46}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" “\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"GkU5xGWL3KBIWA\",\"output_index\":1,\"sequence_number\":47}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"K\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"SNeiV62vrpSNiKP\",\"output_index\":1,\"sequence_number\":48}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"aisen\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"VhkzlQn9Cyc\",\"output_index\":1,\"sequence_number\":49}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" Kang\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"2YpWRiUAYv1\",\"output_index\":1,\"sequence_number\":50}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\".”\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"0iqUu5lDnOCgKX\",\"output_index\":1,\"sequence_number\":51}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" It\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"ajxs4rfWKmsmV\",\"output_index\":1,\"sequence_number\":52}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" may\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"Gg6CVxgh0Jry\",\"output_index\":1,\"sequence_number\":53}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" be\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"y9saSTbZEZeQU\",\"output_index\":1,\"sequence_number\":54}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" a\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"DnWwG0vPmNG5NW\",\"output_index\":1,\"sequence_number\":55}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" private\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"eWZj2rmR\",\"output_index\":1,\"sequence_number\":56}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" individual\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"h4A05\",\"output_index\":1,\"sequence_number\":57}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\",\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"ZsWEZQbDVteBjbw\",\"output_index\":1,\"sequence_number\":58}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" a\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"1ONiau0QeD5tgV\",\"output_index\":1,\"sequence_number\":59}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" lesser\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"qLRZAnVlB\",\"output_index\":1,\"sequence_number\":60}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"‑\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"YDvFIKgClXM0LZn\",\"output_index\":1,\"sequence_number\":61}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"known\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"2efzwBM34Jr\",\"output_index\":1,\"sequence_number\":62}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" person\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"HsM0mZAhr\",\"output_index\":1,\"sequence_number\":63}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\",\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"4YCRLceDcPgxnc3\",\"output_index\":1,\"sequence_number\":64}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" a\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"zshT9jRwJsPzcT\",\"output_index\":1,\"sequence_number\":65}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" fictional\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"8MsQ2z\",\"output_index\":1,\"sequence_number\":66}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" character\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"NC5DqW\",\"output_index\":1,\"sequence_number\":67}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\",\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"pH9Jz7bj7w2mxU8\",\"output_index\":1,\"sequence_number\":68}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" or\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"dBSnlGGsJ9MIO\",\"output_index\":1,\"sequence_number\":69}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" a\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"MwUKUlhSHIvLqF\",\"output_index\":1,\"sequence_number\":70}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" miss\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"mrVLMNAvSWV\",\"output_index\":1,\"sequence_number\":71}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"p\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"9iAS8OzkpRUPAqy\",\"output_index\":1,\"sequence_number\":72}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"elling\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"uoLWL79rqi\",\"output_index\":1,\"sequence_number\":73}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\".\\n\\n\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"UbxPzo6joQsjf\",\"output_index\":1,\"sequence_number\":74}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"If\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"eOzUAgJeAcwZe6\",\"output_index\":1,\"sequence_number\":75}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" you\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"vaJUEEOZck7H\",\"output_index\":1,\"sequence_number\":76}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" can\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"bJqe2iWwLpnx\",\"output_index\":1,\"sequence_number\":77}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" share\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"qM7d47neAa\",\"output_index\":1,\"sequence_number\":78}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" more\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"kc8Ty06jXWt\",\"output_index\":1,\"sequence_number\":79}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" context\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"EsCsCbcE\",\"output_index\":1,\"sequence_number\":80}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" (\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"nEDNuQjofjH465\",\"output_index\":1,\"sequence_number\":81}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"e\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"1XHpWmEs3N4knF9\",\"output_index\":1,\"sequence_number\":82}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\".g\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"P4tpxvMjW6SHCq\",\"output_index\":1,\"sequence_number\":83}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\".,\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"oUJ1IEzwGyX3vG\",\"output_index\":1,\"sequence_number\":84}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" where\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"kzA0mbh2q9\",\"output_index\":1,\"sequence_number\":85}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" you\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"JAcGnznKAGoN\",\"output_index\":1,\"sequence_number\":86}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" saw\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"0FPuM6pUdb9T\",\"output_index\":1,\"sequence_number\":87}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" the\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"R3Rs6Bfkbmv8\",\"output_index\":1,\"sequence_number\":88}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" name\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"B144Y2WrH28\",\"output_index\":1,\"sequence_number\":89}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\",\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"JcIn1DRR2ncCKmo\",\"output_index\":1,\"sequence_number\":90}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" their\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"VKtp9IWiXK\",\"output_index\":1,\"sequence_number\":91}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" field\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"6k5KejhNXJ\",\"output_index\":1,\"sequence_number\":92}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\",\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"u4sgy2qhZjemKO9\",\"output_index\":1,\"sequence_number\":93}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" or\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"LzJoxbUolSBMQ\",\"output_index\":1,\"sequence_number\":94}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" a\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"zO0Hx3WrmifO9e\",\"output_index\":1,\"sequence_number\":95}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" related\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"BZ4EBqNj\",\"output_index\":1,\"sequence_number\":96}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" link\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"cif6YYPMvOI\",\"output_index\":1,\"sequence_number\":97}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\"),\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"mwCDiuvjGZE01i\",\"output_index\":1,\"sequence_number\":98}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" I\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"ONqNyE5dShmQLy\",\"output_index\":1,\"sequence_number\":99}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" can\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"zqX0qsIXAirA\",\"output_index\":1,\"sequence_number\":100}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" try\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"faraKo4cHl8N\",\"output_index\":1,\"sequence_number\":101}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" to\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"WxNd3zSpRdKHT\",\"output_index\":1,\"sequence_number\":102}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" identify\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"Yz5sZVc\",\"output_index\":1,\"sequence_number\":103}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" them\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"cjn2J7S4pg9\",\"output_index\":1,\"sequence_number\":104}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" more\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"Bj42943FCmH\",\"output_index\":1,\"sequence_number\":105}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\" precisely\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"82JeHy\",\"output_index\":1,\"sequence_number\":106}"
+      },
+      {
+        "event": "response.output_text.delta",
+        "data": "{\"type\":\"response.output_text.delta\",\"content_index\":0,\"delta\":\".\",\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"obfuscation\":\"OO1SgtgORBHdqGO\",\"output_index\":1,\"sequence_number\":107}"
+      },
+      {
+        "event": "response.output_text.done",
+        "data": "{\"type\":\"response.output_text.done\",\"content_index\":0,\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"logprobs\":[],\"output_index\":1,\"sequence_number\":108,\"text\":\"I don’t have a record of a widely known public figure named “Kaisen Kang.” It may be a private individual, a lesser‑known person, a fictional character, or a misspelling.\\n\\nIf you can share more context (e.g., where you saw the name, their field, or a related link), I can try to identify them more precisely.\"}"
+      },
+      {
+        "event": "response.content_part.done",
+        "data": "{\"type\":\"response.content_part.done\",\"content_index\":0,\"item_id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"output_index\":1,\"part\":{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"I don’t have a record of a widely known public figure named “Kaisen Kang.” It may be a private individual, a lesser‑known person, a fictional character, or a misspelling.\\n\\nIf you can share more context (e.g., where you saw the name, their field, or a related link), I can try to identify them more precisely.\"},\"sequence_number\":109}"
+      },
+      {
+        "event": "response.output_item.done",
+        "data": "{\"type\":\"response.output_item.done\",\"item\":{\"id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"type\":\"message\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"I don’t have a record of a widely known public figure named “Kaisen Kang.” It may be a private individual, a lesser‑known person, a fictional character, or a misspelling.\\n\\nIf you can share more context (e.g., where you saw the name, their field, or a related link), I can try to identify them more precisely.\"}],\"role\":\"assistant\"},\"output_index\":1,\"sequence_number\":110}"
+      },
+      {
+        "event": "response.completed",
+        "data": "{\"type\":\"response.completed\",\"response\":{\"id\":\"resp_0d3332f3d205ed4e016986bf486dbc81918160bf129eab55f7\",\"object\":\"response\",\"created_at\":1770438472,\"status\":\"completed\",\"background\":false,\"completed_at\":1770438474,\"error\":null,\"frequency_penalty\":0.0,\"incomplete_details\":null,\"instructions\":\"You are Codex, based on GPT-5. You are running as a coding agent in the Codex CLI on a user's computer.\\n\\n## General\\n\\n- When searching for text or files, prefer using `rg` or `rg --files` respectively because `rg` is much faster than alternatives like `grep`. (If the `rg` command is not found, then use alternatives.)\\n\\n## Editing constraints\\n\\n- Default to ASCII when editing or creating files. Only introduce non-ASCII or other Unicode characters when there is a clear justification and the file already uses them.\\n- Add succinct code comments that explain what is going on if code is not self-explanatory. You should not add comments like \\\"Assigns the value to the variable\\\", but a brief comment might be useful ahead of a complex code block that the user would otherwise have to spend time parsing out. Usage of these comments should be rare.\\n- Try to use apply_patch for single file edits, but it is fine to explore other options to make the edit if it does not work well. Do not use apply_patch for changes that are auto-generated (i.e. generating package.json or running a lint or format command like gofmt) or when scripting is more efficient (such as search and replacing a string across a codebase).\\n- You may be in a dirty git worktree.\\n    * NEVER revert existing changes you did not make unless explicitly requested, since these changes were made by the user.\\n    * If asked to make a commit or code edits and there are unrelated changes to your work or changes that you didn't make in those files, don't revert those changes.\\n    * If the changes are in files you've touched recently, you should read carefully and understand how you can work with the changes rather than reverting them.\\n    * If the changes are in unrelated files, just ignore them and don't revert them.\\n- Do not amend a commit unless explicitly requested to do so.\\n- While you are working, you might notice unexpected changes that you didn't make. If this happens, STOP IMMEDIATELY and ask the user how they would like to proceed.\\n- **NEVER** use destructive commands like `git reset --hard` or `git checkout --` unless specifically requested or approved by the user.\\n\\n## Plan tool\\n\\nWhen using the planning tool:\\n- Skip using the planning tool for straightforward tasks (roughly the easiest 25%).\\n- Do not make single-step plans.\\n- When you made a plan, update it after having performed one of the sub-tasks that you shared on the plan.\\n\\n## Codex CLI harness, sandboxing, and approvals\\n\\nThe Codex CLI harness supports several different configurations for sandboxing and escalation approvals that the user can choose from.\\n\\nFilesystem sandboxing defines which files can be read or written. The options for `sandbox_mode` are:\\n- **read-only**: The sandbox only permits reading files.\\n- **workspace-write**: The sandbox permits reading files, and editing files in `cwd` and `writable_roots`. Editing files in other directories requires approval.\\n- **danger-full-access**: No filesystem sandboxing - all commands are permitted.\\n\\nNetwork sandboxing defines whether network can be accessed without approval. Options for `network_access` are:\\n- **restricted**: Requires approval\\n- **enabled**: No approval needed\\n\\nApprovals are your mechanism to get user consent to run shell commands without the sandbox. Possible configuration options for `approval_policy` are\\n- **untrusted**: The harness will escalate most commands for user approval, apart from a limited allowlist of safe \\\"read\\\" commands.\\n- **on-failure**: The harness will allow all commands to run in the sandbox (if enabled), and failures will be escalated to the user for approval to run again without the sandbox.\\n- **on-request**: Commands will be run in the sandbox by default, and you can specify in your tool call if you want to escalate a command to run without sandboxing. (Note that this mode is not always available. If it is, you'll see parameters for it in the `shell` command description.)\\n- **never**: This is a non-interactive mode where you may NEVER ask the user for approval to run commands. Instead, you must always persist and work around constraints to solve the task for the user. You MUST do your utmost best to finish the task and validate your work before yielding. If this mode is paired with `danger-full-access`, take advantage of it to deliver the best outcome for the user. Further, in this mode, your default testing philosophy is overridden: Even if you don't see local patterns for testing, you may add tests and scripts to validate your work. Just remove them before yielding.\\n\\nWhen you are running with `approval_policy == on-request`, and sandboxing enabled, here are scenarios where you'll need to request approval:\\n- You need to run a command that writes to a directory that requires it (e.g. running tests that write to /var)\\n- You need to run a GUI app (e.g., open/xdg-open/osascript) to open browsers or files.\\n- You are running sandboxed and need to run a command that requires network access (e.g. installing packages)\\n- If you run a command that is important to solving the user's query, but it fails because of sandboxing, rerun the command with approval. ALWAYS proceed to use the `sandbox_permissions` and `justification` parameters - do not message the user before requesting approval for the command.\\n- You are about to take a potentially destructive action such as an `rm` or `git reset` that the user did not explicitly ask for\\n- (for all of these, you should weigh alternative paths that do not require approval)\\n\\nWhen `sandbox_mode` is set to read-only, you'll need to request approval for any command that isn't a read.\\n\\nYou will be told what filesystem sandboxing, network sandboxing, and approval mode are active in a developer or user message. If you are not told about this, assume that you are running with workspace-write, network sandboxing enabled, and approval on-failure.\\n\\nAlthough they introduce friction to the user because your work is paused until the user responds, you should leverage them when necessary to accomplish important work. If the completing the task requires escalated permissions, Do not let these settings or the sandbox deter you from attempting to accomplish the user's task unless it is set to \\\"never\\\", in which case never ask for approvals.\\n\\nWhen requesting approval to execute a command that will require escalated privileges:\\n  - Provide the `sandbox_permissions` parameter with the value `\\\"require_escalated\\\"`\\n  - Include a short, 1 sentence explanation for why you need escalated permissions in the justification parameter\\n\\n## Special user requests\\n\\n- If the user makes a simple request (such as asking for the time) which you can fulfill by running a terminal command (such as `date`), you should do so.\\n- If the user asks for a \\\"review\\\", default to a code review mindset: prioritise identifying bugs, risks, behavioural regressions, and missing tests. Findings must be the primary focus of the response - keep summaries or overviews brief and only after enumerating the issues. Present findings first (ordered by severity with file/line references), follow with open questions or assumptions, and offer a change-summary only as a secondary detail. If no findings are discovered, state that explicitly and mention any residual risks or testing gaps.\\n\\n## Frontend tasks\\nWhen doing frontend design tasks, avoid collapsing into \\\"AI slop\\\" or safe, average-looking layouts.\\nAim for interfaces that feel intentional, bold, and a bit surprising.\\n- Typography: Use expressive, purposeful fonts and avoid default stacks (Inter, Roboto, Arial, system).\\n- Color & Look: Choose a clear visual direction; define CSS variables; avoid purple-on-white defaults. No purple bias or dark mode bias.\\n- Motion: Use a few meaningful animations (page-load, staggered reveals) instead of generic micro-motions.\\n- Background: Don't rely on flat, single-color backgrounds; use gradients, shapes, or subtle patterns to build atmosphere.\\n- Overall: Avoid boilerplate layouts and interchangeable UI patterns. Vary themes, type families, and visual languages across outputs.\\n- Ensure the page loads properly on both desktop and mobile\\n\\nException: If working within an existing website or design system, preserve the established patterns, structure, and visual language.\\n\\n## Presenting your work and final message\\n\\nYou are producing plain text that will later be styled by the CLI. Follow these rules exactly. Formatting should make results easy to scan, but not feel mechanical. Use judgment to decide how much structure adds value.\\n\\n- Default: be very concise; friendly coding teammate tone.\\n- Ask only when needed; suggest ideas; mirror the user's style.\\n- For substantial work, summarize clearly; follow final‑answer formatting.\\n- Skip heavy formatting for simple confirmations.\\n- Don't dump large files you've written; reference paths only.\\n- No \\\"save/copy this file\\\" - User is on the same machine.\\n- Offer logical next steps (tests, commits, build) briefly; add verify steps if you couldn't do something.\\n- For code changes:\\n  * Lead with a quick explanation of the change, and then give more details on the context covering where and why a change was made. Do not start this explanation with \\\"summary\\\", just jump right in.\\n  * If there are natural next steps the user may want to take, suggest them at the end of your response. Do not make suggestions if there are no natural next steps.\\n  * When suggesting multiple options, use numeric lists for the suggestions so the user can quickly respond with a single number.\\n- The user does not command execution outputs. When asked to show the output of a command (e.g. `git show`), relay the important details in your answer or summarize the key lines so the user understands the result.\\n\\n### Final answer structure and style guidelines\\n\\n- Plain text; CLI handles styling. Use structure only when it helps scanability.\\n- Headers: optional; short Title Case (1-3 words) wrapped in **…**; no blank line before the first bullet; add only if they truly help.\\n- Bullets: use - ; merge related points; keep to one line when possible; 4–6 per list ordered by importance; keep phrasing consistent.\\n- Monospace: backticks for commands/paths/env vars/code ids and inline examples; use for literal keyword bullets; never combine with **.\\n- Code samples or multi-line snippets should be wrapped in fenced code blocks; include an info string as often as possible.\\n- Structure: group related bullets; order sections general → specific → supporting; for subsections, start with a bolded keyword bullet, then items; match complexity to the task.\\n- Tone: collaborative, concise, factual; present tense, active voice; self‑contained; no \\\"above/below\\\"; parallel wording.\\n- Don'ts: no nested bullets/hierarchies; no ANSI codes; don't cram unrelated keywords; keep keyword lists short—wrap/reformat if long; avoid naming formatting styles in answers.\\n- Adaptation: code explanations → precise, structured with code refs; simple tasks → lead with outcome; big changes → logical walkthrough + rationale + next actions; casual one-offs → plain sentences, no headers/bullets.\\n- File References: When referencing files in your response follow the below rules:\\n  * Use inline code to make file paths clickable.\\n  * Each reference should have a stand alone path. Even if it's the same file.\\n  * Accepted: absolute, workspace‑relative, a/ or b/ diff prefixes, or bare filename/suffix.\\n  * Optionally include line/column (1‑based): :line[:column] or #Lline[Ccolumn] (column defaults to 1).\\n  * Do not use URIs like file://, vscode://, or https://.\\n  * Do not provide range of lines\\n  * Examples: src/app.ts, src/app.ts:42, b/server/index.js#L10, C:\\\\repo\\\\project\\\\main.rs:12:5\\n\",\"max_output_tokens\":null,\"max_tool_calls\":null,\"model\":\"gpt-5.2-codex\",\"output\":[{\"id\":\"rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c\",\"type\":\"reasoning\",\"encrypted_content\":\"gAAAAABphr9KRA_kYoNFMFmjvVKsKcR2CSbtkpk9djMjhX85xJwI0Qn-iGQOJBPcRUkqwgPswD22T7O7L8uIt0UQAc-pG8EV1gGEAJIpQ9dt3TypHY3nNJcDHTIYYvojR1XO4HeKe47wwY73vjjYgafcw2uMyOcztzDpi_ePk_JvVSTV-J7clchhPibo3qBptI-DtqlO1CuB4N6skTsXdT2YFaym6LTYoEYqkdlsz0tPHrRorh9g0c56oyx1Y-oXEV3d8qUUgyiDuARN6NDbT6s4MRTvZoOoN3ONcAJG6ienpNRKdKmKlx4XtijheT5RKbfNYe_AS6V28_L7_qwdWp8Um45AzB6yw05u-1OxuzzoC6iWmyldTJm8jqcHtS5df6SvDCY-Ob6BHa3L5k0PrxtZedSxIESqp0wKivM5cPync-8wIE36BsOVmiVVHCoGj0qvI0cjaO8nvXsN99hbJL6hwoUfFLxMj9XwtT1HQ4wbOoLx4uAs7f_3uYtdFEcEDnmwnFETC1HkobFwnsluSsmYhhCG_Y4xi7RIHoEyRgxUZcDjHdlVNDKrzLl1DACjF4KQRRnKzlVTnMWdHpLU6zTv-qqbDKjIv-oBjXXhj5HnLsvswhpAbHTGUtmAbHiUwoQBphFOWp_EW0nzq6BJzAJhOlBjR5HTveplNnPpuuctvdbr73iu0bBrtDQIdUemPFabDVyWwqNSRrpPuA6Y3cFhG7wZFy_YhplcHPXZYEEIizTWzc9_leAqdrCIIvPo2cEhSHjNnx6923pawShTGMG1wqcIeB1SMBEniym3fJH9hsO6vhDri3oTDlTsXycxvkf8yUSTqb3DP3MjiKJ2Ro8K35v6HAXo1WCRRK9oVMoyFXF206WMQxNtnVZ3Oa_q1ZdsVtvmA8n_bmXwRY3cS_CqH97j17aNLTPPSD4IIQ4mHGE9OHaf0v1W4F7Cqg4b56kdy6ni4FlUjJOzPD6eYaDzxlbkDDWBFifYnoRJv8pgWPzm1P-VUuU=\",\"summary\":[{\"type\":\"summary_text\",\"text\":\"**Providing guidance on unknown person**\\n\\nI don't have information about Kaisen Kang. Suggest checking reliable sources or social media for more details.\"}]},{\"id\":\"msg_0d3332f3d205ed4e016986bf4a310c81919e115c286838923f\",\"type\":\"message\",\"status\":\"completed\",\"content\":[{\"type\":\"output_text\",\"annotations\":[],\"logprobs\":[],\"text\":\"I don’t have a record of a widely known public figure named “Kaisen Kang.” It may be a private individual, a lesser‑known person, a fictional character, or a misspelling.\\n\\nIf you can share more context (e.g., where you saw the name, their field, or a related link), I can try to identify them more precisely.\"}],\"role\":\"assistant\"}],\"parallel_tool_calls\":true,\"presence_penalty\":0.0,\"previous_response_id\":null,\"prompt_cache_key\":\"815ee72f-6cc8-49ff-9661-ea920cb22ca9\",\"prompt_cache_retention\":null,\"reasoning\":{\"effort\":\"high\",\"summary\":\"detailed\"},\"safety_identifier\":\"user-KW8JMYbxYx01HPnjyStYjDIM\",\"service_tier\":\"default\",\"store\":false,\"temperature\":1.0,\"text\":{\"format\":{\"type\":\"text\"},\"verbosity\":\"medium\"},\"tool_choice\":\"auto\",\"tools\":[{\"type\":\"function\",\"description\":\"Search the web for comprehensive and up-to-date information.\\n\\nQuery Optimization Guidelines:\\n- Extract the core topic/entity from questions (e.g., \\\"who is Elon Musk\\\" → \\\"Elon Musk\\\", \\\"what is React\\\" → \\\"React\\\")\\n- For comparisons (e.g., \\\"X vs Y\\\"), search for both terms together to get comparison results\\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \\\"React 19 features\\\" stays as-is)\\n- For \\\"latest\\\" or \\\"recent\\\" queries, include temporal keywords (e.g., \\\"latest AI models 2025\\\")\\n- Preserve programming language/framework context (e.g., \\\"error handling in Rust\\\" → \\\"Rust error handling\\\")\\n- For debugging queries, keep error messages and stack traces intact\\n- Use multiple searches only when topics are completely unrelated, not for comparisons\",\"name\":\"webSearch\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"query\":{\"type\":\"string\"}},\"required\":[\"query\"],\"type\":\"object\"},\"strict\":true},{\"type\":\"function\",\"description\":\"Fetch and extract content from a web url\",\"name\":\"webFetch\",\"parameters\":{\"additionalProperties\":false,\"properties\":{\"url\":{\"type\":\"string\"}},\"required\":[\"url\"],\"type\":\"object\"},\"strict\":true}],\"top_logprobs\":0,\"top_p\":0.98,\"truncation\":\"disabled\",\"usage\":{\"input_tokens\":3082,\"input_tokens_details\":{\"cached_tokens\":0},\"output_tokens\":112,\"output_tokens_details\":{\"reasoning_tokens\":0},\"total_tokens\":3194},\"user\":null,\"metadata\":{}},\"sequence_number\":111}"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "gpt-5-mini",
+    "messages": [
+      {
+        "role": "system",
+        "content": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-07T04:24:37.153Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+        "providerOptions": {
+          "anthropic": {
+            "cacheControl": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "user",
+        "content": "who is kaisen kang",
+        "providerOptions": null
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "name": "webSearch",
+        "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "webFetch",
+        "description": "Fetch and extract content from a web url",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      }
+    ],
+    "temperature": null,
+    "max_tokens": 15000,
+    "top_p": null,
+    "top_k": null,
+    "provider_options": {
+      "anthropic": {
+        "thinking": {
+          "budgetTokens": 12000,
+          "type": "enabled"
+        }
+      },
+      "google": {
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingBudget": 8192
+        }
+      },
+      "moonshot": {
+        "temperature": 1,
+        "thinking": {
+          "type": "enabled"
+        }
+      },
+      "openai": {
+        "reasoningEffort": "high"
+      }
+    },
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "reasoning-start",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c",
+          "reasoningEncryptedContent": "gAAAAABphr9ILC_25spa47Qt4c71iuorKQrSfZclDQlx7NUuUXPFT2FMlK-sIBOVZeZ3GlVs4pit5pPEfaBB1RaCjgSyW557xo43VxwaNl7yZeYP0qjaw0bSR_jsPHdhQ4bsmycqIM0EZm72_9Wwgyownzvuc4cJqXwqS0XvwLOBYNwCCdm6mD9HALgDgJES1M0VU6MmEmAoc-9TelVJD4G90mSKRNuSAJBLA-Fw6XONGdoDNaaZDfobQ1Zq7IoFwtYQzQA95UrC7TBS8w06efzTMSk8fvoMQXemDg5xZ0IHIMA06Ez0AQwnthoCf3PC-8svnKpVRZaFHg_uI17au00LKu_SjpNPybPauvxaKnaHsVcVbZjkGOHrmd3kmGY69ujoqMSONmX-oXDyuw13_enYbuzim8V2WMQr0BFYrhL5tpKEFC9ueXG8Sr7uNFpI4BbciA3yIMqbpAHoi5Zk535867uTf6xMkRXnlrwZHWXJgAFAWbsiFjZBAeJHQdNGH1Y0lmcoOwi9tzmrlcdOnggwcHvY34J_ZmQEeByB6kk2DqA6ycP3AdSOHYfWQ0i4YRuEHiu0Jx3PoY2UvE1cXCA3lc-LI2_E3V3HQBBh0uozveqTP3yYc1W3lpV75dKDX4OvpE24VHYB0cylv4cI3CZQ44Ggk4YP8fnFKMjsJvQgxA0nZ3ZY7B-R9cj0ghexbR8h13OVqh4349WIp6UMBPocElkqUyrgYasCORCEgZWNfdhIqbRNbJsyqI8qvXDPa7RsrqSIi5BkNFVgCRt-PW2nK-Ox5bXN_DPyWzuWxCrjN2e4JK2yLrE="
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": "**Providing",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " guidance",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " on",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " unknown",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " person",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": "**\n\nI",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " don't",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " have",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " information",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " about",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " K",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": "aisen",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " Kang",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": ".",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " Suggest",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " checking",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " reliable",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " sources",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " or",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " social",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " media",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " for",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " more",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": " details",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": ".",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c"
+        }
+      }
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0",
+      "text": "",
+      "provider_metadata": {
+        "openai": {
+          "itemId": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c",
+          "reasoningEncryptedContent": "gAAAAABphr9KonqgHpcXq8PojAEl0mABkjFG3vwvElF2MxueW05XdI-KFt7zf5SByrZw0ywNzJC53SVbf4_8ARbiaqS5DVeP_uKagby65tlmacDTTcravPTqSBiudpDlvi09zBOvYEsiidzGf9FhY85Y0eLO0IqCp5p1-zt-EbmbEeRegM-MROSNRX1YtzvBNT1sAd35Au6Kx117WUAVo8zxof9Quz3hKZYiXZS3wtG4z993Ag3w40SwL-przSv5nqEAeA-17inO87oltWA6IZvTySR2oO1n-5y8BrHycqEdXB64Rm1t5WfAxuw1of7yVrYSSag1pbvGIfYhjyL6Kxyu9X2OBTLivEBgXKs7TFm0TIlTBDo9BJ9X1N-40CypP-bj3862twqM7jlOKwUd5vz1UKPwdOpkOxtC2aa7P_vARgSnFEq2TzVgcwUCEyqyMuDqBZtLpJlxk4izxm02C9LHfgZZhD6uVBVCLjUOIykvfx63sxA-6jRu0aA7RRBpS-JyIcGVlo6UkJY7ked4GAkepD2-n4gbRRX8NsefIVhtv37BK5oP53kiVQAXPB3LxQIf2gg36shs2KgQAD2CzLEsEpUha2EzzoKEf3wZqlBGw0WKeyB0BLAOVqe6qY4EVNLz6ZUW9MshdPKtAqoli4tK6jeRnYoDH6SyU7gUtmiTprreBGmd3vXRWC5srSf-sQmTiespWvb8O1W6d1bZdztIHgVCQpcDaIRe1jwD9lpIjBICpqiVa-gT6MO1Ia4KmrFv-tMO4OKzHNzMeEi98Mdzyz3c8IUcgtKdBvqV7jMXROOP4frdQoX0Eg5sCLTMjF1mTiu5khu0KCCtlBxoH2c7bXRruG7uXkcZM1cBjoaYwWtNAFLDHssU2hTlCYX9uEnWPNUMaLiNlfWHHoMKuKTxX3zXgU6no1x8aI6nmTmnQyifLW39JAXmbAp1AhqmwybtyhsDZqqrqxMg2D4_R6MusqtyS5tDQ-THYeTX_7ZjkNciVR-hR8Y="
+        }
+      }
+    },
+    {
+      "type": "reasoning-end",
+      "id": "rs_0d3332f3d205ed4e016986bf48f23c81919fef4e77da90f46c:0"
+    },
+    {
+      "type": "text-start"
+    },
+    {
+      "type": "text-delta",
+      "text": ""
+    },
+    {
+      "type": "text-delta",
+      "text": "I"
+    },
+    {
+      "type": "text-delta",
+      "text": " don"
+    },
+    {
+      "type": "text-delta",
+      "text": "’t"
+    },
+    {
+      "type": "text-delta",
+      "text": " have"
+    },
+    {
+      "type": "text-delta",
+      "text": " a"
+    },
+    {
+      "type": "text-delta",
+      "text": " record"
+    },
+    {
+      "type": "text-delta",
+      "text": " of"
+    },
+    {
+      "type": "text-delta",
+      "text": " a"
+    },
+    {
+      "type": "text-delta",
+      "text": " widely"
+    },
+    {
+      "type": "text-delta",
+      "text": " known"
+    },
+    {
+      "type": "text-delta",
+      "text": " public"
+    },
+    {
+      "type": "text-delta",
+      "text": " figure"
+    },
+    {
+      "type": "text-delta",
+      "text": " named"
+    },
+    {
+      "type": "text-delta",
+      "text": " “"
+    },
+    {
+      "type": "text-delta",
+      "text": "K"
+    },
+    {
+      "type": "text-delta",
+      "text": "aisen"
+    },
+    {
+      "type": "text-delta",
+      "text": " Kang"
+    },
+    {
+      "type": "text-delta",
+      "text": ".”"
+    },
+    {
+      "type": "text-delta",
+      "text": " It"
+    },
+    {
+      "type": "text-delta",
+      "text": " may"
+    },
+    {
+      "type": "text-delta",
+      "text": " be"
+    },
+    {
+      "type": "text-delta",
+      "text": " a"
+    },
+    {
+      "type": "text-delta",
+      "text": " private"
+    },
+    {
+      "type": "text-delta",
+      "text": " individual"
+    },
+    {
+      "type": "text-delta",
+      "text": ","
+    },
+    {
+      "type": "text-delta",
+      "text": " a"
+    },
+    {
+      "type": "text-delta",
+      "text": " lesser"
+    },
+    {
+      "type": "text-delta",
+      "text": "‑"
+    },
+    {
+      "type": "text-delta",
+      "text": "known"
+    },
+    {
+      "type": "text-delta",
+      "text": " person"
+    },
+    {
+      "type": "text-delta",
+      "text": ","
+    },
+    {
+      "type": "text-delta",
+      "text": " a"
+    },
+    {
+      "type": "text-delta",
+      "text": " fictional"
+    },
+    {
+      "type": "text-delta",
+      "text": " character"
+    },
+    {
+      "type": "text-delta",
+      "text": ","
+    },
+    {
+      "type": "text-delta",
+      "text": " or"
+    },
+    {
+      "type": "text-delta",
+      "text": " a"
+    },
+    {
+      "type": "text-delta",
+      "text": " miss"
+    },
+    {
+      "type": "text-delta",
+      "text": "p"
+    },
+    {
+      "type": "text-delta",
+      "text": "elling"
+    },
+    {
+      "type": "text-delta",
+      "text": ".\n\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "If"
+    },
+    {
+      "type": "text-delta",
+      "text": " you"
+    },
+    {
+      "type": "text-delta",
+      "text": " can"
+    },
+    {
+      "type": "text-delta",
+      "text": " share"
+    },
+    {
+      "type": "text-delta",
+      "text": " more"
+    },
+    {
+      "type": "text-delta",
+      "text": " context"
+    },
+    {
+      "type": "text-delta",
+      "text": " ("
+    },
+    {
+      "type": "text-delta",
+      "text": "e"
+    },
+    {
+      "type": "text-delta",
+      "text": ".g"
+    },
+    {
+      "type": "text-delta",
+      "text": ".,"
+    },
+    {
+      "type": "text-delta",
+      "text": " where"
+    },
+    {
+      "type": "text-delta",
+      "text": " you"
+    },
+    {
+      "type": "text-delta",
+      "text": " saw"
+    },
+    {
+      "type": "text-delta",
+      "text": " the"
+    },
+    {
+      "type": "text-delta",
+      "text": " name"
+    },
+    {
+      "type": "text-delta",
+      "text": ","
+    },
+    {
+      "type": "text-delta",
+      "text": " their"
+    },
+    {
+      "type": "text-delta",
+      "text": " field"
+    },
+    {
+      "type": "text-delta",
+      "text": ","
+    },
+    {
+      "type": "text-delta",
+      "text": " or"
+    },
+    {
+      "type": "text-delta",
+      "text": " a"
+    },
+    {
+      "type": "text-delta",
+      "text": " related"
+    },
+    {
+      "type": "text-delta",
+      "text": " link"
+    },
+    {
+      "type": "text-delta",
+      "text": "),"
+    },
+    {
+      "type": "text-delta",
+      "text": " I"
+    },
+    {
+      "type": "text-delta",
+      "text": " can"
+    },
+    {
+      "type": "text-delta",
+      "text": " try"
+    },
+    {
+      "type": "text-delta",
+      "text": " to"
+    },
+    {
+      "type": "text-delta",
+      "text": " identify"
+    },
+    {
+      "type": "text-delta",
+      "text": " them"
+    },
+    {
+      "type": "text-delta",
+      "text": " more"
+    },
+    {
+      "type": "text-delta",
+      "text": " precisely"
+    },
+    {
+      "type": "text-delta",
+      "text": "."
+    },
+    {
+      "type": "usage",
+      "input_tokens": 3082,
+      "output_tokens": 112,
+      "total_tokens": 3194,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "done",
+      "finish_reason": null
+    }
+  ]
+}

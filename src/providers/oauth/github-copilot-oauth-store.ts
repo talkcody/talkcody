@@ -25,6 +25,8 @@ interface GitHubCopilotOAuthState {
   deviceCode: string | null;
   userCode: string | null;
   verificationUri: string | null;
+  expiresAtMs: number | null;
+  intervalMs: number | null;
 
   // Initialization
   isInitialized: boolean;
@@ -66,6 +68,8 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
   deviceCode: null,
   userCode: null,
   verificationUri: null,
+  expiresAtMs: null,
+  intervalMs: null,
   isInitialized: false,
 
   // Initialize from Rust storage
@@ -117,12 +121,16 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
 
     try {
       const result = await startDeviceCodeFlow(enterpriseUrl);
+      const nowMs = Date.now();
+      const expiresAtMs = nowMs + Math.max(0, result.expiresIn * 1000);
 
       set({
         deviceCode: result.deviceCode,
         userCode: result.userCode,
         verificationUri: result.verificationUri,
         enterpriseUrl: enterpriseUrl || null,
+        expiresAtMs,
+        intervalMs: Math.max(1, result.interval) * 1000,
         isLoading: false,
         isPolling: true,
       });
@@ -146,7 +154,7 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
 
   // Poll for token using Device Code Flow
   pollForToken: async () => {
-    const { deviceCode, enterpriseUrl } = get();
+    const { deviceCode, enterpriseUrl, expiresAtMs, intervalMs } = get();
 
     if (!deviceCode) {
       throw new Error('No device code found. Please start OAuth flow first.');
@@ -154,28 +162,39 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
 
     set({ isPolling: true, error: null });
 
+    const pollIntervalMs = intervalMs ?? 5000;
+    const deadlineMs = expiresAtMs ?? Date.now() + 10 * 60 * 1000;
+
     try {
-      const result = await pollForAccessToken(deviceCode, enterpriseUrl || undefined);
+      while (Date.now() < deadlineMs) {
+        const result = await pollForAccessToken(deviceCode, enterpriseUrl || undefined);
 
-      if (result.type === 'success' && result.tokens) {
-        logger.info('[GitHubCopilotOAuth] OAuth completed successfully');
+        if (result.type === 'success' && result.tokens) {
+          logger.info('[GitHubCopilotOAuth] OAuth completed successfully');
 
-        set({
-          isConnected: true,
-          expiresAt: result.tokens.expiresAt,
-          enterpriseUrl: result.tokens.enterpriseUrl || null,
-          deviceCode: null,
-          userCode: null,
-          verificationUri: null,
-          isLoading: false,
-          isPolling: false,
-        });
-      } else if (result.type === 'pending') {
-        // Still pending, keep polling state
-        set({ isPolling: true });
-      } else {
-        throw new Error(result.error || 'Token exchange failed');
+          set({
+            isConnected: true,
+            expiresAt: result.tokens.expiresAt,
+            enterpriseUrl: result.tokens.enterpriseUrl || null,
+            deviceCode: null,
+            userCode: null,
+            verificationUri: null,
+            expiresAtMs: null,
+            intervalMs: null,
+            isLoading: false,
+            isPolling: false,
+          });
+          return;
+        }
+
+        if (result.type !== 'pending') {
+          throw new Error(result.error || 'Token exchange failed');
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
       }
+
+      throw new Error('Device code expired. Please start OAuth flow again.');
     } catch (error) {
       logger.error('[GitHubCopilotOAuth] Failed to poll for token:', error);
       set({
@@ -203,6 +222,8 @@ export const useGitHubCopilotOAuthStore = create<GitHubCopilotOAuthStore>((set, 
         deviceCode: null,
         userCode: null,
         verificationUri: null,
+        expiresAtMs: null,
+        intervalMs: null,
         isLoading: false,
         isPolling: false,
       });

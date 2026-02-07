@@ -10,34 +10,32 @@ import { analyticsEvents, searchUsage } from '../db/schema';
 const TEST_DEVICE_ID = 'test-search-device-123';
 const TEST_DEVICE_ID_2 = 'test-search-device-456';
 
-// Mock Exa API response
-const mockExaResponse = {
-  requestId: 'test-request-id',
-  results: [
+// Mock Serper API response
+const mockSerperResponse = {
+  organic: [
     {
       title: 'Test Result 1',
-      url: 'https://example.com/1',
-      text: 'This is test content for result 1. It contains relevant information about the search query.',
-      publishedDate: '2026-01-01',
+      link: 'https://example.com/1',
+      snippet:
+        'This is test content for result 1. It contains relevant information about the search query.',
     },
     {
       title: 'Test Result 2',
-      url: 'https://example.com/2',
-      text: 'This is test content for result 2. It also contains useful information.',
+      link: 'https://example.com/2',
+      snippet: 'This is test content for result 2. It also contains useful information.',
     },
   ],
-  searchType: 'auto',
 };
 
-// Mock fetch for Exa API
+// Mock fetch for Serper API
 const originalFetch = global.fetch;
-let fetchMock: any;
+let fetchMock: ReturnType<typeof mock>;
 
 beforeAll(async () => {
   console.log('\n🔧 Setting up search API test environment...\n');
 
-  // Set test EXA_API_KEY
-  Bun.env.EXA_API_KEY = 'test-exa-api-key';
+  // Set test SERPER_API_KEY
+  Bun.env.SERPER_API_KEY = 'test-serper-api-key';
 
   // Create tables if they don't exist
   try {
@@ -109,14 +107,14 @@ beforeAll(async () => {
     // Events may already exist, continue
   }
 
-  // Mock fetch to intercept Exa API calls
+  // Mock fetch to intercept Serper API calls
   fetchMock = mock((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === 'string' ? input : input.toString();
 
-    // Mock Exa API
-    if (url.includes('api.exa.ai/search')) {
+    // Mock Serper API
+    if (url.includes('google.serper.dev/search')) {
       return Promise.resolve(
-        new Response(JSON.stringify(mockExaResponse), {
+        new Response(JSON.stringify(mockSerperResponse), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
         })
@@ -520,7 +518,7 @@ describe('Search API - GET /api/search/health', () => {
 
     const data = await res.json();
     expect(data.status).toBeDefined();
-    expect(data.provider).toBe('exa');
+    expect(data.provider).toBe('serper');
     expect(data.timestamp).toBeDefined();
   });
 });

@@ -136,7 +136,7 @@ export class MultiMCPAdapter {
         for (const toolInfo of Object.values(connection.tools)) {
           allTools[toolInfo.prefixedName] = {
             description: toolInfo.description,
-            inputSchema: null,
+            inputSchema: { type: 'object', properties: {} },
           };
         }
       }
@@ -168,7 +168,7 @@ export class MultiMCPAdapter {
     return {
       name: toolName,
       description: matching?.description || matching?.title || tool.description,
-      inputSchema: matching?.inputSchema || null,
+      inputSchema: matching?.inputSchema || { type: 'object', properties: {} },
       serverId,
       serverName: tool.serverName,
       prefixedName,

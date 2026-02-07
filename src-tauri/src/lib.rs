@@ -21,6 +21,7 @@ mod oauth_callback_server;
 mod script_executor;
 mod search;
 mod shell_utils;
+mod telegram_gateway;
 mod terminal;
 mod walker;
 mod websocket;
@@ -758,6 +759,7 @@ pub fn run() {
         })
         .manage(keep_awake::KeepAwakeStateWrapper::new())
         .manage(AnalyticsState::new())
+        .manage(telegram_gateway::default_state())
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_single_instance::init(|app, argv, cwd| {
             if let Err(e) = app.emit("single-instance", Payload { args: argv, cwd }) {
@@ -1044,8 +1046,28 @@ pub fn run() {
             keep_awake::keep_awake_release,
             keep_awake::keep_awake_get_ref_count,
             keep_awake::keep_awake_is_preventing,
+            telegram_gateway::telegram_get_config,
+            telegram_gateway::telegram_set_config,
+            telegram_gateway::telegram_start,
+            telegram_gateway::telegram_stop,
+            telegram_gateway::telegram_get_status,
+            telegram_gateway::telegram_is_running,
+            telegram_gateway::telegram_send_message,
+            telegram_gateway::telegram_edit_message,
         ])
         .on_window_event(|window, event| {
+            if let WindowEvent::CloseRequested { api, .. } = event {
+                if window.label() == "main" {
+                    api.prevent_close();
+                    let window = window.clone();
+                    tauri::async_runtime::spawn(async move {
+                        if let Err(error) = window.hide() {
+                            log::warn!("Failed to hide main window: {}", error);
+                        }
+                    });
+                    return;
+                }
+            }
             // Clean up resources when main window is destroyed
             if let WindowEvent::Destroyed = event {
                 if window.label() == "main" {

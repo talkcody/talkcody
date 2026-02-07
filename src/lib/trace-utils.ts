@@ -3,8 +3,6 @@
  * Format: "YYYYMMDDhhmmssfff-uuid" (same as Rust backend)
  * Example: "20260131143025012-a1b2c3d4"
  */
-
-import { logger } from './logger';
 import { generateId } from './utils';
 
 /**
@@ -52,6 +50,5 @@ export function createLlmTraceContext(
     parentSpanId: parentSpanId ?? null,
     metadata,
   };
-  logger.info(`[Trace] Creating LLM trace context: ${JSON.stringify(context)}`);
   return context;
 }

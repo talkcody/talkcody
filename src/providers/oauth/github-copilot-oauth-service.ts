@@ -43,6 +43,8 @@ export interface OAuthFlowResult {
   userCode: string;
   verificationUri: string;
   deviceCode: string;
+  expiresIn: number;
+  interval: number;
 }
 
 export interface TokenExchangeResult {
@@ -61,6 +63,8 @@ export async function startDeviceCodeFlow(enterpriseUrl?: string): Promise<OAuth
     deviceCode: result.deviceCode,
     userCode: result.userCode,
     verificationUri: result.verificationUri,
+    expiresIn: result.expiresIn,
+    interval: result.interval,
   };
 }
 

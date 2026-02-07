@@ -74,6 +74,28 @@ describe('MultiMCPAdapter', () => {
     expect(tools[0]?.prefixedName).toBe('server-1__ping');
   });
 
+  it('provides fallback schema when MCP tools do not supply one', async () => {
+    mockGetEnabledMCPServers.mockResolvedValue([server]);
+    mockListTools.mockResolvedValue({
+      tools: [
+        {
+          name: 'ping',
+          description: 'Ping tool',
+        },
+      ],
+    });
+    mockCreateTransport.mockReturnValue({});
+
+    const { multiMCPAdapter } = await import('./multi-mcp-adapter');
+
+    const tools = await multiMCPAdapter.getAdaptedTools();
+
+    expect(tools['server-1__ping']).toEqual({
+      description: 'Ping tool',
+      inputSchema: { type: 'object', properties: {} },
+    });
+  });
+
   it('executes adapted tools through MCP client', async () => {
     mockGetEnabledMCPServers.mockResolvedValue([server]);
     mockListTools.mockResolvedValue({
@@ -95,6 +117,13 @@ describe('MultiMCPAdapter', () => {
     const { multiMCPAdapter } = await import('./multi-mcp-adapter');
 
     const tool = await multiMCPAdapter.getAdaptedTool('server-1__search');
+
+    expect(tool.inputSchema).toEqual({
+      type: 'object',
+      properties: { query: { type: 'string' } },
+      required: ['query'],
+    });
+
     const result = await tool.execute({ query: 'hello' });
 
     expect(mockCallTool).toHaveBeenCalledWith({
