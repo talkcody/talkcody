@@ -1,0 +1,281 @@
+{
+  "version": 1,
+  "provider_id": "anthropic-minimax-test-894132",
+  "protocol": "Claude",
+  "model": "MiniMax-M2",
+  "endpoint_path": "anthropic/v1/messages",
+  "request": {
+    "method": "POST",
+    "url": "https://api.minimaxi.com/anthropic/v1/messages",
+    "headers": {
+      "content-type": "application/json",
+      "authorization": "REDACTED",
+      "anthropic-version": "2023-06-01"
+    },
+    "body": {
+      "max_tokens": 15000,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "nihao",
+              "type": "text"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "model": "MiniMax-M2",
+      "stream": true,
+      "system": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-09T04:41:01.419Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+      "temperature": 1.0,
+      "thinking": {
+        "budgetTokens": 12000,
+        "type": "enabled"
+      },
+      "tools": [
+        {
+          "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "name": "webSearch"
+        },
+        {
+          "description": "Fetch and extract content from a web url",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "type": "object"
+          },
+          "name": "webFetch"
+        }
+      ],
+      "top_p": 0.949999988079071
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "alb_receive_time": "1770612965.481",
+      "x-session-id": "15ff7fdc667fe592e41af84695c11cc4",
+      "content-type": "text/event-stream; charset=utf-8",
+      "cache-control": "no-cache",
+      "minimax-request-id": "f4c77d8b41e922eaa86264df61ba7321",
+      "trace-id": "05d89be5d9c6972c645fae82dd64cde9",
+      "alb_request_id": "035cbc6a68385253b9731c3eece3b13cb118add6",
+      "connection": "keep-alive",
+      "vary": "Accept-Encoding",
+      "date": "Mon, 09 Feb 2026 04:56:06 GMT",
+      "transfer-encoding": "chunked"
+    },
+    "sse_events": [
+      {
+        "event": "message_start",
+        "data": "{\"type\":\"message_start\",\"message\":{\"id\":\"05d89be5d9c6972c645fae82dd64cde9\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"MiniMax-M2\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":768,\"output_tokens\":0},\"service_tier\":\"standard\"}}"
+      },
+      {
+        "event": "ping",
+        "data": "{\"type\":\"ping\"}"
+      },
+      {
+        "event": "content_block_start",
+        "data": "{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"The user\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" just said \\\"nihao\\\" which is a Chinese greeting meaning \\\"hello\\\" or \\\"hi\\\". This is a very simple greeting, not a request for information\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" that would require web search tools. I should respond in a friendly manner in English (as specified in the instructions) and ask how I can help them\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" today.\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"f10eff6525883ad68307de34071e5d814d6b5fb71e0eb8497b3f4aa9374499ce\"}}"
+      },
+      {
+        "event": "content_block_stop",
+        "data": "{\"type\":\"content_block_stop\",\"index\":0}"
+      },
+      {
+        "event": "content_block_start",
+        "data": "{\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"Hello! It's great to meet you. I'm here to help you with any questions or information you might need. Whether you're looking for explanations on specific\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" topics, current information, research assistance, or anything else - just let me know what you'd like to explore,\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\" and I'll be happy to assist you.\"}}"
+      },
+      {
+        "event": "content_block_stop",
+        "data": "{\"type\":\"content_block_stop\",\"index\":1}"
+      },
+      {
+        "event": "message_delta",
+        "data": "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"input_tokens\":768,\"output_tokens\":128}}"
+      },
+      {
+        "event": "message_stop",
+        "data": "{\"type\":\"message_stop\"}"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "MiniMax-M2",
+    "messages": [
+      {
+        "role": "system",
+        "content": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-09T04:41:01.419Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+        "providerOptions": {
+          "anthropic": {
+            "cacheControl": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "user",
+        "content": "nihao",
+        "providerOptions": null
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "name": "webSearch",
+        "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "webFetch",
+        "description": "Fetch and extract content from a web url",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      }
+    ],
+    "temperature": 1.0,
+    "max_tokens": 15000,
+    "top_p": 0.95,
+    "top_k": 20,
+    "provider_options": {
+      "anthropic": {
+        "thinking": {
+          "budgetTokens": 12000,
+          "type": "enabled"
+        }
+      },
+      "google": {
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingBudget": 8192
+        }
+      },
+      "moonshot": {
+        "temperature": 1,
+        "thinking": {
+          "type": "enabled"
+        }
+      }
+    },
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "reasoning-start",
+      "id": "thinking",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "thinking",
+      "text": "",
+      "provider_metadata": {
+        "anthropic": {
+          "signature": "f10eff6525883ad68307de34071e5d814d6b5fb71e0eb8497b3f4aa9374499ce"
+        }
+      }
+    },
+    {
+      "type": "text-delta",
+      "text": "Hello! It's great to meet you. I'm here to help you with any questions or information you might need. Whether you're looking for explanations on specific"
+    },
+    {
+      "type": "text-delta",
+      "text": " topics, current information, research assistance, or anything else - just let me know what you'd like to explore,"
+    },
+    {
+      "type": "text-delta",
+      "text": " and I'll be happy to assist you."
+    },
+    {
+      "type": "usage",
+      "input_tokens": 768,
+      "output_tokens": 128,
+      "total_tokens": null,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "done",
+      "finish_reason": "end_turn"
+    }
+  ]
+}

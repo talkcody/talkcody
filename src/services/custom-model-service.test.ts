@@ -44,6 +44,70 @@ describe('CustomModelService - fetchProviderModels with custom base URL', () => 
     vi.clearAllMocks();
   });
 
+  it('should normalize custom provider base URL without duplicating v1', async () => {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const { customProviderService } = await import('@/providers/custom/custom-provider-service');
+    const { customModelService } = await import('@/providers/custom/custom-model-service');
+
+    vi.mocked(customProviderService.getEnabledCustomProviders).mockResolvedValue([
+      {
+        id: 'custom-openai',
+        name: 'Custom OpenAI',
+        type: 'openai-compatible',
+        baseUrl: 'https://doit.cc.cd/v1',
+        apiKey: 'test-key',
+        enabled: true,
+      },
+    ]);
+
+    vi.mocked(invoke).mockResolvedValue({
+      status: 200,
+      body: JSON.stringify({ data: [{ id: 'model-1', name: 'Model 1' }] }),
+    });
+
+    await customModelService.fetchProviderModels('custom-openai');
+
+    const fetchCall = vi
+      .mocked(invoke)
+      .mock.calls.find((call) => call[0] === 'proxy_fetch' && call[1]?.request?.url?.includes('doit.cc.cd'));
+    expect(fetchCall).toBeTruthy();
+    const request = fetchCall?.[1]?.request as { url?: string; allow_private_ip?: boolean };
+    expect(request?.url).toBe('https://doit.cc.cd/v1/models');
+    expect(request?.allow_private_ip).toBe(true);
+  });
+
+  it('should append v1 for custom provider base URL without version segment', async () => {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const { customProviderService } = await import('@/providers/custom/custom-provider-service');
+    const { customModelService } = await import('@/providers/custom/custom-model-service');
+
+    vi.mocked(customProviderService.getEnabledCustomProviders).mockResolvedValue([
+      {
+        id: 'custom-openai',
+        name: 'Custom OpenAI',
+        type: 'openai-compatible',
+        baseUrl: 'https://doit.cc.cd',
+        apiKey: 'test-key',
+        enabled: true,
+      },
+    ]);
+
+    vi.mocked(invoke).mockResolvedValue({
+      status: 200,
+      body: JSON.stringify({ data: [{ id: 'model-1', name: 'Model 1' }] }),
+    });
+
+    await customModelService.fetchProviderModels('custom-openai');
+
+    const fetchCall = vi
+      .mocked(invoke)
+      .mock.calls.find((call) => call[0] === 'proxy_fetch' && call[1]?.request?.url?.includes('doit.cc.cd'));
+    expect(fetchCall).toBeTruthy();
+    const request = fetchCall?.[1]?.request as { url?: string; allow_private_ip?: boolean };
+    expect(request?.url).toBe('https://doit.cc.cd/v1/models');
+    expect(request?.allow_private_ip).toBe(true);
+  });
+
   it('should allow private IPs for custom providers', async () => {
     const { invoke } = await import('@tauri-apps/api/core');
     const { customProviderService } = await import('@/providers/custom/custom-provider-service');
@@ -68,12 +132,13 @@ describe('CustomModelService - fetchProviderModels with custom base URL', () => 
 
     await customModelService.fetchProviderModels('custom-private');
 
-    expect(invoke).toHaveBeenCalledWith('proxy_fetch', {
-      request: expect.objectContaining({
-        url: 'http://10.108.10.104:9090/v1/models',
-        allow_private_ip: true,
-      }),
-    });
+    const fetchCall = vi
+      .mocked(invoke)
+      .mock.calls.find((call) => call[0] === 'proxy_fetch' && call[1]?.request?.url?.includes('10.108.10.104'));
+    expect(fetchCall).toBeTruthy();
+    const request = fetchCall?.[1]?.request as { url?: string; allow_private_ip?: boolean };
+    expect(request?.url).toBe('http://10.108.10.104:9090/v1/models');
+    expect(request?.allow_private_ip).toBe(true);
   });
 
   it('should use custom base URL when configured for anthropic', async () => {

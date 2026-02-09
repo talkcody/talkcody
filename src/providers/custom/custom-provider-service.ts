@@ -3,6 +3,7 @@ import { invoke } from '@tauri-apps/api/core';
 import { BaseDirectory, exists, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
 import { logger } from '@/lib/logger';
 import type { ProxyRequest, ProxyResponse } from '@/lib/tauri-fetch';
+import { normalizeCustomProviderBaseUrl } from '@/providers/custom/custom-provider-url';
 import type {
   CustomProviderConfig,
   CustomProvidersConfiguration,
@@ -252,13 +253,15 @@ class CustomProviderService {
         Accept: 'application/json',
       };
 
+      const normalizedBaseUrl = normalizeCustomProviderBaseUrl(config.baseUrl);
+
       // Set up provider-specific authentication and test endpoint
       if (config.type === 'anthropic') {
         headers['x-api-key'] = config.apiKey;
         headers['anthropic-version'] = '2023-06-01';
         headers['Authorization'] = `Bearer ${config.apiKey}`;
         // Anthropic /v1/messages requires POST with a minimal request body
-        testUrl = `${config.baseUrl.replace(/\/+$/, '')}/v1/messages`;
+        testUrl = `${normalizedBaseUrl}/messages`;
         method = 'POST';
         body = JSON.stringify({
           model: 'claude-3-haiku-20240307',
@@ -268,7 +271,7 @@ class CustomProviderService {
       } else {
         // openai-compatible - /v1/models supports GET
         headers.Authorization = `Bearer ${config.apiKey}`;
-        testUrl = `${config.baseUrl.replace(/\/+$/, '')}/models`;
+        testUrl = `${normalizedBaseUrl}/models`;
       }
 
       const proxyRequest: ProxyRequest = {

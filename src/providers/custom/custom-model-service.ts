@@ -6,6 +6,7 @@ import { logger } from '@/lib/logger';
 import type { ProxyRequest, ProxyResponse } from '@/lib/tauri-fetch';
 import { PROVIDER_CONFIGS, PROVIDERS_WITH_INTERNATIONAL } from '@/providers/config/provider-config';
 import { customProviderService } from '@/providers/custom/custom-provider-service';
+import { normalizeCustomProviderBaseUrl } from '@/providers/custom/custom-provider-url';
 import { useProviderStore } from '@/providers/stores/provider-store';
 import { settingsManager } from '@/stores/settings-store';
 import type { ModelConfig, ModelsConfiguration } from '@/types/models';
@@ -274,7 +275,8 @@ class CustomModelService {
       // Custom provider - use its base URL and API key
       isCustomProvider = true;
       customProviderType = customProvider.type;
-      endpoint = customProvider.baseUrl.replace(/\/+$/, '') + '/v1/models';
+      const normalizedBaseUrl = normalizeCustomProviderBaseUrl(customProvider.baseUrl);
+      endpoint = `${normalizedBaseUrl}/models`;
       apiKey = customProvider.apiKey;
       logger.info(`Using custom provider ${providerId}: ${endpoint}`);
     } else {
@@ -287,8 +289,8 @@ class CustomModelService {
       const customBaseUrl = await settingsManager.getProviderBaseUrl(providerId);
       if (customBaseUrl) {
         // Use custom base URL to construct models endpoint
-        // Remove trailing slashes and append /models
-        endpoint = customBaseUrl.replace(/\/+$/, '') + '/models';
+        const normalizedBaseUrl = normalizeCustomProviderBaseUrl(customBaseUrl);
+        endpoint = `${normalizedBaseUrl}/models`;
         logger.info(`Using custom base URL for ${providerId}: ${endpoint}`);
       } else if (PROVIDERS_WITH_INTERNATIONAL.includes(providerId)) {
         const useInternational = await settingsManager.getProviderUseInternational(providerId);

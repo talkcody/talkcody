@@ -15,6 +15,67 @@ vi.mock('@tauri-apps/plugin-fs', () => ({
 // Note: Logger is already mocked globally in setup.ts
 
 describe('CustomProviderService - private IP support', () => {
+
+  it('should normalize custom provider base URL without duplicating v1', async () => {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const { customProviderService } = await import('@/providers/custom/custom-provider-service');
+
+    vi.mocked(invoke).mockResolvedValue({
+      status: 200,
+      headers: {},
+      body: JSON.stringify({ data: [] }),
+    });
+
+    const config: CustomProviderConfig = {
+      id: 'custom-openai',
+      name: 'Custom OpenAI',
+      type: 'openai-compatible',
+      baseUrl: 'https://doit.cc.cd/v1',
+      apiKey: 'test-key',
+      enabled: true,
+    };
+
+    await customProviderService.testProviderConnection(config);
+
+    const fetchCall = vi
+      .mocked(invoke)
+      .mock.calls.find((call) => call[0] === 'proxy_fetch');
+    expect(fetchCall).toBeTruthy();
+    const request = fetchCall?.[1]?.request as { url?: string; allow_private_ip?: boolean };
+    expect(request?.url).toBe('https://doit.cc.cd/v1/models');
+    expect(request?.allow_private_ip).toBe(true);
+  });
+
+  it('should append v1 when missing for openai-compatible connection test', async () => {
+    const { invoke } = await import('@tauri-apps/api/core');
+    const { customProviderService } = await import('@/providers/custom/custom-provider-service');
+
+    vi.mocked(invoke).mockResolvedValue({
+      status: 200,
+      headers: {},
+      body: JSON.stringify({ data: [] }),
+    });
+
+    const config: CustomProviderConfig = {
+      id: 'custom-openai',
+      name: 'Custom OpenAI',
+      type: 'openai-compatible',
+      baseUrl: 'https://doit.cc.cd',
+      apiKey: 'test-key',
+      enabled: true,
+    };
+
+    await customProviderService.testProviderConnection(config);
+
+    const fetchCall = vi
+      .mocked(invoke)
+      .mock.calls.find((call) => call[0] === 'proxy_fetch');
+    expect(fetchCall).toBeTruthy();
+    const request = fetchCall?.[1]?.request as { url?: string; allow_private_ip?: boolean };
+    expect(request?.url).toBe('https://doit.cc.cd/v1/models');
+    expect(request?.allow_private_ip).toBe(true);
+  });
+
   it('should allow private IP requests for connection test', async () => {
     const { invoke } = await import('@tauri-apps/api/core');
     const { customProviderService } = await import('@/providers/custom/custom-provider-service');
@@ -37,13 +98,15 @@ describe('CustomProviderService - private IP support', () => {
 
     await customProviderService.testProviderConnection(config);
 
-    expect(invoke).toHaveBeenCalledWith('proxy_fetch', {
-      request: expect.objectContaining({
-        url: 'http://10.108.10.104:9090/v1/models',
-        allow_private_ip: true,
-      }),
-    });
+    const fetchCall = vi
+      .mocked(invoke)
+      .mock.calls.find((call) => call[0] === 'proxy_fetch' && call[1]?.request?.url?.includes('10.108.10.104'));
+    expect(fetchCall).toBeTruthy();
+    const request = fetchCall?.[1]?.request as { url?: string; allow_private_ip?: boolean };
+    expect(request?.url).toBe('http://10.108.10.104:9090/v1/models');
+    expect(request?.allow_private_ip).toBe(true);
   });
+
 });
 
 describe('CustomProviderService - base URL validation', () => {

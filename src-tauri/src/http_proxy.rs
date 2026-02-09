@@ -165,6 +165,22 @@ fn should_soft_end_on_decode_error(is_decode_error: bool, chunk_count: u32) -> b
     is_decode_error && chunk_count > 0
 }
 
+fn truncate_for_log(value: &str, max_chars: usize) -> (String, bool) {
+    let mut iter = value.chars();
+    let mut out = String::new();
+
+    for _ in 0..max_chars {
+        if let Some(ch) = iter.next() {
+            out.push(ch);
+        } else {
+            return (out, false);
+        }
+    }
+
+    let truncated = iter.next().is_some();
+    (out, truncated)
+}
+
 async fn drain_response_stream<S>(stream: &mut S, max_duration: Duration)
 where
     S: futures_util::Stream<Item = Result<Bytes, reqwest::Error>> + Unpin,
@@ -242,19 +258,26 @@ pub async fn proxy_fetch(request: ProxyRequest) -> Result<ProxyResponse, String>
 
     // Send request
     let response = req_builder.send().await.map_err(|e| {
-        log::error!("Proxy fetch error: {}", e);
-        format!("Request failed: {}", e)
+        let detail = e.to_string();
+        let status = e.status().map(|code| code.as_u16());
+        let status_label = status
+            .map(|code| code.to_string())
+            .unwrap_or_else(|| "none".to_string());
+        log::error!(
+            "Proxy fetch error: {} (status: {}, timeout: {}, connect: {}, request: {}, body: {}, decode: {}, request.url: {})",
+            detail,
+            status_label,
+            e.is_timeout(),
+            e.is_connect(),
+            e.is_request(),
+            e.is_body(),
+            e.is_decode(),
+            request.url
+        );
+        format!("Request failed (status {}): {}", status_label, detail)
     })?;
 
     let status = response.status().as_u16();
-
-    if status != 200 {
-        log::error!(
-            "fetch response error: status {} (request.url: {})",
-            status,
-            request.url
-        );
-    }
 
     // Extract headers
     let mut headers = HashMap::new();
@@ -262,6 +285,24 @@ pub async fn proxy_fetch(request: ProxyRequest) -> Result<ProxyResponse, String>
         if let Ok(value_str) = value.to_str() {
             headers.insert(key.to_string(), value_str.to_string());
         }
+    }
+
+    if status != 200 {
+        let body_preview = response.text().await.unwrap_or_default();
+        let (preview, truncated) = truncate_for_log(&body_preview, 2048);
+        log::error!(
+            "fetch response error: status {} (request.url: {}, body{}: {})",
+            status,
+            request.url,
+            if truncated { " truncated" } else { "" },
+            preview
+        );
+
+        return Ok(ProxyResponse {
+            status,
+            headers,
+            body: body_preview,
+        });
     }
 
     // Log critical response headers for debugging
@@ -386,6 +427,13 @@ async fn stream_fetch_inner<R: tauri::Runtime>(
     // Send request
     let response = req_builder.send().await.map_err(|e| {
         let err = format!("Request failed: {}", e);
+        let status = e.status().map(|code| code.as_u16());
+        log::error!(
+            "Stream fetch request error: {} (status: {:?}, request.url: {})",
+            err,
+            status,
+            request.url
+        );
         emit_end(0, Some(err.clone()));
         err
     })?;
