@@ -36,12 +36,15 @@ export interface RemoteInboundMessage {
   attachments?: RemoteAttachment[];
 }
 
+export type MessageParseMode = 'HTML' | 'MarkdownV2' | 'plain';
+
 export interface RemoteSendMessageRequest {
   channelId: RemoteChannelId;
   chatId: string;
   text: string;
   replyToMessageId?: string;
   disableWebPagePreview?: boolean;
+  parseMode?: MessageParseMode;
 }
 
 export interface RemoteSendMessageResponse {
@@ -54,6 +57,7 @@ export interface RemoteEditMessageRequest {
   messageId: string;
   text: string;
   disableWebPagePreview?: boolean;
+  parseMode?: MessageParseMode;
 }
 
 export interface FeishuRemoteAttachment {
@@ -130,6 +134,7 @@ export interface TelegramSendMessageRequest {
   text: string;
   replyToMessageId?: number;
   disableWebPagePreview?: boolean;
+  parseMode?: 'HTML' | 'MarkdownV2' | 'plain';
 }
 
 export interface TelegramSendMessageResponse {
@@ -150,4 +155,5 @@ export interface TelegramEditMessageRequest {
   messageId: number;
   text: string;
   disableWebPagePreview?: boolean;
+  parseMode?: 'HTML' | 'MarkdownV2' | 'plain';
 }

@@ -55,6 +55,7 @@ function toTelegramSendMessageRequest(
     text: request.text,
     replyToMessageId: request.replyToMessageId ? Number(request.replyToMessageId) : undefined,
     disableWebPagePreview: request.disableWebPagePreview,
+    parseMode: request.parseMode,
   };
 }
 
@@ -66,6 +67,7 @@ function toTelegramEditMessageRequest(
     messageId: Number(request.messageId),
     text: request.text,
     disableWebPagePreview: request.disableWebPagePreview,
+    parseMode: request.parseMode,
   };
 }
 

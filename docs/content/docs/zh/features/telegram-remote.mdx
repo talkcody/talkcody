@@ -1,7 +1,8 @@
 ---
 title: Telegram 远程控制
+sidebarTitle: Telegram
 description: 通过 Telegram 在手机上发送消息，桌面端 TalkCody 执行任务并回传结果。
-icon: MessageCircle
+icon: Telegram
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
@@ -30,35 +31,7 @@ Telegram 远程控制让你在手机 Telegram 里发送消息，桌面端 TalkCo
 请妥善保管 Bot Token，不要公开或分享给他人。如 Token 泄露，可在 BotFather 中发送 `/revoke` 命令重置。
 </Callout>
 
-**示例对话：**
-```
-您: /newbot
-BotFather: 好的，请为新机器人选择一个名称。
-您: TalkCody 远程控制
-BotFather: 好。现在请为机器人选择一个用户名。它必须以 bot 结尾，例如：TetrisBot 或 tetris_bot。
-您: talkcody_remote_bot
-BotFather: 大功告成！...
-Use this token to access the HTTP API:
-123456789:ABCdefGHIjklMNOpqrSTUvwxyz
-```
-
-### 2. 获取 Chat ID
-
-方法一：通过日志查看
-1. 先在 TalkCody 中配置好 Bot Token 并启用远程控制
-2. 在 Telegram 中给 Bot 发送一条消息（任意内容）
-3. 在 TalkCody 日志中查看 `chat_id`
-
-方法二：使用工具 Bot
-1. 在 Telegram 中搜索 **@userinfobot**
-2. 发送任意消息
-3. 机器人会回复你的用户 ID（即 Chat ID）
-
-<Callout type="info">
-Chat ID 是一个数字，私聊通常为正值（如 `123456789`），群聊通常为负值（如 `-1001234567890`）。当前版本仅支持私聊。
-</Callout>
-
-### 3. 确保桌面端 TalkCody 正在运行
+### 2. 确保桌面端 TalkCody 正在运行
 
 Telegram 远程控制需要桌面端 TalkCody 保持运行状态才能接收和处理消息。
 

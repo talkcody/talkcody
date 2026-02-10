@@ -73,6 +73,7 @@ pub struct TelegramSendMessageRequest {
     pub text: String,
     pub reply_to_message_id: Option<i64>,
     pub disable_web_page_preview: Option<bool>,
+    pub parse_mode: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -88,6 +89,7 @@ pub struct TelegramEditMessageRequest {
     pub message_id: i64,
     pub text: String,
     pub disable_web_page_preview: Option<bool>,
+    pub parse_mode: Option<String>,
 }
 
 #[derive(Debug, Clone)]
@@ -1117,6 +1119,7 @@ pub async fn telegram_send_message(
             "text": request.text,
             "reply_to_message_id": request.reply_to_message_id,
             "disable_web_page_preview": request.disable_web_page_preview.unwrap_or(true),
+            "parse_mode": request.parse_mode,
         }))
         .send()
         .await
@@ -1175,6 +1178,7 @@ pub async fn telegram_edit_message(
             "message_id": request.message_id,
             "text": request.text,
             "disable_web_page_preview": request.disable_web_page_preview.unwrap_or(true),
+            "parse_mode": request.parse_mode,
         }))
         .send()
         .await

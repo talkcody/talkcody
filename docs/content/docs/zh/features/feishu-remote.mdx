@@ -1,7 +1,8 @@
 ---
 title: 飞书远程控制
+sidebarTitle: 飞书
 description: 通过飞书在手机上发送消息，桌面端 TalkCody 执行任务并回传结果。
-icon: MessageSquare
+icon: Feishu
 ---
 
 import { Callout } from 'fumadocs-ui/components/callout';
@@ -24,6 +25,11 @@ import { Callout } from 'fumadocs-ui/components/callout';
 2. 点击「创建企业自建应用」
 3. 填写应用名称（如「TalkCody 远程控制」）和描述
 4. 点击「创建应用」
+5. 启用 Bot 能力
+
+![TalkCody feishu create](https://cdn.talkcody.com/images/feishu-create.png)
+
+![TalkCody feishu bot](https://cdn.talkcody.com/images/feishu-bot.png)
 
 ### 2. 获取 App ID 和 App Secret
 
@@ -39,12 +45,11 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 1. 进入「权限管理」页面
 2. 添加以下权限：
-   - `im:chat:readonly` - 获取群组信息
-   - `im:message:send_as_bot` - 以机器人身份发送消息
-   - `im:message.group_msg` - 接收群消息
-   - `im:message.p2p_msg` - 接收单聊消息
-   - `im:message:update` - 更新已发送的消息
-   - `im:resource` - 获取消息中的资源（图片、文件等）
+   - `im:message` - 发送消息
+
+![TalkCody feishu permission](https://cdn.talkcody.com/images/feishu-permission.png)
+
+![TalkCody feishu permission 2](https://cdn.talkcody.com/images/feishu-permission2.png)
 
 ### 4. 发布应用
 
@@ -54,17 +59,7 @@ import { Callout } from 'fumadocs-ui/components/callout';
 4. 点击「申请发布」
 5. 让管理员审核并发布应用
 
-### 5. 获取用户 Open ID
-
-1. 在飞书客户端中给机器人发送任意消息
-2. 在 TalkCody 日志中查看接收到的 `open_id`
-3. 或通过飞书管理后台查看用户的 Open ID
-
-<Callout type="info">
-Open ID 是用户在当前应用下的唯一标识，格式如 `ou_xxxxxxxxxx`。
-</Callout>
-
-## 配置步骤
+### 5. 在 TalkCody 中配置启用
 
 1. 打开 TalkCody 设置页
 2. 找到「飞书远程控制」
@@ -75,6 +70,17 @@ Open ID 是用户在当前应用下的唯一标识，格式如 `ou_xxxxxxxxxx`�
 7. （可选）填写 **Verification Token** - 如果配置了验证 Token
 8. （可选）填写 **允许的 Open IDs** - 多个 ID 用逗号分隔，留空允许所有
 9. 保存设置
+
+### 6. 添加 receive messages event
+
+1. 选择长连接接收消息事件
+
+![TalkCody feishu event 1](https://cdn.talkcody.com/images/feishu-event1.png)
+
+
+2. 增加 im.message.receive_v1 事件
+
+![TalkCody feishu event 2](https://cdn.talkcody.com/images/feishu-event2.png)
 
 ## 指令说明
 
@@ -125,14 +131,6 @@ Open ID 是用户在当前应用下的唯一标识，格式如 `ou_xxxxxxxxxx`�
 ### 3. 如何停止任务？
 
 发送 `/stop` 即可停止当前任务。
-
-### 4. 如何获取 Open ID？
-
-最简单的方法是：
-1. 先不填写「允许的 Open IDs」，保存设置
-2. 在飞书中给机器人发送一条消息
-3. 在 TalkCody 日志中搜索 `open_id`，找到对应的值
-4. 将 Open ID 填入设置中以限制访问
 
 <Callout type="info">
 飞书远程控制使用 WebSocket 长连接实时接收消息，无需像 Telegram 那样配置轮询超时。

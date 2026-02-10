@@ -9,6 +9,7 @@ import { commandExecutor } from '@/services/commands/command-executor';
 import { commandRegistry } from '@/services/commands/command-registry';
 import { executionService } from '@/services/execution-service';
 import { messageService } from '@/services/message-service';
+import { formatForTelegramHtml } from '@/services/remote/remote-message-format';
 import {
   isDuplicateTelegramMessage,
   normalizeTelegramCommand,
@@ -494,10 +495,12 @@ class TelegramRemoteService {
   }
 
   private async sendMessage(chatId: number, text: string): Promise<TelegramSendMessageResponse> {
+    const formattedText = formatForTelegramHtml(text);
     const request: TelegramSendMessageRequest = {
       chatId,
-      text,
+      text: formattedText,
       disableWebPagePreview: true,
+      parseMode: 'HTML',
     };
     return invoke('telegram_send_message', { request });
   }
@@ -506,11 +509,13 @@ class TelegramRemoteService {
     if (!text.trim()) {
       return;
     }
+    const formattedText = formatForTelegramHtml(text);
     const request: TelegramEditMessageRequest = {
       chatId,
       messageId,
-      text,
+      text: formattedText,
       disableWebPagePreview: true,
+      parseMode: 'HTML',
     };
     await invoke('telegram_edit_message', { request });
   }
@@ -532,10 +537,6 @@ class TelegramRemoteService {
       logger.warn('[TelegramRemoteService] Failed to fetch gateway status', error);
       return null;
     }
-  }
-
-  private parseAllowedChats(raw: string | null | undefined): number[] {
-    return parseAllowedChatIds(raw);
   }
 
   private toRustConfig(config: TelegramRemoteConfig) {

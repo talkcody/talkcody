@@ -1,0 +1,118 @@
+---
+title: Telegram Remote Control
+sidebarTitle: Telegram
+description: Send messages from your phone via Telegram, let TalkCody execute tasks on desktop, and receive results back.
+icon: Telegram
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+## Overview
+
+Telegram Remote Control allows you to send messages from Telegram on your phone, have TalkCody execute tasks in the background on your desktop, and stream results back to your phone.
+
+Ideal use cases:
+
+- Start tasks remotely and check progress anytime
+- Get task results while commuting or on the go
+- Handle long-running tasks
+
+## Prerequisites
+
+### 1. Create a Bot in Telegram
+
+1. Open Telegram and search for **@BotFather**
+2. Send the `/newbot` command
+3. Follow the prompts to enter a name for your Bot (e.g., "TalkCody Remote Control")
+4. Enter a username for your Bot (must end with `bot`, e.g., `talkcody_remote_bot`)
+5. After creation, BotFather will send a message containing the **Bot Token**
+
+<Callout type="warning">
+Please keep the Bot Token secure and do not share it with others. If the token is leaked, you can reset it by sending the `/revoke` command to BotFather.
+</Callout>
+
+### 2. Ensure Desktop TalkCody is Running
+
+Telegram Remote Control requires the desktop TalkCody application to be running in order to receive and process messages.
+
+## Configuration Steps
+
+1. Open TalkCody Settings
+2. Find "Telegram Remote Control"
+3. Enable the "Enable Telegram Remote Control" toggle
+4. Enter the **Bot Token** (obtained from BotFather)
+5. (Optional) Enter **Allowed Chat IDs**:
+   - Leave empty: Allow all chats
+   - Multiple Chat IDs separated by commas
+6. Set **Polling Timeout** (5-60 seconds, recommended 10-30 seconds)
+7. Save settings
+
+## Command Reference
+
+| Command | Action | Example |
+|---------|--------|---------|
+| `/new` | Create a new task | `/new Help me summarize today's meeting notes` |
+| `/status` | Check current task status | `/status` |
+| `/stop` | Stop current task | `/stop` |
+| `/model` | Switch model | `/model claude-sonnet-4-20250514` |
+| `/project` | Switch project | `/project my-project` |
+| `/agent` | Switch Agent | `/agent code-reviewer` |
+| `/list` | View lists (models/projects/agents) | `/list -p` to view project list |
+| `/approve` | Approve file edits | `/approve` |
+| `/reject` | Reject file edits | `/reject` |
+| `/help` | View help | `/help` |
+
+<Callout type="info">
+When using commands in group chats, you may need to append the Bot username, such as `/new@talkcody_remote_bot task content`.
+</Callout>
+
+## Supported Input Types
+
+Telegram Remote Control supports the following input types:
+
+| Type | Description |
+|------|-------------|
+| Text | Plain text messages |
+| Image | Uploaded photos, up to 20MB |
+| Voice | Voice messages, automatically transcribed |
+| Audio | Audio files (MP3, etc.) |
+| File | Regular files (documents, etc.), up to 20MB |
+
+## Core Workflow
+
+1. When a Telegram message arrives, TalkCody creates or reuses the corresponding task
+2. While executing, results are continuously updated to Telegram
+3. After task completion, the full result is sent in segments
+
+## FAQ
+
+### 1. Why am I not receiving replies?
+
+- Please confirm TalkCody is running
+- Please confirm the Bot Token is correct
+- If Allowed Chat IDs is set, confirm your Chat ID is in the whitelist
+- A polling timeout that's too small may cause frequent request failures; 10-30 seconds is recommended
+- Check if the Bot is active (send commands like `/setinline` to BotFather to confirm status)
+
+### 2. Is group chat supported?
+
+The current version does not support group chats, only private chats.
+
+### 3. How do I stop a task?
+
+Send `/stop` to stop the current task.
+
+### 4. How do I switch models/projects/agents?
+
+- `/model <modelId>` - Switch main model
+- `/project <projectId>` - Switch current project
+- `/agent <agentId>` - Switch current Agent
+
+Use `/list` to view available options:
+- `/list -m` or `/list --models` - View model list
+- `/list -p` or `/list --projects` - View project list
+- `/list -a` or `/list --agents` - View Agent list
+
+<Callout type="info">
+For more technical details, refer to the Telegram Remote Control architecture documentation in the specs directory.
+</Callout>

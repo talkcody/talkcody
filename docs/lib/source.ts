@@ -2,14 +2,17 @@ import { type InferPageType, loader } from "fumadocs-core/source";
 import { lucideIconsPlugin } from "fumadocs-core/source/lucide-icons";
 import { icons } from "lucide-react";
 import { createElement } from "react";
-import { SiAnthropic, SiOpenai } from "@icons-pack/react-simple-icons";
+import { SiAnthropic, SiOpenai, SiTelegram } from "@icons-pack/react-simple-icons";
 import { blog, docs } from "@/.source";
 import { i18n } from "@/lib/i18n";
+import { FeishuIcon } from "@/components/icons/feishu-icon";
 
 // Custom icons mapping (brand icons from simple-icons)
 const customIcons: Record<string, React.ComponentType<{ size?: number }>> = {
   Anthropic: SiAnthropic,
   OpenAI: SiOpenai,
+  Telegram: SiTelegram,
+  Feishu: FeishuIcon,
 };
 
 // See https://fumadocs.dev/docs/headless/source-api for more info

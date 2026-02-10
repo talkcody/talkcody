@@ -11,7 +11,9 @@ import { executionService } from '@/services/execution-service';
 import { messageService } from '@/services/message-service';
 import { remoteChannelManager } from '@/services/remote/remote-channel-manager';
 import { remoteMediaService } from '@/services/remote/remote-media-service';
+import { formatMessageForChannel } from '@/services/remote/remote-message-format';
 import {
+  getRemoteMessageLimit,
   isDuplicateRemoteMessage,
   normalizeRemoteCommand,
   splitRemoteText,
@@ -45,6 +47,8 @@ interface ChatSessionState {
   sentChunks: string[];
   lastStreamStatus?: ExecutionStatus;
   lastStatusAck?: ExecutionStatus | 'accepted';
+  streamMode?: 'edit' | 'append';
+  lastDeliveredContent?: string;
 }
 
 interface PendingApprovalState {
@@ -643,6 +647,8 @@ class RemoteChatService {
     session.lastStreamStatus = undefined;
     session.lastStatusAck = undefined;
     session.lastSentAt = 0;
+    session.streamMode = undefined;
+    session.lastDeliveredContent = undefined;
 
     const newTaskId = await taskService.createTask(firstMessage || 'Remote task');
     session.taskId = newTaskId;
@@ -706,6 +712,12 @@ class RemoteChatService {
       return;
     }
 
+    // In append mode, send only the remaining delta as new messages
+    if (session.streamMode === 'append') {
+      await this.flushAppendFinal(session, content, execution.status);
+      return;
+    }
+
     const chunks = splitRemoteText(content, session.channelId);
     if (chunks.length === 0) {
       return;
@@ -758,6 +770,59 @@ class RemoteChatService {
     }
   }
 
+  /**
+   * Flush final stream in append mode - send remaining delta without editing
+   */
+  private async flushAppendFinal(
+    session: ChatSessionState,
+    content: string,
+    status: ExecutionStatus
+  ): Promise<void> {
+    const lastDelivered = session.lastDeliveredContent ?? '';
+    const normalizedContent = content.trim();
+    const normalizedLast = lastDelivered.trim();
+
+    // Compute delta (remaining content)
+    let delta: string;
+    if (normalizedContent.startsWith(normalizedLast)) {
+      delta = normalizedContent.slice(normalizedLast.length).trim();
+    } else {
+      delta = normalizedContent;
+    }
+
+    // Send delta if any
+    if (delta) {
+      const limit = getRemoteMessageLimit(session.channelId);
+      const chunks = this.splitByPreference(delta, limit);
+
+      for (const chunk of chunks) {
+        if (!chunk.trim()) continue;
+        const message = await this.sendMessage(
+          { channelId: session.channelId, chatId: session.chatId } as RemoteInboundMessage,
+          chunk
+        );
+        if (message.messageId) {
+          session.streamingMessageId = message.messageId;
+        }
+        session.sentChunks.push(chunk);
+      }
+    }
+
+    session.lastDeliveredContent = normalizedContent;
+
+    // Always send terminal status
+    if (status !== 'running' && session.lastStatusAck !== status) {
+      const statusText = this.getTerminalStatusText(status);
+      if (statusText) {
+        await this.sendMessage(
+          { channelId: session.channelId, chatId: session.chatId } as RemoteInboundMessage,
+          statusText
+        );
+        session.lastStatusAck = status;
+      }
+    }
+  }
+
   private attachEditReviewListener(): void {
     if (this.editReviewUnsubscribe) {
       return;
@@ -806,6 +871,13 @@ class RemoteChatService {
     }
 
     session.lastSentAt = now;
+
+    // In append mode (Feishu edit failed), send only the delta
+    if (session.streamMode === 'append') {
+      await this.sendAppendDelta(session, content);
+      return;
+    }
+
     const chunks = splitRemoteText(content, session.channelId);
     if (chunks.length === 0) {
       return;
@@ -820,8 +892,20 @@ class RemoteChatService {
     }
 
     if (session.streamingMessageId) {
-      await this.editMessage(session, streamingChunk);
+      // For Feishu, try edit but catch failure and switch to append mode
+      if (session.channelId === 'feishu') {
+        const editSuccess = await this.tryEditMessage(session, streamingChunk);
+        if (!editSuccess) {
+          // Switch to append mode and send delta
+          session.streamMode = 'append';
+          await this.sendAppendDelta(session, content);
+          return;
+        }
+      } else {
+        await this.editMessage(session, streamingChunk);
+      }
       session.sentChunks = [streamingChunk];
+      session.lastDeliveredContent = streamingChunk;
       return;
     }
 
@@ -831,6 +915,105 @@ class RemoteChatService {
     );
     session.streamingMessageId = message.messageId;
     session.sentChunks = [streamingChunk];
+    session.lastDeliveredContent = streamingChunk;
+  }
+
+  /**
+   * Try to edit a message, return true if successful, false if failed
+   */
+  private async tryEditMessage(session: ChatSessionState, text: string): Promise<boolean> {
+    if (!this.running || !text.trim() || !session.streamingMessageId) {
+      return false;
+    }
+    try {
+      const { text: formattedText, parseMode } = formatMessageForChannel(text, session.channelId);
+      await remoteChannelManager.editMessage({
+        channelId: session.channelId,
+        chatId: session.chatId,
+        messageId: session.streamingMessageId,
+        text: formattedText,
+        disableWebPagePreview: true,
+        parseMode,
+      });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Send only the delta (new content) when in append mode
+   */
+  private async sendAppendDelta(session: ChatSessionState, content: string): Promise<void> {
+    const lastDelivered = session.lastDeliveredContent ?? '';
+    const normalizedContent = content.trim();
+    const normalizedLast = lastDelivered.trim();
+
+    // If content doesn't start with last delivered, it might be a rewrite
+    // In this case, send the full content as a new message
+    let delta: string;
+    if (normalizedContent.startsWith(normalizedLast)) {
+      delta = normalizedContent.slice(normalizedLast.length).trim();
+    } else {
+      delta = normalizedContent;
+    }
+
+    if (!delta) {
+      return;
+    }
+
+    // Split delta into chunks and send as new messages
+    const limit = getRemoteMessageLimit(session.channelId);
+    const chunks = this.splitByPreference(delta, limit);
+
+    for (const chunk of chunks) {
+      if (!chunk.trim()) continue;
+      const message = await this.sendMessage(
+        { channelId: session.channelId, chatId: session.chatId } as RemoteInboundMessage,
+        chunk
+      );
+      if (message.messageId) {
+        session.streamingMessageId = message.messageId;
+      }
+      session.sentChunks.push(chunk);
+    }
+
+    // Update last delivered content
+    session.lastDeliveredContent = normalizedContent;
+  }
+
+  /**
+   * Split text into chunks by preference (paragraphs, lines, sentences)
+   */
+  private splitByPreference(text: string, limit: number): string[] {
+    if (text.length <= limit) {
+      return [text];
+    }
+
+    const chunks: string[] = [];
+    let remaining = text;
+
+    while (remaining.length > limit) {
+      let sliceEnd = remaining.lastIndexOf('\n\n', limit);
+      if (sliceEnd < 0) {
+        sliceEnd = remaining.lastIndexOf('\n', limit);
+      }
+      if (sliceEnd < 0) {
+        sliceEnd = remaining.lastIndexOf('. ', limit);
+      }
+      if (sliceEnd < 0 || sliceEnd < Math.floor(limit * 0.6)) {
+        sliceEnd = limit;
+      }
+
+      chunks.push(remaining.slice(0, sliceEnd).trim());
+      remaining = remaining.slice(sliceEnd).trim();
+    }
+
+    if (remaining.trim()) {
+      chunks.push(remaining.trim());
+    }
+
+    return chunks.filter((chunk) => chunk.length > 0);
   }
 
   private getTerminalStatusText(status: ExecutionStatus): string | null {
@@ -858,11 +1041,13 @@ class RemoteChatService {
       chatId: message.chatId,
       textLen: text.length,
     });
+    const { text: formattedText, parseMode } = formatMessageForChannel(text, message.channelId);
     const request: RemoteSendMessageRequest = {
       channelId: message.channelId,
       chatId: message.chatId,
-      text,
+      text: formattedText,
       disableWebPagePreview: true,
+      parseMode,
     };
     return remoteChannelManager.sendMessage(request);
   }
@@ -880,13 +1065,15 @@ class RemoteChatService {
       messageId: session.streamingMessageId,
       textLen: text.length,
     });
+    const { text: formattedText, parseMode } = formatMessageForChannel(text, session.channelId);
     try {
       await remoteChannelManager.editMessage({
         channelId: session.channelId,
         chatId: session.chatId,
         messageId: session.streamingMessageId,
-        text,
+        text: formattedText,
         disableWebPagePreview: true,
+        parseMode,
       });
     } catch (error) {
       logger.warn('[RemoteChatService] Failed to edit message', error);
