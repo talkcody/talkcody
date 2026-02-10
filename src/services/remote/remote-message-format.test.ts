@@ -58,21 +58,33 @@ describe('remote-message-format', () => {
       expect(result).toContain('- Item 1');
       expect(result).toContain('- Item 2');
       expect(result).toContain('- Item 3');
-      expect(result).toContain('<br>');
+      // Telegram does not support <br>, keep newlines as-is
+      expect(result).toContain('\n');
     });
 
-    it('converts newlines to br tags', () => {
+    it('keeps newlines as-is (Telegram does not support br tags)', () => {
       const input = 'Line 1\nLine 2\nLine 3';
       const result = formatForTelegramHtml(input);
-      expect(result).toBe('Line 1<br>Line 2<br>Line 3');
+      expect(result).toBe('Line 1\nLine 2\nLine 3');
+    });
+
+    it('escapes HTML special characters', () => {
+      const input = 'Use <div> tags & "quotes" and \'apostrophes\'';
+      const result = formatForTelegramHtml(input);
+      expect(result).toContain('<');
+      expect(result).toContain('>');
+      expect(result).toContain('&');
+      expect(result).toContain('"');
+      expect(result).toContain('&#039;');
     });
 
     it('preserves newlines inside code blocks', () => {
       const input = '```\nline1\nline2\nline3\n```';
       const result = formatForTelegramHtml(input);
-      // Code blocks should preserve their content without <br> conversion
+      // Code blocks should preserve their content
       expect(result).toContain('<pre><code>');
       expect(result).toContain('</code></pre>');
+      expect(result).toContain('\n');
     });
 
     it('handles empty input', () => {

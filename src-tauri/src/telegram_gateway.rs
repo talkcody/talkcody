@@ -1106,21 +1106,36 @@ pub async fn telegram_send_message(
         .map_err(|e| format!("Failed to build http client: {}", e))?;
 
     let url = format!("https://api.telegram.org/bot{}/sendMessage", config.token);
+    // Telegram API doesn't accept 'plain' as parse_mode, so we filter it out
+    let parse_mode = request
+        .parse_mode
+        .filter(|mode| mode != "plain")
+        .map(|mode| mode.to_string());
+
     log::debug!(
-        "[TelegramGateway] sendMessage chat_id={} text_len={} reply_to={:?}",
+        "[TelegramGateway] sendMessage chat_id={} text_len={} reply_to={:?} parse_mode={:?}",
         request.chat_id,
         request.text.len(),
-        request.reply_to_message_id
+        request.reply_to_message_id,
+        parse_mode
     );
+    let mut payload = serde_json::json!({
+        "chat_id": request.chat_id,
+        "text": request.text,
+        "reply_to_message_id": request.reply_to_message_id,
+        "disable_web_page_preview": request.disable_web_page_preview.unwrap_or(true),
+    });
+
+    if let Some(mode) = parse_mode {
+        payload
+            .as_object_mut()
+            .unwrap()
+            .insert("parse_mode".to_string(), serde_json::json!(mode));
+    }
+
     let response = client
         .post(&url)
-        .json(&serde_json::json!({
-            "chat_id": request.chat_id,
-            "text": request.text,
-            "reply_to_message_id": request.reply_to_message_id,
-            "disable_web_page_preview": request.disable_web_page_preview.unwrap_or(true),
-            "parse_mode": request.parse_mode,
-        }))
+        .json(&payload)
         .send()
         .await
         .map_err(|e| format!("Telegram sendMessage failed: {}", e))?;
@@ -1171,15 +1186,28 @@ pub async fn telegram_edit_message(
         request.message_id,
         request.text.len()
     );
+    // Telegram API doesn't accept 'plain' as parse_mode, so we filter it out
+    let parse_mode = request
+        .parse_mode
+        .filter(|mode| mode != "plain")
+        .map(|mode| mode.to_string());
+    let mut payload = serde_json::json!({
+        "chat_id": request.chat_id,
+        "message_id": request.message_id,
+        "text": request.text,
+        "disable_web_page_preview": request.disable_web_page_preview.unwrap_or(true),
+    });
+
+    if let Some(mode) = parse_mode {
+        payload
+            .as_object_mut()
+            .unwrap()
+            .insert("parse_mode".to_string(), serde_json::json!(mode));
+    }
+
     let response = client
         .post(&url)
-        .json(&serde_json::json!({
-            "chat_id": request.chat_id,
-            "message_id": request.message_id,
-            "text": request.text,
-            "disable_web_page_preview": request.disable_web_page_preview.unwrap_or(true),
-            "parse_mode": request.parse_mode,
-        }))
+        .json(&payload)
         .send()
         .await
         .map_err(|e| format!("Telegram editMessageText failed: {}", e))?;

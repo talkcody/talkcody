@@ -461,7 +461,7 @@ describe('remote-chat-service', () => {
       expect.objectContaining({
         channelId: 'telegram',
         chatId: '1',
-        text: 'listProjectsTitle<br>Project One (project-1)<br>Project Two (project-2)',
+        text: 'listProjectsTitle\nProject One (project-1)\nProject Two (project-2)',
       })
     );
   });
@@ -482,7 +482,7 @@ describe('remote-chat-service', () => {
       expect.objectContaining({
         channelId: 'telegram',
         chatId: '1',
-        text: 'listModelsTitle<br>GPT-4 (gpt-4) - openai',
+        text: 'listModelsTitle\nGPT-4 (gpt-4) - openai',
       })
     );
   });
@@ -503,7 +503,7 @@ describe('remote-chat-service', () => {
       expect.objectContaining({
         channelId: 'telegram',
         chatId: '1',
-        text: 'listAgentsTitle<br>Planner (planner)',
+        text: 'listAgentsTitle\nPlanner (planner)',
       })
     );
   });

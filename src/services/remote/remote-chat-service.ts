@@ -26,6 +26,7 @@ import { useTaskStore } from '@/stores/task-store';
 import type { CommandContext } from '@/types/command';
 import type {
   FeishuGatewayStatus,
+  MessageParseMode,
   RemoteInboundMessage,
   RemoteSendMessageRequest,
   TelegramGatewayStatus,
@@ -211,7 +212,8 @@ class RemoteChatService {
 
     if (command === '/help') {
       logger.info('[RemoteChatService] Help command');
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.help);
+      // Use plain text mode for help to avoid HTML parsing issues
+      await this.sendMessage(message, this.getLocaleText().RemoteControl.help, false);
       return;
     }
 
@@ -226,7 +228,7 @@ class RemoteChatService {
       logger.warn('[RemoteChatService] Failed to execute command', error);
     }
 
-    await this.sendMessage(message, this.getLocaleText().RemoteControl.unknownCommand);
+    await this.sendMessage(message, this.getLocaleText().RemoteControl.unknownCommand, false);
   }
 
   private async executeCommand(
@@ -241,14 +243,15 @@ class RemoteChatService {
     });
     const parsed = commandExecutor.parseCommand(`/${commandName} ${rawArgs}`);
     if (!parsed.command) {
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.unknownCommand);
+      await this.sendMessage(message, this.getLocaleText().RemoteControl.unknownCommand, false);
       return;
     }
 
     const context: CommandContext = {
       taskId: session.taskId,
       sendMessage: async (reply) => {
-        await this.sendMessage(message, reply);
+        // Use plain text for command responses
+        await this.sendMessage(message, reply, false);
       },
       createNewTask: async () => {
         const taskId = await taskService.createTask('Remote command');
@@ -389,7 +392,8 @@ class RemoteChatService {
       taskStatus,
       setProjectHint: localeText.RemoteControl.setProjectHint,
     });
-    await this.sendMessage(message, statusText);
+    // Use plain text for status command response
+    await this.sendMessage(message, statusText, false);
 
     if (!execution) {
       logger.debug('[RemoteChatService] Status requested with no active task', {
@@ -401,7 +405,8 @@ class RemoteChatService {
     const gatewayStatus = await this.getGatewayStatus(message.channelId);
     if (gatewayStatus?.lastError) {
       const detail = localeText.RemoteControl.gatewayError(gatewayStatus.lastError);
-      await this.sendMessage(message, detail);
+      // Use plain text for error messages
+      await this.sendMessage(message, detail, false);
     }
   }
 
@@ -416,16 +421,19 @@ class RemoteChatService {
         channelId: message.channelId,
         chatId: message.chatId,
       });
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.noPendingApproval);
+      // Use plain text for command responses
+      await this.sendMessage(message, this.getLocaleText().RemoteControl.noPendingApproval, false);
       return;
     }
 
     if (approved) {
       await useEditReviewStore.getState().approveEdit(approval.taskId);
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.approved);
+      // Use plain text for command responses
+      await this.sendMessage(message, this.getLocaleText().RemoteControl.approved, false);
     } else {
       await useEditReviewStore.getState().rejectEdit(approval.taskId, 'Rejected via remote chat');
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.rejected);
+      // Use plain text for command responses
+      await this.sendMessage(message, this.getLocaleText().RemoteControl.rejected, false);
     }
 
     this.approvals.delete(buildSessionKey(message.channelId, message.chatId));
@@ -438,30 +446,36 @@ class RemoteChatService {
   private async handleModelSwitch(message: RemoteInboundMessage, args: string): Promise<void> {
     const modelIdentifier = args.trim();
     if (!modelIdentifier) {
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.missingModelArg);
+      // Use plain text for command responses
+      await this.sendMessage(message, this.getLocaleText().RemoteControl.missingModelArg, false);
       return;
     }
 
     const isAvailable = await modelService.isModelAvailable(modelIdentifier);
     if (!isAvailable) {
+      // Use plain text for command responses
       await this.sendMessage(
         message,
-        this.getLocaleText().RemoteControl.invalidModel(modelIdentifier)
+        this.getLocaleText().RemoteControl.invalidModel(modelIdentifier),
+        false
       );
       return;
     }
 
     await settingsManager.set('model_type_main', modelIdentifier);
+    // Use plain text for command responses
     await this.sendMessage(
       message,
-      this.getLocaleText().RemoteControl.modelSwitched(modelIdentifier)
+      this.getLocaleText().RemoteControl.modelSwitched(modelIdentifier),
+      false
     );
   }
 
   private async handleProjectSwitch(message: RemoteInboundMessage, args: string): Promise<void> {
     const projectId = args.trim();
     if (!projectId) {
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.missingProjectArg);
+      // Use plain text for command responses
+      await this.sendMessage(message, this.getLocaleText().RemoteControl.missingProjectArg, false);
       return;
     }
 
@@ -473,7 +487,12 @@ class RemoteChatService {
         projectId,
         error,
       });
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.invalidProject(projectId));
+      // Use plain text for command responses
+      await this.sendMessage(
+        message,
+        this.getLocaleText().RemoteControl.invalidProject(projectId),
+        false
+      );
       return;
     }
 
@@ -481,24 +500,40 @@ class RemoteChatService {
     settingsManager.setCurrentRootPath(projectRoot || '');
 
     await settingsManager.setCurrentProjectId(projectId);
-    await this.sendMessage(message, this.getLocaleText().RemoteControl.projectSwitched(projectId));
+    // Use plain text for command responses
+    await this.sendMessage(
+      message,
+      this.getLocaleText().RemoteControl.projectSwitched(projectId),
+      false
+    );
   }
 
   private async handleAgentSwitch(message: RemoteInboundMessage, args: string): Promise<void> {
     const agentId = args.trim();
     if (!agentId) {
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.missingAgentArg);
+      // Use plain text for command responses
+      await this.sendMessage(message, this.getLocaleText().RemoteControl.missingAgentArg, false);
       return;
     }
 
     const agent = await agentRegistry.getWithResolvedTools(agentId);
     if (!agent) {
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.invalidAgent(agentId));
+      // Use plain text for command responses
+      await this.sendMessage(
+        message,
+        this.getLocaleText().RemoteControl.invalidAgent(agentId),
+        false
+      );
       return;
     }
 
     await settingsManager.setAssistant(agentId);
-    await this.sendMessage(message, this.getLocaleText().RemoteControl.agentSwitched(agentId));
+    // Use plain text for command responses
+    await this.sendMessage(
+      message,
+      this.getLocaleText().RemoteControl.agentSwitched(agentId),
+      false
+    );
   }
 
   private async handleList(message: RemoteInboundMessage, args: string): Promise<void> {
@@ -528,7 +563,8 @@ class RemoteChatService {
     }
 
     if (invalid || flags.size === 0) {
-      await this.sendMessage(message, localeText.RemoteControl.listUsage);
+      // Use plain text for command responses
+      await this.sendMessage(message, localeText.RemoteControl.listUsage, false);
       return;
     }
 
@@ -579,7 +615,8 @@ class RemoteChatService {
       }
     }
 
-    await this.sendMessage(message, sections.join('\n\n'));
+    // Use plain text for command responses
+    await this.sendMessage(message, sections.join('\n\n'), false);
   }
 
   private async handleStop(message: RemoteInboundMessage): Promise<void> {
@@ -589,12 +626,14 @@ class RemoteChatService {
         channelId: message.channelId,
         chatId: message.chatId,
       });
-      await this.sendMessage(message, this.getLocaleText().RemoteControl.noActiveTask);
+      // Use plain text for command responses
+      await this.sendMessage(message, this.getLocaleText().RemoteControl.noActiveTask, false);
       return;
     }
 
     executionService.stopExecution(session.taskId);
-    await this.sendMessage(message, this.getLocaleText().RemoteControl.stopped);
+    // Use plain text for command responses
+    await this.sendMessage(message, this.getLocaleText().RemoteControl.stopped, false);
   }
 
   private async getOrCreateSession(
@@ -924,29 +963,6 @@ class RemoteChatService {
   }
 
   /**
-   * Try to edit a message, return true if successful, false if failed
-   */
-  private async tryEditMessage(session: ChatSessionState, text: string): Promise<boolean> {
-    if (!this.running || !text.trim() || !session.streamingMessageId) {
-      return false;
-    }
-    try {
-      const { text: formattedText, parseMode } = formatMessageForChannel(text, session.channelId);
-      await remoteChannelManager.editMessage({
-        channelId: session.channelId,
-        chatId: session.chatId,
-        messageId: session.streamingMessageId,
-        text: formattedText,
-        disableWebPagePreview: true,
-        parseMode,
-      });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-
-  /**
    * Send only the delta (new content) when in append mode
    */
   private async sendAppendDelta(session: ChatSessionState, content: string): Promise<void> {
@@ -1038,7 +1054,8 @@ class RemoteChatService {
 
   private async sendMessage(
     message: Pick<RemoteInboundMessage, 'channelId' | 'chatId'>,
-    text: string
+    text: string,
+    useHtml = true
   ): Promise<{ messageId: string }> {
     if (!this.running) {
       return { messageId: '' };
@@ -1047,8 +1064,15 @@ class RemoteChatService {
       channelId: message.channelId,
       chatId: message.chatId,
       textLen: text.length,
+      useHtml,
     });
-    const { text: formattedText, parseMode } = formatMessageForChannel(text, message.channelId);
+
+    // For command responses, use plain text to avoid HTML parsing issues
+    const formattedText = useHtml ? formatMessageForChannel(text, message.channelId).text : text;
+    const parseMode: MessageParseMode | undefined = useHtml
+      ? formatMessageForChannel(text, message.channelId).parseMode
+      : 'plain';
+
     const request: RemoteSendMessageRequest = {
       channelId: message.channelId,
       chatId: message.chatId,

@@ -28,40 +28,50 @@ export interface ChangelogEntry {
 // Only include the most recent versions that users care about
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: '0.3.5',
-    date: '2026-02-05',
+    version: '0.4.0',
+    date: '2026-02-09',
     en: {
       added: [
-        'Support for Claude Opus 4.6 model.',
-        'Support for GPT 5.3 Codex model (OpenAI OAuth only).',
-        'Support for disabling Tracing.',
-      ],
-      changed: [
         {
-          title: 'Model Search Optimization',
-          description: 'Model search now supports filtering by provider name.',
+          title: 'Telegram Remote Control',
+          description:
+            'Support Telegram remote control for desktop TalkCody, supporting text, voice, and image messages with streaming response support. [Documentation](/docs/features/telegram-remote)',
         },
+        {
+          title: 'Feishu (Lark) Remote Control',
+          description:
+            'Support Feishu remote control for desktop TalkCody, supporting text, voice, and image messages with streaming response support. [Documentation](/docs/features/feishu-remote)',
+        },
+        'Voice Transcription: Added Groq Whisper voice transcription support, available for free.',
+        'Model Support: Added OpenRouter Pony Alpha free model.',
+        'Explore Agent: Open Explore Agent, suitable for quickly understanding code repositories.',
       ],
       fixed: [
-        'Fixed Issue #47: Windows workspace-root path handling bug.',
-        'Fixed Issue #46: OpenAI OAuth login flow issues.',
+        'Fixed custom Provider configuration and request issues.',
+        'Fixed input Token status display issue.',
+        'Fixed share page theme display issue.',
       ],
     },
     zh: {
       added: [
-        '支持 Claude Opus 4.6 模型',
-        '支持 GPT 5.3 Codex 模型 （只有 Openai OAuth 方式支持）',
-        '支持 关闭 Tracing 功能',
-      ],
-      changed: [
         {
-          title: '模型搜索优化',
-          description: '模型搜索支持按照 provider 名称过滤',
+          title: 'Telegram 远程控制',
+          description:
+            '支持 Telegram 远程控制桌面的TalkCody，支持文本，语音，图片消息，支持流式返回消息。[文档](/zh/docs/features/telegram-remote)',
         },
+        {
+          title: '飞书 远程控制',
+          description:
+            '支持飞书远程控制桌面的TalkCody，支持文本，语音，图片消息，支持流式返回消息。[文档](/zh/docs/features/feishu-remote)',
+        },
+        '语音转写：新增 Groq Whisper 语音转写支持，可以免费使用。',
+        '模型支持：新增 OpenRouter 的 Pony Alpha 免费模型。',
+        'Explore Agent：开放 Explore Agent，适合快速了解代码仓库。',
       ],
       fixed: [
-        '修复 Issue #47：修复 Windows 平台 workspace-root 路径处理的 bug。',
-        '修复 Issue #46：修复 OpenAI OAuth 登录流程中的问题。',
+        '修复自定义 Provider 相关配置与请求问题。',
+        '修复输入 Token 状态显示问题。',
+        '修复分享页面主题显示问题。',
       ],
     },
   },

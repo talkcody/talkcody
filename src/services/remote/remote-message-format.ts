@@ -5,7 +5,7 @@ import type { RemoteChannelId } from '@/types/remote-control';
 export type MessageParseMode = 'HTML' | 'MarkdownV2' | 'plain';
 
 interface FormatOptions {
-  // Whether to convert newlines to <br> tags (Telegram HTML mode)
+  // Whether to normalize newlines for Telegram HTML mode (Telegram does not support <br> tags)
   convertNewlines?: boolean;
   // Maximum length for a single message (for chunking consideration)
   maxLength?: number;
@@ -17,7 +17,8 @@ const DEFAULT_OPTIONS: FormatOptions = {
 };
 
 /**
- * Escapes HTML special characters to prevent injection
+ * Escapes HTML special characters to prevent injection.
+ * Note: Must be called before inserting Telegram HTML tags.
  */
 function escapeHtml(text: string): string {
   return text
@@ -25,7 +26,7 @@ function escapeHtml(text: string): string {
     .replace(/</g, '<')
     .replace(/>/g, '>')
     .replace(/"/g, '"')
-    .replace(/'/g, "'");
+    .replace(/'/g, '&#039;');
 }
 
 /**
@@ -126,23 +127,10 @@ export function formatForTelegramHtml(text: string, options?: FormatOptions): st
   // Convert inline markdown (bold, italic, code, links)
   result = convertInlineMarkdown(result);
 
-  // Convert newlines to <br> if requested
+  // Keep newlines as-is for Telegram HTML mode (Telegram does not support <br> tags).
   if (opts.convertNewlines) {
-    // Don't convert newlines inside <pre> blocks
-    const parts = result.split(/(<pre>[\s\S]*?<\/pre>)/g);
-    result = parts
-      .map((part, index) => {
-        // Even indices are normal text, odd indices are <pre> blocks
-        if (index % 2 === 0) {
-          return part.replace(/\n/g, '<br>');
-        }
-        return part;
-      })
-      .join('');
+    result = result.replace(/\r\n/g, '\n');
   }
-
-  // Clean up excessive <br> tags
-  result = result.replace(/(<br>\s*){3,}/g, '<br><br>');
 
   return result.trim();
 }
