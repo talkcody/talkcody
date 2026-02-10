@@ -264,6 +264,7 @@ pub struct ToolCallEventData {
     pub tool_call_id: String,
     pub name: String,
     pub input: serde_json::Value,
+    pub provider_metadata: Option<serde_json::Value>,
     pub session_id: SessionId,
 }
 
@@ -271,6 +272,7 @@ pub struct ToolCallEventData {
 #[serde(rename_all = "camelCase")]
 pub struct ToolResultEventData {
     pub tool_call_id: String,
+    pub name: Option<String>,
     pub output: serde_json::Value,
     pub session_id: SessionId,
 }

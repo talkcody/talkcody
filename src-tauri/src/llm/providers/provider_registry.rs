@@ -25,6 +25,13 @@ impl Clone for ProviderRegistry {
     }
 }
 
+impl Default for ProviderRegistry {
+    fn default() -> Self {
+        use crate::llm::providers::provider_configs::builtin_providers;
+        Self::new(builtin_providers())
+    }
+}
+
 impl ProviderRegistry {
     pub fn new(builtin_providers: Vec<ProviderConfig>) -> Self {
         let mut providers = HashMap::new();

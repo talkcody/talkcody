@@ -67,8 +67,21 @@ impl ServerStateFactory {
         let storage =
             Storage::new(config.data_root.clone(), config.attachments_root.clone()).await?;
 
+        // Create provider registry and API key manager
+        let provider_registry =
+            crate::llm::providers::provider_registry::ProviderRegistry::default();
+        let db = storage.settings.get_db();
+        let api_key_manager =
+            crate::llm::auth::api_key_manager::ApiKeyManager::new(db, config.data_root.clone());
+
         // Create runtime
-        let runtime = CoreRuntime::new(storage.clone(), event_sender).await?;
+        let runtime = CoreRuntime::new(
+            storage.clone(),
+            event_sender,
+            provider_registry,
+            api_key_manager,
+        )
+        .await?;
 
         Ok(ServerState::new(config, runtime, storage))
     }

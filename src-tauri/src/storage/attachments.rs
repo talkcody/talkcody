@@ -48,8 +48,8 @@ impl AttachmentsRepository {
 
         // Create database record
         let sql = r#"
-            INSERT INTO attachments (id, session_id, filename, mime_type, size, path, created_at, origin)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO attachments (id, session_id, message_id, filename, mime_type, size, path, created_at, origin)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         "#;
 
         self.db
@@ -58,6 +58,7 @@ impl AttachmentsRepository {
                 vec![
                     serde_json::json!(attachment.id),
                     serde_json::json!(attachment.session_id),
+                    serde_json::json!(attachment.message_id),
                     serde_json::json!(attachment.filename),
                     serde_json::json!(attachment.mime_type),
                     serde_json::json!(attachment.size),
@@ -216,6 +217,10 @@ fn row_to_attachment(row: &serde_json::Value) -> Attachment {
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
+        message_id: row
+            .get("message_id")
+            .and_then(|v| v.as_str())
+            .map(|s| s.to_string()),
         filename: row
             .get("filename")
             .and_then(|v| v.as_str())
@@ -293,6 +298,7 @@ mod tests {
         let attachment = Attachment {
             id: "att-1".to_string(),
             session_id: "session-1".to_string(),
+            message_id: None,
             filename: "test.txt".to_string(),
             mime_type: "text/plain".to_string(),
             size: 12,
@@ -324,6 +330,7 @@ mod tests {
         let attachment = Attachment {
             id: "att-2".to_string(),
             session_id: "session-1".to_string(),
+            message_id: None,
             filename: "data.bin".to_string(),
             mime_type: "application/octet-stream".to_string(),
             size: 4,
@@ -354,6 +361,7 @@ mod tests {
             let attachment = Attachment {
                 id: format!("att-{}", i),
                 session_id: "session-list".to_string(),
+                message_id: None,
                 filename: format!("file{}.txt", i),
                 mime_type: "text/plain".to_string(),
                 size: 10,
@@ -381,6 +389,7 @@ mod tests {
         let attachment = Attachment {
             id: "att-delete".to_string(),
             session_id: "session-del".to_string(),
+            message_id: None,
             filename: "delete.txt".to_string(),
             mime_type: "text/plain".to_string(),
             size: 5,

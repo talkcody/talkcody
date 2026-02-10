@@ -54,13 +54,6 @@ impl ShellPlatform {
             None => Some(ctx.workspace_root.to_string_lossy().to_string()),
         };
 
-        // Use existing execute_user_shell command
-        let timeout_ms = ctx.shell_timeout_secs * 1000;
-
-        // Note: This is a simplified implementation
-        // In production, this would call the actual shell execution from lib.rs
-        // For now, we return a placeholder result
-
         // Check for dangerous commands
         if self.is_dangerous_command(command) {
             return PlatformResult::error(
@@ -68,13 +61,41 @@ impl ShellPlatform {
             );
         }
 
-        // Placeholder: actual implementation would use execute_user_shell
-        PlatformResult::success(ShellResult {
-            stdout: format!("Executed: {} in {:?}", command, working_dir),
-            stderr: String::new(),
-            exit_code: 0,
-            timed_out: false,
-        })
+        // Execute the command using tokio::process
+        use tokio::process::Command;
+        use tokio::time::{timeout, Duration};
+
+        let mut cmd = if cfg!(target_os = "windows") {
+            let mut c = Command::new("cmd");
+            c.arg("/C").arg(command);
+            c
+        } else {
+            let mut c = Command::new("sh");
+            c.arg("-c").arg(command);
+            c
+        };
+
+        if let Some(dir) = working_dir {
+            cmd.current_dir(dir);
+        }
+
+        let timeout_duration = Duration::from_secs(ctx.shell_timeout_secs);
+
+        match timeout(timeout_duration, cmd.output()).await {
+            Ok(Ok(output)) => PlatformResult::success(ShellResult {
+                stdout: String::from_utf8_lossy(&output.stdout).to_string(),
+                stderr: String::from_utf8_lossy(&output.stderr).to_string(),
+                exit_code: output.status.code().unwrap_or(-1),
+                timed_out: false,
+            }),
+            Ok(Err(e)) => PlatformResult::error(format!("Failed to execute command: {}", e)),
+            Err(_) => PlatformResult::success(ShellResult {
+                stdout: String::new(),
+                stderr: "Command timed out".to_string(),
+                exit_code: -1,
+                timed_out: true,
+            }),
+        }
     }
 
     /// Execute a script file

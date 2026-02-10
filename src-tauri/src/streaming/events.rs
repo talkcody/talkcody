@@ -92,6 +92,7 @@ pub struct ToolCallEventData {
     pub tool_call_id: String,
     pub name: String,
     pub input: serde_json::Value,
+    pub provider_metadata: Option<serde_json::Value>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -99,6 +100,7 @@ pub struct ToolCallEventData {
 pub struct ToolResultEventData {
     #[serde(rename = "toolCallId")]
     pub tool_call_id: String,
+    pub name: Option<String>,
     pub output: serde_json::Value,
 }
 

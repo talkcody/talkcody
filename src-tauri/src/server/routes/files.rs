@@ -37,6 +37,7 @@ pub async fn upload_file(
     let attachment = Attachment {
         id: attachment_id.clone(),
         session_id: session_id.clone(),
+        message_id: None,
         filename: "upload.bin".to_string(), // Would extract from multipart in real impl
         mime_type: mime_type.clone(),
         size: body.len() as i64,

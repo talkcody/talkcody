@@ -7,6 +7,8 @@ use crate::core::agent_loop::{AgentLoop, AgentLoopContext, AgentLoopFactory, Age
 use crate::core::session::SessionManager;
 use crate::core::tools::{ToolContext, ToolRegistry};
 use crate::core::types::*;
+use crate::llm::auth::api_key_manager::ApiKeyManager;
+use crate::llm::providers::provider_registry::ProviderRegistry;
 use crate::storage::{
     Message, MessageContent, MessageRole, SessionId, SessionStatus, Storage, TaskSettings,
 };
@@ -30,6 +32,10 @@ pub struct CoreRuntime {
     event_sender: EventSender,
     /// Settings for validation
     _settings_validator: SettingsValidator,
+    /// Provider registry for LLM
+    provider_registry: ProviderRegistry,
+    /// API key manager
+    api_key_manager: ApiKeyManager,
 }
 
 /// Settings validator
@@ -73,7 +79,12 @@ impl Default for SettingsValidator {
 
 impl CoreRuntime {
     /// Create a new CoreRuntime instance
-    pub async fn new(storage: Storage, event_sender: EventSender) -> Result<Self, String> {
+    pub async fn new(
+        storage: Storage,
+        event_sender: EventSender,
+        provider_registry: ProviderRegistry,
+        api_key_manager: ApiKeyManager,
+    ) -> Result<Self, String> {
         // Create session manager
         let session_manager = Arc::new(SessionManager::new(storage.clone()));
 
@@ -87,6 +98,8 @@ impl CoreRuntime {
             tasks: Arc::new(RwLock::new(HashMap::new())),
             event_sender,
             _settings_validator: SettingsValidator::new(),
+            provider_registry,
+            api_key_manager,
         })
     }
 
@@ -104,7 +117,7 @@ impl CoreRuntime {
         }
 
         // Create or get session
-        let session = if let Some(ref session_id) = self.find_session_for_task(&input).await {
+        let session = if let Some(ref session_id) = self.find_session_for_task(&input) {
             self.session_manager.activate_session(session_id).await?;
             self.session_manager
                 .get_session(session_id)
@@ -218,9 +231,13 @@ impl CoreRuntime {
             previous_state: RuntimeTaskState::Pending,
         });
 
-        // Create agent loop
-        let agent_loop =
-            AgentLoopFactory::create_standard(self.tool_registry.clone(), event_sender.clone());
+        // Create agent loop with full LLM integration
+        let agent_loop = AgentLoopFactory::create_standard(
+            self.tool_registry.clone(),
+            event_sender.clone(),
+            self.provider_registry.clone(),
+            self.api_key_manager.clone(),
+        );
 
         // Add initial user message
         let initial_message = Message {
@@ -279,16 +296,27 @@ impl CoreRuntime {
                 .workspace
                 .as_ref()
                 .and_then(|w| w.worktree_path.clone()),
-            settings: input.settings.unwrap_or_default(),
+            settings: input.settings.clone().unwrap_or_default(),
             messages: self
                 .session_manager
                 .get_messages(&task.session_id, None, None)
                 .await
                 .unwrap_or_default(),
+            model: input.settings.and_then(|s| {
+                s.extra
+                    .get("model")
+                    .and_then(|v| v.as_str().map(|s| s.to_string()))
+            }),
         };
 
-        // Run agent loop
-        match agent_loop.run_iteration(&ctx).await {
+        // Get current messages and run agent loop
+        let messages = self
+            .session_manager
+            .get_messages(&task.session_id, None, None)
+            .await
+            .unwrap_or_default();
+
+        match agent_loop.run_iteration(&ctx, &messages).await {
             Ok(AgentLoopResult::Completed { message }) => {
                 // Add assistant message
                 let assistant_message = Message {
@@ -412,10 +440,9 @@ impl CoreRuntime {
     }
 
     /// Find existing session for a task input
-    async fn find_session_for_task(&self, input: &TaskInput) -> Option<SessionId> {
+    fn find_session_for_task(&self, input: &TaskInput) -> Option<SessionId> {
         // If session_id is explicitly provided in input, use that
-        // Otherwise, return None to create a new session
-        None
+        Some(input.session_id.clone())
     }
 
     /// Clone runtime state for task execution
@@ -464,7 +491,10 @@ mod tests {
         .expect("Failed to create storage");
 
         let (tx, rx) = mpsc::unbounded_channel();
-        let runtime = CoreRuntime::new(storage, tx)
+        let provider_registry = ProviderRegistry::default();
+        let db = storage.settings.get_db();
+        let api_key_manager = ApiKeyManager::new(db, temp_dir.path().to_path_buf());
+        let runtime = CoreRuntime::new(storage, tx, provider_registry, api_key_manager)
             .await
             .expect("Failed to create runtime");
 

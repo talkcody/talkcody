@@ -17,11 +17,13 @@ pub async fn create_task(
         Some(id) => id,
         None => {
             // Create new session
+            let new_session_id =
+                format!("sess_{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
             match state
                 .storage()
                 .chat_history
                 .create_session(&crate::storage::models::Session {
-                    id: format!("sess_{}", uuid::Uuid::new_v4().to_string().replace("-", "")),
+                    id: new_session_id.clone(),
                     project_id: payload.project_id.clone(),
                     title: Some("New Task".to_string()),
                     status: SessionStatus::Running,
@@ -32,16 +34,11 @@ pub async fn create_task(
                 })
                 .await
             {
-                Ok(_) => {
+                Ok(_) => new_session_id,
+                Err(e) => {
                     return Err(Json(ErrorResponse::new(
                         "INTERNAL_ERROR",
-                        "Failed to create session",
-                    )))
-                }
-                Err(_) => {
-                    return Err(Json(ErrorResponse::new(
-                        "INTERNAL_ERROR",
-                        "Failed to create session",
+                        format!("Failed to create session: {}", e),
                     )))
                 }
             }

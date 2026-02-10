@@ -1,0 +1,366 @@
+{
+  "version": 1,
+  "provider_id": "anthropic-user-test-831716",
+  "protocol": "OpenAiCompatible",
+  "model": "gpt-5.1-codex-mini",
+  "endpoint_path": "v1/chat/completions",
+  "request": {
+    "method": "POST",
+    "url": "https://doit.cc.cd/v1/chat/completions",
+    "headers": {
+      "authorization": "REDACTED",
+      "content-type": "application/json"
+    },
+    "body": {
+      "max_tokens": 15000,
+      "messages": [
+        {
+          "content": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-09T04:41:01.419Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+          "role": "system"
+        },
+        {
+          "content": "nihao",
+          "role": "user"
+        }
+      ],
+      "model": "gpt-5.1-codex-mini",
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "tools": [
+        {
+          "function": {
+            "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+            "name": "webSearch",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "query": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "query"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Fetch and extract content from a web url",
+            "name": "webFetch",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "url": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "url"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "access-control-allow-origin": "*",
+      "cache-control": "no-cache",
+      "transfer-encoding": "chunked",
+      "report-to": "{\"group\":\"cf-nel\",\"max_age\":604800,\"endpoints\":[{\"url\":\"https://a.nel.cloudflare.com/report/v4?s=yfMiZWCqbChey9sAcSWLp%2BElckN8mlD08O7FwXCis3BiDx5QFrntaWps4TluEieJI1dMyKGg1nMFYhXYzo5KcO4dSZgV%2BWhz4bYa%2F1yX%2BWkF5bml\"}]}",
+      "content-type": "text/event-stream",
+      "cf-cache-status": "DYNAMIC",
+      "nel": "{\"report_to\":\"cf-nel\",\"success_fraction\":0.0,\"max_age\":604800}",
+      "connection": "keep-alive",
+      "access-control-allow-headers": "*",
+      "access-control-allow-methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+      "server": "cloudflare",
+      "alt-svc": "h3=\":443\"; ma=86400",
+      "date": "Mon, 09 Feb 2026 05:24:29 GMT",
+      "server-timing": "upstream.processing;dur=3981, upstream;dur=3981, total;dur=3982",
+      "cf-ray": "9cb0f0b14e80bffc-SJC"
+    },
+    "sse_events": [
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\"**Respond\",\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\"ing\",\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\" with\",\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\" a\",\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\" friendly\",\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\" greeting\",\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\"**\",\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":null,\"reasoning_content\":\"\\n\\n\",\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"Hello\",\"reasoning_content\":null,\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"!\",\"reasoning_content\":null,\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\" How\",\"reasoning_content\":null,\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\" can\",\"reasoning_content\":null,\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\" I\",\"reasoning_content\":null,\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\" assist\",\"reasoning_content\":null,\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\" you\",\"reasoning_content\":null,\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\" today\",\"reasoning_content\":null,\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"?\",\"reasoning_content\":null,\"tool_calls\":null},\"finish_reason\":null,\"native_finish_reason\":null}]}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"resp_06307971fd24b3030169896f8bbc10819b9c2ca0b684ffd66e\",\"object\":\"chat.completion.chunk\",\"created\":1770614667,\"model\":\"model\",\"choices\":[{\"index\":0,\"delta\":{\"role\":null,\"content\":null,\"reasoning_content\":null,\"tool_calls\":null},\"finish_reason\":\"stop\",\"native_finish_reason\":\"stop\"}],\"usage\":{\"completion_tokens\":76,\"total_tokens\":675,\"prompt_tokens\":599,\"completion_tokens_details\":{\"reasoning_tokens\":0}}}"
+      },
+      {
+        "event": null,
+        "data": "[DONE]"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "gpt-5.1-codex-mini",
+    "messages": [
+      {
+        "role": "system",
+        "content": "\nYou are a smart AI assistant to give user accurate answers.\n\n## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY\n\n**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:\n- Create, modify, or delete any files\n- Execute commands that change system state\n- Perform any write operations\n- Make any modifications to the system\n\nYour tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.\n\nYour answer must follow the following rules:\n\n1. Write an accurate, detailed, and comprehensive response to the user's QUESTION.\n2. Your answer must be as detailed and organized as possible, Prioritize the use of lists, tables, and quotes to organize output structures.\n3. Your answer must be precise, of high-quality, and written by an expert using an unbiased and journalistic tone.\n4. You MUST ADHERE to the following formatting instructions:\n    - Use markdown to format paragraphs, lists, tables, and quotes whenever possible.\n    - Use headings level 4 to separate sections of your response, like \"#### Header\", but NEVER start an answer with a heading or title of any kind.\n    - Use single new lines for lists and double new lines for paragraphs.\n5. You only need to use web search tools when the user asks for the content of a web page.\n\nToday's date is 2026-02-09T04:41:01.419Z.\n\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\nIMPORTANT: You MUST respond in English.",
+        "providerOptions": {
+          "anthropic": {
+            "cacheControl": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "user",
+        "content": "nihao",
+        "providerOptions": null
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "name": "webSearch",
+        "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "webFetch",
+        "description": "Fetch and extract content from a web url",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      }
+    ],
+    "temperature": null,
+    "max_tokens": 15000,
+    "top_p": null,
+    "top_k": null,
+    "provider_options": {
+      "anthropic": {
+        "thinking": {
+          "budgetTokens": 12000,
+          "type": "enabled"
+        }
+      },
+      "google": {
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingBudget": 8192
+        }
+      },
+      "moonshot": {
+        "temperature": 1,
+        "thinking": {
+          "type": "enabled"
+        }
+      }
+    },
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "reasoning-start",
+      "id": "reasoning_ac9596e3-936e-4911-bdc6-d23de02d6c63",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_ac9596e3-936e-4911-bdc6-d23de02d6c63",
+      "text": "**Respond",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_ac9596e3-936e-4911-bdc6-d23de02d6c63",
+      "text": "ing",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_ac9596e3-936e-4911-bdc6-d23de02d6c63",
+      "text": " with",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_ac9596e3-936e-4911-bdc6-d23de02d6c63",
+      "text": " a",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_ac9596e3-936e-4911-bdc6-d23de02d6c63",
+      "text": " friendly",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_ac9596e3-936e-4911-bdc6-d23de02d6c63",
+      "text": " greeting",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_ac9596e3-936e-4911-bdc6-d23de02d6c63",
+      "text": "**",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_ac9596e3-936e-4911-bdc6-d23de02d6c63",
+      "text": "\n\n",
+      "provider_metadata": null
+    },
+    {
+      "type": "text-start"
+    },
+    {
+      "type": "text-delta",
+      "text": "Hello"
+    },
+    {
+      "type": "text-delta",
+      "text": "!"
+    },
+    {
+      "type": "text-delta",
+      "text": " How"
+    },
+    {
+      "type": "text-delta",
+      "text": " can"
+    },
+    {
+      "type": "text-delta",
+      "text": " I"
+    },
+    {
+      "type": "text-delta",
+      "text": " assist"
+    },
+    {
+      "type": "text-delta",
+      "text": " you"
+    },
+    {
+      "type": "text-delta",
+      "text": " today"
+    },
+    {
+      "type": "text-delta",
+      "text": "?"
+    },
+    {
+      "type": "usage",
+      "input_tokens": 599,
+      "output_tokens": 76,
+      "total_tokens": 675,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "reasoning-end",
+      "id": "reasoning_ac9596e3-936e-4911-bdc6-d23de02d6c63"
+    },
+    {
+      "type": "done",
+      "finish_reason": "stop"
+    }
+  ]
+}

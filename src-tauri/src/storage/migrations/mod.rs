@@ -187,17 +187,31 @@ pub fn chat_history_migrations() -> MigrationRegistry {
             CREATE TABLE attachments (
                 id TEXT PRIMARY KEY,
                 session_id TEXT NOT NULL,
+                message_id TEXT,
                 filename TEXT NOT NULL,
                 mime_type TEXT NOT NULL,
                 size INTEGER NOT NULL DEFAULT 0,
                 path TEXT NOT NULL,
                 created_at INTEGER NOT NULL,
                 origin TEXT NOT NULL DEFAULT 'user_upload',
-                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE
+                FOREIGN KEY (session_id) REFERENCES sessions(id) ON DELETE CASCADE,
+                FOREIGN KEY (message_id) REFERENCES messages(id) ON DELETE SET NULL
             );
             CREATE INDEX idx_attachments_session ON attachments(session_id);
+            CREATE INDEX idx_attachments_message ON attachments(message_id);
         "#,
         down_sql: Some("DROP TABLE attachments;"),
+    });
+
+    // Migration 5: Add message_id to attachments for TS compatibility
+    registry.register(Migration {
+        version: 5,
+        name: "add_message_id_to_attachments",
+        up_sql: r#"
+            -- Backfill index only; column already exists in migration 4
+            CREATE INDEX IF NOT EXISTS idx_attachments_message ON attachments(message_id);
+        "#,
+        down_sql: Some("DROP INDEX IF EXISTS idx_attachments_message;"),
     });
 
     registry
@@ -312,7 +326,7 @@ mod tests {
     #[test]
     fn test_chat_history_migrations_count() {
         let registry = chat_history_migrations();
-        assert_eq!(registry.migrations().len(), 4);
+        assert_eq!(registry.migrations().len(), 5);
     }
 
     #[test]

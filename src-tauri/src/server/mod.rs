@@ -1,6 +1,7 @@
 pub mod config;
 pub mod routes;
 pub mod state;
+pub mod streaming_bridge;
 pub mod types;
 
 use std::net::SocketAddr;
@@ -27,7 +28,10 @@ pub async fn start_server(
         .map_err(|e| format!("Failed to create server state: {}", e))?;
 
     // Build router with API key middleware
-    let app = routes::router(state).route_layer(axum::middleware::from_fn(api_key_middleware));
+    let app = routes::router(state.clone()).layer(axum::middleware::from_fn_with_state(
+        state,
+        api_key_middleware,
+    ));
 
     // Bind to any available port
     let listener = TcpListener::bind(("127.0.0.1", 0))

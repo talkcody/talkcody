@@ -4,6 +4,7 @@
 //! Tools execute on the backend host (filesystem, git, shell, LSP, search).
 
 use crate::core::types::*;
+use crate::platform::types::PlatformResult;
 use crate::storage::models::*;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -88,8 +89,9 @@ impl ToolRegistry {
 
     /// Get tool definition
     pub async fn get_definition(&self, name: &str) -> Option<ToolDefinition> {
+        let normalized_name = crate::core::tool_name_normalizer::normalize_tool_name(name);
         let tools = self.tools.read().await;
-        tools.get(name).cloned()
+        tools.get(&normalized_name).cloned()
     }
 
     /// List all registered tools
@@ -100,15 +102,22 @@ impl ToolRegistry {
 
     /// Check if a tool requires approval
     pub async fn requires_approval(&self, name: &str) -> bool {
+        let normalized_name = crate::core::tool_name_normalizer::normalize_tool_name(name);
         let tools = self.tools.read().await;
         tools
-            .get(name)
+            .get(&normalized_name)
             .map(|def| def.requires_approval)
             .unwrap_or(true) // Default to requiring approval for unknown tools
     }
 
     /// Execute a tool
     pub async fn execute(&self, request: ToolRequest, context: ToolContext) -> ToolResult {
+        let normalized_name = crate::core::tool_name_normalizer::normalize_tool_name(&request.name);
+        let request = ToolRequest {
+            name: normalized_name,
+            ..request
+        };
+
         let handler = {
             let handlers = self.handlers.read().await;
             match handlers.get(&request.name) {
@@ -116,6 +125,7 @@ impl ToolRegistry {
                 None => {
                     return ToolResult {
                         tool_call_id: request.tool_call_id,
+                        name: Some(request.name.clone()),
                         success: false,
                         output: serde_json::Value::Null,
                         error: Some(format!("Tool '{}' not found", request.name)),
@@ -128,6 +138,7 @@ impl ToolRegistry {
 
         ToolResult {
             tool_call_id: request.tool_call_id,
+            name: Some(request.name),
             success: output.success,
             output: output.data,
             error: output.error,
@@ -138,118 +149,22 @@ impl ToolRegistry {
     pub async fn create_default() -> Self {
         let registry = Self::new();
 
-        // Register built-in tools
-        // Note: Actual tool implementations would be added here
-        // For now, we register placeholder definitions
+        // Register tools from canonical definitions
+        let definitions = crate::core::tool_definitions::get_tool_definitions();
 
-        let tools = vec![
-            ToolDefinition {
-                name: "read_file".to_string(),
-                description: "Read the contents of a file".to_string(),
-                parameters: serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the file"
-                        }
-                    },
-                    "required": ["path"]
-                }),
-                requires_approval: false,
-            },
-            ToolDefinition {
-                name: "write_file".to_string(),
-                description: "Write content to a file".to_string(),
-                parameters: serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Path to the file"
-                        },
-                        "content": {
-                            "type": "string",
-                            "description": "Content to write"
-                        }
-                    },
-                    "required": ["path", "content"]
-                }),
-                requires_approval: true,
-            },
-            ToolDefinition {
-                name: "search_files".to_string(),
-                description: "Search for files matching a pattern".to_string(),
-                parameters: serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "pattern": {
-                            "type": "string",
-                            "description": "Search pattern"
-                        },
-                        "path": {
-                            "type": "string",
-                            "description": "Directory to search in"
-                        }
-                    },
-                    "required": ["pattern"]
-                }),
-                requires_approval: false,
-            },
-            ToolDefinition {
-                name: "execute_shell".to_string(),
-                description: "Execute a shell command".to_string(),
-                parameters: serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "command": {
-                            "type": "string",
-                            "description": "Command to execute"
-                        },
-                        "cwd": {
-                            "type": "string",
-                            "description": "Working directory"
-                        }
-                    },
-                    "required": ["command"]
-                }),
-                requires_approval: true,
-            },
-            ToolDefinition {
-                name: "git_status".to_string(),
-                description: "Get git repository status".to_string(),
-                parameters: serde_json::json!({
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Repository path"
-                        }
-                    }
-                }),
-                requires_approval: false,
-            },
-        ];
-
-        for tool in tools {
-            let name = tool.name.clone();
+        for tool_def in definitions {
+            let name = tool_def.0.name.clone();
             let handler: ToolHandler = Arc::new(
-                move |_req: crate::core::types::ToolRequest, _ctx: ToolContext| {
+                move |req: crate::core::types::ToolRequest, ctx: ToolContext| {
                     let name = name.clone();
                     Box::pin(async move {
-                        // Placeholder implementation
-                        ToolExecutionOutput {
-                            success: true,
-                            data: serde_json::json!({
-                                "message": format!("Tool '{}' executed (placeholder)", name)
-                            }),
-                            error: None,
-                        }
+                        // Route to platform implementation
+                        execute_tool_by_name(&name, req, ctx).await
                     })
                 },
             );
 
-            let _ = registry.register(tool, handler).await;
+            let _ = registry.register(tool_def.0, handler).await;
         }
 
         registry
@@ -282,6 +197,12 @@ impl ToolDispatcher {
         context: ToolContext,
         auto_approve: bool,
     ) -> Result<ToolDispatchResult, String> {
+        let normalized_name = crate::core::tool_name_normalizer::normalize_tool_name(&request.name);
+        let request = ToolRequest {
+            name: normalized_name,
+            ..request
+        };
+
         // Check if tool requires approval
         let requires_approval = self.registry.requires_approval(&request.name).await;
 
@@ -308,6 +229,294 @@ pub enum ToolDispatchResult {
     Completed(ToolResult),
     /// Tool requires user approval
     PendingApproval(ToolRequest),
+}
+
+/// Execute a tool by name using the platform
+async fn execute_tool_by_name(
+    name: &str,
+    request: ToolRequest,
+    ctx: ToolContext,
+) -> ToolExecutionOutput {
+    let platform = crate::platform::Platform::new();
+    let platform_ctx = platform.create_context(&ctx.workspace_root, ctx.worktree_path.as_deref());
+
+    // Map camelCase tool name to platform tool name
+    // All arms return ToolExecutionOutput directly for consistency
+    let result: ToolExecutionOutput = match name {
+        "readFile" | "read_file" => {
+            let path = request
+                .input
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .or_else(|| request.input.get("path").and_then(|v| v.as_str()))
+                .unwrap_or("");
+            let platform_result = platform.filesystem.read_file(path, &platform_ctx).await;
+            ToolExecutionOutput {
+                success: platform_result.success,
+                data: serde_json::to_value(&platform_result.data).unwrap_or_default(),
+                error: platform_result.error,
+            }
+        }
+        "writeFile" | "write_file" => {
+            let path = request
+                .input
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .or_else(|| request.input.get("path").and_then(|v| v.as_str()))
+                .unwrap_or("");
+            let content = request
+                .input
+                .get("content")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let platform_result = platform
+                .filesystem
+                .write_file(path, content, &platform_ctx)
+                .await;
+            ToolExecutionOutput {
+                success: platform_result.success,
+                data: serde_json::to_value(&platform_result.data).unwrap_or_default(),
+                error: platform_result.error,
+            }
+        }
+        "editFile" | "edit_file" => {
+            // Edit file using platform
+            let path = request
+                .input
+                .get("file_path")
+                .and_then(|v| v.as_str())
+                .or_else(|| request.input.get("path").and_then(|v| v.as_str()))
+                .unwrap_or("");
+            if let Some(edits) = request.input.get("edits").and_then(|v| v.as_array()) {
+                // Read current content
+                let read_result = platform.filesystem.read_file(path, &platform_ctx).await;
+                if read_result.success {
+                    if let Some(content) = read_result.data {
+                        let mut new_content = content;
+                        for edit in edits {
+                            if let (Some(old_str), Some(new_str)) = (
+                                edit.get("old_string").and_then(|v| v.as_str()),
+                                edit.get("new_string").and_then(|v| v.as_str()),
+                            ) {
+                                new_content = new_content.replace(old_str, new_str);
+                            }
+                        }
+                        let write_result = platform
+                            .filesystem
+                            .write_file(path, &new_content, &platform_ctx)
+                            .await;
+                        ToolExecutionOutput {
+                            success: write_result.success,
+                            data: serde_json::to_value(&write_result.data).unwrap_or_default(),
+                            error: write_result.error,
+                        }
+                    } else {
+                        ToolExecutionOutput {
+                            success: false,
+                            data: serde_json::Value::Null,
+                            error: Some("Failed to read file content".to_string()),
+                        }
+                    }
+                } else {
+                    ToolExecutionOutput {
+                        success: false,
+                        data: serde_json::Value::Null,
+                        error: Some("Failed to read file for editing".to_string()),
+                    }
+                }
+            } else {
+                ToolExecutionOutput {
+                    success: false,
+                    data: serde_json::Value::Null,
+                    error: Some("No edits provided".to_string()),
+                }
+            }
+        }
+        "glob" => {
+            // Glob implementation using walkdir
+            if let Some(pattern) = request.input.get("pattern").and_then(|v| v.as_str()) {
+                use std::path::Path;
+
+                // Simple glob implementation - convert pattern to suffix matching
+                let files: Vec<String> = std::fs::read_dir(&ctx.workspace_root)
+                    .ok()
+                    .into_iter()
+                    .flatten()
+                    .filter_map(|e| e.ok())
+                    .filter(|e| {
+                        let name = e.file_name().to_string_lossy().to_string();
+                        // Very simple pattern matching
+                        if pattern.starts_with("**/*.") {
+                            let ext = &pattern[4..]; // Get extension after "**/*."
+                            name.ends_with(ext)
+                        } else if pattern.starts_with("*.") {
+                            let ext = &pattern[2..]; // Get extension after "*."
+                            name.ends_with(ext)
+                        } else {
+                            name.contains(pattern)
+                        }
+                    })
+                    .map(|e| e.path().to_string_lossy().to_string())
+                    .collect();
+
+                ToolExecutionOutput {
+                    success: true,
+                    data: serde_json::json!(files),
+                    error: None,
+                }
+            } else {
+                ToolExecutionOutput {
+                    success: false,
+                    data: serde_json::Value::Null,
+                    error: Some("No pattern provided".to_string()),
+                }
+            }
+        }
+        "codeSearch" | "search_files" => {
+            if let Some(query) = request.input.get("query").and_then(|v| v.as_str()) {
+                let search_result = crate::search::RipgrepSearch::new()
+                    .with_max_results(50)
+                    .search_content(query, &ctx.workspace_root);
+                match search_result {
+                    Ok(results) => ToolExecutionOutput {
+                        success: true,
+                        data: serde_json::json!(results),
+                        error: None,
+                    },
+                    Err(e) => ToolExecutionOutput {
+                        success: false,
+                        data: serde_json::Value::Null,
+                        error: Some(e),
+                    },
+                }
+            } else {
+                ToolExecutionOutput {
+                    success: false,
+                    data: serde_json::Value::Null,
+                    error: Some("No query provided".to_string()),
+                }
+            }
+        }
+        "listFiles" | "list_files" | "list_directory" => {
+            let path = request
+                .input
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or(".");
+            let platform_result = platform
+                .filesystem
+                .list_directory(path, &platform_ctx)
+                .await;
+            ToolExecutionOutput {
+                success: platform_result.success,
+                data: serde_json::to_value(&platform_result.data).unwrap_or_default(),
+                error: platform_result.error,
+            }
+        }
+        "bash" | "execute_shell" | "executeShell" => {
+            let command = request
+                .input
+                .get("command")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let cwd = request.input.get("cwd").and_then(|v| v.as_str());
+            let platform_result = platform.shell.execute(command, cwd, &platform_ctx).await;
+            ToolExecutionOutput {
+                success: platform_result.success,
+                data: serde_json::to_value(&platform_result.data).unwrap_or_default(),
+                error: platform_result.error,
+            }
+        }
+        "lsp" => {
+            // LSP operations - return placeholder for now
+            ToolExecutionOutput {
+                success: true,
+                data: serde_json::json!({"message": "LSP tool executed"}),
+                error: None,
+            }
+        }
+        "webFetch" | "web_fetch" => {
+            if let Some(url) = request.input.get("url").and_then(|v| v.as_str()) {
+                // Perform HTTP fetch
+                match reqwest::get(url).await {
+                    Ok(response) => match response.text().await {
+                        Ok(text) => ToolExecutionOutput {
+                            success: true,
+                            data: serde_json::json!({"content": text}),
+                            error: None,
+                        },
+                        Err(e) => ToolExecutionOutput {
+                            success: false,
+                            data: serde_json::Value::Null,
+                            error: Some(format!("Failed to read response: {}", e)),
+                        },
+                    },
+                    Err(e) => ToolExecutionOutput {
+                        success: false,
+                        data: serde_json::Value::Null,
+                        error: Some(format!("Failed to fetch: {}", e)),
+                    },
+                }
+            } else {
+                ToolExecutionOutput {
+                    success: false,
+                    data: serde_json::Value::Null,
+                    error: Some("No URL provided".to_string()),
+                }
+            }
+        }
+        "webSearch" | "web_search" => {
+            // Web search - return placeholder
+            ToolExecutionOutput {
+                success: true,
+                data: serde_json::json!({"results": [], "message": "Web search placeholder"}),
+                error: None,
+            }
+        }
+        "callAgent" | "call_agent" => {
+            // Call agent - return placeholder
+            ToolExecutionOutput {
+                success: true,
+                data: serde_json::json!({"message": "Agent execution placeholder"}),
+                error: None,
+            }
+        }
+        "todoWrite" | "todo_write" => ToolExecutionOutput {
+            success: true,
+            data: serde_json::json!({"message": "Todo write placeholder"}),
+            error: None,
+        },
+        "askUserQuestions" | "ask_user_questions" => ToolExecutionOutput {
+            success: true,
+            data: serde_json::json!({"message": "Ask user questions placeholder"}),
+            error: None,
+        },
+        "exitPlanMode" | "exit_plan_mode" => ToolExecutionOutput {
+            success: true,
+            data: serde_json::json!({"exited": true}),
+            error: None,
+        },
+        "githubPR" | "github_pr" => ToolExecutionOutput {
+            success: true,
+            data: serde_json::json!({"message": "GitHub PR placeholder"}),
+            error: None,
+        },
+        "git_status" | "gitStatus" => {
+            let platform_result = platform.git.get_status(&platform_ctx).await;
+            ToolExecutionOutput {
+                success: platform_result.success,
+                data: serde_json::to_value(&platform_result.data).unwrap_or_default(),
+                error: platform_result.error,
+            }
+        }
+        _ => ToolExecutionOutput {
+            success: false,
+            data: serde_json::Value::Null,
+            error: Some(format!("Unknown tool: {}", name)),
+        },
+    };
+
+    result
 }
 
 #[cfg(test)]

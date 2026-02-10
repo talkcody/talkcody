@@ -100,6 +100,7 @@ pub struct ToolRequest {
     pub tool_call_id: ToolCallId,
     pub name: String,
     pub input: serde_json::Value,
+    pub provider_metadata: Option<serde_json::Value>,
 }
 
 /// Result of tool execution
@@ -107,6 +108,7 @@ pub struct ToolRequest {
 #[serde(rename_all = "camelCase")]
 pub struct ToolResult {
     pub tool_call_id: ToolCallId,
+    pub name: Option<String>,
     pub success: bool,
     pub output: serde_json::Value,
     pub error: Option<String>,

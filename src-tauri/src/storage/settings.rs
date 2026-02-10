@@ -17,6 +17,11 @@ impl SettingsRepository {
         Self { db }
     }
 
+    /// Get a reference to the underlying database
+    pub fn get_db(&self) -> Arc<Database> {
+        self.db.clone()
+    }
+
     // ============== Generic Settings Operations ==============
 
     /// Get a setting value by key

@@ -135,7 +135,40 @@ pub enum MessageContent {
     #[serde(rename = "tool_calls")]
     ToolCalls { calls: Vec<ToolCall> },
     #[serde(rename = "tool_result")]
-    ToolResult { result: serde_json::Value },
+    ToolResult { result: StoredToolResult },
+}
+
+/// Stored format for tool call
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredToolCall {
+    #[serde(rename = "toolCallId")]
+    pub tool_call_id: String,
+    #[serde(rename = "toolName")]
+    pub tool_name: String,
+    pub input: Option<serde_json::Value>,
+}
+
+/// Stored format for tool result - matches TS StoredToolResult
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StoredToolResult {
+    #[serde(rename = "toolCallId")]
+    pub tool_call_id: String,
+    #[serde(rename = "toolName")]
+    pub tool_name: String,
+    pub input: Option<serde_json::Value>,
+    pub output: Option<serde_json::Value>,
+    pub status: ToolResultStatus,
+    #[serde(rename = "errorMessage")]
+    pub error_message: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum ToolResultStatus {
+    Success,
+    Error,
 }
 
 /// A tool call from the assistant
@@ -250,6 +283,7 @@ pub struct TaskSettings {
 pub struct Attachment {
     pub id: AttachmentId,
     pub session_id: SessionId,
+    pub message_id: Option<MessageId>,
     pub filename: String,
     pub mime_type: String,
     pub size: i64,
