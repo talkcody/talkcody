@@ -69,15 +69,7 @@ which = "7.0"
 zip = "2.2"
 # OAuth callback server
 tiny_http = "0.12"
-async-trait = "0.1"
-axum = "0.7"
-tokio-stream = "0.1"
-tower = "0.4"
-open-lark = { version = "0.14.0", default-features = false, features = ["im", "websocket"] }
-futures = "0.3.31"
-
-[patch.crates-io]
-open-lark = { git = "https://github.com/talkcody/open-lark", branch = "fix-user-id-null" }
+rusty-s3 = "0.8.1"
 
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
 tauri-plugin-single-instance = { version = "2.0.0", features = ["deep-link"] }

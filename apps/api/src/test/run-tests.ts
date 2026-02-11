@@ -94,6 +94,7 @@ const testProcess = Bun.spawn(
     'src/test/marketplace.test.ts',
     'src/test/skills-marketplace.test.ts',
     'src/test/auth-service.test.ts',
+    'src/test/s3-bucket.test.ts',
   ],
   {
     stdio: ['inherit', 'inherit', 'inherit'],

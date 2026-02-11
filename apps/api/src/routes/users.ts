@@ -1,10 +1,12 @@
 // User routes
 import { Hono } from 'hono';
 import { authMiddleware, getAuth } from '../middlewares/auth';
+import { getReleasesBucket, getUploadsPublicBaseUrl } from '../services/releases-bucket';
 import { uploadService } from '../services/upload-service';
 import { userService } from '../services/user-service';
+import type { HonoContext } from '../types/context';
 
-const users = new Hono();
+const users = new Hono<HonoContext>();
 
 /**
  * Get user profile by ID
@@ -133,13 +135,18 @@ users.post('/me/avatar', authMiddleware, async (c) => {
     }
 
     // Get R2 bucket from environment
-    const bucket = c.env?.RELEASES_BUCKET;
+    const bucket = getReleasesBucket(c.env);
     if (!bucket) {
       return c.json({ error: 'Storage service not available' }, 503);
     }
 
     // Upload to R2
-    const avatarUrl = await uploadService.uploadAvatar(userId, file, bucket);
+    const avatarUrl = await uploadService.uploadAvatar(
+      userId,
+      file,
+      bucket,
+      getUploadsPublicBaseUrl(c.env)
+    );
 
     // Update user's avatar URL
     const user = await userService.updateUserProfile(userId, { avatarUrl });

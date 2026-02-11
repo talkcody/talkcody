@@ -1,4 +1,5 @@
 import { Hono } from 'hono';
+import { getReleasesBucket } from '../services/releases-bucket';
 import type { HonoContext } from '../types/context';
 
 const updates = new Hono<HonoContext>();
@@ -43,7 +44,7 @@ updates.get('/:target/:arch/:currentVersion', async (c) => {
     }
 
     // Access R2 bucket from environment
-    const bucket = c.env?.RELEASES_BUCKET;
+    const bucket = getReleasesBucket(c.env);
     if (!bucket) {
       console.error('RELEASES_BUCKET not configured');
       return c.json({ error: 'Update service not configured' }, 500);
@@ -126,7 +127,7 @@ updates.get('/:target/:arch/:currentVersion', async (c) => {
  */
 updates.get('/latest', async (c) => {
   try {
-    const bucket = c.env?.RELEASES_BUCKET;
+    const bucket = getReleasesBucket(c.env);
     if (!bucket) {
       return c.json({ error: 'Update service not configured' }, 500);
     }

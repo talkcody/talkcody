@@ -10,9 +10,15 @@ export class UploadService {
    * @param userId - User ID
    * @param file - File to upload
    * @param bucket - R2 bucket instance
+   * @param publicBaseUrl - Public base URL for accessing uploaded files (e.g., CDN)
    * @returns CDN URL to the uploaded file
    */
-  async uploadAvatar(userId: string, file: File, bucket: R2Bucket): Promise<string> {
+  async uploadAvatar(
+    userId: string,
+    file: File,
+    bucket: R2Bucket,
+    publicBaseUrl?: string
+  ): Promise<string> {
     // Extract file extension
     const ext = file.name.split('.').pop()?.toLowerCase() || 'jpg';
 
@@ -33,8 +39,8 @@ export class UploadService {
       },
     });
 
-    // Return CDN URL
-    return `${this.cdnBaseUrl}/${key}`;
+    const baseUrl = publicBaseUrl ?? this.cdnBaseUrl;
+    return `${baseUrl}/${key}`;
   }
 
   /**

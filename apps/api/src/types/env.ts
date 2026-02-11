@@ -11,6 +11,16 @@ export interface Env {
   GOOGLE_REDIRECT_URI?: string;
   NODE_ENV?: string;
   RELEASES_BUCKET?: R2Bucket;
+  // Bun runtime: use an S3-compatible bucket when R2 bindings are unavailable
+  RELEASES_S3_ENDPOINT?: string;
+  RELEASES_S3_BUCKET?: string;
+  RELEASES_S3_REGION?: string;
+  RELEASES_S3_ACCESS_KEY_ID?: string;
+  RELEASES_S3_SECRET_ACCESS_KEY?: string;
+  RELEASES_S3_SESSION_TOKEN?: string;
+  RELEASES_S3_FORCE_PATH_STYLE?: string;
+  // Public base URL for uploaded files (e.g., CDN). Defaults to https://cdn.talkcody.com
+  UPLOADS_PUBLIC_BASE_URL?: string;
   TALKCODY_DAILY_TOKEN_LIMIT?: string;
   SERPER_API_KEY?: string;
 }
@@ -85,6 +95,14 @@ declare global {
       GOOGLE_CLIENT_SECRET: string;
       GOOGLE_REDIRECT_URI?: string;
       NODE_ENV?: string;
+      RELEASES_S3_ENDPOINT?: string;
+      RELEASES_S3_BUCKET?: string;
+      RELEASES_S3_REGION?: string;
+      RELEASES_S3_ACCESS_KEY_ID?: string;
+      RELEASES_S3_SECRET_ACCESS_KEY?: string;
+      RELEASES_S3_SESSION_TOKEN?: string;
+      RELEASES_S3_FORCE_PATH_STYLE?: string;
+      UPLOADS_PUBLIC_BASE_URL?: string;
       TALKCODY_DAILY_TOKEN_LIMIT?: string;
       SERPER_API_KEY?: string;
     }
