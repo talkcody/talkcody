@@ -103,4 +103,27 @@ describe('llmClient', () => {
       },
     });
   });
+
+  it('calls llm_enhance_prompt with correct payload', async () => {
+    const mockResult = {
+      enhancedPrompt: 'Enhanced version of the prompt',
+      extractedKeywords: ['React', 'TypeScript'],
+      generatedQueries: ['React component patterns'],
+      contextSnippetCount: 3,
+    };
+    (invoke as ReturnType<typeof vi.fn>).mockResolvedValue(mockResult);
+
+    const request = {
+      originalPrompt: 'Help me refactor this component',
+      projectPath: '/path/to/project',
+      conversationHistory: 'User: previous message\nAssistant: response',
+      enableContextExtraction: true,
+      model: 'gpt-4@openai',
+    };
+
+    const result = await llmClient.enhancePrompt(request);
+
+    expect(invoke).toHaveBeenCalledWith('llm_enhance_prompt', { request });
+    expect(result).toEqual(mockResult);
+  });
 });

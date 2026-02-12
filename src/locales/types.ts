@@ -241,6 +241,19 @@ export interface LocaleDefinition {
       success: string;
       failed: string;
     };
+    promptEnhancement: {
+      optionsButton: string;
+      enhanceButton: string;
+      enhancing: string;
+      success: string;
+      failed: string;
+      emptyPrompt: string;
+      contextExtraction: string;
+      contextExtractionDescription: string;
+      modelSelect: string;
+      modelPlaceholder: string;
+      followCurrentModel: string;
+    };
     toolbar: {
       model: string;
       planMode: string;

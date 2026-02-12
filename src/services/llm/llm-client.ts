@@ -19,6 +19,8 @@ import type {
   GitMessageContext,
   GitMessageResult,
   Message,
+  PromptEnhancementRequest,
+  PromptEnhancementResult,
   ProviderConfig,
   StreamEvent,
   StreamResponse,
@@ -195,6 +197,10 @@ export class LlmClient {
 
   async compactContext(request: ContextCompactionRequest): Promise<ContextCompactionResult> {
     return invoke<ContextCompactionResult>('llm_compact_context', { request });
+  }
+
+  async enhancePrompt(request: PromptEnhancementRequest): Promise<PromptEnhancementResult> {
+    return invoke<PromptEnhancementResult>('llm_enhance_prompt', { request });
   }
 
   async registerCustomProvider(config: {

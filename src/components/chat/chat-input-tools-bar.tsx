@@ -5,6 +5,7 @@ import { CurrentFileButton } from './current-file-button';
 import { McpSelectorButton } from './mcp-selector-button';
 import { ModelSelectorButton } from './model-selector-button';
 // import { OutputFormatButton } from './output-format-button';
+import { PromptEnhancementOptionsButton } from './prompt-enhancement-options-button';
 import { ReasoningEffortButton } from './reasoning-effort-button';
 import { SkillsSelectorButton } from './skills-selector-button';
 import { ToolSelectorButton } from './tool-selector-button';
@@ -25,6 +26,7 @@ export function ChatInputToolsBar({ taskId, disabled, onAddCurrentFile }: ChatIn
       {/* <OutputFormatButton /> */}
       <ReasoningEffortButton />
       <AutoApproveButton />
+      <PromptEnhancementOptionsButton />
       {onAddCurrentFile && <CurrentFileButton disabled={disabled} onAddFile={onAddCurrentFile} />}
     </div>
   );

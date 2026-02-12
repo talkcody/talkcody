@@ -101,6 +101,32 @@ pub struct TitleGenerationResult {
     pub title: String,
 }
 
+// Prompt Enhancement Service Types
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptEnhancementRequest {
+    #[serde(rename = "originalPrompt")]
+    pub original_prompt: String,
+    #[serde(rename = "projectPath")]
+    pub project_path: Option<String>,
+    #[serde(rename = "conversationHistory")]
+    pub conversation_history: Option<String>,
+    #[serde(rename = "enableContextExtraction")]
+    pub enable_context_extraction: bool,
+    pub model: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct PromptEnhancementResult {
+    #[serde(rename = "enhancedPrompt")]
+    pub enhanced_prompt: String,
+    #[serde(rename = "extractedKeywords")]
+    pub extracted_keywords: Vec<String>,
+    #[serde(rename = "generatedQueries")]
+    pub generated_queries: Vec<String>,
+    #[serde(rename = "contextSnippetCount")]
+    pub context_snippet_count: u32,
+}
+
 // Model Fallback Types
 #[derive(Debug, Clone)]
 pub struct ModelFallbackInfo {

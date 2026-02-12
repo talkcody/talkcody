@@ -1092,6 +1092,7 @@ pub fn run() {
             llm::commands::llm_generate_commit_message,
             llm::commands::llm_generate_title,
             llm::commands::llm_compact_context,
+            llm::commands::llm_enhance_prompt,
             llm::auth::api_key_manager::llm_set_setting,
             llm::auth::oauth::llm_openai_oauth_start,
             llm::auth::oauth::llm_openai_oauth_complete,

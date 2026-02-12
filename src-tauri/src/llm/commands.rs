@@ -2,11 +2,13 @@ use crate::llm::ai_services::completion_service::CompletionService;
 use crate::llm::ai_services::context_compaction_service::ContextCompactionService;
 use crate::llm::ai_services::git_message_service::GitMessageService;
 use crate::llm::ai_services::pricing_service::PricingService;
+use crate::llm::ai_services::prompt_enhancement_service::PromptEnhancementService;
 use crate::llm::ai_services::task_title_service::TaskTitleService;
 use crate::llm::ai_services::types::{
     CalculateCostRequest, CalculateCostResult, CompletionContext, CompletionResult,
     ContextCompactionRequest, ContextCompactionResult, GitMessageContext, GitMessageResult,
-    TitleGenerationRequest, TitleGenerationResult,
+    PromptEnhancementRequest, PromptEnhancementResult, TitleGenerationRequest,
+    TitleGenerationResult,
 };
 use crate::llm::auth::api_key_manager::LlmState;
 use crate::llm::models::model_registry::ModelRegistry;
@@ -269,4 +271,20 @@ pub async fn llm_compact_context(
 
     let service = ContextCompactionService::new();
     service.compact_context(request, &api_keys, &registry).await
+}
+
+/// Enhance user prompt with context
+#[tauri::command]
+pub async fn llm_enhance_prompt(
+    request: PromptEnhancementRequest,
+    state: State<'_, LlmState>,
+) -> Result<PromptEnhancementResult, String> {
+    let (registry, api_keys) = {
+        let registry = state.registry.lock().await;
+        let api_keys = state.api_keys.lock().await;
+        (registry.clone(), api_keys.clone())
+    };
+
+    let service = PromptEnhancementService::new();
+    service.enhance_prompt(request, &api_keys, &registry).await
 }

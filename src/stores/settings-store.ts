@@ -106,6 +106,10 @@ interface SettingsState {
   lsp_show_info: boolean;
   lsp_show_hints: boolean;
 
+  // Prompt Enhancement Settings
+  prompt_enhancement_context_enabled: boolean;
+  prompt_enhancement_model: string;
+
   // Internal state
   loading: boolean;
   error: Error | null;
@@ -246,6 +250,12 @@ interface SettingsActions {
   setLspShowHints: (show: boolean) => Promise<void>;
   getLspShowHints: () => boolean;
 
+  // Prompt Enhancement Settings
+  setPromptEnhancementContextEnabled: (enabled: boolean) => Promise<void>;
+  getPromptEnhancementContextEnabled: () => boolean;
+  setPromptEnhancementModel: (model: string) => Promise<void>;
+  getPromptEnhancementModel: () => string;
+
   // Convenience getters
   getModel: () => string;
   getAgentId: () => string;
@@ -317,6 +327,8 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
   lsp_show_warnings: true,
   lsp_show_info: true,
   lsp_show_hints: false,
+  prompt_enhancement_context_enabled: true,
+  prompt_enhancement_model: '',
 };
 
 // Database persistence layer
@@ -407,6 +419,8 @@ class SettingsDatabase {
       lsp_show_warnings: 'true',
       lsp_show_info: 'true',
       lsp_show_hints: 'false',
+      prompt_enhancement_context_enabled: 'true',
+      prompt_enhancement_model: '',
     };
 
     const now = Date.now();
@@ -553,6 +567,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         'lsp_show_warnings',
         'lsp_show_info',
         'lsp_show_hints',
+        'prompt_enhancement_context_enabled',
+        'prompt_enhancement_model',
       ];
 
       // Add API key keys
@@ -652,6 +668,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         lsp_show_warnings: rawSettings.lsp_show_warnings !== 'false',
         lsp_show_info: rawSettings.lsp_show_info !== 'false',
         lsp_show_hints: rawSettings.lsp_show_hints === 'true',
+        prompt_enhancement_context_enabled: rawSettings.prompt_enhancement_context_enabled !== 'false',
+        prompt_enhancement_model: rawSettings.prompt_enhancement_model || '',
         loading: false,
         isInitialized: true,
       });
@@ -1225,6 +1243,25 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     return get().lsp_show_hints;
   },
 
+  // Prompt Enhancement Settings
+  setPromptEnhancementContextEnabled: async (enabled: boolean) => {
+    await settingsDb.set('prompt_enhancement_context_enabled', enabled.toString());
+    set({ prompt_enhancement_context_enabled: enabled });
+  },
+
+  getPromptEnhancementContextEnabled: () => {
+    return get().prompt_enhancement_context_enabled;
+  },
+
+  setPromptEnhancementModel: async (model: string) => {
+    await settingsDb.set('prompt_enhancement_model', model);
+    set({ prompt_enhancement_model: model });
+  },
+
+  getPromptEnhancementModel: () => {
+    return get().prompt_enhancement_model || '';
+  },
+
   // Convenience getters
   getModel: () => {
     return get().model;
@@ -1363,6 +1400,15 @@ export const settingsManager = {
   getAutoCodeReviewGlobal: () => useSettingsStore.getState().getAutoCodeReviewGlobal(),
   getHooksEnabled: () => useSettingsStore.getState().getHooksEnabled(),
   getTraceEnabled: () => useSettingsStore.getState().getTraceEnabled(),
+
+  // Prompt Enhancement
+  setPromptEnhancementContextEnabled: (enabled: boolean) =>
+    useSettingsStore.getState().setPromptEnhancementContextEnabled(enabled),
+  getPromptEnhancementContextEnabled: () =>
+    useSettingsStore.getState().getPromptEnhancementContextEnabled(),
+  setPromptEnhancementModel: (model: string) =>
+    useSettingsStore.getState().setPromptEnhancementModel(model),
+  getPromptEnhancementModel: () => useSettingsStore.getState().getPromptEnhancementModel(),
 
   // API Keys
   setApiKeys: (apiKeys: ApiKeySettings) => useSettingsStore.getState().setApiKeys(apiKeys),

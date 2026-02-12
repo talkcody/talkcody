@@ -1,7 +1,7 @@
 // src/components/chat/chat-input.tsx
 
 import { getCurrentWindow } from '@tauri-apps/api/window';
-import { ExternalLink, FileIcon, Image, Plus, Video } from 'lucide-react';
+import { ExternalLink, FileIcon, Image, Loader2, Plus, Sparkles, Video } from 'lucide-react';
 import {
   type ChangeEventHandler,
   forwardRef,
@@ -35,6 +35,7 @@ import type { ChatStatus } from '@/services/llm/ui';
 import { repositoryService } from '@/services/repository-service';
 import { usePlanModeStore } from '@/stores/plan-mode-store';
 import { useRalphLoopStore } from '@/stores/ralph-loop-store';
+import { useSettingsStore } from '@/stores/settings-store';
 import { useWorktreeStore } from '@/stores/worktree-store';
 import type { MessageAttachment } from '@/types/agent';
 import type { Command } from '@/types/command';
@@ -65,6 +66,11 @@ interface ChatInputProps {
   fileContent?: string | null;
   repositoryPath?: string | undefined;
   taskId?: string | null;
+  onEnhancePrompt?: (payload: {
+    originalPrompt: string;
+    enableContextExtraction: boolean;
+    model?: string;
+  }) => Promise<string>;
 }
 
 export interface ChatInputRef {
@@ -84,6 +90,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       fileContent,
       repositoryPath,
       taskId,
+      onEnhancePrompt,
     },
     ref
   ) => {
@@ -142,6 +149,9 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
     const [showVideoAlert, setShowVideoAlert] = useState(false);
     const [pendingVideoAttachments, setPendingVideoAttachments] = useState<MessageAttachment[]>([]);
     const isShowingVideoAlertRef = useRef(false);
+
+    // Prompt enhancement state
+    const [isEnhancing, setIsEnhancing] = useState(false);
 
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const isComposingRef = useRef(false); // Track IME composition state
@@ -715,6 +725,46 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       isComposingRef.current = false;
     };
 
+    const handleEnhancePrompt = async () => {
+      if (!onEnhancePrompt || !input.trim() || isEnhancing || isLoading) return;
+
+      setIsEnhancing(true);
+      try {
+        const settings = useSettingsStore.getState();
+        const enhancedPrompt = await onEnhancePrompt({
+          originalPrompt: input,
+          enableContextExtraction: settings.prompt_enhancement_context_enabled,
+          model: settings.prompt_enhancement_model || undefined,
+        });
+
+        // Replace input with enhanced prompt
+        const event = {
+          target: {
+            value: enhancedPrompt,
+            selectionStart: enhancedPrompt.length,
+            selectionEnd: enhancedPrompt.length,
+          },
+        } as React.ChangeEvent<HTMLTextAreaElement>;
+        onInputChange(event);
+
+        // Focus and move cursor to end
+        setTimeout(() => {
+          if (textareaRef.current) {
+            textareaRef.current.value = enhancedPrompt;
+            textareaRef.current.setSelectionRange(enhancedPrompt.length, enhancedPrompt.length);
+            textareaRef.current.focus();
+          }
+        }, 0);
+
+        toast.success(t.Chat.promptEnhancement.success);
+      } catch (error) {
+        logger.error('Failed to enhance prompt:', error);
+        toast.error(t.Chat.promptEnhancement.failed);
+      } finally {
+        setIsEnhancing(false);
+      }
+    };
+
     const handleAddCurrentFile = () => {
       if (selectedFile && fileContent) {
         // Check if current file is already attached
@@ -988,9 +1038,41 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
               className={`@container ${isDragging ? 'ring-2 ring-primary ring-offset-2 bg-accent/50' : ''}`}
               onSubmit={handleSubmit}
             >
-              <TextareaAutosize
-                aria-label="Search"
-                className={`mb-8 w-full resize-none overflow-y-auto border-0 bg-transparent p-4 text-sm outline-0 ring-0 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 ${
+              <div className="relative">
+                {/* Enhance Prompt button - top right inside textarea */}
+                {onEnhancePrompt && (
+                  <div className="absolute right-2 top-2 z-10">
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          type="button"
+                          className="flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
+                          disabled={
+                            !input.trim() || isEnhancing || isLoading
+                          }
+                          onClick={handleEnhancePrompt}
+                        >
+                          {isEnhancing ? (
+                            <Loader2 size={12} className="animate-spin" />
+                          ) : (
+                            <Sparkles size={12} />
+                          )}
+                          <span>
+                            {isEnhancing
+                              ? t.Chat.promptEnhancement.enhancing
+                              : t.Chat.promptEnhancement.enhanceButton}
+                          </span>
+                        </button>
+                      </TooltipTrigger>
+                      <TooltipContent>
+                        <p>{t.Chat.promptEnhancement.enhanceButton}</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </div>
+                )}
+                <TextareaAutosize
+                  aria-label="Search"
+                  className={`mb-8 w-full resize-none overflow-y-auto border-0 bg-transparent p-4 pr-36 text-sm outline-0 ring-0 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 ${
                   isRecording && partialTranscript ? 'text-muted-foreground italic' : ''
                 }`}
                 maxRows={10}
@@ -1005,6 +1087,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 value={isRecording && partialTranscript ? input + partialTranscript : input}
                 readOnly={isRecording}
               />
+              </div>
               <PromptInputToolbar>
                 <PromptInputTools>
                   <Tooltip>

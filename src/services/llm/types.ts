@@ -257,3 +257,18 @@ export type ModelPricing = {
   cachedInput?: string | null;
   cacheCreation?: string | null;
 };
+
+export type PromptEnhancementRequest = {
+  originalPrompt: string;
+  projectPath?: string | null;
+  conversationHistory?: string | null;
+  enableContextExtraction: boolean;
+  model?: string | null;
+};
+
+export type PromptEnhancementResult = {
+  enhancedPrompt: string;
+  extractedKeywords: string[];
+  generatedQueries: string[];
+  contextSnippetCount: number;
+};
