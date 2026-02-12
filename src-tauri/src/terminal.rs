@@ -48,7 +48,7 @@ const WINDOWS_SHELLS: &[(&str, &[&str], &[&str])] = &[
 /// Check if a shell command is available and working
 #[cfg(target_os = "windows")]
 fn check_shell_available(cmd: &str, args: &[&str]) -> bool {
-    match std::process::Command::new(cmd).args(args).output() {
+    match crate::shell_utils::new_command(cmd).args(args).output() {
         Ok(output) => {
             if output.status.success() {
                 true

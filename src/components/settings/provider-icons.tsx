@@ -3,7 +3,7 @@ import {
   SiElevenlabs,
   SiGooglegemini,
   SiOllama,
-  SiOpenai,
+  SiOpenaigym,
   SiVercel,
 } from '@icons-pack/react-simple-icons';
 import type { ComponentType } from 'react';
@@ -34,7 +34,8 @@ function createImageIcon(src: string, alt: string, invertOnDark = false) {
 export const PROVIDER_ICONS: Record<string, ComponentType<IconProps>> = {
   // Providers with simple-icons
   aiGateway: SiVercel,
-  openai: SiOpenai,
+  // `react-simple-icons` no longer exports `SiOpenai` in current versions.
+  openai: SiOpenaigym,
   anthropic: SiAnthropic,
   google: SiGooglegemini,
   ollama: SiOllama,

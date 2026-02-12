@@ -10,7 +10,7 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tokio::fs::{create_dir_all, remove_dir_all, File, OpenOptions};
 use tokio::io::{AsyncReadExt, AsyncWriteExt, BufReader};
-use tokio::process::{Child, Command as TokioCommand};
+use tokio::process::Child;
 use tokio::sync::{broadcast, Mutex};
 use tokio::time::interval;
 
@@ -298,11 +298,11 @@ pub async fn spawn_background_task(
 
     // Build command
     let mut cmd = if cfg!(unix) {
-        let mut c = TokioCommand::new(&shell);
+        let mut c = crate::shell_utils::new_async_command(&shell);
         c.arg("-l").arg("-i").arg("-c").arg(&request.command);
         c
     } else {
-        let mut c = TokioCommand::new(&shell);
+        let mut c = crate::shell_utils::new_async_command(&shell);
         if crate::shell_utils::is_powershell(&shell) {
             c.arg("-Command").arg(&request.command);
         } else {

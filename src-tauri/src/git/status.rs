@@ -153,19 +153,19 @@ mod tests {
     fn create_temp_git_repo_with_commit() -> TempDir {
         let temp_dir = TempDir::new().unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["init"])
             .current_dir(temp_dir.path())
             .output()
             .expect("Failed to initialize git repo");
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .expect("Failed to configure git email");
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
@@ -175,13 +175,13 @@ mod tests {
         let readme = temp_dir.path().join("README.md");
         std::fs::write(&readme, "# Initial").unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
@@ -246,7 +246,7 @@ mod tests {
         let new_file = temp_dir.path().join("staged.txt");
         std::fs::write(&new_file, "staged content").unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "staged.txt"])
             .current_dir(temp_dir.path())
             .output()
@@ -299,7 +299,7 @@ mod tests {
         let readme = temp_dir.path().join("README.md");
         std::fs::write(&readme, "# Modified").unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "README.md"])
             .current_dir(temp_dir.path())
             .output()

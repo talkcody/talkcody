@@ -1,5 +1,38 @@
 // Shell utility functions for cross-platform command execution
 
+/// Windows flag to prevent console window from appearing when spawning processes.
+/// This prevents flashing cmd.exe windows in GUI applications.
+const CREATE_NO_WINDOW: u32 = 0x08000000;
+
+/// Create a new `std::process::Command` with console window hidden on Windows.
+///
+/// On Windows, this sets the `CREATE_NO_WINDOW` creation flag to prevent
+/// a console window from flashing when spawning child processes.
+/// On other platforms, this is equivalent to `std::process::Command::new()`.
+pub fn new_command(program: &str) -> std::process::Command {
+    let mut cmd = std::process::Command::new(program);
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
+
+/// Create a new `tokio::process::Command` with console window hidden on Windows.
+///
+/// On Windows, this sets the `CREATE_NO_WINDOW` creation flag to prevent
+/// a console window from flashing when spawning child processes.
+/// On other platforms, this is equivalent to `tokio::process::Command::new()`.
+pub fn new_async_command(program: &str) -> tokio::process::Command {
+    let mut cmd = tokio::process::Command::new(program);
+    #[cfg(windows)]
+    {
+        cmd.creation_flags(CREATE_NO_WINDOW);
+    }
+    cmd
+}
+
 /// Get the shell executable path for Windows, handling COMSPEC environment variable
 /// with proper quote trimming
 #[cfg(windows)]

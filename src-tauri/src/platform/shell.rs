@@ -62,15 +62,15 @@ impl ShellPlatform {
         }
 
         // Execute the command using tokio::process
-        use tokio::process::Command;
+        use crate::shell_utils::new_async_command;
         use tokio::time::{timeout, Duration};
 
         let mut cmd = if cfg!(target_os = "windows") {
-            let mut c = Command::new("cmd");
+            let mut c = new_async_command("cmd");
             c.arg("/C").arg(command);
             c
         } else {
-            let mut c = Command::new("sh");
+            let mut c = new_async_command("sh");
             c.arg("-c").arg(command);
             c
         };

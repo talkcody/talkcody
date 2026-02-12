@@ -1,10 +1,6 @@
 use serde::{Deserialize, Serialize};
-use std::process::Command;
 use std::sync::OnceLock;
 use tauri::{AppHandle, Emitter};
-
-#[cfg(windows)]
-use std::os::windows::process::CommandExt;
 
 /// Cached result of bun availability check.
 /// Note: This is a static cache that persists for the lifetime of the application.
@@ -44,13 +40,8 @@ pub struct LintResult {
 /// Check if bun is available on the system
 fn is_bun_available() -> bool {
     *BUN_AVAILABLE.get_or_init(|| {
-        let mut cmd = Command::new("bun");
+        let mut cmd = crate::shell_utils::new_command("bun");
         cmd.arg("--version");
-        #[cfg(windows)]
-        {
-            // Hide the console window to avoid flashing cmd.exe
-            cmd.creation_flags(0x08000000);
-        }
         cmd.output()
             .map(|output| output.status.success())
             .unwrap_or(false)
@@ -60,13 +51,8 @@ fn is_bun_available() -> bool {
 /// Check if node is available on the system
 fn is_node_available() -> bool {
     *NODE_AVAILABLE.get_or_init(|| {
-        let mut cmd = Command::new("node");
+        let mut cmd = crate::shell_utils::new_command("node");
         cmd.arg("--version");
-        #[cfg(windows)]
-        {
-            // Hide the console window to avoid flashing cmd.exe
-            cmd.creation_flags(0x08000000);
-        }
         cmd.output()
             .map(|output| output.status.success())
             .unwrap_or(false)
@@ -136,15 +122,10 @@ fn execute_biome_lint(file_path: &str, root_path: &str, request_id: &str) -> Lin
 
     // Run biome lint directly on the original file
     // Set current_dir to root_path so biome can find biome.json
-    let mut biome_cmd = Command::new(executor);
+    let mut biome_cmd = crate::shell_utils::new_command(executor);
     biome_cmd
         .args(["biome", "lint", file_path, "--reporter", "json"])
         .current_dir(root_path);
-    #[cfg(windows)]
-    {
-        // Hide the console window to avoid flashing cmd.exe
-        biome_cmd.creation_flags(0x08000000);
-    }
     let output = biome_cmd.output();
 
     let diagnostics = match output {

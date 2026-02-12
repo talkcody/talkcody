@@ -106,20 +106,20 @@ mod tests {
     /// Helper to create a temporary git repository
     fn create_temp_git_repo() -> TempDir {
         let temp_dir = TempDir::new().unwrap();
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["init"])
             .current_dir(temp_dir.path())
             .output()
             .expect("Failed to initialize git repo");
 
         // Configure git user for the repo
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["config", "user.email", "test@example.com"])
             .current_dir(temp_dir.path())
             .output()
             .expect("Failed to configure git email");
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
@@ -211,13 +211,13 @@ mod tests {
         let test_file = temp_dir.path().join("README.md");
         std::fs::write(&test_file, "# Test").unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
@@ -246,20 +246,20 @@ mod tests {
         let test_file = temp_dir.path().join("README.md");
         std::fs::write(&test_file, "# Test").unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
 
         // Detach HEAD
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["checkout", "--detach", "HEAD"])
             .current_dir(temp_dir.path())
             .output()
@@ -282,20 +282,20 @@ mod tests {
         let test_file = temp_dir.path().join("README.md");
         std::fs::write(&test_file, "# Test").unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
 
         // Create and checkout feature branch
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["checkout", "-b", "feature/test-branch"])
             .current_dir(temp_dir.path())
             .output()

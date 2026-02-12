@@ -187,7 +187,7 @@ fn get_main_branch_name(repo: &Repository) -> Result<String, GitError> {
 
 /// Count changes in a worktree
 fn count_worktree_changes(worktree_path: &str) -> usize {
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["status", "--porcelain"])
         .current_dir(worktree_path)
         .output();
@@ -286,7 +286,7 @@ pub fn acquire_worktree(
 
         // First reset to HEAD to unstage all changes (staged files become untracked)
         // This must happen BEFORE clean, otherwise staged new files won't be removed
-        let output = Command::new("git")
+        let output = crate::shell_utils::new_command("git")
             .args(["reset", "--hard", &head_commit])
             .current_dir(&worktree_path)
             .output()
@@ -301,7 +301,7 @@ pub fn acquire_worktree(
 
         // Then clean to remove untracked files (including files that were just unstaged by reset)
         // Use -ffd (double f) to also remove nested git repositories (e.g., CMake FetchContent deps)
-        let output = Command::new("git")
+        let output = crate::shell_utils::new_command("git")
             .args(["clean", "-ffd"])
             .current_dir(&worktree_path)
             .output()
@@ -322,7 +322,7 @@ pub fn acquire_worktree(
         log::info!("Creating new worktree at {}", worktree_path_str);
 
         // Create the worktree with a new branch
-        let output = Command::new("git")
+        let output = crate::shell_utils::new_command("git")
             .args([
                 "worktree",
                 "add",
@@ -337,7 +337,7 @@ pub fn acquire_worktree(
 
         if !output.status.success() {
             // If branch already exists, try without -b
-            let output = Command::new("git")
+            let output = crate::shell_utils::new_command("git")
                 .args(["worktree", "add", &worktree_path_str, &branch_name])
                 .current_dir(project_path)
                 .output()
@@ -412,7 +412,7 @@ pub fn remove_worktree(
     }
 
     // Remove the worktree using git
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["worktree", "remove", "--force", &worktree_path_str])
         .current_dir(project_path)
         .output()
@@ -430,7 +430,7 @@ pub fn remove_worktree(
     }
 
     // Try to delete the branch (may fail if not fully merged, that's ok)
-    let _ = Command::new("git")
+    let _ = crate::shell_utils::new_command("git")
         .args(["branch", "-D", &branch_name])
         .current_dir(project_path)
         .output();
@@ -472,7 +472,7 @@ pub fn list_worktrees(
             let changes_count = count_worktree_changes(&worktree_path_str);
 
             // Get base commit from the worktree
-            let base_commit = Command::new("git")
+            let base_commit = crate::shell_utils::new_command("git")
                 .args(["rev-parse", "HEAD"])
                 .current_dir(&worktree_path)
                 .output()
@@ -514,7 +514,7 @@ pub fn get_worktree_changes(worktree_path: &str) -> Result<WorktreeChanges, Stri
     }
 
     // Get current HEAD
-    let current_commit = Command::new("git")
+    let current_commit = crate::shell_utils::new_command("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(worktree_path)
         .output()
@@ -526,7 +526,7 @@ pub fn get_worktree_changes(worktree_path: &str) -> Result<WorktreeChanges, Stri
         })?;
 
     // Get status
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["status", "--porcelain"])
         .current_dir(worktree_path)
         .output()
@@ -575,7 +575,7 @@ pub fn commit_worktree(worktree_path: &str, message: &str) -> Result<String, Str
     }
 
     // Stage all changes
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["add", "-A"])
         .current_dir(worktree_path)
         .output()
@@ -589,7 +589,7 @@ pub fn commit_worktree(worktree_path: &str, message: &str) -> Result<String, Str
     }
 
     // Commit
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["commit", "-m", message])
         .current_dir(worktree_path)
         .output()
@@ -605,7 +605,7 @@ pub fn commit_worktree(worktree_path: &str, message: &str) -> Result<String, Str
     }
 
     // Get the new commit hash
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(worktree_path)
         .output()
@@ -662,7 +662,7 @@ pub fn merge_worktree_to_main(
         get_main_branch_name(&repo).map_err(|e| format!("Failed to get main branch: {}", e))?;
 
     // Checkout main branch in main repo
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["checkout", &main_branch])
         .current_dir(project_path)
         .output()
@@ -676,7 +676,7 @@ pub fn merge_worktree_to_main(
     }
 
     // First try fast-forward merge (no merge commit needed)
-    let ff_output = Command::new("git")
+    let ff_output = crate::shell_utils::new_command("git")
         .args(["merge", "--ff-only", &branch_name])
         .current_dir(project_path)
         .output()
@@ -694,7 +694,7 @@ pub fn merge_worktree_to_main(
         );
         let default_merge_msg = format!("Merge {} into {}", branch_name, main_branch);
         let merge_msg = commit_message.unwrap_or(&default_merge_msg);
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["merge", &branch_name, "-m", merge_msg])
             .current_dir(project_path)
             .output()
@@ -707,7 +707,7 @@ pub fn merge_worktree_to_main(
         // Check for conflicts
         if stderr.contains("CONFLICT") || stderr.contains("Automatic merge failed") {
             // Get list of conflicted files
-            let conflict_output = Command::new("git")
+            let conflict_output = crate::shell_utils::new_command("git")
                 .args(["diff", "--name-only", "--diff-filter=U"])
                 .current_dir(project_path)
                 .output()
@@ -756,7 +756,7 @@ pub fn merge_worktree_to_main(
 
 /// Abort an in-progress merge
 pub fn abort_merge(project_path: &str) -> Result<(), String> {
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["merge", "--abort"])
         .current_dir(project_path)
         .output()
@@ -813,7 +813,7 @@ pub fn sync_worktree_from_main(
 
     if had_uncommitted_changes {
         log::info!("Stashing uncommitted changes before rebase");
-        let output = Command::new("git")
+        let output = crate::shell_utils::new_command("git")
             .args(["stash", "push", "-m", "Auto-stash before sync"])
             .current_dir(&worktree_path)
             .output()
@@ -832,7 +832,7 @@ pub fn sync_worktree_from_main(
     // Use origin/main or the main branch directly from the parent repo
 
     // Perform rebase onto main's HEAD
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["rebase", &main_head])
         .current_dir(&worktree_path)
         .output()
@@ -844,7 +844,7 @@ pub fn sync_worktree_from_main(
         // Check for conflicts
         if stderr.contains("CONFLICT") || stderr.contains("could not apply") {
             // Get list of conflicted files
-            let conflict_output = Command::new("git")
+            let conflict_output = crate::shell_utils::new_command("git")
                 .args(["diff", "--name-only", "--diff-filter=U"])
                 .current_dir(&worktree_path)
                 .output()
@@ -870,7 +870,7 @@ pub fn sync_worktree_from_main(
         }
 
         // Abort the rebase if it failed for other reasons
-        let _ = Command::new("git")
+        let _ = crate::shell_utils::new_command("git")
             .args(["rebase", "--abort"])
             .current_dir(&worktree_path)
             .output();
@@ -881,7 +881,7 @@ pub fn sync_worktree_from_main(
     // Pop stash if we had one
     if had_uncommitted_changes {
         log::info!("Restoring stashed changes after rebase");
-        let output = Command::new("git")
+        let output = crate::shell_utils::new_command("git")
             .args(["stash", "pop"])
             .current_dir(&worktree_path)
             .output();
@@ -891,7 +891,7 @@ pub fn sync_worktree_from_main(
                 let stderr = String::from_utf8_lossy(&out.stderr);
                 if stderr.contains("CONFLICT") {
                     // Get conflicted files from stash pop
-                    let conflict_output = Command::new("git")
+                    let conflict_output = crate::shell_utils::new_command("git")
                         .args(["diff", "--name-only", "--diff-filter=U"])
                         .current_dir(&worktree_path)
                         .output()
@@ -923,7 +923,7 @@ pub fn sync_worktree_from_main(
     }
 
     // Get new HEAD after rebase
-    let new_head = Command::new("git")
+    let new_head = crate::shell_utils::new_command("git")
         .args(["rev-parse", "HEAD"])
         .current_dir(&worktree_path)
         .output()
@@ -952,7 +952,7 @@ pub fn abort_rebase(worktree_path: &str) -> Result<(), String> {
         return Err(format!("Worktree path does not exist: {}", worktree_path));
     }
 
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["rebase", "--abort"])
         .current_dir(worktree_path)
         .output()
@@ -973,7 +973,7 @@ pub fn abort_rebase(worktree_path: &str) -> Result<(), String> {
 /// Continue a merge after conflicts are resolved
 pub fn continue_merge(project_path: &str, message: Option<&str>) -> Result<MergeResult, String> {
     // Stage all resolved files
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["add", "-A"])
         .current_dir(project_path)
         .output()
@@ -987,7 +987,7 @@ pub fn continue_merge(project_path: &str, message: Option<&str>) -> Result<Merge
     }
 
     // Check if there are still conflicts
-    let conflict_output = Command::new("git")
+    let conflict_output = crate::shell_utils::new_command("git")
         .args(["diff", "--name-only", "--diff-filter=U"])
         .current_dir(project_path)
         .output()
@@ -1011,7 +1011,7 @@ pub fn continue_merge(project_path: &str, message: Option<&str>) -> Result<Merge
 
     // Complete the merge with commit
     let commit_msg = message.unwrap_or("Merge conflict resolved");
-    let output = Command::new("git")
+    let output = crate::shell_utils::new_command("git")
         .args(["commit", "-m", commit_msg])
         .current_dir(project_path)
         .output()
@@ -1082,19 +1082,19 @@ mod tests {
 
     fn create_test_repo() -> TempDir {
         let temp_dir = TempDir::new().unwrap();
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["init"])
             .current_dir(temp_dir.path())
             .output()
             .expect("Failed to init git repo");
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["config", "user.email", "test@test.com"])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
 
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["config", "user.name", "Test User"])
             .current_dir(temp_dir.path())
             .output()
@@ -1102,12 +1102,12 @@ mod tests {
 
         // Create initial commit
         std::fs::write(temp_dir.path().join("README.md"), "# Test").unwrap();
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "."])
             .current_dir(temp_dir.path())
             .output()
             .unwrap();
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["commit", "-m", "Initial commit"])
             .current_dir(temp_dir.path())
             .output()
@@ -1203,7 +1203,7 @@ mod tests {
         std::fs::write(&new_file_path, "This is a staged new file").unwrap();
 
         // Stage the new file with git add
-        let output = Command::new("git")
+        let output = crate::shell_utils::new_command("git")
             .args(["add", "staged_new_file.txt"])
             .current_dir(worktree_path)
             .output()
@@ -1281,7 +1281,7 @@ mod tests {
         // 3. Create and stage a new file
         let staged_path = Path::new(worktree_path).join("staged.txt");
         std::fs::write(&staged_path, "Staged content").unwrap();
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "staged.txt"])
             .current_dir(worktree_path)
             .output()
@@ -1341,7 +1341,7 @@ mod tests {
         fs::create_dir_all(&nested_repo_dir).unwrap();
 
         // Initialize a nested git repository (simulating FetchContent clone)
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["init"])
             .current_dir(&nested_repo_dir)
             .output()
@@ -1392,7 +1392,7 @@ mod tests {
         let project_path = temp_dir.path().to_string_lossy().to_string();
 
         // Get the initial commit count on main
-        let initial_commit_count = Command::new("git")
+        let initial_commit_count = crate::shell_utils::new_command("git")
             .args(["rev-list", "--count", "HEAD"])
             .current_dir(&project_path)
             .output()
@@ -1413,12 +1413,12 @@ mod tests {
         std::fs::write(&new_file_path, "New feature content").unwrap();
 
         // Commit the changes in the worktree
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "."])
             .current_dir(worktree_path)
             .output()
             .unwrap();
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["commit", "-m", "feat: add new feature"])
             .current_dir(worktree_path)
             .output()
@@ -1436,7 +1436,7 @@ mod tests {
         assert!(!merge_result.has_conflicts, "Should have no conflicts");
 
         // Verify only one commit was added (fast-forward, no merge commit)
-        let final_commit_count = Command::new("git")
+        let final_commit_count = crate::shell_utils::new_command("git")
             .args(["rev-list", "--count", "HEAD"])
             .current_dir(&project_path)
             .output()
@@ -1453,7 +1453,7 @@ mod tests {
         );
 
         // Verify the commit message is the feature commit, not a merge commit
-        let last_commit_msg = Command::new("git")
+        let last_commit_msg = crate::shell_utils::new_command("git")
             .args(["log", "-1", "--format=%s"])
             .current_dir(&project_path)
             .output()
@@ -1485,12 +1485,12 @@ mod tests {
         // Make changes in the worktree
         let feature_file = Path::new(worktree_path).join("feature.txt");
         std::fs::write(&feature_file, "Feature content").unwrap();
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "."])
             .current_dir(worktree_path)
             .output()
             .unwrap();
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["commit", "-m", "feat: add feature"])
             .current_dir(worktree_path)
             .output()
@@ -1499,19 +1499,19 @@ mod tests {
         // Make a commit on main (simulate another change)
         let main_file = Path::new(&project_path).join("main_change.txt");
         std::fs::write(&main_file, "Main branch change").unwrap();
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["add", "."])
             .current_dir(&project_path)
             .output()
             .unwrap();
-        Command::new("git")
+        crate::shell_utils::new_command("git")
             .args(["commit", "-m", "chore: main branch change"])
             .current_dir(&project_path)
             .output()
             .unwrap();
 
         // Get commit count before merge
-        let before_merge_count = Command::new("git")
+        let before_merge_count = crate::shell_utils::new_command("git")
             .args(["rev-list", "--count", "HEAD"])
             .current_dir(&project_path)
             .output()
@@ -1532,7 +1532,7 @@ mod tests {
         assert!(merge_result.success, "Merge should be successful");
 
         // Verify a merge commit was created (2 commits added: feature + merge)
-        let after_merge_count = Command::new("git")
+        let after_merge_count = crate::shell_utils::new_command("git")
             .args(["rev-list", "--count", "HEAD"])
             .current_dir(&project_path)
             .output()
@@ -1549,7 +1549,7 @@ mod tests {
         );
 
         // Verify the last commit is a merge commit
-        let last_commit_msg = Command::new("git")
+        let last_commit_msg = crate::shell_utils::new_command("git")
             .args(["log", "-1", "--format=%s"])
             .current_dir(&project_path)
             .output()

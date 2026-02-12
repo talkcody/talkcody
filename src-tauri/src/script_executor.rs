@@ -1,11 +1,11 @@
 // src-tauri/src/script_executor.rs
 
+use crate::shell_utils::new_async_command;
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
 use std::time::Duration;
 use std::time::Instant;
 use tokio::io::{AsyncReadExt, BufReader};
-use tokio::process::Command;
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct ScriptExecutionRequest {
@@ -37,17 +37,17 @@ impl ScriptExecutor {
         // Determine the command based on script type
         let mut cmd = match request.script_type.as_str() {
             "python" => {
-                let mut c = Command::new("python3");
+                let mut c = new_async_command("python3");
                 c.arg(&request.script_path);
                 c
             }
             "bash" | "sh" => {
-                let mut c = Command::new("bash");
+                let mut c = new_async_command("bash");
                 c.arg(&request.script_path);
                 c
             }
             "nodejs" | "javascript" => {
-                let mut c = Command::new("node");
+                let mut c = new_async_command("node");
                 c.arg(&request.script_path);
                 c
             }
@@ -144,7 +144,7 @@ impl ScriptExecutor {
 
     /// Helper function to run a command and capture output
     async fn run_command(
-        mut cmd: Command,
+        mut cmd: tokio::process::Command,
     ) -> Result<(String, String, std::process::ExitStatus), String> {
         let mut child = cmd
             .spawn()
@@ -196,7 +196,7 @@ impl ScriptExecutor {
             _ => return Err(format!("Unknown script type: {}", script_type)),
         };
 
-        match Command::new("which").arg(command).output().await {
+        match new_async_command("which").arg(command).output().await {
             Ok(output) => {
                 if output.status.success() {
                     Ok(())

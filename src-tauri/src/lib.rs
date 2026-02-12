@@ -473,7 +473,7 @@ async fn execute_user_shell(
     #[cfg(unix)]
     {
         let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/sh".to_string());
-        let mut cmd = TokioCommand::new(&shell);
+        let mut cmd = crate::shell_utils::new_async_command(&shell);
         cmd.arg("-l").arg("-i").arg("-c").arg(&command);
         if let Some(ref dir) = cwd {
             cmd.current_dir(dir);
@@ -502,7 +502,7 @@ async fn execute_user_shell(
         // Remove surrounding quotes if present (Windows env vars sometimes have quotes)
         let shell = shell_utils::get_windows_shell();
 
-        let mut cmd = TokioCommand::new(&shell);
+        let mut cmd = crate::shell_utils::new_async_command(&shell);
         if shell_utils::is_powershell(&shell) {
             cmd.arg("-Command").arg(&command);
         } else {

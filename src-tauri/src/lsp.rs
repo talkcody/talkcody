@@ -480,7 +480,7 @@ async fn install_vue_language_server(app: &AppHandle) -> Result<String, String> 
 
     log::info!("Installing Vue Language Server using {}", runner);
 
-    let child = tokio::process::Command::new(&runner)
+    let child = crate::shell_utils::new_async_command(&runner)
         .args(&install_args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -532,7 +532,7 @@ async fn install_typescript_language_server(app: &AppHandle) -> Result<String, S
 
     log::info!("Installing TypeScript Language Server using {}", runner);
 
-    let child = tokio::process::Command::new(&runner)
+    let child = crate::shell_utils::new_async_command(&runner)
         .args(&install_args)
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
@@ -917,7 +917,7 @@ pub async fn lsp_start_server(
     let server_id = generate_server_id(&language);
 
     // Spawn the LSP server process
-    let mut child = match TokioCommand::new(&command)
+    let mut child = match crate::shell_utils::new_async_command(&command)
         .args(&args)
         .current_dir(&validated_root)
         .stdin(Stdio::piped())
