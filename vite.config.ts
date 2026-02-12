@@ -2,7 +2,6 @@ import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
 import { defineConfig } from 'vite';
-import monacoEditorEsmPlugin from 'vite-plugin-monaco-editor-esm';
 import wasm from 'vite-plugin-wasm';
 
 const host = process.env.TAURI_DEV_HOST;
@@ -13,11 +12,6 @@ export default defineConfig(() => ({
     wasm(),
     react(),
     tailwindcss(),
-    monacoEditorEsmPlugin({
-      // Only include base editor worker, remove TypeScript worker (~6MB)
-      // Completion is provided by LSP (typescript-language-server)
-      languageWorkers: ['editorWorkerService'],
-    }),
   ],
 
   resolve: {
