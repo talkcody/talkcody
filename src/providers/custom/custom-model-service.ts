@@ -39,6 +39,7 @@ const PROVIDER_MODELS_ENDPOINTS: Record<string, string | null> = {
   google: 'https://generativelanguage.googleapis.com/v1beta/models', // API key as query param
   aiGateway: 'https://ai-gateway.vercel.sh/v1/models',
   moonshot: 'https://api.moonshot.cn/v1/models',
+  kimi_coding: 'https://api.kimi.com/coding/v1/models',
   github_copilot: 'https://api.githubcopilot.com/models',
   groq: 'https://api.groq.com/openai/v1/models',
   // Non-AI providers, no need to test
@@ -298,7 +299,7 @@ class CustomModelService {
           const providerConfig = PROVIDER_CONFIGS[providerId as keyof typeof PROVIDER_CONFIGS];
           const internationalBaseUrl = providerConfig?.internationalBaseUrl;
           if (internationalBaseUrl) {
-            endpoint = internationalBaseUrl.replace(/\/+$/, '') + '/models';
+            endpoint = `${internationalBaseUrl.replace(/\/+$/, '')}/models`;
             logger.info(`Using international base URL for ${providerId}: ${endpoint}`);
           }
         }
@@ -336,12 +337,12 @@ class CustomModelService {
         endpoint = `${endpoint}?key=${apiKey}`;
       } else if (providerId === 'openRouter' && apiKey) {
         // OpenRouter uses Bearer + custom headers
-        headers['Authorization'] = `Bearer ${apiKey}`;
+        headers.Authorization = `Bearer ${apiKey}`;
         headers['HTTP-Referer'] = 'https://talkcody.com';
         headers['X-Title'] = 'TalkCody';
       } else if (apiKey && !isLocalProvider(providerId)) {
         // Default: Bearer token (for OpenAI-compatible and custom providers)
-        headers['Authorization'] = `Bearer ${apiKey}`;
+        headers.Authorization = `Bearer ${apiKey}`;
       }
 
       // Use non-streaming proxy_fetch for simple GET requests

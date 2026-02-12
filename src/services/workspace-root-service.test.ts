@@ -35,6 +35,20 @@ vi.mock('@/services/database-service', () => ({
         name: 'Test Project',
       })
     ),
+    getTaskDetails: vi.fn(() =>
+      Promise.resolve({
+        id: 'task-1',
+        title: 'Test Task',
+        project_id: 'project-1',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        message_count: 0,
+        request_count: 0,
+        cost: 0,
+        input_token: 0,
+        output_token: 0,
+      })
+    ),
   },
 }));
 
@@ -129,6 +143,43 @@ describe('WorkspaceRootService - getEffectiveWorkspaceRoot', () => {
     it('should return main project path when taskId is empty string', async () => {
       const path = await getEffectiveWorkspaceRoot('');
       expect(path).toBe('/main/project');
+    });
+
+    it('should use task project root when task belongs to different project', async () => {
+      const { settingsManager } = await import('@/stores/settings-store');
+      const { databaseService } = await import('@/services/database-service');
+      const { useTaskStore } = await import('@/stores/task-store');
+
+      vi.mocked(settingsManager.getCurrentRootPath).mockReturnValueOnce('D:/Code/UIF-RS');
+      vi.mocked(settingsManager.getProject).mockResolvedValueOnce('project-1');
+
+      useTaskStore.getState().addTask({
+        id: 'task-2',
+        title: 'Task Two',
+        project_id: 'project-2',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        message_count: 0,
+        request_count: 0,
+        cost: 0,
+        input_token: 0,
+        output_token: 0,
+      });
+
+      vi.mocked(databaseService.getProject)
+        .mockResolvedValueOnce({
+          id: 'project-2',
+          root_path: 'D:/Code/SharePaste',
+          name: 'SharePaste',
+        })
+        .mockResolvedValueOnce({
+          id: 'project-1',
+          root_path: 'D:/Code/UIF-RS',
+          name: 'UIF-RS',
+        });
+
+      const path = await getEffectiveWorkspaceRoot('task-2');
+      expect(path).toBe('D:/Code/SharePaste');
     });
   });
 

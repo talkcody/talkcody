@@ -30,6 +30,8 @@ export interface ProviderDefinition {
   supportsInternational?: boolean;
   /** International base URL to use when International mode is enabled */
   internationalBaseUrl?: string;
+  /** Separate API key name for Coding Plan (if different from regular API key) */
+  codingPlanApiKeyName?: string;
 }
 
 export interface ProviderRegistry {

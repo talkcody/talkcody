@@ -34,10 +34,17 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
     apiKeyName: 'MOONSHOT_API_KEY',
     required: false,
     type: 'openai-compatible',
-    supportsCodingPlan: true,
-    codingPlanBaseUrl: 'https://api.kimi.com/coding/v1',
     supportsInternational: true,
     internationalBaseUrl: 'https://api.kimi.com/v1',
+  },
+
+  kimi_coding: {
+    id: 'kimi_coding',
+    name: 'Kimi Coding Plan',
+    apiKeyName: 'KIMI_CODING_API_KEY',
+    baseUrl: 'https://api.kimi.com/coding/v1',
+    required: false,
+    type: 'openai-compatible',
   },
 
   MiniMax: {

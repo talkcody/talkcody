@@ -53,6 +53,7 @@ export function getDocLinks() {
       tavily: `${BASE_URL}/configuration/api-keys#tavily`,
       elevenlabs: `${BASE_URL}/configuration/api-keys#eleven-labs`,
       moonshot: `${BASE_URL}/configuration/api-keys#moonshot`,
+      kimi_coding: `${BASE_URL}/configuration/api-keys#moonshot`,
       serper: `${BASE_URL}/configuration/api-keys#serper`,
       zai: `${BASE_URL}/configuration/api-keys#z-ai`,
     },

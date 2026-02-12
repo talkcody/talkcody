@@ -258,6 +258,35 @@ impl AgentLoop {
                     request: tool_request,
                 });
             }
+            StreamEvent::ReasoningStart {
+                id,
+                provider_metadata,
+            } => {
+                // Emit reasoning start event
+                let _ = self.event_sender.send(RuntimeEvent::ReasoningStart {
+                    session_id: ctx.session_id.clone(),
+                    id,
+                });
+            }
+            StreamEvent::ReasoningDelta {
+                id,
+                text,
+                provider_metadata,
+            } => {
+                // Emit reasoning delta event
+                let _ = self.event_sender.send(RuntimeEvent::ReasoningDelta {
+                    session_id: ctx.session_id.clone(),
+                    id,
+                    text,
+                });
+            }
+            StreamEvent::ReasoningEnd { id } => {
+                // Emit reasoning end event
+                let _ = self.event_sender.send(RuntimeEvent::ReasoningEnd {
+                    session_id: ctx.session_id.clone(),
+                    id,
+                });
+            }
             StreamEvent::Error { message } => {
                 state.has_error = true;
                 state.error_message = Some(message);

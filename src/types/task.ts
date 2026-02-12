@@ -1,8 +1,3 @@
-// src/types/task.ts
-/**
- * Task and Project type definitions
- */
-
 export interface Project {
   id: string;
   name: string;

@@ -4,6 +4,7 @@ use axum::Router;
 use crate::server::state::ServerState;
 
 pub mod actions;
+pub mod chat;
 pub mod files;
 pub mod health;
 pub mod messages;
@@ -14,6 +15,8 @@ pub fn router(state: ServerState) -> Router {
     Router::new()
         // Health check
         .route("/health", get(health::health_check))
+        // Chat (must be before /v1/sessions to avoid conflicts)
+        .route("/v1/chat", post(chat::chat))
         // Sessions
         .route("/v1/sessions", post(sessions::create_session))
         .route("/v1/sessions", get(sessions::list_sessions))

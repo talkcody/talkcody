@@ -1,6 +1,7 @@
 use crate::llm::protocols::{claude_protocol::ClaudeProtocol, openai_protocol::OpenAiProtocol};
 use crate::llm::providers::{
-    DefaultProvider, GithubCopilotProvider, MoonshotProvider, OpenAiProvider, Provider,
+    DefaultProvider, GithubCopilotProvider, KimiCodingProvider, MoonshotProvider, OpenAiProvider,
+    Provider,
 };
 use crate::llm::types::ProtocolType;
 use crate::llm::types::ProviderConfig;
@@ -68,6 +69,7 @@ impl ProviderRegistry {
             "openai" => Box::new(OpenAiProvider::new(config.clone())),
             "github_copilot" => Box::new(GithubCopilotProvider::new(config.clone())),
             "moonshot" => Box::new(MoonshotProvider::new(config.clone())),
+            "kimi_coding" => Box::new(KimiCodingProvider::new(config.clone())),
             // Use DefaultProvider for all other providers
             _ => Box::new(DefaultProvider::new(config.clone())),
         };

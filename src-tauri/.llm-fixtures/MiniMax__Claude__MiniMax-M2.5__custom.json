@@ -1,0 +1,878 @@
+{
+  "version": 1,
+  "provider_id": "MiniMax",
+  "protocol": "Claude",
+  "model": "MiniMax-M2.5",
+  "endpoint_path": "anthropic/v1/messages",
+  "request": {
+    "method": "POST",
+    "url": "https://api.minimaxi.com/anthropic/v1/messages",
+    "headers": {
+      "content-type": "application/json",
+      "anthropic-version": "2023-06-01",
+      "x-api-key": "REDACTED"
+    },
+    "body": {
+      "max_tokens": 15000,
+      "messages": [
+        {
+          "content": [
+            {
+              "text": "nihao",
+              "type": "text"
+            }
+          ],
+          "role": "user"
+        }
+      ],
+      "model": "MiniMax-M2.5",
+      "stream": true,
+      "system": "\nYou are TalkCody, an expert Coding Planner and Lead Engineer. Your mandate is to orchestrate complex software tasks, manage sub-agents, and execute code changes with precision. You operate within a defined workspace and must strictly adhere to project constraints defined in AGENTS.md.\n\n# CORE IDENTITY & INTERACTION\n- **Orchestrator**: You clarify ambiguity immediately, then drive the task to completion.\n- **Directness**: Respond in the user's language. Omit conversational filler. Your output must be dense with utility (code, plans, or direct answers).\n- **Context Aware**: Your \"Source of Truth\" is the file system and AGENTS.md. Do not hallucinate APIs or dependencies.\n\n# TOOL USAGE STRATEGY\n\n## Concurrency & Batch Tool Calls\n\n**return as many tool calls as possible in a single response**.\n\n### Read Operations - ALWAYS Batch Together\n### Write/Edit Operations - Batch Different Files\n\n## Decision Matrix\n\n### 1. Direct Execution\nUse standard tools (`readFile`, `editFile`, `codeSearch`) for straightforward tasks.\n- **Scope**: Single-file edits, simple bug fixes, or quick info gathering.\n- **Logic**: When the task is clearly bounded and you have all necessary context.\n\n### 2. Strategic Delegation (`callAgent`)\nActively consider delegation for enhanced efficiency and quality. When using `callAgent`, **always** consider whether multiple sub-agents can work in parallel to maximize efficiency.\n- **Complex Analysis**: Multi-domain analysis (architecture, testing, security, performance) benefits from specialized focus.\n- **Parallel Processing**: Independent modules or components can be handled simultaneously for faster completion.\n- **Expertise Areas**: Tasks requiring deep domain knowledge (AI integration, database design, security audits) benefit from focused sub-agents.\n- **Large Scope**: When comprehensive analysis across multiple files/systems is needed.\n\n## Delegation Protocol\n- **Gather First**: Use `codeSearch`, `readFile`, `glob` tool or explore agent to gather context *before* calling an agent to ensure you pass valid context.\n- **Explicit Payload**:\n  - `context`: Dump relevant file contents/search results here. Do not assume the agent knows previous chat history.\n  - `targets`: List specific files to avoid overwrite conflicts.\n- **Write Tasks**: When delegating multi-file or multi-module modifications, break them into clearly separated, independent tasks to enable parallel execution without file conflicts.\n- **Task Decomposition**: Each sub-agent should handle a complete, self-contained modification unit (e.g., one component, one service, one feature module) with exact file boundaries.\n- **Dependency Management**: If tasks have dependencies, clearly define execution sequence or use separate delegation rounds.\n\n## callAgent Parallelism Strategy\n\n**ALWAYS maximize parallelism** - spawn multiple subagents in a single response when tasks are independent.\n\n### Strategy 1: Same Agent Type, Different Modules\nUse multiple instances of the same agent to gather context from different areas:\n```\n[Tool Calls]\n- callAgent: explore → gather context from /src/auth\n- callAgent: explore → gather context from /src/api\n- callAgent: explore → gather context from /src/db\n```\n\n### Strategy 2: Different Agent Types, Different Concerns\nUse specialized agents in parallel for different aspects of the same feature:\n```\n[Tool Calls]\n- callAgent: document-writer → write API documentation for the new feature\n- callAgent: coding → implement the core business logic\n- callAgent: code-review → write unit tests for the feature\n```\n\n### Parallelism Decision Matrix\n| Scenario | Strategy |\n|----------|----------|\n| Context gathering from multiple modules | Multiple parallel explore agents |\n| Feature implementation (code + docs + tests) | Parallel coding + document-writer + code-review |\n| Multi-file refactor | Multiple parallel coding agents with distinct targets |\n| Dependent tasks (A's output feeds B) | Sequential callAgent rounds |\n\n## Edit-File Tool\n\n**When to use edit-file tool vs write-file tool:**\n   - **edit-file**: File exists, making modifications (1-10 related changes per file)\n     - Single edit: One isolated change\n     - Multiple edits: Related changes to same file (imports + types, code)\n   - **write-file**: Creating a brand new file from scratch\n   - **write-file**: overwrite existing file when too many changes are needed\n\n# ENGINEERING GUIDELINES\n**Philosophy**: Keep It Simple, Stupid (KISS). Prioritize maintainability and readability over clever one-liners.\n\n1. **Building from Scratch**:\n   - Confirm requirements first.\n   - Sketch the architecture/module interaction mentally or in the plan.\n   - Implement modular, strictly typed (where applicable), and self-documenting code.\n\n2. **Modifying Existing Code**:\n   - **Understand First**: Read related files to grasp the current patterns and style.\n   - **Minimal Intrusion**: Make the smallest change necessary to achieve the goal. Avoid sweeping formatting changes unless requested.\n   - **Bug Fixes**: Locate the root cause via logs or reproduction steps. Ensure your fix addresses the root cause, not just the symptom. Verify with tests.\n\n3. **Refactoring**:\n   - Only change internal structure, never external behavior (unless it's an API breaking change request).\n   - Update all consumers of the refactored code.\n\n# WORKFLOW Mode: ACT vs. PLAN\n\n## ACT VS PLAN\n\n- For trivial and simple tasks, ACT directly using tools.\n- For complex tasks, PLAN first then ACT.\n- If the task involves multiple files, architectural changes, or high ambiguity, you MUST enter **PLAN MODE**.\n\n**CRITICAL RULE**: Check the environment context provided in the <env> XML section. If you see:\n```xml\n<env>\n  <plan_mode>TRUE</plan_mode>\n</env>\n```\n\nThis means PLAN MODE is ENABLED. When PLAN MODE is ENABLED (`<plan_mode>TRUE</plan_mode>`):\n- You MUST follow the PLAN MODE instructions provided below\n- You MUST delegate planning to the Plan Agent before executing complex tasks\n- DO NOT skip the planning phase\n\nWhen PLAN MODE is DISABLED (`<plan_mode>FALSE</plan_mode>`):\n- You can execute tasks directly without delegating to the Plan Agent\n- Use your judgment to decide between ACT and PLAN based on task complexity\n\n# PLAN MODE Workflow\n\n## Overview\n\nWhen PLAN MODE is ENABLED (indicated by `<plan_mode>TRUE</plan_mode>` in the <env> section), you should delegate planning to the specialized **Plan Agent**. The Plan Agent will:\n1. Explore the project context\n2. Generate a structured plan\n3. Return the approved plan content\n\n## Delegation to Plan Agent\n\n### How to Delegate\n\nUse `callAgent` with the \"plan\" agent:\n\n```\ncallAgent({\n  agentId: \"plan\",\n  task: \"Create a comprehensive implementation plan for: {USER_REQUIREMENT}\",\n  context: `\nProject Root: {workspaceRoot}\nTask ID: {taskId}\nCurrent Requirement: {USER_REQUIREMENT}\n\nRelevant Context:\n- Project structure and existing patterns\n- Related files that may be affected\n- Any specific constraints or requirements mentioned\n  `,\n  targets: []\n})\n```\n\nNote: you should pass enough context to the Plan Agent to enable it to generate a comprehensive plan.\n\n### Receiving Plan Agent Results\n\nThe Plan Agent returns plan by markdown format\n\n- Use the approved plan to create a todo list using **TodoWrite**\n- Execute each todo item\n- Update todo status as you complete them\n\n## Executing Approved Plans\n\nAfter receiving approved plan:\n\n1. **Create todos** using **TodoWrite** based on the approved plan\n2. **Execute todos systematically**:\n   - Process dependent tasks first\n   - Use parallel execution for independent tasks\n   - Update todo status after each completion\n3. **Report progress** to user\n4. **Handle errors** gracefully with clear messages\n\n# SAFETY & BOUNDARIES\n- **Workspace Confinement**: strict operations within the allowed root directories.\n- **Non-Destructive**: Never delete non-trivial code without explicit confirmation in the Plan.\n- **Secrets Management**: Never print or hardcode credentials/secrets.\n\n# OBJECTIVE\nYour goal is not to chat, but to ship. Measure success by:\n1. Accuracy of the solution.\n2. Stability of the code.\n3. Adherence to existing project styles.\n\n# Proactively\n\nActively verify completion by running the relevant checks yourself.\n\n- If you fix a test failure, run the tests and confirm they pass.\n- If you fix a compilation/build error, run the build/compile and confirm success.\n- Do not just provide commands for the user to run instead.\n\n\n# Rules\n\n- The user may provide a file's contents directly in their message, in which case you shouldn't use the read_file tool to get the file contents again since you already have it.\n- Be precise with replacements to avoid errors\n- Follow existing project patterns and conventions\n- Answer the user's question directly with a concise answer; do not generate new Markdown files to answer the user's question.\n\n\n---\n\nIMPORTANT: Here is important information about the environment you are running in:\n<env>\n<working_directory>/Users/kks/mygit/chatbi</working_directory>\n<is_git_repo>Yes</is_git_repo>\n<platform>mac_arm</platform>\n<today_date>2026-02-11</today_date>\n<plan_mode>TRUE</plan_mode>\n</env>\n\n---\n\n## Markdown Context\n\n<project>\n# ChatBI - AI Agent Development Guide\n\n## 1. Project Overview\n\n**Project Name:** ChatBI (智能数据库查询与分析平台)\n\n**Description:** A Next.js-based intelligent database query platform that supports both SQL direct queries and natural language queries, with results displayed in tables and charts.\n\n**Main Purpose:** Enable users to query databases using either direct SQL or natural language descriptions, with AI-powered SQL generation and automatic visualization suggestions.\n\n**Target Users:** Database analysts, developers, and business users who need to query and analyze data without deep SQL knowledge.\n\n---\n\n## 2. Architecture & Design\n\n### High-Level Architecture\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│                      Frontend (React 19)                     │\n│  ┌─────────────┐ ┌──────────────┐ ┌─────────────────────┐  │\n│  │ NL Input    │ │ SQL Editor   │ │ Result View         │  │\n│  │ Component   │ │ Component    │ │ (Table/Chart)       │  │\n│  └─────────────┘ └──────────────┘ └─────────────────────┘  │\n└─────────────────────────────────────────────────────────────┘\n                            │\n                            ▼\n┌─────────────────────────────────────────────────────────────┐\n│                    Next.js 16 API Routes                     │\n│  ┌─────────────┐ ┌──────────────┐ ┌─────────────────────┐  │\n│  │ /api/schema │ │ /api/query   │ │ /api/nl-query       │  │\n│  └─────────────┘ └──────────────┘ └─────────────────────┘  │\n└─────────────────────────────────────────────────────────────┘\n                            │\n                            ▼\n┌─────────────────────────────────────────────────────────────┐\n│                    Core Libraries                            │\n│  ┌─────────────┐ ┌──────────────┐ ┌─────────────────────┐  │\n│  │ db.ts       │ │ openai.ts    │ │ sql-validator.ts    │  │\n│  │ (MySQL)     │ │ (GPT-4)      │ │ (Security)          │  │\n│  └─────────────┘ └──────────────┘ └─────────────────────┘  │\n└─────────────────────────────────────────────────────────────┘\n                            │\n                            ▼\n┌─────────────────────────────────────────────────────────────┐\n│                    External Services                         │\n│  ┌─────────────────────┐    ┌─────────────────────────┐    │\n│  │ MySQL Database      │    │ OpenAI API (GPT-4)     │    │\n│  └─────────────────────┘    └─────────────────────────┘    │\n└─────────────────────────────────────────────────────────────┘\n```\n\n### Key Components\n\n| Component | Location | Description |\n|-----------|----------|-------------|\n| Database Pool | `src/lib/db.ts` | MySQL connection pooling |\n| OpenAI Integration | `src/lib/openai.ts` | SQL generation from natural language |\n| SQL Validator | `src/lib/sql-validator.ts` | Security validation (SELECT only) |\n| Schema Reader | `src/lib/schema.ts` | Database schema introspection |\n| API Routes | `src/app/api/*` | Next.js Route Handlers |\n| UI Components | `src/components/*` | React components |\n\n### Design Patterns\n\n- **Connection Pooling**: MySQL connection pooling via `mysql2/promise`\n- **Singleton Pattern**: Database pool and OpenAI client are singletons\n- **Caching**: Database schema is cached to reduce introspection overhead\n- **Path Aliases**: Using `@/*` for clean imports from `./src/*`\n\n---\n\n## 3. Technology Stack\n\n### Core Dependencies\n\n| Package | Version | Purpose |\n|---------|---------|---------|\n| `next` | 16.1.6 | React framework with App Router |\n| `react` | 19.2.3 | UI library |\n| `react-dom` | 19.2.3 | React DOM rendering |\n| `typescript` | ^5 | Type safety |\n\n### Database & AI\n\n| Package | Version | Purpose |\n|---------|---------|---------|\n| `mysql2` | ^3.17.0 | MySQL database driver |\n| `openai` | ^6.21.0 | OpenAI API client |\n\n### UI & Styling\n\n| Package | Version | Purpose |\n|---------|---------|---------|\n| `tailwindcss` | ^4 | CSS utility framework |\n| `shadcn` | ^3.8.4 | UI component library |\n| `lucide-react` | ^0.563.0 | Icon library |\n| `recharts` | ^3.7.0 | Chart visualization |\n| `sonner` | ^2.0.7 | Toast notifications |\n\n### Development Dependencies\n\n| Package | Version | Purpose |\n|---------|---------|---------|\n| `@types/react` | ^19 | React type definitions |\n| `@types/node` | ^20 | Node.js type definitions |\n| `eslint` | ^9 | Code linting |\n| `eslint-config-next` | 16.1.6 | Next.js ESLint config |\n| `@tailwindcss/postcss` | ^4 | PostCSS for Tailwind |\n\n### Build Tools\n\n- **Package Manager:** npm\n- **Build Tool:** Next.js built-in\n- **CSS Processor:** Tailwind CSS v4 with PostCSS\n\n---\n\n## 4. Development Setup\n\n### Prerequisites\n\n- **Node.js:** v18+ (recommended: v20 LTS)\n- **MySQL:** v5.7+ or v8.0+\n- **OpenAI API Key:** For natural language queries\n\n### Installation Steps\n\n```bash\n# Clone the repository\ngit clone <repository-url>\ncd chatbi\n\n# Install dependencies\nnpm install\n```\n\n### Environment Configuration\n\n1. Copy the example environment file:\n\n```bash\ncp .env.example .env.local\n```\n\n2. Configure the following variables in `.env.local`:\n\n| Variable | Description | Default |\n|----------|-------------|---------|\n| `MYSQL_HOST` | MySQL server host | `localhost` |\n| `MYSQL_PORT` | MySQL server port | `3306` |\n| `MYSQL_USER` | MySQL username | `root` |\n| `MYSQL_PASSWORD` | MySQL password | (empty) |\n| `MYSQL_DATABASE` | Database name to query | (required) |\n| `OPENAI_API_KEY` | OpenAI API key | (required for NL queries) |\n| `OPENAI_BASE_URL` | OpenAI API base URL | `https://api.openai.com/v1` |\n| `OPENAI_MODEL` | OpenAI model to use | `gpt-4` |\n\n### Database Setup\n\n1. Create a MySQL database\n...\n[trimmed]\n...\n1,\n    \"executionTime\": 15\n  }\n}\n```\n\n### POST /api/nl-query\n\nExecute a natural language query.\n\n**Request:**\n```json\n{\n  \"question\": \"Show me the total sales by month\"\n}\n```\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"columns\": [\"month\", \"total_sales\"],\n    \"rows\": [{ \"month\": \"2024-01\", \"total_sales\": 10000 }],\n    \"rowCount\": 12,\n    \"executionTime\": 1500,\n    \"sql\": \"SELECT DATE_FORMAT(date, '%Y-%m') as month, SUM(amount) as total_sales FROM sales GROUP BY month\",\n    \"visualization\": \"line\"\n  }\n}\n```\n\n---\n\n## 9. Security Considerations\n\n### SQL Validation\n\nThe project implements strict SQL validation:\n\n1. **Only SELECT queries allowed** - INSERT, UPDATE, DELETE, DROP, etc. are blocked\n2. **Dangerous patterns detected** - SQL injection attempts are prevented\n3. **Query result limit** - Maximum 1000 rows per query\n\n### Environment Variables\n\n- Never commit `.env.local` to version control\n- Use `.env.example` as a template\n- Store sensitive keys in environment, not in code\n\n### API Security\n\n- No authentication currently implemented (add if exposing publicly)\n- Rate limiting recommended for production\n\n---\n\n## 10. Deployment\n\n### Vercel Deployment (Recommended)\n\n1. Push code to GitHub\n2. Import project in Vercel\n3. Configure environment variables\n4. Deploy\n\n### Environment Variables for Vercel\n\n| Variable | Value |\n|----------|-------|\n| `MYSQL_HOST` | Your MySQL host |\n| `MYSQL_PORT` | 3306 |\n| `MYSQL_USER` | Your username |\n| `MYSQL_PASSWORD` | Your password |\n| `MYSQL_DATABASE` | Your database |\n| `OPENAI_API_KEY` | Your API key |\n| `OPENAI_BASE_URL` | (optional) |\n| `OPENAI_MODEL` | (optional) |\n\n---\n\n## 11. Common Issues & Solutions\n\n| Issue | Solution |\n|-------|----------|\n| Database connection failed | Check MySQL credentials and ensure server is running |\n| OpenAI API errors | Verify `OPENAI_API_KEY` is set correctly |\n| Schema not loading | Ensure `MYSQL_DATABASE` is set and database exists |\n| Query timeout | Add LIMIT clause or reduce data volume |\n| ESLint errors | Run `npm run lint` to see issues |\n\n---\n\n## 12. Contributing\n\nWhen working on this project as an AI agent:\n\n1. Follow the code organization and naming conventions\n2. Use TypeScript for all new code\n3. Test changes locally before committing\n4. Run `npm run lint` before submitting\n5. Update this AGENTS.md if the project structure changes\n\n</project>\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\n---\n\n====\n# Available Subagents\n\nThe following agents are available for delegation via the `callAgent` tool.\nPick the best-fit subagent for each task (do not assume only one exists):\n\n- **plan**: Professional software planning expert that generates structured plans and obtains user approval\n- **code-review**: Multi-source code review specialist for GitHub PRs, local commits, git diffs, and project files\n- **explore**: Efficient single-task information gathering\n- **document-writer**: Creates comprehensive documentation matching repository standards\n- **test-writer**: Specialist in writing comprehensive tests matching repository standards\n- **coding**: Expert programming assistant for code reviews, debugging, and development\n- **china-options-buyer**: professional China commodity options trading strategist focused on long (buyer) strategies.\n- **api-designer**: API architecture expert designing scalable, developer-friendly interfaces. Creates REST and GraphQL APIs with comprehensive documentation, focusing on consistency, performance, and developer experience.\n- **code-reviewer**: Expert code reviewer specializing in code quality, security vulnerabilities, and best practices across multiple languages. Masters static analysis, design patterns, and performance optimization with focus on maintainability and technical debt reduction.\n\n## Delegation Guidelines\n\n- **Choose wisely**: Select the agent best suited for the specific task\n- **Provide context**: Subagents start with empty context; pass all necessary information\n- **Set targets**: Specify files/modules to avoid conflicts in parallel execution\n- **Batch independent tasks**: Run multiple subagents in parallel when tasks are independent\n====\n\nIMPORTANT: You MUST respond in English.",
+      "temperature": 1.0,
+      "thinking": {
+        "budgetTokens": 12000,
+        "type": "enabled"
+      },
+      "tools": [
+        {
+          "description": "Execute shell commands safely on the system.\n\nThis tool allows you to run shell commands with built-in safety restrictions. Choose commands based on the Platform info in the environment context:\n\n**Platform-specific command reference:**\n\n| Task | macOS/Linux | Windows |\n|------|-------------|---------|\n| List files | ls -la | dir |\n| Find files | find, fd | dir /s, where |\n| Search content | grep, rg | findstr |\n| Show file | cat, head, tail | type |\n| Current directory | pwd | cd |\n| Environment vars | env, export | set |\n| Process list | ps aux | tasklist |\n| Kill process | kill | taskkill |\n| Network info | ifconfig, ip | ipconfig |\n| Download file | curl, wget | curl, Invoke-WebRequest |\n| Archive | tar, zip | tar, Compress-Archive |\n| Package manager | brew (mac), apt (linux) | winget, choco |\n\n**Cross-platform commands:**\n- Git operations (git)\n- Node.js (node, npm, yarn, pnpm, bun)\n- Build tools (make, cargo, go)\n- Python (python, pip)\n\nThe command will be executed in the current working directory.\n\n**Background execution:**\nUse `run_in_background: true` to run long-running commands in the background. The command will continue running even if it produces no output for an extended period. Use this for:\n- Development servers\n- Long-running build processes\n- Continuous processes\n\nOutput can be read using `cat` or `tail -f` on the output file path returned in the result.",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "command": {
+                "type": "string"
+              },
+              "runInBackground": {
+                "default": false,
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "command"
+            ],
+            "type": "object"
+          },
+          "name": "bash"
+        },
+        {
+          "description": "Call a registered sub-agent for a focused task. Subagents start with empty context.\n\n**Parameters**\n- `agentId`: The agent to call (see Available Subagents in system prompt)\n- `task`: Clear outcome description (2-5 sentences)\n- `context`: All necessary artifacts (file contents, schemas, requirements)\n- `targets`: Files/modules this agent will touch (for conflict avoidance)\n\n**Key Rules**\n- Subagents have zero history - pass all needed context\n- Use targets to enable safe parallel execution\n- For parallel calls, issue multiple callAgent in same response",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "agentId": {
+                "type": "string"
+              },
+              "context": {
+                "type": "string"
+              },
+              "targets": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "task": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "agentId",
+              "task",
+              "context"
+            ],
+            "type": "object"
+          },
+          "name": "callAgent"
+        },
+        {
+          "description": "Use this tool to read the contents of an existing file.\n\nThis tool will return the complete file content as a string by default.\nYou can optionally specify a starting line and number of lines to read a specific portion of the file.\n\nThe file path should be an absolute path.",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "file_path": {
+                "type": "string"
+              },
+              "line_count": {
+                "type": "number"
+              },
+              "start_line": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "file_path"
+            ],
+            "type": "object"
+          },
+          "name": "readFile"
+        },
+        {
+          "description": "Use this tool when you need to find files containing specific patterns.\n\nUse this to find code patterns, function definitions, variable usage, or any text in the codebase.",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "file_types": {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              "path": {
+                "type": "string"
+              },
+              "pattern": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pattern",
+              "path"
+            ],
+            "type": "object"
+          },
+          "name": "codeSearch"
+        },
+        {
+          "description": "- Fast file pattern matching tool that works with any codebase size\n- Supports glob patterns like \"**/*.js\" or \"src/**/*.ts\"\n- Returns matching file paths sorted by modification time\n- Use this tool when you need to find files by name patterns",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "path": {
+                "type": "string"
+              },
+              "pattern": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "pattern"
+            ],
+            "type": "object"
+          },
+          "name": "glob"
+        },
+        {
+          "description": "Perform Language Server Protocol (LSP) operations like go-to-definition, references, hover, and symbols.\n\nProvide a file path and a 1-based line/character position as shown in editors.",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "character": {
+                "type": "number"
+              },
+              "filePath": {
+                "type": "string"
+              },
+              "line": {
+                "type": "number"
+              },
+              "operation": {
+                "enum": [
+                  "goToDefinition",
+                  "findReferences",
+                  "hover",
+                  "documentSymbol",
+                  "workspaceSymbol",
+                  "goToImplementation",
+                  "prepareCallHierarchy",
+                  "incomingCalls",
+                  "outgoingCalls"
+                ],
+                "type": "string"
+              },
+              "query": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "operation",
+              "filePath"
+            ],
+            "type": "object"
+          },
+          "name": "lsp"
+        },
+        {
+          "description": "Use this tool to list files and directories in a specified directory.\n\nThis tool will return a concise string format showing directories and files grouped by their parent directory. It's useful for exploring directory structure, finding files, or understanding project organization.\n\nThe directory path must be absolute.",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "directory_path": {
+                "type": "string"
+              },
+              "max_depth": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "directory_path"
+            ],
+            "type": "object"
+          },
+          "name": "listFiles"
+        },
+        {
+          "description": "Creates and manages todo items for task tracking and progress management in the current session.\nUse this tool to create and manage todo items for tracking tasks and progress. This tool provides comprehensive todo management:\n\n## When to Use This Tool\n\nUse this tool proactively in these scenarios:\n\n1. **Complex multi-step tasks** - When a task requires 3 or more distinct steps or actions\n2. **Non-trivial and complex tasks** - Tasks that require careful planning or multiple operations\n3. **User explicitly requests todo list** - When the user directly asks you to use the todo list\n4. **User provides multiple tasks** - When users provide a list of things to be done (numbered or comma-separated)\n5. **After receiving new instructions** - Immediately capture user requirements as todos\n6. **When you start working on a task** - Mark it as in_progress BEFORE beginning work. Ideally you should only have one todo as in_progress at a time\n7. **After completing a task** - Mark it as completed and add any new follow-up tasks discovered during implementation\n\n## Task States and Management\n\n1. **Task States**: Use these states to track progress:\n   - pending: Task not yet started\n   - in_progress: Currently working on (limit to ONE task at a time)\n   - completed: Task finished successfully\n\n2. **Task Management**:\n   - Update task status in real-time as you work\n   - Mark tasks complete IMMEDIATELY after finishing (don't batch completions)\n   - Only have ONE task in_progress at any time\n   - Complete current tasks before starting new ones\n   - Remove tasks that are no longer relevant from the list entirely\n\n3. **Task Completion Requirements**:\n   - ONLY mark a task as completed when you have FULLY accomplished it\n   - If you encounter errors, blockers, or cannot finish, keep the task as in_progress\n   - When blocked, create a new task describing what needs to be resolved\n   - Never mark a task as completed if:\n     - Tests are failing\n     - Implementation is partial\n     - You encountered unresolved errors\n     - You couldn't find necessary files or dependencies\n\n4. **Task Breakdown**:\n   - Create specific, actionable items\n   - Break complex tasks into smaller, manageable steps\n   - Use clear, descriptive task names\n\n## Tool Capabilities\n\n- **Create new todos**: Add tasks with content, priority, and status\n- **Update existing todos**: Modify any aspect of a todo (status, priority, content)\n- **Delete todos**: Remove completed or irrelevant tasks\n- **Batch operations**: Update multiple todos in a single operation\n- **Clear all todos**: Reset the entire todo list\n\nWhen in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "todos": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "content": {
+                      "type": "string"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "status": {
+                      "enum": [
+                        "pending",
+                        "in_progress",
+                        "completed"
+                      ],
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "content",
+                    "status",
+                    "id"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              }
+            },
+            "required": [
+              "todos"
+            ],
+            "type": "object"
+          },
+          "name": "todoWrite"
+        },
+        {
+          "description": "Use this tool to write content to a file.\n\nThis tool will create or overwrite a file with the provided content. It will automatically create directories if they don't exist. It's useful for creating new files or updating existing files in the project.\n\nThe file path should be an absolute path.",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "content": {
+                "type": "string"
+              },
+              "file_path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file_path",
+              "content"
+            ],
+            "type": "object"
+          },
+          "name": "writeFile"
+        },
+        {
+          "description": "Edit an existing file with one or more text replacements.\n\nCRITICAL RULES:\n1. All old_string values must match EXACTLY - including spaces, tabs, and newlines\n2. Use readFile tool FIRST to see the exact content\n3. Include 3-5 lines of context before and after each change\n4. For file creation, use write-file tool instead\n\nHOW TO CHOOSE THE NUMBER OF EDITS:\n\nSingle Edit (edits.length = 1):\n✅ One isolated change\n✅ Simple fix or update in one location\n✅ Experimental/uncertain replacement\n✅ When you need to verify the result before continuing\n\nExample: \"Add an import statement\" → 1 edit\n\nMultiple Edits (edits.length = 2-10):\n✅ Related changes to the same file\n✅ Batch updates with similar patterns (e.g., rename all occurrences)\n✅ Refactoring that touches multiple parts (imports + function + types)\n✅ You're confident all replacements will work\n\nExample: \"Add import + update function + update type\" → 3 edits\n\nIMPORTANT: Maximum 10 edits per call. For larger refactorings, make multiple calls.\n\nBest practice workflow:\n1. Use readFile to see current content\n2. Identify all changes you want to make to this file\n3. For each change, copy EXACT text with context\n4. Create edit block(s) with old_string and new_string\n5. Call edit-file with your edit(s)",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "edits": {
+                "items": {
+                  "additionalProperties": false,
+                  "properties": {
+                    "new_string": {
+                      "type": "string"
+                    },
+                    "old_string": {
+                      "type": "string"
+                    }
+                  },
+                  "required": [
+                    "old_string",
+                    "new_string"
+                  ],
+                  "type": "object"
+                },
+                "type": "array"
+              },
+              "file_path": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file_path",
+              "edits"
+            ],
+            "type": "object"
+          },
+          "name": "editFile"
+        },
+        {
+          "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "query": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "query"
+            ],
+            "type": "object"
+          },
+          "name": "webSearch"
+        },
+        {
+          "description": "Fetch and extract content from a web url",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {
+              "url": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "type": "object"
+          },
+          "name": "webFetch"
+        },
+        {
+          "description": "\n    \n    You MUST use this tool whenever you need to search for real-time or external information on the web.\n    \n    A web search API that works just like Google Search.\n    \n    Args:\n        query (str): The search query. Aim for 3-5 keywords for best results. For time-sensitive topics, include the current date (e.g. `latest iPhone 2025`).\n        \n    Search Strategy:\n        - If no useful results are returned, try rephrasing your query with different keywords.\n        \n    Returns:\n        A JSON object containing the search results, structured as follows:\n        {\n            \"organic\": [\n                {\n                    \"title\": \"string - The title of the search result\",\n                    \"link\": \"string - The URL link to the result\",\n                    \"snippet\": \"string - A brief description or excerpt\",\n                    \"date\": \"string - The date of the result\"\n                }\n            ],\n            \"related_searches\": [\n                {\n                    \"query\": \"string - A related search query suggestion\"\n                }\n            ],\n            \"base_resp\": {\n                \"status_code\": \"int - Response status code\",\n                \"status_msg\": \"string - Response status message\"\n            }\n        }\n    ",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "name": "minimax-coding-plan__web_search"
+        },
+        {
+          "description": "\n    \n    You MUST use this tool whenever you need to analyze, describe, or extract information from an image,\n    including when you get an image from user input or any task-related image.\n\n    An LLM-powered vision tool that can analyze and interpret image content from local files or URLs based on your instructions.\n    Only JPEG, PNG, and WebP formats are supported. Other formats (e.g. PDF, GIF, PSD, SVG) are not supported.\n\n    Args:\n        prompt (str): A text prompt describing what you want to analyze or extract from the image.\n        image_source (str): The location of the image to analyze.\n            Accepts:\n            - HTTP/HTTPS URL: \"https://example.com/image.jpg\"\n            - Local file path:\n                - Relative path: \"images/photo.png\"\n                - Absolute path: \"/Users/username/Documents/image.jpg\"\n            IMPORTANT: If the file path starts with an @ symbol, you MUST strip the @ prefix before passing it to this function.\n            For example:\n                - \"@Documents/photo.jpg\" → \"Documents/photo.jpg\"\n                - \"@/Users/username/image.png\" → \"/Users/username/image.png\"\n            Supported formats: JPEG, PNG, WebP\n        \n    Returns:\n        A text description of the image analysis result.\n    ",
+          "input_schema": {
+            "additionalProperties": false,
+            "properties": {},
+            "type": "object"
+          },
+          "name": "minimax-coding-plan__understand_image"
+        }
+      ],
+      "top_p": 0.949999988079071
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "x-session-id": "4b5103c8a737942ea12d7d0705348acd",
+      "minimax-request-id": "755b5e075963a1cdeb88bb1728c95ec0",
+      "connection": "keep-alive",
+      "alb_request_id": "f1ed05cafd736356d90ecfc9069b2577c2b38eee",
+      "vary": "Accept-Encoding",
+      "cache-control": "no-cache",
+      "alb_receive_time": "1770878555.173",
+      "date": "Thu, 12 Feb 2026 06:42:36 GMT",
+      "content-type": "text/event-stream; charset=utf-8",
+      "trace-id": "05dca95b3b8f540c4a346f66332f3dbf",
+      "transfer-encoding": "chunked"
+    },
+    "sse_events": [
+      {
+        "event": "message_start",
+        "data": "{\"type\":\"message_start\",\"message\":{\"id\":\"05dca95b3b8f540c4a346f66332f3dbf\",\"type\":\"message\",\"role\":\"assistant\",\"content\":[],\"model\":\"MiniMax-M2.5\",\"stop_reason\":null,\"stop_sequence\":null,\"usage\":{\"input_tokens\":7996,\"output_tokens\":0},\"service_tier\":\"standard\"}}"
+      },
+      {
+        "event": "ping",
+        "data": "{\"type\":\"ping\"}"
+      },
+      {
+        "event": "content_block_start",
+        "data": "{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"thinking\",\"thinking\":\"\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"The user\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\" said \\\"nihao\\\" which is Chinese for \\\"hello\\\". According to my instructions, I should respond in English (as indicated in the OUTPUT FORMAT IN\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"STRUCTIONS section), and I should be direct without conversational filler.\\n\\nLet me respond with a brief greeting and offer to help with their coding tasks.\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"signature_delta\",\"signature\":\"54c9d176a4a0255f258cbcd6b42e9460c8d85ccec9cc565bcdd148a7e8e4bdcc\"}}"
+      },
+      {
+        "event": "content_block_stop",
+        "data": "{\"type\":\"content_block_stop\",\"index\":0}"
+      },
+      {
+        "event": "content_block_start",
+        "data": "{\"type\":\"content_block_start\",\"index\":1,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"\\nHello! How can I help you today? I'm ready to assist with coding tasks, debugging, code reviews, or any software development work in your Chat\"}}"
+      },
+      {
+        "event": "content_block_delta",
+        "data": "{\"type\":\"content_block_delta\",\"index\":1,\"delta\":{\"type\":\"text_delta\",\"text\":\"BI project.\"}}"
+      },
+      {
+        "event": "content_block_stop",
+        "data": "{\"type\":\"content_block_stop\",\"index\":1}"
+      },
+      {
+        "event": "message_delta",
+        "data": "{\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"input_tokens\":7996,\"output_tokens\":98}}"
+      },
+      {
+        "event": "message_stop",
+        "data": "{\"type\":\"message_stop\"}"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "MiniMax-M2.5",
+    "messages": [
+      {
+        "role": "system",
+        "content": "\nYou are TalkCody, an expert Coding Planner and Lead Engineer. Your mandate is to orchestrate complex software tasks, manage sub-agents, and execute code changes with precision. You operate within a defined workspace and must strictly adhere to project constraints defined in AGENTS.md.\n\n# CORE IDENTITY & INTERACTION\n- **Orchestrator**: You clarify ambiguity immediately, then drive the task to completion.\n- **Directness**: Respond in the user's language. Omit conversational filler. Your output must be dense with utility (code, plans, or direct answers).\n- **Context Aware**: Your \"Source of Truth\" is the file system and AGENTS.md. Do not hallucinate APIs or dependencies.\n\n# TOOL USAGE STRATEGY\n\n## Concurrency & Batch Tool Calls\n\n**return as many tool calls as possible in a single response**.\n\n### Read Operations - ALWAYS Batch Together\n### Write/Edit Operations - Batch Different Files\n\n## Decision Matrix\n\n### 1. Direct Execution\nUse standard tools (`readFile`, `editFile`, `codeSearch`) for straightforward tasks.\n- **Scope**: Single-file edits, simple bug fixes, or quick info gathering.\n- **Logic**: When the task is clearly bounded and you have all necessary context.\n\n### 2. Strategic Delegation (`callAgent`)\nActively consider delegation for enhanced efficiency and quality. When using `callAgent`, **always** consider whether multiple sub-agents can work in parallel to maximize efficiency.\n- **Complex Analysis**: Multi-domain analysis (architecture, testing, security, performance) benefits from specialized focus.\n- **Parallel Processing**: Independent modules or components can be handled simultaneously for faster completion.\n- **Expertise Areas**: Tasks requiring deep domain knowledge (AI integration, database design, security audits) benefit from focused sub-agents.\n- **Large Scope**: When comprehensive analysis across multiple files/systems is needed.\n\n## Delegation Protocol\n- **Gather First**: Use `codeSearch`, `readFile`, `glob` tool or explore agent to gather context *before* calling an agent to ensure you pass valid context.\n- **Explicit Payload**:\n  - `context`: Dump relevant file contents/search results here. Do not assume the agent knows previous chat history.\n  - `targets`: List specific files to avoid overwrite conflicts.\n- **Write Tasks**: When delegating multi-file or multi-module modifications, break them into clearly separated, independent tasks to enable parallel execution without file conflicts.\n- **Task Decomposition**: Each sub-agent should handle a complete, self-contained modification unit (e.g., one component, one service, one feature module) with exact file boundaries.\n- **Dependency Management**: If tasks have dependencies, clearly define execution sequence or use separate delegation rounds.\n\n## callAgent Parallelism Strategy\n\n**ALWAYS maximize parallelism** - spawn multiple subagents in a single response when tasks are independent.\n\n### Strategy 1: Same Agent Type, Different Modules\nUse multiple instances of the same agent to gather context from different areas:\n```\n[Tool Calls]\n- callAgent: explore → gather context from /src/auth\n- callAgent: explore → gather context from /src/api\n- callAgent: explore → gather context from /src/db\n```\n\n### Strategy 2: Different Agent Types, Different Concerns\nUse specialized agents in parallel for different aspects of the same feature:\n```\n[Tool Calls]\n- callAgent: document-writer → write API documentation for the new feature\n- callAgent: coding → implement the core business logic\n- callAgent: code-review → write unit tests for the feature\n```\n\n### Parallelism Decision Matrix\n| Scenario | Strategy |\n|----------|----------|\n| Context gathering from multiple modules | Multiple parallel explore agents |\n| Feature implementation (code + docs + tests) | Parallel coding + document-writer + code-review |\n| Multi-file refactor | Multiple parallel coding agents with distinct targets |\n| Dependent tasks (A's output feeds B) | Sequential callAgent rounds |\n\n## Edit-File Tool\n\n**When to use edit-file tool vs write-file tool:**\n   - **edit-file**: File exists, making modifications (1-10 related changes per file)\n     - Single edit: One isolated change\n     - Multiple edits: Related changes to same file (imports + types, code)\n   - **write-file**: Creating a brand new file from scratch\n   - **write-file**: overwrite existing file when too many changes are needed\n\n# ENGINEERING GUIDELINES\n**Philosophy**: Keep It Simple, Stupid (KISS). Prioritize maintainability and readability over clever one-liners.\n\n1. **Building from Scratch**:\n   - Confirm requirements first.\n   - Sketch the architecture/module interaction mentally or in the plan.\n   - Implement modular, strictly typed (where applicable), and self-documenting code.\n\n2. **Modifying Existing Code**:\n   - **Understand First**: Read related files to grasp the current patterns and style.\n   - **Minimal Intrusion**: Make the smallest change necessary to achieve the goal. Avoid sweeping formatting changes unless requested.\n   - **Bug Fixes**: Locate the root cause via logs or reproduction steps. Ensure your fix addresses the root cause, not just the symptom. Verify with tests.\n\n3. **Refactoring**:\n   - Only change internal structure, never external behavior (unless it's an API breaking change request).\n   - Update all consumers of the refactored code.\n\n# WORKFLOW Mode: ACT vs. PLAN\n\n## ACT VS PLAN\n\n- For trivial and simple tasks, ACT directly using tools.\n- For complex tasks, PLAN first then ACT.\n- If the task involves multiple files, architectural changes, or high ambiguity, you MUST enter **PLAN MODE**.\n\n**CRITICAL RULE**: Check the environment context provided in the <env> XML section. If you see:\n```xml\n<env>\n  <plan_mode>TRUE</plan_mode>\n</env>\n```\n\nThis means PLAN MODE is ENABLED. When PLAN MODE is ENABLED (`<plan_mode>TRUE</plan_mode>`):\n- You MUST follow the PLAN MODE instructions provided below\n- You MUST delegate planning to the Plan Agent before executing complex tasks\n- DO NOT skip the planning phase\n\nWhen PLAN MODE is DISABLED (`<plan_mode>FALSE</plan_mode>`):\n- You can execute tasks directly without delegating to the Plan Agent\n- Use your judgment to decide between ACT and PLAN based on task complexity\n\n# PLAN MODE Workflow\n\n## Overview\n\nWhen PLAN MODE is ENABLED (indicated by `<plan_mode>TRUE</plan_mode>` in the <env> section), you should delegate planning to the specialized **Plan Agent**. The Plan Agent will:\n1. Explore the project context\n2. Generate a structured plan\n3. Return the approved plan content\n\n## Delegation to Plan Agent\n\n### How to Delegate\n\nUse `callAgent` with the \"plan\" agent:\n\n```\ncallAgent({\n  agentId: \"plan\",\n  task: \"Create a comprehensive implementation plan for: {USER_REQUIREMENT}\",\n  context: `\nProject Root: {workspaceRoot}\nTask ID: {taskId}\nCurrent Requirement: {USER_REQUIREMENT}\n\nRelevant Context:\n- Project structure and existing patterns\n- Related files that may be affected\n- Any specific constraints or requirements mentioned\n  `,\n  targets: []\n})\n```\n\nNote: you should pass enough context to the Plan Agent to enable it to generate a comprehensive plan.\n\n### Receiving Plan Agent Results\n\nThe Plan Agent returns plan by markdown format\n\n- Use the approved plan to create a todo list using **TodoWrite**\n- Execute each todo item\n- Update todo status as you complete them\n\n## Executing Approved Plans\n\nAfter receiving approved plan:\n\n1. **Create todos** using **TodoWrite** based on the approved plan\n2. **Execute todos systematically**:\n   - Process dependent tasks first\n   - Use parallel execution for independent tasks\n   - Update todo status after each completion\n3. **Report progress** to user\n4. **Handle errors** gracefully with clear messages\n\n# SAFETY & BOUNDARIES\n- **Workspace Confinement**: strict operations within the allowed root directories.\n- **Non-Destructive**: Never delete non-trivial code without explicit confirmation in the Plan.\n- **Secrets Management**: Never print or hardcode credentials/secrets.\n\n# OBJECTIVE\nYour goal is not to chat, but to ship. Measure success by:\n1. Accuracy of the solution.\n2. Stability of the code.\n3. Adherence to existing project styles.\n\n# Proactively\n\nActively verify completion by running the relevant checks yourself.\n\n- If you fix a test failure, run the tests and confirm they pass.\n- If you fix a compilation/build error, run the build/compile and confirm success.\n- Do not just provide commands for the user to run instead.\n\n\n# Rules\n\n- The user may provide a file's contents directly in their message, in which case you shouldn't use the read_file tool to get the file contents again since you already have it.\n- Be precise with replacements to avoid errors\n- Follow existing project patterns and conventions\n- Answer the user's question directly with a concise answer; do not generate new Markdown files to answer the user's question.\n\n\n---\n\nIMPORTANT: Here is important information about the environment you are running in:\n<env>\n<working_directory>/Users/kks/mygit/chatbi</working_directory>\n<is_git_repo>Yes</is_git_repo>\n<platform>mac_arm</platform>\n<today_date>2026-02-11</today_date>\n<plan_mode>TRUE</plan_mode>\n</env>\n\n---\n\n## Markdown Context\n\n<project>\n# ChatBI - AI Agent Development Guide\n\n## 1. Project Overview\n\n**Project Name:** ChatBI (智能数据库查询与分析平台)\n\n**Description:** A Next.js-based intelligent database query platform that supports both SQL direct queries and natural language queries, with results displayed in tables and charts.\n\n**Main Purpose:** Enable users to query databases using either direct SQL or natural language descriptions, with AI-powered SQL generation and automatic visualization suggestions.\n\n**Target Users:** Database analysts, developers, and business users who need to query and analyze data without deep SQL knowledge.\n\n---\n\n## 2. Architecture & Design\n\n### High-Level Architecture\n\n```\n┌─────────────────────────────────────────────────────────────┐\n│                      Frontend (React 19)                     │\n│  ┌─────────────┐ ┌──────────────┐ ┌─────────────────────┐  │\n│  │ NL Input    │ │ SQL Editor   │ │ Result View         │  │\n│  │ Component   │ │ Component    │ │ (Table/Chart)       │  │\n│  └─────────────┘ └──────────────┘ └─────────────────────┘  │\n└─────────────────────────────────────────────────────────────┘\n                            │\n                            ▼\n┌─────────────────────────────────────────────────────────────┐\n│                    Next.js 16 API Routes                     │\n│  ┌─────────────┐ ┌──────────────┐ ┌─────────────────────┐  │\n│  │ /api/schema │ │ /api/query   │ │ /api/nl-query       │  │\n│  └─────────────┘ └──────────────┘ └─────────────────────┘  │\n└─────────────────────────────────────────────────────────────┘\n                            │\n                            ▼\n┌─────────────────────────────────────────────────────────────┐\n│                    Core Libraries                            │\n│  ┌─────────────┐ ┌──────────────┐ ┌─────────────────────┐  │\n│  │ db.ts       │ │ openai.ts    │ │ sql-validator.ts    │  │\n│  │ (MySQL)     │ │ (GPT-4)      │ │ (Security)          │  │\n│  └─────────────┘ └──────────────┘ └─────────────────────┘  │\n└─────────────────────────────────────────────────────────────┘\n                            │\n                            ▼\n┌─────────────────────────────────────────────────────────────┐\n│                    External Services                         │\n│  ┌─────────────────────┐    ┌─────────────────────────┐    │\n│  │ MySQL Database      │    │ OpenAI API (GPT-4)     │    │\n│  └─────────────────────┘    └─────────────────────────┘    │\n└─────────────────────────────────────────────────────────────┘\n```\n\n### Key Components\n\n| Component | Location | Description |\n|-----------|----------|-------------|\n| Database Pool | `src/lib/db.ts` | MySQL connection pooling |\n| OpenAI Integration | `src/lib/openai.ts` | SQL generation from natural language |\n| SQL Validator | `src/lib/sql-validator.ts` | Security validation (SELECT only) |\n| Schema Reader | `src/lib/schema.ts` | Database schema introspection |\n| API Routes | `src/app/api/*` | Next.js Route Handlers |\n| UI Components | `src/components/*` | React components |\n\n### Design Patterns\n\n- **Connection Pooling**: MySQL connection pooling via `mysql2/promise`\n- **Singleton Pattern**: Database pool and OpenAI client are singletons\n- **Caching**: Database schema is cached to reduce introspection overhead\n- **Path Aliases**: Using `@/*` for clean imports from `./src/*`\n\n---\n\n## 3. Technology Stack\n\n### Core Dependencies\n\n| Package | Version | Purpose |\n|---------|---------|---------|\n| `next` | 16.1.6 | React framework with App Router |\n| `react` | 19.2.3 | UI library |\n| `react-dom` | 19.2.3 | React DOM rendering |\n| `typescript` | ^5 | Type safety |\n\n### Database & AI\n\n| Package | Version | Purpose |\n|---------|---------|---------|\n| `mysql2` | ^3.17.0 | MySQL database driver |\n| `openai` | ^6.21.0 | OpenAI API client |\n\n### UI & Styling\n\n| Package | Version | Purpose |\n|---------|---------|---------|\n| `tailwindcss` | ^4 | CSS utility framework |\n| `shadcn` | ^3.8.4 | UI component library |\n| `lucide-react` | ^0.563.0 | Icon library |\n| `recharts` | ^3.7.0 | Chart visualization |\n| `sonner` | ^2.0.7 | Toast notifications |\n\n### Development Dependencies\n\n| Package | Version | Purpose |\n|---------|---------|---------|\n| `@types/react` | ^19 | React type definitions |\n| `@types/node` | ^20 | Node.js type definitions |\n| `eslint` | ^9 | Code linting |\n| `eslint-config-next` | 16.1.6 | Next.js ESLint config |\n| `@tailwindcss/postcss` | ^4 | PostCSS for Tailwind |\n\n### Build Tools\n\n- **Package Manager:** npm\n- **Build Tool:** Next.js built-in\n- **CSS Processor:** Tailwind CSS v4 with PostCSS\n\n---\n\n## 4. Development Setup\n\n### Prerequisites\n\n- **Node.js:** v18+ (recommended: v20 LTS)\n- **MySQL:** v5.7+ or v8.0+\n- **OpenAI API Key:** For natural language queries\n\n### Installation Steps\n\n```bash\n# Clone the repository\ngit clone <repository-url>\ncd chatbi\n\n# Install dependencies\nnpm install\n```\n\n### Environment Configuration\n\n1. Copy the example environment file:\n\n```bash\ncp .env.example .env.local\n```\n\n2. Configure the following variables in `.env.local`:\n\n| Variable | Description | Default |\n|----------|-------------|---------|\n| `MYSQL_HOST` | MySQL server host | `localhost` |\n| `MYSQL_PORT` | MySQL server port | `3306` |\n| `MYSQL_USER` | MySQL username | `root` |\n| `MYSQL_PASSWORD` | MySQL password | (empty) |\n| `MYSQL_DATABASE` | Database name to query | (required) |\n| `OPENAI_API_KEY` | OpenAI API key | (required for NL queries) |\n| `OPENAI_BASE_URL` | OpenAI API base URL | `https://api.openai.com/v1` |\n| `OPENAI_MODEL` | OpenAI model to use | `gpt-4` |\n\n### Database Setup\n\n1. Create a MySQL database\n...\n[trimmed]\n...\n1,\n    \"executionTime\": 15\n  }\n}\n```\n\n### POST /api/nl-query\n\nExecute a natural language query.\n\n**Request:**\n```json\n{\n  \"question\": \"Show me the total sales by month\"\n}\n```\n\n**Response:**\n```json\n{\n  \"success\": true,\n  \"data\": {\n    \"columns\": [\"month\", \"total_sales\"],\n    \"rows\": [{ \"month\": \"2024-01\", \"total_sales\": 10000 }],\n    \"rowCount\": 12,\n    \"executionTime\": 1500,\n    \"sql\": \"SELECT DATE_FORMAT(date, '%Y-%m') as month, SUM(amount) as total_sales FROM sales GROUP BY month\",\n    \"visualization\": \"line\"\n  }\n}\n```\n\n---\n\n## 9. Security Considerations\n\n### SQL Validation\n\nThe project implements strict SQL validation:\n\n1. **Only SELECT queries allowed** - INSERT, UPDATE, DELETE, DROP, etc. are blocked\n2. **Dangerous patterns detected** - SQL injection attempts are prevented\n3. **Query result limit** - Maximum 1000 rows per query\n\n### Environment Variables\n\n- Never commit `.env.local` to version control\n- Use `.env.example` as a template\n- Store sensitive keys in environment, not in code\n\n### API Security\n\n- No authentication currently implemented (add if exposing publicly)\n- Rate limiting recommended for production\n\n---\n\n## 10. Deployment\n\n### Vercel Deployment (Recommended)\n\n1. Push code to GitHub\n2. Import project in Vercel\n3. Configure environment variables\n4. Deploy\n\n### Environment Variables for Vercel\n\n| Variable | Value |\n|----------|-------|\n| `MYSQL_HOST` | Your MySQL host |\n| `MYSQL_PORT` | 3306 |\n| `MYSQL_USER` | Your username |\n| `MYSQL_PASSWORD` | Your password |\n| `MYSQL_DATABASE` | Your database |\n| `OPENAI_API_KEY` | Your API key |\n| `OPENAI_BASE_URL` | (optional) |\n| `OPENAI_MODEL` | (optional) |\n\n---\n\n## 11. Common Issues & Solutions\n\n| Issue | Solution |\n|-------|----------|\n| Database connection failed | Check MySQL credentials and ensure server is running |\n| OpenAI API errors | Verify `OPENAI_API_KEY` is set correctly |\n| Schema not loading | Ensure `MYSQL_DATABASE` is set and database exists |\n| Query timeout | Add LIMIT clause or reduce data volume |\n| ESLint errors | Run `npm run lint` to see issues |\n\n---\n\n## 12. Contributing\n\nWhen working on this project as an AI agent:\n\n1. Follow the code organization and naming conventions\n2. Use TypeScript for all new code\n3. Test changes locally before committing\n4. Run `npm run lint` before submitting\n5. Update this AGENTS.md if the project structure changes\n\n</project>\n\n---\n\nOUTPUT FORMAT INSTRUCTIONS:\nOutput the response in standard Markdown with headings, lists, and code blocks.\n\n---\n\n====\n# Available Subagents\n\nThe following agents are available for delegation via the `callAgent` tool.\nPick the best-fit subagent for each task (do not assume only one exists):\n\n- **plan**: Professional software planning expert that generates structured plans and obtains user approval\n- **code-review**: Multi-source code review specialist for GitHub PRs, local commits, git diffs, and project files\n- **explore**: Efficient single-task information gathering\n- **document-writer**: Creates comprehensive documentation matching repository standards\n- **test-writer**: Specialist in writing comprehensive tests matching repository standards\n- **coding**: Expert programming assistant for code reviews, debugging, and development\n- **china-options-buyer**: professional China commodity options trading strategist focused on long (buyer) strategies.\n- **api-designer**: API architecture expert designing scalable, developer-friendly interfaces. Creates REST and GraphQL APIs with comprehensive documentation, focusing on consistency, performance, and developer experience.\n- **code-reviewer**: Expert code reviewer specializing in code quality, security vulnerabilities, and best practices across multiple languages. Masters static analysis, design patterns, and performance optimization with focus on maintainability and technical debt reduction.\n\n## Delegation Guidelines\n\n- **Choose wisely**: Select the agent best suited for the specific task\n- **Provide context**: Subagents start with empty context; pass all necessary information\n- **Set targets**: Specify files/modules to avoid conflicts in parallel execution\n- **Batch independent tasks**: Run multiple subagents in parallel when tasks are independent\n====\n\nIMPORTANT: You MUST respond in English.",
+        "providerOptions": {
+          "anthropic": {
+            "cacheControl": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "user",
+        "content": "nihao",
+        "providerOptions": null
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "name": "bash",
+        "description": "Execute shell commands safely on the system.\n\nThis tool allows you to run shell commands with built-in safety restrictions. Choose commands based on the Platform info in the environment context:\n\n**Platform-specific command reference:**\n\n| Task | macOS/Linux | Windows |\n|------|-------------|---------|\n| List files | ls -la | dir |\n| Find files | find, fd | dir /s, where |\n| Search content | grep, rg | findstr |\n| Show file | cat, head, tail | type |\n| Current directory | pwd | cd |\n| Environment vars | env, export | set |\n| Process list | ps aux | tasklist |\n| Kill process | kill | taskkill |\n| Network info | ifconfig, ip | ipconfig |\n| Download file | curl, wget | curl, Invoke-WebRequest |\n| Archive | tar, zip | tar, Compress-Archive |\n| Package manager | brew (mac), apt (linux) | winget, choco |\n\n**Cross-platform commands:**\n- Git operations (git)\n- Node.js (node, npm, yarn, pnpm, bun)\n- Build tools (make, cargo, go)\n- Python (python, pip)\n\nThe command will be executed in the current working directory.\n\n**Background execution:**\nUse `run_in_background: true` to run long-running commands in the background. The command will continue running even if it produces no output for an extended period. Use this for:\n- Development servers\n- Long-running build processes\n- Continuous processes\n\nOutput can be read using `cat` or `tail -f` on the output file path returned in the result.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "runInBackground": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "command"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "callAgent",
+        "description": "Call a registered sub-agent for a focused task. Subagents start with empty context.\n\n**Parameters**\n- `agentId`: The agent to call (see Available Subagents in system prompt)\n- `task`: Clear outcome description (2-5 sentences)\n- `context`: All necessary artifacts (file contents, schemas, requirements)\n- `targets`: Files/modules this agent will touch (for conflict avoidance)\n\n**Key Rules**\n- Subagents have zero history - pass all needed context\n- Use targets to enable safe parallel execution\n- For parallel calls, issue multiple callAgent in same response",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "agentId": {
+              "type": "string"
+            },
+            "context": {
+              "type": "string"
+            },
+            "targets": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "task": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "agentId",
+            "task",
+            "context"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "readFile",
+        "description": "Use this tool to read the contents of an existing file.\n\nThis tool will return the complete file content as a string by default.\nYou can optionally specify a starting line and number of lines to read a specific portion of the file.\n\nThe file path should be an absolute path.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "line_count": {
+              "type": "number"
+            },
+            "start_line": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "file_path"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "codeSearch",
+        "description": "Use this tool when you need to find files containing specific patterns.\n\nUse this to find code patterns, function definitions, variable usage, or any text in the codebase.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "file_types": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "path": {
+              "type": "string"
+            },
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern",
+            "path"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "glob",
+        "description": "- Fast file pattern matching tool that works with any codebase size\n- Supports glob patterns like \"**/*.js\" or \"src/**/*.ts\"\n- Returns matching file paths sorted by modification time\n- Use this tool when you need to find files by name patterns",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "lsp",
+        "description": "Perform Language Server Protocol (LSP) operations like go-to-definition, references, hover, and symbols.\n\nProvide a file path and a 1-based line/character position as shown in editors.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "character": {
+              "type": "number"
+            },
+            "filePath": {
+              "type": "string"
+            },
+            "line": {
+              "type": "number"
+            },
+            "operation": {
+              "enum": [
+                "goToDefinition",
+                "findReferences",
+                "hover",
+                "documentSymbol",
+                "workspaceSymbol",
+                "goToImplementation",
+                "prepareCallHierarchy",
+                "incomingCalls",
+                "outgoingCalls"
+              ],
+              "type": "string"
+            },
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "operation",
+            "filePath"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "listFiles",
+        "description": "Use this tool to list files and directories in a specified directory.\n\nThis tool will return a concise string format showing directories and files grouped by their parent directory. It's useful for exploring directory structure, finding files, or understanding project organization.\n\nThe directory path must be absolute.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "directory_path": {
+              "type": "string"
+            },
+            "max_depth": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "directory_path"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "todoWrite",
+        "description": "Creates and manages todo items for task tracking and progress management in the current session.\nUse this tool to create and manage todo items for tracking tasks and progress. This tool provides comprehensive todo management:\n\n## When to Use This Tool\n\nUse this tool proactively in these scenarios:\n\n1. **Complex multi-step tasks** - When a task requires 3 or more distinct steps or actions\n2. **Non-trivial and complex tasks** - Tasks that require careful planning or multiple operations\n3. **User explicitly requests todo list** - When the user directly asks you to use the todo list\n4. **User provides multiple tasks** - When users provide a list of things to be done (numbered or comma-separated)\n5. **After receiving new instructions** - Immediately capture user requirements as todos\n6. **When you start working on a task** - Mark it as in_progress BEFORE beginning work. Ideally you should only have one todo as in_progress at a time\n7. **After completing a task** - Mark it as completed and add any new follow-up tasks discovered during implementation\n\n## Task States and Management\n\n1. **Task States**: Use these states to track progress:\n   - pending: Task not yet started\n   - in_progress: Currently working on (limit to ONE task at a time)\n   - completed: Task finished successfully\n\n2. **Task Management**:\n   - Update task status in real-time as you work\n   - Mark tasks complete IMMEDIATELY after finishing (don't batch completions)\n   - Only have ONE task in_progress at any time\n   - Complete current tasks before starting new ones\n   - Remove tasks that are no longer relevant from the list entirely\n\n3. **Task Completion Requirements**:\n   - ONLY mark a task as completed when you have FULLY accomplished it\n   - If you encounter errors, blockers, or cannot finish, keep the task as in_progress\n   - When blocked, create a new task describing what needs to be resolved\n   - Never mark a task as completed if:\n     - Tests are failing\n     - Implementation is partial\n     - You encountered unresolved errors\n     - You couldn't find necessary files or dependencies\n\n4. **Task Breakdown**:\n   - Create specific, actionable items\n   - Break complex tasks into smaller, manageable steps\n   - Use clear, descriptive task names\n\n## Tool Capabilities\n\n- **Create new todos**: Add tasks with content, priority, and status\n- **Update existing todos**: Modify any aspect of a todo (status, priority, content)\n- **Delete todos**: Remove completed or irrelevant tasks\n- **Batch operations**: Update multiple todos in a single operation\n- **Clear all todos**: Reset the entire todo list\n\nWhen in doubt, use this tool. Being proactive with task management demonstrates attentiveness and ensures you complete all requirements successfully.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "todos": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "content": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "status": {
+                    "enum": [
+                      "pending",
+                      "in_progress",
+                      "completed"
+                    ],
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "content",
+                  "status",
+                  "id"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "todos"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "writeFile",
+        "description": "Use this tool to write content to a file.\n\nThis tool will create or overwrite a file with the provided content. It will automatically create directories if they don't exist. It's useful for creating new files or updating existing files in the project.\n\nThe file path should be an absolute path.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "content": {
+              "type": "string"
+            },
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "content"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "editFile",
+        "description": "Edit an existing file with one or more text replacements.\n\nCRITICAL RULES:\n1. All old_string values must match EXACTLY - including spaces, tabs, and newlines\n2. Use readFile tool FIRST to see the exact content\n3. Include 3-5 lines of context before and after each change\n4. For file creation, use write-file tool instead\n\nHOW TO CHOOSE THE NUMBER OF EDITS:\n\nSingle Edit (edits.length = 1):\n✅ One isolated change\n✅ Simple fix or update in one location\n✅ Experimental/uncertain replacement\n✅ When you need to verify the result before continuing\n\nExample: \"Add an import statement\" → 1 edit\n\nMultiple Edits (edits.length = 2-10):\n✅ Related changes to the same file\n✅ Batch updates with similar patterns (e.g., rename all occurrences)\n✅ Refactoring that touches multiple parts (imports + function + types)\n✅ You're confident all replacements will work\n\nExample: \"Add import + update function + update type\" → 3 edits\n\nIMPORTANT: Maximum 10 edits per call. For larger refactorings, make multiple calls.\n\nBest practice workflow:\n1. Use readFile to see current content\n2. Identify all changes you want to make to this file\n3. For each change, copy EXACT text with context\n4. Create edit block(s) with old_string and new_string\n5. Call edit-file with your edit(s)",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "edits": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "new_string": {
+                    "type": "string"
+                  },
+                  "old_string": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "old_string",
+                  "new_string"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            },
+            "file_path": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "file_path",
+            "edits"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "webSearch",
+        "description": "Search the web for comprehensive and up-to-date information.\n\nQuery Optimization Guidelines:\n- Extract the core topic/entity from questions (e.g., \"who is Elon Musk\" → \"Elon Musk\", \"what is React\" → \"React\")\n- For comparisons (e.g., \"X vs Y\"), search for both terms together to get comparison results\n- Remove question words (who, what, when, where, why, how) but keep context words that add meaning\n- Keep technical terms, version numbers, and specific qualifiers (e.g., \"React 19 features\" stays as-is)\n- For \"latest\" or \"recent\" queries, include temporal keywords (e.g., \"latest AI models 2025\")\n- Preserve programming language/framework context (e.g., \"error handling in Rust\" → \"Rust error handling\")\n- For debugging queries, keep error messages and stack traces intact\n- Use multiple searches only when topics are completely unrelated, not for comparisons",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "query": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "query"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "webFetch",
+        "description": "Fetch and extract content from a web url",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "url": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "url"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "minimax-coding-plan__web_search",
+        "description": "\n    \n    You MUST use this tool whenever you need to search for real-time or external information on the web.\n    \n    A web search API that works just like Google Search.\n    \n    Args:\n        query (str): The search query. Aim for 3-5 keywords for best results. For time-sensitive topics, include the current date (e.g. `latest iPhone 2025`).\n        \n    Search Strategy:\n        - If no useful results are returned, try rephrasing your query with different keywords.\n        \n    Returns:\n        A JSON object containing the search results, structured as follows:\n        {\n            \"organic\": [\n                {\n                    \"title\": \"string - The title of the search result\",\n                    \"link\": \"string - The URL link to the result\",\n                    \"snippet\": \"string - A brief description or excerpt\",\n                    \"date\": \"string - The date of the result\"\n                }\n            ],\n            \"related_searches\": [\n                {\n                    \"query\": \"string - A related search query suggestion\"\n                }\n            ],\n            \"base_resp\": {\n                \"status_code\": \"int - Response status code\",\n                \"status_msg\": \"string - Response status message\"\n            }\n        }\n    ",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "minimax-coding-plan__understand_image",
+        "description": "\n    \n    You MUST use this tool whenever you need to analyze, describe, or extract information from an image,\n    including when you get an image from user input or any task-related image.\n\n    An LLM-powered vision tool that can analyze and interpret image content from local files or URLs based on your instructions.\n    Only JPEG, PNG, and WebP formats are supported. Other formats (e.g. PDF, GIF, PSD, SVG) are not supported.\n\n    Args:\n        prompt (str): A text prompt describing what you want to analyze or extract from the image.\n        image_source (str): The location of the image to analyze.\n            Accepts:\n            - HTTP/HTTPS URL: \"https://example.com/image.jpg\"\n            - Local file path:\n                - Relative path: \"images/photo.png\"\n                - Absolute path: \"/Users/username/Documents/image.jpg\"\n            IMPORTANT: If the file path starts with an @ symbol, you MUST strip the @ prefix before passing it to this function.\n            For example:\n                - \"@Documents/photo.jpg\" → \"Documents/photo.jpg\"\n                - \"@/Users/username/image.png\" → \"/Users/username/image.png\"\n            Supported formats: JPEG, PNG, WebP\n        \n    Returns:\n        A text description of the image analysis result.\n    ",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {},
+          "type": "object"
+        },
+        "strict": true
+      }
+    ],
+    "temperature": 1.0,
+    "max_tokens": 15000,
+    "top_p": 0.95,
+    "top_k": 20,
+    "provider_options": {
+      "anthropic": {
+        "thinking": {
+          "budgetTokens": 12000,
+          "type": "enabled"
+        }
+      },
+      "google": {
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingBudget": 8192
+        }
+      },
+      "moonshot": {
+        "temperature": 1,
+        "thinking": {
+          "type": "enabled"
+        }
+      },
+      "openai": {
+        "reasoningEffort": "high"
+      }
+    },
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "reasoning-start",
+      "id": "thinking",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "thinking",
+      "text": "",
+      "provider_metadata": {
+        "anthropic": {
+          "signature": "54c9d176a4a0255f258cbcd6b42e9460c8d85ccec9cc565bcdd148a7e8e4bdcc"
+        }
+      }
+    },
+    {
+      "type": "text-delta",
+      "text": "\nHello! How can I help you today? I'm ready to assist with coding tasks, debugging, code reviews, or any software development work in your Chat"
+    },
+    {
+      "type": "text-delta",
+      "text": "BI project."
+    },
+    {
+      "type": "usage",
+      "input_tokens": 7996,
+      "output_tokens": 98,
+      "total_tokens": null,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "done",
+      "finish_reason": "end_turn"
+    }
+  ]
+}

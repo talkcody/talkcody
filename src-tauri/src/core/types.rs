@@ -172,6 +172,16 @@ pub enum RuntimeEvent {
         session_id: SessionId,
         token: String,
     },
+    /// Reasoning start from LLM (e.g., Claude's thinking)
+    ReasoningStart { session_id: SessionId, id: String },
+    /// Reasoning delta (thinking content)
+    ReasoningDelta {
+        session_id: SessionId,
+        id: String,
+        text: String,
+    },
+    /// Reasoning end
+    ReasoningEnd { session_id: SessionId, id: String },
     /// Tool execution requested
     ToolCallRequested {
         task_id: RuntimeTaskId,

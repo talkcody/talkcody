@@ -7,6 +7,8 @@ use std::time::Duration;
 use tokio_stream::wrappers::IntervalStream;
 use tokio_stream::StreamExt;
 
+use crate::core::types::RuntimeEvent;
+use crate::server::routes::chat::convert_runtime_event_to_sse;
 use crate::server::state::ServerState;
 use crate::server::types::*;
 use crate::storage::models::{Session, SessionStatus, TaskSettings};
@@ -170,29 +172,56 @@ pub async fn session_events(
     Path(session_id): Path<String>,
     State(state): State<ServerState>,
 ) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
-    // Get last event ID for resume (from header)
-    // For now, start from current time
+    use async_stream::stream;
+    use tokio::sync::broadcast;
 
-    let interval = tokio::time::interval(Duration::from_secs(15));
-    let stream = IntervalStream::new(interval).map(move |_| {
-        // In a full implementation, this would:
-        // 1. Query the events table for new events since last_event_id
-        // 2. Convert events to SSE format
-        // 3. Return them to the client
+    // Create SSE stream using a manual stream implementation
+    let session_id_clone = session_id.clone();
+    let stream = stream! {
+        let mut rx = state.event_broadcast.subscribe();
+        loop {
+            match rx.recv().await {
+                Ok(event) => {
+                    // Filter events for this session
+                    let session_matches = match &event {
+                        RuntimeEvent::Token { session_id: s, .. } => s == &session_id_clone,
+                        RuntimeEvent::ReasoningStart { session_id: s, .. } => s == &session_id_clone,
+                        RuntimeEvent::ReasoningDelta { session_id: s, .. } => s == &session_id_clone,
+                        RuntimeEvent::ReasoningEnd { session_id: s, .. } => s == &session_id_clone,
+                        RuntimeEvent::MessageCreated { session_id: s, .. } => s == &session_id_clone,
+                        RuntimeEvent::ToolCallRequested { task_id: _, .. } => true,
+                        RuntimeEvent::ToolCallCompleted { task_id: _, .. } => true,
+                        RuntimeEvent::TaskStateChanged { task_id: _, .. } => true,
+                        RuntimeEvent::TaskCompleted { session_id: s, .. } => s == &session_id_clone,
+                        RuntimeEvent::Error { session_id: s, .. } => {
+                            s.as_ref().map(|s| s == &session_id_clone).unwrap_or(false)
+                        }
+                    };
 
-        // Placeholder: send heartbeat
-        let event = Event::default().event("status").data(
-            serde_json::json!({
-                "type": "status",
-                "data": {
-                    "message": "heartbeat",
-                    "sessionId": session_id
+                    if !session_matches {
+                        continue;
+                    }
+
+                    // Convert RuntimeEvent to SSE event
+                    let sse_event = convert_runtime_event_to_sse_session(&event);
+                    yield Ok::<_, Infallible>(sse_event);
                 }
-            })
-            .to_string(),
-        );
-        Ok(event)
-    });
+                Err(broadcast::error::RecvError::Lagged(_)) => {
+                    // Skip lagged events
+                    continue;
+                }
+                Err(broadcast::error::RecvError::Closed) => {
+                    // Channel closed, break the loop
+                    break;
+                }
+            }
+        }
+    };
 
     Sse::new(stream).keep_alive(KeepAlive::default())
+}
+
+/// Convert RuntimeEvent to SSE Event for session events
+fn convert_runtime_event_to_sse_session(event: &RuntimeEvent) -> Event {
+    convert_runtime_event_to_sse(event)
 }

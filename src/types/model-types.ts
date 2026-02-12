@@ -1,6 +1,6 @@
 import {
   GEMINI_25_FLASH_LITE,
-  MINIMAX_M21,
+  MINIMAX_M25,
   NANO_BANANA_PRO,
   SCRIBE_V2_REALTIME,
 } from '@/providers/config/model-constants';
@@ -36,13 +36,13 @@ export const MODEL_TYPE_DESCRIPTIONS: Record<ModelType, string> = {
 };
 
 export const DEFAULT_MODELS_BY_TYPE: Record<ModelType, string> = {
-  [ModelType.MAIN]: MINIMAX_M21,
+  [ModelType.MAIN]: MINIMAX_M25,
   [ModelType.SMALL]: GEMINI_25_FLASH_LITE,
   [ModelType.IMAGE_GENERATOR]: NANO_BANANA_PRO,
   [ModelType.TRANSCRIPTION]: SCRIBE_V2_REALTIME,
   [ModelType.MESSAGE_COMPACTION]: GEMINI_25_FLASH_LITE,
-  [ModelType.PLAN]: MINIMAX_M21,
-  [ModelType.CODE_REVIEW]: MINIMAX_M21,
+  [ModelType.PLAN]: MINIMAX_M25,
+  [ModelType.CODE_REVIEW]: MINIMAX_M25,
 };
 
 export interface ModelTypeConfig {
@@ -73,5 +73,5 @@ export function getModelType(value: string | undefined): ModelType {
   if (value && isValidModelType(value)) {
     return value;
   }
-  return ModelType.MAIN; // Default fallback
+  return ModelType.MAIN;
 }

@@ -9,7 +9,7 @@ use std::time::Duration;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Semaphore;
 
-const CHECK_INTERVAL: Duration = Duration::from_secs(60 * 60);
+const CHECK_INTERVAL: Duration = Duration::from_secs(10 * 60);
 const VERSION_ENDPOINT: &str = "/api/models/version";
 const CONFIGS_ENDPOINT: &str = "/api/models/configs";
 const MODELS_CACHE_FILENAME: &str = "models-cache.json";

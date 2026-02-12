@@ -32,9 +32,14 @@ interface ApiKeyVisibility {
   [key: string]: boolean;
 }
 
+interface CodingPlanApiKeySettings {
+  [providerId: string]: string;
+}
+
 export function ApiKeysSettings() {
   const { t } = useLocale();
   const [apiKeys, setApiKeys] = useState<ApiKeySettings>({});
+  const [codingPlanApiKeys, setCodingPlanApiKeys] = useState<CodingPlanApiKeySettings>({});
   const [baseUrls, setBaseUrls] = useState<Record<string, string>>({});
   const [useCodingPlanSettings, setUseCodingPlanSettings] = useState<Record<string, boolean>>({});
   const [useInternationalSettings, setUseInternationalSettings] = useState<Record<string, boolean>>(
@@ -114,6 +119,7 @@ export function ApiKeysSettings() {
         const loadedBaseUrls: Record<string, string> = {};
         const loadedUseCodingPlanSettings: Record<string, boolean> = {};
         const loadedUseInternationalSettings: Record<string, boolean> = {};
+        const loadedCodingPlanApiKeys: CodingPlanApiKeySettings = {};
         for (const providerId of Object.keys(PROVIDER_CONFIGS)) {
           const baseUrl = await settingsManager.getProviderBaseUrl(providerId);
           if (baseUrl) {
@@ -124,6 +130,12 @@ export function ApiKeysSettings() {
           if (PROVIDERS_WITH_CODING_PLAN.includes(providerId)) {
             const useCodingPlan = await settingsManager.getProviderUseCodingPlan(providerId);
             loadedUseCodingPlanSettings[providerId] = useCodingPlan;
+
+            // Load coding plan API key if available
+            const codingPlanApiKey = await settingsManager.get(`coding_plan_api_key_${providerId}`);
+            if (codingPlanApiKey) {
+              loadedCodingPlanApiKeys[providerId] = codingPlanApiKey;
+            }
           }
 
           // Load useInternational setting for providers that support it
@@ -135,6 +147,7 @@ export function ApiKeysSettings() {
         setBaseUrls(loadedBaseUrls);
         setUseCodingPlanSettings(loadedUseCodingPlanSettings);
         setUseInternationalSettings(loadedUseInternationalSettings);
+        setCodingPlanApiKeys(loadedCodingPlanApiKeys);
       } catch (error) {
         logger.error('Failed to load API keys settings:', error);
       }
@@ -164,6 +177,30 @@ export function ApiKeysSettings() {
     }, 1000);
 
     setApiKeyTimeouts((prev) => ({ ...prev, [providerId]: timeoutId }));
+  };
+
+  // Handle coding plan API key changes
+  const _handleCodingPlanApiKeyChange = async (providerId: string, value: string) => {
+    const updatedKeys = { ...codingPlanApiKeys, [providerId]: value };
+    setCodingPlanApiKeys(updatedKeys);
+
+    // Clear existing timeout for this provider
+    if (apiKeyTimeouts[`coding_plan_${providerId}`]) {
+      clearTimeout(apiKeyTimeouts[`coding_plan_${providerId}`]);
+    }
+
+    // Set new timeout with debounce
+    const timeoutId = setTimeout(async () => {
+      await saveCodingPlanApiKey(providerId, value);
+      // Remove the timeout reference after execution
+      setApiKeyTimeouts((prev) => {
+        const newTimeouts = { ...prev };
+        delete newTimeouts[`coding_plan_${providerId}`];
+        return newTimeouts;
+      });
+    }, 1000);
+
+    setApiKeyTimeouts((prev) => ({ ...prev, [`coding_plan_${providerId}`]: timeoutId }));
   };
 
   const handleBaseUrlChange = async (providerId: string, value: string) => {
@@ -263,6 +300,17 @@ export function ApiKeysSettings() {
       }
     } catch (error) {
       logger.error(`Failed to update ${providerId} API key:`, error);
+    }
+  };
+
+  // Helper function to save Coding Plan API key
+  const saveCodingPlanApiKey = async (providerId: string, value: string) => {
+    try {
+      // Save coding plan API key using settings manager
+      await settingsManager.set(`coding_plan_api_key_${providerId}`, value);
+      logger.info(`${providerId} Coding Plan API key updated`);
+    } catch (error) {
+      logger.error(`Failed to update ${providerId} Coding Plan API key:`, error);
     }
   };
 
@@ -477,7 +525,7 @@ export function ApiKeysSettings() {
                         </div>
                       )}
 
-                      {/* Use Coding Plan toggle for providers that support it */}
+                      {/* Use Coding Plan toggle for providers that support it*/}
                       {PROVIDERS_WITH_CODING_PLAN.includes(providerId) && (
                         <div className="flex items-center justify-between">
                           <Label
@@ -544,8 +592,7 @@ export function ApiKeysSettings() {
                         />
                       ) : (
                         // Standard API key input for other providers
-                        // Standard API key input for other providers
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 items-center">
                           <div className="relative flex-1">
                             <Input
                               id={`api-key-${providerId}`}
@@ -553,7 +600,7 @@ export function ApiKeysSettings() {
                               placeholder={t.Settings.apiKeys.enterKey(config.name)}
                               value={currentKey}
                               onChange={(e) => handleApiKeyChange(providerId, e.target.value)}
-                              className="pr-10"
+                              className="h-9 pr-10"
                             />
                             <button
                               type="button"
@@ -569,6 +616,7 @@ export function ApiKeysSettings() {
                               type="button"
                               variant="outline"
                               size="sm"
+                              className="h-9"
                               onClick={() => handleTestConnection(providerId)}
                               disabled={testingProvider !== null}
                             >
@@ -629,7 +677,6 @@ export function ApiKeysSettings() {
         </CardContent>
       </Card>
 
-      {/* Custom Providers Section - at the top */}
       <CustomProviderSection />
     </div>
   );

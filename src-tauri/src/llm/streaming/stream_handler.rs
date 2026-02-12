@@ -954,6 +954,63 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn moonshot_video_input_forces_standard_base_url() {
+        let dir = TempDir::new().expect("temp dir");
+        let db_path = dir.path().join("talkcody-test.db");
+        let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
+        db.connect().await.expect("db connect");
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)",
+            vec![],
+        )
+        .await
+        .expect("create settings");
+
+        let api_keys = ApiKeyManager::new(db, std::path::PathBuf::from("/tmp"));
+        api_keys
+            .set_setting("use_coding_plan_moonshot", "true")
+            .await
+            .expect("set setting");
+
+        let providers = builtin_providers();
+        let provider_config = providers
+            .iter()
+            .find(|item| item.id == "moonshot")
+            .expect("moonshot provider")
+            .clone();
+        let registry = ProviderRegistry::new(providers);
+        let provider = registry
+            .create_provider("moonshot")
+            .expect("provider exists");
+
+        let ctx = ProviderContext {
+            provider_config: &provider_config,
+            api_key_manager: &api_keys,
+            model: "kimi-k2.5",
+            messages: &[Message::User {
+                content: MessageContent::Parts(vec![ContentPart::Video {
+                    video: "BASE64".to_string(),
+                    mime_type: Some("video/mp4".to_string()),
+                }]),
+                provider_options: None,
+            }],
+            tools: None,
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            provider_options: None,
+            trace_context: None,
+        };
+
+        let base_url = provider
+            .resolve_base_url(&ctx)
+            .await
+            .expect("resolve base url");
+        assert_eq!(base_url, provider_config.base_url);
+    }
+
+    #[tokio::test]
     async fn openai_responses_model_routes_to_responses_endpoint() {
         let dir = TempDir::new().expect("temp dir");
         let db_path = dir.path().join("talkcody-test.db");
@@ -1434,58 +1491,6 @@ mod tests {
                 .as_ref()
                 .expect("coding plan url")
         );
-    }
-
-    #[tokio::test]
-    async fn moonshot_coding_plan_adds_kimi_cli_user_agent() {
-        let dir = TempDir::new().expect("temp dir");
-        let db_path = dir.path().join("talkcody-base-url.db");
-        let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
-        db.connect().await.expect("db connect");
-        db.execute(
-            "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)",
-            vec![],
-        )
-        .await
-        .expect("create settings");
-
-        let api_keys = ApiKeyManager::new(db, std::path::PathBuf::from("/tmp"));
-        api_keys
-            .set_setting("use_coding_plan_moonshot", "true")
-            .await
-            .expect("set setting");
-
-        let providers = builtin_providers();
-        let provider_config = providers
-            .iter()
-            .find(|item| item.id == "moonshot")
-            .expect("moonshot provider")
-            .clone();
-        let registry = ProviderRegistry::new(providers);
-        let provider = registry
-            .create_provider("moonshot")
-            .expect("provider exists");
-
-        let ctx = ProviderContext {
-            provider_config: &provider_config,
-            api_key_manager: &api_keys,
-            model: "kimi-k2.5",
-            messages: &[],
-            tools: None,
-            temperature: None,
-            max_tokens: None,
-            top_p: None,
-            top_k: None,
-            provider_options: None,
-            trace_context: None,
-        };
-
-        let headers = provider
-            .build_headers(&ctx, &crate::llm::providers::ProviderCredentials::None)
-            .await
-            .expect("build headers");
-
-        assert_eq!(headers.get("User-Agent"), Some(&"KimiCLI/1.3".to_string()));
     }
 
     #[test]

@@ -39,6 +39,20 @@ vi.mock('@/services/database-service', () => ({
         name: 'Test Project',
       })
     ),
+    getTaskDetails: vi.fn(() =>
+      Promise.resolve({
+        id: 'task-1',
+        title: 'Test Task',
+        project_id: 'project-1',
+        created_at: Date.now(),
+        updated_at: Date.now(),
+        message_count: 0,
+        request_count: 0,
+        cost: 0,
+        input_token: 0,
+        output_token: 0,
+      })
+    ),
     startSpan: vi.fn().mockResolvedValue(undefined),
     endSpan: vi.fn().mockResolvedValue(undefined),
   },

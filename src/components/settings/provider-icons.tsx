@@ -44,6 +44,7 @@ export const PROVIDER_ICONS: Record<string, ComponentType<IconProps>> = {
   // Providers with local SVG icons
   deepseek: createImageIcon('/icons/providers/deepseek.svg', 'DeepSeek'),
   moonshot: createImageIcon('/icons/providers/kimi.svg', 'Kimi'),
+  kimi_coding: createImageIcon('/icons/providers/kimi.svg', 'Kimi Coding'),
   lmstudio: createImageIcon('/icons/providers/lmstudio.svg', 'LM Studio'),
   MiniMax: createImageIcon('/icons/providers/minimax.svg', 'Minimax'),
   openRouter: createImageIcon('/icons/providers/openrouter.svg', 'OpenRouter'),

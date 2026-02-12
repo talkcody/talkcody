@@ -1,5 +1,5 @@
-// Moonshot Provider Implementation
-// Supports video input on the standard /v1 endpoint
+// Kimi Coding Plan Provider Implementation
+// Uses the coding plan endpoint with special KimiCLI User-Agent header
 
 use crate::llm::auth::api_key_manager::ApiKeyManager;
 use crate::llm::protocols::{
@@ -11,48 +11,27 @@ use crate::llm::protocols::{
 use crate::llm::providers::provider::{
     BaseProvider, Provider, ProviderContext, ProviderCredentials as Creds,
 };
-use crate::llm::types::{ContentPart, Message, MessageContent, ProtocolType, ProviderConfig};
+use crate::llm::types::{ProtocolType, ProviderConfig};
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashMap;
 
-pub struct MoonshotProvider {
+pub struct KimiCodingProvider {
     base: BaseProvider,
     protocol: OpenAiProtocol,
 }
 
-impl MoonshotProvider {
+impl KimiCodingProvider {
     pub fn new(config: ProviderConfig) -> Self {
         Self {
             base: BaseProvider::new(config),
             protocol: OpenAiProtocol,
         }
     }
-
-    fn has_video_input(messages: &[Message]) -> bool {
-        messages.iter().any(|msg| match msg {
-            Message::User { content, .. } | Message::Assistant { content, .. } => {
-                Self::content_has_video(content)
-            }
-            Message::Tool { content, .. } => content
-                .iter()
-                .any(|part| matches!(part, ContentPart::Video { .. })),
-            Message::System { .. } => false,
-        })
-    }
-
-    fn content_has_video(content: &MessageContent) -> bool {
-        match content {
-            MessageContent::Text(_) => false,
-            MessageContent::Parts(parts) => parts
-                .iter()
-                .any(|part| matches!(part, ContentPart::Video { .. })),
-        }
-    }
 }
 
 #[async_trait]
-impl Provider for MoonshotProvider {
+impl Provider for KimiCodingProvider {
     fn id(&self) -> &str {
         &self.base.config.id
     }
@@ -97,9 +76,10 @@ impl Provider for MoonshotProvider {
     async fn add_provider_headers(
         &self,
         _ctx: &ProviderContext<'_>,
-        _headers: &mut HashMap<String, String>,
+        headers: &mut HashMap<String, String>,
     ) -> Result<(), String> {
-        // No special headers needed for Moonshot
+        // Add KimiCLI User-Agent for coding plan endpoint
+        headers.insert("User-Agent".to_string(), "KimiCLI/1.3".to_string());
         Ok(())
     }
 
@@ -133,23 +113,23 @@ mod tests {
 
     fn create_test_config() -> ProviderConfig {
         ProviderConfig {
-            id: "moonshot".to_string(),
-            name: "Moonshot".to_string(),
+            id: "kimi_coding".to_string(),
+            name: "Kimi Coding Plan".to_string(),
             protocol: ProtocolType::OpenAiCompatible,
-            base_url: "https://api.moonshot.cn/v1".to_string(),
-            api_key_name: "MOONSHOT_API_KEY".to_string(),
+            base_url: "https://api.moonshot.cn/kimi-cli".to_string(),
+            api_key_name: "KIMI_CODING_API_KEY".to_string(),
             supports_oauth: false,
             supports_coding_plan: true,
-            supports_international: true,
-            coding_plan_base_url: Some("https://api.moonshot.cn/kimi-cli".to_string()),
-            international_base_url: Some("https://api.moonshot.cn/international".to_string()),
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
             headers: None,
             extra_body: None,
             auth_type: crate::llm::types::AuthType::Bearer,
         }
     }
 
-    async fn setup_test_context() -> (TempDir, ApiKeyManager, MoonshotProvider) {
+    async fn setup_test_context() -> (TempDir, ApiKeyManager, KimiCodingProvider) {
         let dir = TempDir::new().expect("temp dir");
         let db_path = dir.path().join("test.db");
         let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
@@ -162,7 +142,7 @@ mod tests {
         .expect("create settings");
 
         let api_keys = ApiKeyManager::new(db, dir.path().to_path_buf());
-        let provider = MoonshotProvider::new(create_test_config());
+        let provider = KimiCodingProvider::new(create_test_config());
 
         (dir, api_keys, provider)
     }
@@ -173,7 +153,7 @@ mod tests {
 
         // Store API key using the standard format: api_key_{provider_id}
         api_keys
-            .set_setting("api_key_moonshot", "test-moonshot-key")
+            .set_setting("api_key_kimi_coding", "test-kimi-coding-key")
             .await
             .expect("set api key");
 
@@ -183,7 +163,7 @@ mod tests {
             .expect("get credentials");
 
         match creds {
-            Creds::ApiKey(key) => assert_eq!(key, "test-moonshot-key"),
+            Creds::ApiKey(key) => assert_eq!(key, "test-kimi-coding-key"),
             _ => panic!("Expected ApiKey credential"),
         }
     }
@@ -192,9 +172,9 @@ mod tests {
     async fn get_credentials_falls_back_to_api_key_name() {
         let (_dir, api_keys, provider) = setup_test_context().await;
 
-        // Store API key using the legacy format: api_key_name (MOONSHOT_API_KEY)
+        // Store API key using the legacy format: api_key_name (KIMI_CODING_API_KEY)
         api_keys
-            .set_setting("MOONSHOT_API_KEY", "legacy-moonshot-key")
+            .set_setting("KIMI_CODING_API_KEY", "legacy-kimi-coding-key")
             .await
             .expect("set api key");
 
@@ -204,7 +184,7 @@ mod tests {
             .expect("get credentials");
 
         match creds {
-            Creds::ApiKey(key) => assert_eq!(key, "legacy-moonshot-key"),
+            Creds::ApiKey(key) => assert_eq!(key, "legacy-kimi-coding-key"),
             _ => panic!("Expected ApiKey credential"),
         }
     }
@@ -215,11 +195,11 @@ mod tests {
 
         // Store API keys in both formats
         api_keys
-            .set_setting("api_key_moonshot", "new-format-key")
+            .set_setting("api_key_kimi_coding", "new-format-key")
             .await
             .expect("set api key");
         api_keys
-            .set_setting("MOONSHOT_API_KEY", "old-format-key")
+            .set_setting("KIMI_CODING_API_KEY", "old-format-key")
             .await
             .expect("set legacy api key");
 
@@ -228,7 +208,7 @@ mod tests {
             .await
             .expect("get credentials");
 
-        // Should prefer the new format (api_key_moonshot)
+        // Should prefer the new format (api_key_kimi_coding)
         match creds {
             Creds::ApiKey(key) => assert_eq!(key, "new-format-key"),
             _ => panic!("Expected ApiKey credential"),
@@ -244,6 +224,6 @@ mod tests {
 
         assert!(result.is_err());
         let error_msg = result.unwrap_err();
-        assert!(error_msg.contains("API key 'MOONSHOT_API_KEY' not found"));
+        assert!(error_msg.contains("API key 'KIMI_CODING_API_KEY' not found"));
     }
 }

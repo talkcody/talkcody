@@ -5,7 +5,7 @@ import type { HonoContext } from '../types/context';
 
 const talkcodyProvider = new Hono<HonoContext>();
 
-const ALLOWED_MODELS = ['MiniMax-M2.1'];
+const ALLOWED_MODELS = ['MiniMax-M2.1', 'MiniMax-M2.5'];
 
 function getUpstreamApiUrl(env?: HonoContext['Bindings']): string | undefined {
   if (typeof Bun !== 'undefined') {
@@ -262,10 +262,6 @@ talkcodyProvider.get('/models', async (c) => {
   });
 });
 
-/**
- * Health check for TalkCody provider
- * GET /api/talkcody/health
- */
 talkcodyProvider.get('/health', async (c) => {
   const upstreamApiUrl = getUpstreamApiUrl(c.env);
   const upstreamApiKey = getUpstreamApiKey(c.env);

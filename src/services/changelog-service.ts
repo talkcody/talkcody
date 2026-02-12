@@ -28,50 +28,40 @@ export interface ChangelogEntry {
 // Only include the most recent versions that users care about
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: '0.4.0',
-    date: '2026-02-09',
+    version: '0.4.1',
+    date: '2026-02-11',
     en: {
       added: [
         {
-          title: 'Telegram Remote Control',
+          title: 'Video Input Support',
           description:
-            'Support Telegram remote control for desktop TalkCody, supporting text, voice, and image messages with streaming response support. [Documentation](/docs/features/telegram-remote)',
+            'Added video input feature, allowing direct generation of frontend pages from videos (currently only Kimi API model is supported, more models will be supported in the next version).',
         },
-        {
-          title: 'Feishu (Lark) Remote Control',
-          description:
-            'Support Feishu remote control for desktop TalkCody, supporting text, voice, and image messages with streaming response support. [Documentation](/docs/features/feishu-remote)',
-        },
-        'Voice Transcription: Added Groq Whisper voice transcription support, available for free.',
-        'Model Support: Added OpenRouter Pony Alpha free model.',
-        'Explore Agent: Open Explore Agent, suitable for quickly understanding code repositories.',
+        'MiniMax M2.5 Model: Added MiniMax M2.5 model support and set it as the default free model.',
+        'GLM-5 Model: Added GLM-5 series model support.',
       ],
+      changed: ['Made Kimi Coding Plan a separate Provider.'],
       fixed: [
-        'Fixed custom Provider configuration and request issues.',
-        'Fixed input Token status display issue.',
-        'Fixed share page theme display issue.',
+        'Fixed Issue #50: Fixed terminal panel related bug.',
+        'Fixed Issue #51: Fixed workspace root related bug.',
+        'Fixed Issue #52: Fixed bug where application did not fully exit when window was closed.',
       ],
     },
     zh: {
       added: [
         {
-          title: 'Telegram 远程控制',
+          title: '视频输入支持',
           description:
-            '支持 Telegram 远程控制桌面的TalkCody，支持文本，语音，图片消息，支持流式返回消息。[文档](/zh/docs/features/telegram-remote)',
+            '新增视频输入功能，可以直接根据视频生成前端页面（当前只有 Kimi API 模型支持，下个版本将支持更多模型）。',
         },
-        {
-          title: '飞书 远程控制',
-          description:
-            '支持飞书远程控制桌面的TalkCody，支持文本，语音，图片消息，支持流式返回消息。[文档](/zh/docs/features/feishu-remote)',
-        },
-        '语音转写：新增 Groq Whisper 语音转写支持，可以免费使用。',
-        '模型支持：新增 OpenRouter 的 Pony Alpha 免费模型。',
-        'Explore Agent：开放 Explore Agent，适合快速了解代码仓库。',
+        'MiniMax M2.5 模型：新增 MiniMax M2.5 模型支持，并设为默认免费模型。',
+        'GLM-5 模型：新增 GLM-5 系列模型。',
       ],
+      changed: ['将 Kimi Coding Plan 作为单独的 Provider。'],
       fixed: [
-        '修复自定义 Provider 相关配置与请求问题。',
-        '修复输入 Token 状态显示问题。',
-        '修复分享页面主题显示问题。',
+        '修复 Issue #50：修复终端面板相关的 bug。',
+        '修复 Issue #51：修复 workspace root 相关的 bug。',
+        '修复 Issue #52：修复窗口关闭应用没有完全退出的 bug。',
       ],
     },
   },

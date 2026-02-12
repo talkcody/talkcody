@@ -1,5 +1,6 @@
 export const GPT5_MINI = 'gpt-5-mini';
 export const MINIMAX_M21 = 'minimax-m21';
+export const MINIMAX_M25 = 'minimax-m25';
 export const GEMINI_25_FLASH_LITE = 'gemini-2.5-flash-lite';
 export const CODE_STARL = 'codestral';
 export const CLAUDE_HAIKU = 'claude-haiku-4.5';

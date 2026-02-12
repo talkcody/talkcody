@@ -3,6 +3,7 @@
 import { logger } from '@/lib/logger';
 import { databaseService } from '@/services/database-service';
 import { settingsManager } from '@/stores/settings-store';
+import { useTaskStore } from '@/stores/task-store';
 import { worktreeStore } from '@/stores/worktree-store';
 
 const WINDOWS_ROOT_REGEX = /^[A-Za-z]:\/$/;
@@ -13,6 +14,40 @@ function normalizeRootPathForCompare(rootPath: string): string {
     return normalized;
   }
   return normalized.replace(/\/+$/, '');
+}
+
+async function getProjectRootById(projectId: string | null | undefined): Promise<string | null> {
+  if (!projectId) {
+    return null;
+  }
+
+  try {
+    const project = await databaseService.getProject(projectId);
+    return project?.root_path || null;
+  } catch (error) {
+    logger.debug('[WorkspaceRootService] Failed to load project root', { projectId, error });
+    return null;
+  }
+}
+
+async function getTaskProjectRoot(taskId: string): Promise<string | null> {
+  if (!taskId) {
+    return null;
+  }
+
+  const cachedTask = useTaskStore.getState().getTask(taskId);
+  let projectId = cachedTask?.project_id;
+
+  if (!projectId) {
+    try {
+      const task = await databaseService.getTaskDetails(taskId);
+      projectId = task?.project_id;
+    } catch (error) {
+      logger.debug('[WorkspaceRootService] Failed to load task details', { taskId, error });
+    }
+  }
+
+  return await getProjectRootById(projectId);
 }
 
 /**
@@ -56,15 +91,17 @@ export async function getValidatedWorkspaceRoot(): Promise<string> {
  * @returns The effective workspace root path for the task.
  */
 export async function getEffectiveWorkspaceRoot(taskId: string): Promise<string> {
-  // Get the base (main project) root path
-  const baseRoot = await getValidatedWorkspaceRoot();
   // Get the effective task ID (use nullish coalescing to preserve empty string if explicitly passed)
   const effectiveTaskId = taskId;
 
   if (!effectiveTaskId) {
+    const baseRoot = await getValidatedWorkspaceRoot();
     logger.debug('[getEffectiveWorkspaceRoot] No taskId, returning baseRoot', { baseRoot });
     return baseRoot;
   }
+
+  const taskRoot = await getTaskProjectRoot(effectiveTaskId);
+  const baseRoot = taskRoot ?? (await getValidatedWorkspaceRoot());
 
   // Check if the task is using a worktree
   const worktreePath = worktreeStore.getState().getEffectiveRootPath(effectiveTaskId);

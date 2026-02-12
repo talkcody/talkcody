@@ -1,5 +1,5 @@
 {
-  "version": "2026-02-09T19:28:19.344Z",
+  "version": "2026-02-13T05:48:10.197Z",
   "models": {
     "gpt-5-nano": {
       "name": "GPT-5 Nano",
@@ -40,7 +40,7 @@
       "pricing": {
         "input": "0.00000175",
         "output": "0.000014",
-        "cachedInput": "0.000000175"
+        "cachedInput": "0.00000018"
       },
       "context_length": 400000
     },
@@ -279,28 +279,6 @@
       },
       "context_length": 200000
     },
-    "qwen3-coder-plus": {
-      "name": "Qwen3 Coder Plus",
-      "providers": [
-        "qwen_code"
-      ],
-      "pricing": {
-        "input": "0",
-        "output": "0"
-      },
-      "context_length": 1000000
-    },
-    "qwen3-coder-flash": {
-      "name": "Qwen3 Coder Flash",
-      "providers": [
-        "qwen_code"
-      ],
-      "pricing": {
-        "input": "0",
-        "output": "0"
-      },
-      "context_length": 1000000
-    },
     "kimi-k2.5": {
       "name": "Kimi K2.5",
       "imageInput": true,
@@ -309,17 +287,18 @@
       "providers": [
         "aiGateway",
         "openRouter",
+        "kimi_coding",
         "moonshot"
       ],
       "providerMappings": {
         "aiGateway": "moonshotai/kimi-k2.5",
         "openRouter": "moonshotai/kimi-k2.5",
-        "moonshot": "kimi-k2.5"
+        "moonshot": "kimi-k2.5",
+        "kimi_coding": "kimi-k2.5"
       },
       "pricing": {
-        "input": "0.0000006",
-        "output": "0.000003",
-        "cachedInput": "0.0000001"
+        "input": "0.0000005",
+        "output": "0.0000028"
       },
       "context_length": 262144
     },
@@ -401,6 +380,31 @@
       },
       "context_length": 202752
     },
+    "glm-5": {
+      "name": "GLM 5",
+      "imageInput": true,
+      "interleaved": true,
+      "providers": [
+        "zhipu",
+        "openRouter",
+        "aiGateway",
+        "zai",
+        "ollama"
+      ],
+      "providerMappings": {
+        "zhipu": "glm-5",
+        "zai": "glm-5",
+        "aiGateway": "zai/glm-5",
+        "openRouter": "z-ai/glm-5",
+        "ollama": "glm-5:cloud"
+      },
+      "pricing": {
+        "input": "0.000001",
+        "output": "0.0000032",
+        "cachedInput": "0.0000002"
+      },
+      "context_length": 202752
+    },
     "glm-4.7-flash": {
       "name": "GLM 4.7 Flash",
       "imageInput": true,
@@ -444,9 +448,9 @@
         "openRouter": "minimax/minimax-m2.1"
       },
       "pricing": {
-        "input": "0.00000028",
+        "input": "0.0000003",
         "output": "0.0000012",
-        "cachedInput": "0.00000014"
+        "cachedInput": "0.00000015"
       },
       "context_length": 196608
     },
@@ -455,9 +459,11 @@
       "imageInput": true,
       "interleaved": true,
       "providers": [
-        "MiniMax"
+        "MiniMax",
+        "talkcody"
       ],
       "providerMappings": {
+        "talkcody": "MiniMax-M2.5",
         "MiniMax": "MiniMax-M2.5"
       },
       "pricing": {
@@ -481,20 +487,6 @@
         "input": "0",
         "output": "0"
       }
-    },
-    "Pony Alpha": {
-      "name": "Pony Alpha Free",
-      "providers": [
-        "openRouter"
-      ],
-      "providerMappings": {
-        "openRouter": "openrouter/pony-alpha"
-      },
-      "pricing": {
-        "input": "0",
-        "output": "0"
-      },
-      "context_length": 200000
     },
     "gemini-2.5-flash-image": {
       "name": "Nano Banana",
