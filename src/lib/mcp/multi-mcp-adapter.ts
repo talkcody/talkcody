@@ -18,6 +18,8 @@ export interface MCPToolInfo {
 export interface MCPServerConnection {
   server: MCPServer;
   tools: Record<string, MCPToolInfo>;
+  /** Cached tool schemas (inputSchema) from MCP server, keyed by tool name */
+  toolSchemas: Record<string, { inputSchema?: unknown; description?: string }>;
   isConnected: boolean;
   lastError?: string;
   client?: Client;
@@ -85,6 +87,7 @@ export class MultiMCPAdapter {
 
       const toolsResult = await client.listTools();
       const toolMap: Record<string, MCPToolInfo> = {};
+      const toolSchemas: Record<string, { inputSchema?: unknown; description?: string }> = {};
 
       for (const tool of toolsResult.tools) {
         const prefixedName = `${server.id}__${tool.name}`;
@@ -97,11 +100,16 @@ export class MultiMCPAdapter {
           serverName: server.name,
           isAvailable: true,
         };
+        toolSchemas[tool.name] = {
+          inputSchema: tool.inputSchema,
+          description: tool.description || tool.title,
+        };
       }
 
       this.connections.set(server.id, {
         server,
         tools: toolMap,
+        toolSchemas,
         isConnected: true,
         lastError: undefined,
         client,
@@ -118,6 +126,7 @@ export class MultiMCPAdapter {
       this.connections.set(server.id, {
         server,
         tools: {},
+        toolSchemas: {},
         isConnected: false,
         lastError: errorMessage,
       });
@@ -162,23 +171,38 @@ export class MultiMCPAdapter {
       throw new Error(`Tool '${toolName}' not found in MCP server '${serverId}'`);
     }
 
-    const toolDefinition = await connection.client.listTools();
-    const matching = toolDefinition.tools.find((t) => t.name === toolName);
+    // Use cached tool schema instead of calling listTools() every time
+    const cachedSchema = connection.toolSchemas[toolName];
+    const inputSchema = cachedSchema?.inputSchema || { type: 'object', properties: {} };
+    const description = cachedSchema?.description || tool.description;
+
+    // Capture client reference for the closure
+    const client = connection.client;
 
     return {
       name: toolName,
-      description: matching?.description || matching?.title || tool.description,
-      inputSchema: matching?.inputSchema || { type: 'object', properties: {} },
+      description,
+      inputSchema,
       serverId,
       serverName: tool.serverName,
       prefixedName,
       execute: async (args: Record<string, unknown>) => {
-        const result = await connection.client?.callTool({
+        // Explicitly check client availability instead of silent failure via optional chaining
+        if (!client) {
+          throw new Error(
+            `MCP server '${serverId}' client is no longer available. The server may have disconnected.`
+          );
+        }
+        const result = await client.callTool({
           name: toolName,
           arguments: args,
         });
         return result;
       },
+      // Provide default UI render methods for consistency with ToolWithUI interface
+      renderToolDoing: () => null,
+      renderToolResult: () => null,
+      canConcurrent: true,
     };
   }
 
@@ -211,6 +235,7 @@ export class MultiMCPAdapter {
     try {
       const toolsResult = await connection.client.listTools();
       const toolMap: Record<string, MCPToolInfo> = {};
+      const toolSchemas: Record<string, { inputSchema?: unknown; description?: string }> = {};
 
       for (const tool of toolsResult.tools) {
         const prefixedName = `${serverId}__${tool.name}`;
@@ -223,9 +248,14 @@ export class MultiMCPAdapter {
           serverName: connection.server.name,
           isAvailable: true,
         };
+        toolSchemas[tool.name] = {
+          inputSchema: tool.inputSchema,
+          description: tool.description || tool.title,
+        };
       }
 
       connection.tools = toolMap;
+      connection.toolSchemas = toolSchemas;
       return Object.values(connection.tools);
     } catch (error) {
       logger.warn(`Failed to list tools for server '${serverId}':`, error);
@@ -360,26 +390,6 @@ export class MultiMCPAdapter {
 
 // Export singleton instance
 export const multiMCPAdapter = new MultiMCPAdapter();
-
-// Utility functions for backward compatibility
-export const getMCPToolsForAI = async (): Promise<Record<string, any>> => {
-  return await multiMCPAdapter.getAdaptedTools();
-};
-
-export const mergeWithMCPTools = async (
-  localTools: Record<string, any>
-): Promise<Record<string, any>> => {
-  try {
-    const mcpTools = await getMCPToolsForAI();
-    return {
-      ...localTools,
-      ...mcpTools,
-    };
-  } catch (error) {
-    logger.warn('Failed to load MCP tools, continuing with local tools only:', error);
-    return localTools;
-  }
-};
 
 /**
  * Check if a tool name is an MCP tool (has server prefix)

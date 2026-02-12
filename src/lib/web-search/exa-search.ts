@@ -1,4 +1,5 @@
 import { logger } from '@/lib/logger';
+import { simpleFetch } from '@/lib/tauri-fetch';
 import type { WebSearchResult, WebSearchSource } from './types';
 
 interface McpSearchRequest {
@@ -95,7 +96,7 @@ async function callExaMCPDirect(query: string, numResults: number): Promise<stri
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
   try {
-    const response = await fetch(`https://mcp.exa.ai/mcp`, {
+    const response = await simpleFetch(`https://mcp.exa.ai/mcp`, {
       method: 'POST',
       headers: {
         Accept: 'application/json, text/event-stream',

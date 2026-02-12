@@ -75,7 +75,11 @@ export class MiniMaxSearch implements WebSearchSource {
 }
 
 /**
- * Check if MiniMax MCP server is available
+ * Check if MiniMax MCP server is available.
+ * Note: This is a synchronous check that does NOT trigger MCP initialization.
+ * If the MCP adapter hasn't been initialized yet (lazy-loaded), this will return false.
+ * This is intentional — MCP initialization happens on first tool use or MCP page visit,
+ * and MiniMax search is a lower-priority fallback provider.
  */
 export function isMiniMaxMCPAvailable(): boolean {
   try {

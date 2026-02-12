@@ -29,6 +29,52 @@ interface MCPStore extends MCPState {
   reloadData: () => Promise<void>;
 }
 
+/**
+ * Build MCPServerWithTools[] from database servers and adapter statuses.
+ * Extracted to eliminate repeated ~20-line data loading blocks.
+ */
+async function buildServerData(): Promise<{ serverData: MCPServerWithTools[]; healthy: boolean }> {
+  const healthy = await multiMCPAdapter.healthCheck();
+  const allServers = await databaseService.getMCPServers();
+  const statuses = multiMCPAdapter.getAllServerStatuses();
+
+  const serverData: MCPServerWithTools[] = [];
+
+  for (const server of allServers) {
+    const status = statuses[server.id] || {
+      isConnected: false,
+      toolCount: 0,
+    };
+
+    let tools: MCPToolInfo[] = [];
+    if (status.isConnected) {
+      try {
+        tools = await multiMCPAdapter.listServerTools(server.id);
+      } catch (error) {
+        logger.warn(`Failed to get tools for server '${server.id}':`, error);
+      }
+    }
+
+    serverData.push({
+      server,
+      tools,
+      isConnected: status.isConnected,
+      error: status.error,
+      toolCount: status.toolCount,
+    });
+  }
+
+  return { serverData, healthy };
+}
+
+/**
+ * Refresh planner tools in the agent registry after MCP connection changes.
+ */
+async function refreshAgentPlannerTools(): Promise<void> {
+  const { agentRegistry } = await import('@/services/agents/agent-registry');
+  await agentRegistry.refreshPlannerTools();
+}
+
 export const useMCPStore = create<MCPStore>((set, get) => ({
   // Initial state
   servers: [],
@@ -52,41 +98,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      // Check health first
-      const healthy = await multiMCPAdapter.healthCheck();
-
-      // Get all MCP servers from database
-      const allServers = await databaseService.getMCPServers();
-
-      // Get server statuses
-      const statuses = multiMCPAdapter.getAllServerStatuses();
-
-      // Build server data with tools
-      const serverData: MCPServerWithTools[] = [];
-
-      for (const server of allServers) {
-        const status = statuses[server.id] || {
-          isConnected: false,
-          toolCount: 0,
-        };
-
-        let tools: MCPToolInfo[] = [];
-        if (status.isConnected) {
-          try {
-            tools = await multiMCPAdapter.listServerTools(server.id);
-          } catch (error) {
-            logger.warn(`Failed to get tools for server '${server.id}':`, error);
-          }
-        }
-
-        serverData.push({
-          server,
-          tools,
-          isConnected: status.isConnected,
-          error: status.error,
-          toolCount: status.toolCount,
-        });
-      }
+      const { serverData, healthy } = await buildServerData();
 
       set({
         servers: serverData,
@@ -115,35 +127,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       set({ isLoading: true, error: null });
       await multiMCPAdapter.refreshConnections();
 
-      // Reload data after refresh
-      const healthy = await multiMCPAdapter.healthCheck();
-      const allServers = await databaseService.getMCPServers();
-      const statuses = multiMCPAdapter.getAllServerStatuses();
-
-      const serverData: MCPServerWithTools[] = [];
-      for (const server of allServers) {
-        const status = statuses[server.id] || {
-          isConnected: false,
-          toolCount: 0,
-        };
-
-        let tools: MCPToolInfo[] = [];
-        if (status.isConnected) {
-          try {
-            tools = await multiMCPAdapter.listServerTools(server.id);
-          } catch (error) {
-            logger.warn(`Failed to get tools for server '${server.id}':`, error);
-          }
-        }
-
-        serverData.push({
-          server,
-          tools,
-          isConnected: status.isConnected,
-          error: status.error,
-          toolCount: status.toolCount,
-        });
-      }
+      const { serverData, healthy } = await buildServerData();
 
       set({
         servers: serverData,
@@ -151,9 +135,8 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
         isLoading: false,
       });
 
-      // Refresh agent tools to use new MCP connections
-      const { agentRegistry } = await import('@/services/agents/agent-registry');
-      await agentRegistry.refreshMCPTools();
+      // Refresh agent planner tools to pick up new MCP connections
+      await refreshAgentPlannerTools();
 
       logger.info(`Refreshed ${serverData.length} MCP servers for UI`);
     } catch (error) {
@@ -173,9 +156,8 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       set({ isLoading: true, error: null });
       await multiMCPAdapter.refreshServer(serverId);
 
-      // Refresh agent tools to use new MCP connections
-      const { agentRegistry } = await import('@/services/agents/agent-registry');
-      await agentRegistry.refreshMCPTools();
+      // Refresh agent planner tools to pick up new MCP connections
+      await refreshAgentPlannerTools();
 
       // Reload data after refresh
       await get().reloadData();
@@ -197,9 +179,8 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       await databaseService.enableMCPServer(serverId);
       await multiMCPAdapter.refreshServer(serverId);
 
-      // Refresh agent tools to use new MCP connections
-      const { agentRegistry } = await import('@/services/agents/agent-registry');
-      await agentRegistry.refreshMCPTools();
+      // Refresh agent planner tools to pick up new MCP connections
+      await refreshAgentPlannerTools();
 
       // Reload data after enabling
       await get().reloadData();
@@ -221,9 +202,8 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       await databaseService.disableMCPServer(serverId);
       await multiMCPAdapter.refreshServer(serverId);
 
-      // Refresh agent tools to use new MCP connections
-      const { agentRegistry } = await import('@/services/agents/agent-registry');
-      await agentRegistry.refreshMCPTools();
+      // Refresh agent planner tools to pick up new MCP connections
+      await refreshAgentPlannerTools();
 
       // Reload data after disabling
       await get().reloadData();
@@ -244,34 +224,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     try {
       set({ isLoading: true, error: null });
 
-      const healthy = await multiMCPAdapter.healthCheck();
-      const allServers = await databaseService.getMCPServers();
-      const statuses = multiMCPAdapter.getAllServerStatuses();
-
-      const serverData: MCPServerWithTools[] = [];
-      for (const server of allServers) {
-        const status = statuses[server.id] || {
-          isConnected: false,
-          toolCount: 0,
-        };
-
-        let tools: MCPToolInfo[] = [];
-        if (status.isConnected) {
-          try {
-            tools = await multiMCPAdapter.listServerTools(server.id);
-          } catch (error) {
-            logger.warn(`Failed to get tools for server '${server.id}':`, error);
-          }
-        }
-
-        serverData.push({
-          server,
-          tools,
-          isConnected: status.isConnected,
-          error: status.error,
-          toolCount: status.toolCount,
-        });
-      }
+      const { serverData, healthy } = await buildServerData();
 
       set({
         servers: serverData,

@@ -118,11 +118,17 @@ describe('MultiMCPAdapter', () => {
 
     const tool = await multiMCPAdapter.getAdaptedTool('server-1__search');
 
+    // Should use cached schema instead of calling listTools again
     expect(tool.inputSchema).toEqual({
       type: 'object',
       properties: { query: { type: 'string' } },
       required: ['query'],
     });
+
+    // Should have UI render methods
+    expect(tool.renderToolDoing).toBeDefined();
+    expect(tool.renderToolResult).toBeDefined();
+    expect(tool.canConcurrent).toBe(true);
 
     const result = await tool.execute({ query: 'hello' });
 
@@ -131,5 +137,37 @@ describe('MultiMCPAdapter', () => {
       arguments: { query: 'hello' },
     });
     expect(result).toEqual({ content: [{ type: 'text', text: 'ok' }] });
+  });
+
+  it('uses cached schema in getAdaptedTool without extra listTools call', async () => {
+    mockGetEnabledMCPServers.mockResolvedValue([server]);
+    mockListTools.mockResolvedValue({
+      tools: [
+        {
+          name: 'mytool',
+          description: 'My tool',
+          inputSchema: {
+            type: 'object',
+            properties: { input: { type: 'string' } },
+          },
+        },
+      ],
+    });
+    mockCreateTransport.mockReturnValue({});
+
+    const { multiMCPAdapter } = await import('./multi-mcp-adapter');
+
+    // initialize calls listTools once during connectToServer
+    await multiMCPAdapter.initialize();
+    expect(mockListTools).toHaveBeenCalledTimes(1);
+
+    // getAdaptedTool should NOT call listTools again
+    const tool = await multiMCPAdapter.getAdaptedTool('server-1__mytool');
+    expect(mockListTools).toHaveBeenCalledTimes(1); // Still only 1 call
+
+    expect(tool.inputSchema).toEqual({
+      type: 'object',
+      properties: { input: { type: 'string' } },
+    });
   });
 });

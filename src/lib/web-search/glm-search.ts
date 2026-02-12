@@ -104,7 +104,11 @@ export class GLMSearch implements WebSearchSource {
 }
 
 /**
- * Check if GLM MCP server is available
+ * Check if GLM MCP server is available.
+ * Note: This is a synchronous check that does NOT trigger MCP initialization.
+ * If the MCP adapter hasn't been initialized yet (lazy-loaded), this will return false.
+ * This is intentional — MCP initialization happens on first tool use or MCP page visit,
+ * and GLM search is a lower-priority fallback provider.
  */
 export function isGLMMCPAvailable(): boolean {
   try {

@@ -1,16 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { ExaSearch, isExaMCPAvailable } from './exa-search';
 
-// Mock fetch
-const mockFetch = vi.fn();
-vi.stubGlobal('fetch', mockFetch);
+// Mock simpleFetch from tauri-fetch
+const mockSimpleFetch = vi.fn();
+vi.mock('@/lib/tauri-fetch', () => ({
+  simpleFetch: (...args: unknown[]) => mockSimpleFetch(...args),
+}));
 
 describe('ExaSearch', () => {
   let exaSearch: ExaSearch;
 
   beforeEach(() => {
     exaSearch = new ExaSearch();
-    mockFetch.mockReset();
+    mockSimpleFetch.mockReset();
   });
 
   afterEach(() => {
@@ -38,7 +40,7 @@ Text: This is the content of article 2.`;
         },
       })}`;
 
-      mockFetch.mockResolvedValueOnce({
+      mockSimpleFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => sseResponse,
       });
@@ -70,7 +72,7 @@ Text: Single result content.`;
         },
       });
 
-      mockFetch.mockResolvedValueOnce({
+      mockSimpleFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => jsonResponse,
       });
@@ -91,7 +93,7 @@ Text: Single result content.`;
         },
       })}`;
 
-      mockFetch.mockResolvedValueOnce({
+      mockSimpleFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => sseResponse,
       });
@@ -104,7 +106,7 @@ Text: Single result content.`;
     });
 
     it('should throw error on HTTP failure', async () => {
-      mockFetch.mockResolvedValueOnce({
+      mockSimpleFetch.mockResolvedValueOnce({
         ok: false,
         status: 500,
         text: async () => 'Internal Server Error',
@@ -122,7 +124,7 @@ Text: Single result content.`;
         },
       })}`;
 
-      mockFetch.mockResolvedValueOnce({
+      mockSimpleFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => sseResponse,
       });
@@ -138,14 +140,14 @@ Text: Single result content.`;
         },
       })}`;
 
-      mockFetch.mockResolvedValueOnce({
+      mockSimpleFetch.mockResolvedValueOnce({
         ok: true,
         text: async () => sseResponse,
       });
 
       await exaSearch.search('my query');
 
-      expect(mockFetch).toHaveBeenCalledWith(
+      expect(mockSimpleFetch).toHaveBeenCalledWith(
         'https://mcp.exa.ai/mcp',
         expect.objectContaining({
           method: 'POST',
@@ -157,7 +159,7 @@ Text: Single result content.`;
       );
 
       // Verify request body
-      const callArgs = mockFetch.mock.calls[0];
+      const callArgs = mockSimpleFetch.mock.calls[0];
       const body = JSON.parse(callArgs[1].body);
       expect(body.method).toBe('tools/call');
       expect(body.params.name).toBe('web_search_exa');

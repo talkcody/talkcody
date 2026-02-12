@@ -784,14 +784,16 @@ class AgentRegistry {
   }
 
   /**
-   * Refresh MCP tools in system agents
-   * Called when MCP servers are enabled/disabled to update tool references
+   * Refresh planner tools in system agents.
+   * Called when MCP servers or custom tools change to rebuild the planner's base toolset.
+   * Note: MCP tools are NOT merged here — they are resolved at runtime via resolveToolsWithMCP()
+   * and must be explicitly enabled/selected by the user per-agent.
    */
-  async refreshMCPTools(): Promise<void> {
-    logger.info('refreshMCPTools: Refreshing MCP tools in system agents...');
+  async refreshPlannerTools(): Promise<void> {
+    logger.info('refreshPlannerTools: Refreshing planner tools in system agents...');
 
     try {
-      // Rebuild planner tools with fresh MCP connections
+      // Rebuild planner tools
       const plannerTools = await this.buildPlannerTools();
 
       // Update PlannerAgent's tools
@@ -802,12 +804,12 @@ class AgentRegistry {
           ...plannerAgent,
           tools: convertedTools as AgentToolSet,
         });
-        logger.info('refreshMCPTools: Updated PlannerAgent tools');
+        logger.info('refreshPlannerTools: Updated PlannerAgent tools');
       }
 
-      logger.info('refreshMCPTools: MCP tools refreshed successfully');
+      logger.info('refreshPlannerTools: Planner tools refreshed successfully');
     } catch (error) {
-      logger.error('refreshMCPTools: Failed to refresh MCP tools:', error);
+      logger.error('refreshPlannerTools: Failed to refresh planner tools:', error);
     }
   }
 
@@ -820,24 +822,7 @@ class AgentRegistry {
 
     try {
       // Rebuild planner tools with fresh custom tool definitions
-      const plannerTools = await this.buildPlannerTools();
-
-      // Update PlannerAgent's tools
-      const plannerAgent = this.systemAgents.get('planner');
-      if (plannerAgent) {
-        const convertedTools = convertToolsForAI(plannerTools);
-        this.systemAgents.set('planner', {
-          ...plannerAgent,
-          tools: convertedTools as AgentToolSet,
-        });
-        logger.info('refreshCustomTools: Updated PlannerAgent tools');
-      }
-
-      // Note: Other system agents (coding, explore, etc.) use getToolSync() to load tools
-      // Since toolsCache is already updated in replaceCustomToolsCache(),
-      // they will get the latest custom tools on their next tool execution.
-      // PlannerAgent is the only agent that caches tool references at load time,
-      // so we only need to update it here.
+      await this.refreshPlannerTools();
 
       logger.info('refreshCustomTools: Custom tools refreshed successfully');
     } catch (error) {
