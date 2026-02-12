@@ -21,13 +21,7 @@ export function UpdateNotification({
     if (updater.available && !updater.downloading && !updater.downloaded && !updater.error) {
       updater.downloadAndInstall();
     }
-  }, [
-    updater.available,
-    updater.downloading,
-    updater.downloaded,
-    updater.error,
-    updater.downloadAndInstall,
-  ]);
+  }, [updater]);
 
   // Show error notification
   useEffect(() => {
@@ -40,7 +34,7 @@ export function UpdateNotification({
         },
       });
     }
-  }, [updater.error, dialogOpen, updater.dismissError]);
+  }, [updater.error, dialogOpen, updater]);
 
   // Show success notification when downloaded
   useEffect(() => {
@@ -54,7 +48,7 @@ export function UpdateNotification({
         duration: Infinity,
       });
     }
-  }, [updater.downloaded, dialogOpen, updater.restartApp]);
+  }, [updater.downloaded, dialogOpen, updater]);
 
   return <UpdateDialog open={dialogOpen} onOpenChange={setDialogOpen} updater={updater} />;
 }

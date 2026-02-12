@@ -38,9 +38,7 @@ export function PromptEnhancementOptionsButton() {
           <div className="space-y-1">
             <div className="flex items-center gap-2">
               <Sparkles className="h-4 w-4" />
-              <h4 className="font-medium text-sm">
-                {t.Chat.promptEnhancement.optionsButton}
-              </h4>
+              <h4 className="font-medium text-sm">{t.Chat.promptEnhancement.optionsButton}</h4>
             </div>
             <p className="text-xs text-muted-foreground">
               {t.Chat.promptEnhancement.contextExtractionDescription}
@@ -66,9 +64,7 @@ export function PromptEnhancementOptionsButton() {
               />
             </div>
             <div className="space-y-1.5">
-              <label className="text-sm font-medium">
-                {t.Chat.promptEnhancement.modelSelect}
-              </label>
+              <label className="text-sm font-medium">{t.Chat.promptEnhancement.modelSelect}</label>
               <Select
                 value={enhancementModel || '__follow__'}
                 onValueChange={(value) => {

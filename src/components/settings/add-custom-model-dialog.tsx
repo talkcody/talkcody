@@ -96,11 +96,7 @@ export function AddCustomModelDialog({
     } finally {
       setIsFetching(false);
     }
-  }, [
-    selectedProvider,
-    t.Settings.customModelsDialog.fetchFailed,
-    t.Settings.customModelsDialog.noModelsFound,
-  ]);
+  }, [selectedProvider, t.Settings.customModelsDialog]);
 
   // Filter models based on search query
   const filteredModels = fetchedModels.filter((model) => {

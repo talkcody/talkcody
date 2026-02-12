@@ -668,7 +668,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         lsp_show_warnings: rawSettings.lsp_show_warnings !== 'false',
         lsp_show_info: rawSettings.lsp_show_info !== 'false',
         lsp_show_hints: rawSettings.lsp_show_hints === 'true',
-        prompt_enhancement_context_enabled: rawSettings.prompt_enhancement_context_enabled !== 'false',
+        prompt_enhancement_context_enabled:
+          rawSettings.prompt_enhancement_context_enabled !== 'false',
         prompt_enhancement_model: rawSettings.prompt_enhancement_model || '',
         loading: false,
         isInitialized: true,

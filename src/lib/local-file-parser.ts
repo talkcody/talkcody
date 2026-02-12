@@ -34,7 +34,7 @@ export class FileParser {
     const mimeType = this.getMimeTypeFromExtension(extension);
 
     // Create a File object from the data
-    const file = new File([fileData], filePath, { type: mimeType });
+    const file = new File([fileData.buffer as ArrayBuffer], filePath, { type: mimeType });
     return await this.parseFile(file);
   }
 

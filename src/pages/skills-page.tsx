@@ -119,7 +119,7 @@ export function SkillsPage() {
         sort: sortBy,
       });
     }
-  }, [activeTab, searchQuery, selectedCategory, sortBy, marketplace.loadSkills]);
+  }, [activeTab, searchQuery, selectedCategory, sortBy, marketplace]);
 
   // Categories and tags are now loaded automatically with skills
 

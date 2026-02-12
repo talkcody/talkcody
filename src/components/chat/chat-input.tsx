@@ -1047,9 +1047,7 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                         <button
                           type="button"
                           className="flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-muted-foreground backdrop-blur-sm transition-colors hover:bg-accent hover:text-accent-foreground disabled:cursor-not-allowed disabled:opacity-50"
-                          disabled={
-                            !input.trim() || isEnhancing || isLoading
-                          }
+                          disabled={!input.trim() || isEnhancing || isLoading}
                           onClick={handleEnhancePrompt}
                         >
                           {isEnhancing ? (
@@ -1073,20 +1071,20 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                 <TextareaAutosize
                   aria-label="Search"
                   className={`mb-8 w-full resize-none overflow-y-auto border-0 bg-transparent p-4 pr-36 text-sm outline-0 ring-0 placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-0 ${
-                  isRecording && partialTranscript ? 'text-muted-foreground italic' : ''
-                }`}
-                maxRows={10}
-                minRows={1}
-                onChange={handleInputChange}
-                onCompositionStart={handleCompositionStart}
-                onCompositionEnd={handleCompositionEnd}
-                onKeyDown={handleInputKeydown}
-                onPaste={handlePaste}
-                placeholder={t.Chat.placeholder}
-                ref={textareaRef}
-                value={isRecording && partialTranscript ? input + partialTranscript : input}
-                readOnly={isRecording}
-              />
+                    isRecording && partialTranscript ? 'text-muted-foreground italic' : ''
+                  }`}
+                  maxRows={10}
+                  minRows={1}
+                  onChange={handleInputChange}
+                  onCompositionStart={handleCompositionStart}
+                  onCompositionEnd={handleCompositionEnd}
+                  onKeyDown={handleInputKeydown}
+                  onPaste={handlePaste}
+                  placeholder={t.Chat.placeholder}
+                  ref={textareaRef}
+                  value={isRecording && partialTranscript ? input + partialTranscript : input}
+                  readOnly={isRecording}
+                />
               </div>
               <PromptInputToolbar>
                 <PromptInputTools>

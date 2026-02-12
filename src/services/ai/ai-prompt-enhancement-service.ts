@@ -15,13 +15,8 @@ export interface EnhancePromptParams {
 
 class AIPromptEnhancementService {
   async enhancePrompt(params: EnhancePromptParams): Promise<PromptEnhancementResult> {
-    const {
-      originalPrompt,
-      projectPath,
-      conversationMessages,
-      enableContextExtraction,
-      model,
-    } = params;
+    const { originalPrompt, projectPath, conversationMessages, enableContextExtraction, model } =
+      params;
 
     if (!originalPrompt || originalPrompt.trim().length === 0) {
       throw new Error('No prompt provided for enhancement');
@@ -59,9 +54,7 @@ class AIPromptEnhancementService {
     return result;
   }
 
-  serializeHistory(
-    messages?: Array<{ role: string; content: string }>
-  ): string | undefined {
+  serializeHistory(messages?: Array<{ role: string; content: string }>): string | undefined {
     if (!messages || messages.length === 0) {
       return undefined;
     }
@@ -72,8 +65,7 @@ class AIPromptEnhancementService {
     let result = '';
     for (const msg of recentMessages) {
       const prefix = msg.role === 'user' ? 'User' : 'Assistant';
-      const content =
-        typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
+      const content = typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content);
       const line = `${prefix}: ${content}\n`;
 
       if (result.length + line.length > MAX_HISTORY_CHARS) {

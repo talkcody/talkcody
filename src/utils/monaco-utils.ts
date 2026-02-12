@@ -20,15 +20,17 @@ export function setupMonacoDiagnostics(_model: editor.ITextModel | null, monacoI
   try {
     // Disable Monaco's built-in TypeScript/JavaScript validation
     // This prevents false module resolution errors from appearing
-    if (monaco.languages.typescript?.typescriptDefaults) {
-      monaco.languages.typescript.typescriptDefaults.setDiagnosticsOptions({
+    // Use the new top-level "typescript" namespace (the old "languages.typescript" is deprecated)
+    const ts = monaco.typescript;
+    if (ts?.typescriptDefaults) {
+      ts.typescriptDefaults.setDiagnosticsOptions({
         noSemanticValidation: true,
         noSyntaxValidation: true,
         noSuggestionDiagnostics: true,
       });
     }
-    if (monaco.languages.typescript?.javascriptDefaults) {
-      monaco.languages.typescript.javascriptDefaults.setDiagnosticsOptions({
+    if (ts?.javascriptDefaults) {
+      ts.javascriptDefaults.setDiagnosticsOptions({
         noSemanticValidation: true,
         noSyntaxValidation: true,
         noSuggestionDiagnostics: true,

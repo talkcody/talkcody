@@ -278,11 +278,7 @@ export function AddCustomProviderDialog({
     } finally {
       setIsFetching(false);
     }
-  }, [
-    savedProviderId,
-    t.Settings.customModelsDialog.fetchFailed,
-    t.Settings.customModelsDialog.noModelsFound,
-  ]);
+  }, [savedProviderId, t.Settings.customModelsDialog]);
 
   // Filter models based on search query
   const filteredModels = fetchedModels.filter((model) => {

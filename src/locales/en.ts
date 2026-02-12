@@ -262,7 +262,8 @@ const en: LocaleDefinition = {
       failed: 'Failed to enhance prompt',
       emptyPrompt: 'Please enter a prompt to enhance',
       contextExtraction: 'Smart Context Extraction',
-      contextExtractionDescription: 'Extract relevant code context from the project to enrich the prompt',
+      contextExtractionDescription:
+        'Extract relevant code context from the project to enrich the prompt',
       modelSelect: 'Enhancement Model',
       modelPlaceholder: 'Select enhancement model',
       followCurrentModel: 'Follow current model',

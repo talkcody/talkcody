@@ -90,7 +90,7 @@ class RemoteMediaService {
     try {
       const data = await fileService.readAttachmentFile(attachment.filePath);
       const mimeType = attachment.mimeType || 'audio/webm';
-      const blob = new Blob([data], { type: mimeType });
+      const blob = new Blob([data.buffer as ArrayBuffer], { type: mimeType });
       const result = await aiTranscriptionService.transcribe({ audioBlob: blob });
       if (result?.text) {
         // Return only the transcribed text, no audio attachment

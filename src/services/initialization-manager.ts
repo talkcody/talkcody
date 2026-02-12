@@ -124,25 +124,19 @@ class InitializationManager {
         // Initialize these services in parallel (they don't depend on each other)
         await Promise.all([
           // Command registry
-          commandRegistry
-            .initialize()
-            .then(() => {
-              logger.info('[InitManager] ✓ Command registry initialized (background)');
-            }),
+          commandRegistry.initialize().then(() => {
+            logger.info('[InitManager] ✓ Command registry initialized (background)');
+          }),
 
           // Hooks config snapshot
-          hookSnapshotService
-            .initializeSession()
-            .then(() => {
-              logger.info('[InitManager] ✓ Hooks snapshot initialized (background)');
-            }),
+          hookSnapshotService.initializeSession().then(() => {
+            logger.info('[InitManager] ✓ Hooks snapshot initialized (background)');
+          }),
 
           // Terminal service
-          terminalService
-            .initialize()
-            .then(() => {
-              logger.info('[InitManager] ✓ Terminal service initialized (background)');
-            }),
+          terminalService.initialize().then(() => {
+            logger.info('[InitManager] ✓ Terminal service initialized (background)');
+          }),
 
           // Agent store
           useAgentStore

@@ -590,7 +590,7 @@ class FileUploadService {
           const fileData = await readFile(filePath);
           const mimeType = this.getMimeType(filePath);
 
-          const blob = new Blob([fileData], { type: mimeType });
+          const blob = new Blob([fileData.buffer as ArrayBuffer], { type: mimeType });
           const attachment = await this.uploadFromBlob(blob);
 
           if (attachment) {
