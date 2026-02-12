@@ -98,3 +98,4 @@ docs/.vercel/
 .vercel
 .env*.local
 .vite/
+.ace-tool/
