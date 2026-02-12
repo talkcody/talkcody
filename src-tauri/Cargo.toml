@@ -18,16 +18,16 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2.9", features = ["protocol-asset"] }
+tauri = { version = "2.10", features = ["protocol-asset"] }
 tauri-plugin-opener = "2.5"
-tauri-plugin-log = "2.7"
+tauri-plugin-log = "2.8"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 grep = "0.3"
 ignore = "0.4"
-rayon = "1.8"
-tauri-plugin-dialog = "2.4"
+rayon = "1.11"
+tauri-plugin-dialog = "2.6"
 tauri-plugin-fs = "2"
 tauri-plugin-shell = "2"
 tauri-plugin-deep-link = "2"
@@ -46,9 +46,9 @@ tokio-tungstenite = { version = "0.24", features = ["native-tls"] }
 git2 = { version = "0.19", default-features = false, features = ["vendored-libgit2"] }
 lru = "0.12"
 portable-pty = "0.9"
-uuid = { version = "1.11", features = ["v4"] }
+uuid = { version = "1.20", features = ["v4"] }
 tar = "0.4"
-flate2 = "1.0"
+flate2 = "1.1"
 # Tree-sitter for code navigation
 tree-sitter = "0.24"
 tree-sitter-python = "0.23"
@@ -61,12 +61,12 @@ tree-sitter-typescript = "0.23"
 streaming-iterator = "0.1"
 sha2 = "0.10"
 hex = "0.4"
-regex = "1.12.2"
+regex = "1.12.3"
 fix-path-env = { git = "https://github.com/tauri-apps/fix-path-env-rs" }
 dirs = "5.0"
 rand = "0.8"
 which = "7.0"
-zip = "2.2"
+zip = "2.4"
 # OAuth callback server
 tiny_http = "0.12"
 async-trait = "0.1"
@@ -80,10 +80,10 @@ futures = "0.3.31"
 open-lark = { git = "https://github.com/talkcody/open-lark", branch = "fix-user-id-null" }
 
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
-tauri-plugin-single-instance = { version = "2.0.0", features = ["deep-link"] }
+tauri-plugin-single-instance = { version = "2.4.0", features = ["deep-link"] }
 tauri-plugin-updater = "2"
 notify = "6.1"
-lazy_static = "1.4"
+lazy_static = "1.5"
 chrono = { version = "0.4", features = ["serde"] }
 
 [target."cfg(target_os = \"windows\")".dependencies]
@@ -95,5 +95,5 @@ objc = "0.2.7"
 
 [dev-dependencies]
 tempfile = "3"
-tauri = { version = "2.9", features = ["protocol-asset", "test"] }
+tauri = { version = "2.10", features = ["protocol-asset", "test"] }
 tiny_http = "0.12"
