@@ -92,15 +92,15 @@ function extractRequestParams(input: RequestInfo | URL, init?: RequestInit) {
   if (init?.headers) {
     const headerObj = new Headers(init.headers);
     headerObj.forEach((value, key) => {
-      // Normalize header names to proper case for consistency
-      headers[key] = value;
+      // Normalize header names to lowercase for consistency across environments
+      headers[key.toLowerCase()] = value;
     });
   }
 
   // Add defaults only if not already set (case-insensitive check)
   const headerKeys = Object.keys(headers).map((k) => k.toLowerCase());
   if (!headerKeys.includes('accept')) {
-    headers.Accept = 'application/json, text/plain, */*';
+    headers.accept = 'application/json, text/plain, */*';
   }
 
   // Extract body

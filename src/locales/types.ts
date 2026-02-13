@@ -258,6 +258,7 @@ export interface LocaleDefinition {
       worktree: string;
       shortcuts: string;
       general: string;
+      sync: string;
       about: string;
       language: string;
       customTools: string;
@@ -296,6 +297,49 @@ export interface LocaleDefinition {
       displayNamePlaceholder: string;
       displayNameHint: string;
       saveChanges: string;
+    };
+    s3Sync: {
+      title: string;
+      description: string;
+      enabled: string;
+      enabledHint: string;
+      warning: string;
+      endpoint: string;
+      endpointPlaceholder: string;
+      region: string;
+      bucket: string;
+      bucketPlaceholder: string;
+      accessKeyId: string;
+      accessKeyIdPlaceholder: string;
+      secretAccessKey: string;
+      secretAccessKeyPlaceholder: string;
+      sessionToken: string;
+      sessionTokenPlaceholder: string;
+      sessionTokenHint: string;
+      pathStyle: string;
+      pathStyleHint: string;
+      namespace: string;
+      namespacePlaceholder: string;
+      namespaceHint: string;
+      keyPrefix: string;
+      testConnection: string;
+      backupNow: string;
+      restore: string;
+      save: string;
+      saved: string;
+      saveFailed: string;
+      testSuccess: string;
+      testFailed: string;
+      backupSuccess: string;
+      backupFailed: string;
+      restoreScheduled: string;
+      restoreScheduleFailed: string;
+      lastBackupAt: (time: string) => string;
+      lastBackupNone: string;
+      errors: {
+        invalidConfig: string;
+        notEnabled: string;
+      };
     };
     apiKeys: {
       title: string;

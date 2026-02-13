@@ -157,7 +157,7 @@ describe('tauri-fetch', () => {
       expect(mockInvoke).toHaveBeenCalledWith('proxy_fetch', {
         request: expect.objectContaining({
           headers: expect.objectContaining({
-            Accept: 'application/json, text/plain, */*',
+            accept: 'application/json, text/plain, */*',
           }),
           allow_private_ip: false,
         }),
@@ -189,7 +189,7 @@ describe('tauri-fetch', () => {
           headers: expect.objectContaining({
             authorization: 'Bearer token123',
             'x-custom-header': 'custom-value',
-            Accept: 'application/json, text/plain, */*',
+            accept: 'application/json, text/plain, */*',
           }),
           allow_private_ip: true,
         }),

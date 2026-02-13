@@ -13,7 +13,7 @@ export default defineConfig({
     },
   },
   test: {
-    environment: 'jsdom',
+    environment: 'happy-dom',
     reporters: ['verbose'],
     silent: false,
     globals: true,

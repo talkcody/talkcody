@@ -1,3 +1,4 @@
+#[cfg(feature = "feishu-websocket")]
 use open_lark::client::ws_client::LarkWsClient;
 use open_lark::prelude::{
     AppType, CreateMessageRequest, CreateMessageRequestBody, EventDispatcherHandler, LarkClient,
@@ -507,6 +508,24 @@ async fn run_ws_loop(
 }
 
 async fn start_ws_connection(
+    app_handle: AppHandle,
+    state: FeishuGatewayState,
+    config: FeishuConfig,
+) -> Result<(), String> {
+    start_ws_connection_impl(app_handle, state, config).await
+}
+
+#[cfg(not(feature = "feishu-websocket"))]
+async fn start_ws_connection_impl(
+    _app_handle: AppHandle,
+    _state: FeishuGatewayState,
+    _config: FeishuConfig,
+) -> Result<(), String> {
+    Err("Feishu WebSocket support is disabled. Rebuild with `--features feishu-websocket` (requires `protoc`).".to_string())
+}
+
+#[cfg(feature = "feishu-websocket")]
+async fn start_ws_connection_impl(
     app_handle: AppHandle,
     state: FeishuGatewayState,
     config: FeishuConfig,

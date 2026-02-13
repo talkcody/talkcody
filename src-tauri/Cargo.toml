@@ -7,6 +7,12 @@ edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+# Keep defaults minimal so the app can build in environments without `protoc`.
+default = []
+# Enables Feishu WebSocket support via open-lark, which requires `protoc` at build time.
+feishu-websocket = ["open-lark/websocket"]
+
 [lib]
 # The `_lib` suffix may seem redundant but it is necessary
 # to make the lib name unique and wouldn't conflict with the bin name.
@@ -24,6 +30,7 @@ tauri-plugin-log = "2.7"
 log = "0.4"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
+async-trait = "0.1"
 grep = "0.3"
 ignore = "0.4"
 rayon = "1.8"
@@ -37,6 +44,8 @@ tauri-plugin-os = "2"
 tauri-plugin-notification = "2"
 libsql = "0.9.29"
 tokio = { version = "1", features = ["full"] }
+tokio-stream = "0.1"
+axum = { version = "0.7", features = ["macros"] }
 base64 = "0.22"
 reqwest = { version = "0.12", features = ["json", "stream", "rustls-tls", "blocking", "gzip", "brotli", "multipart"], default-features = false }
 bytes = "1"
@@ -70,6 +79,7 @@ zip = "2.2"
 # OAuth callback server
 tiny_http = "0.12"
 rusty-s3 = "0.8.1"
+open-lark = { version = "0.14.0", default-features = false, features = ["im"] }
 
 [target."cfg(any(target_os = \"macos\", windows, target_os = \"linux\"))".dependencies]
 tauri-plugin-single-instance = { version = "2.0.0", features = ["deep-link"] }

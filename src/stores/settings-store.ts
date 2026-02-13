@@ -98,6 +98,19 @@ interface SettingsState {
   // Worktree Settings
   worktree_root_path: string; // Custom worktree root path (empty = use default ~/.talkcody)
 
+  // S3 Sync Settings
+  s3_sync_enabled: boolean;
+  s3_sync_endpoint: string;
+  s3_sync_region: string;
+  s3_sync_bucket: string;
+  s3_sync_access_key_id: string;
+  s3_sync_secret_access_key: string;
+  s3_sync_session_token: string;
+  s3_sync_path_style: boolean;
+  s3_sync_namespace: string;
+  s3_sync_key_prefix: string;
+  s3_sync_last_backup_at: string;
+
   // LSP Settings
   lsp_enabled: boolean;
   lsp_show_diagnostics: boolean;
@@ -232,6 +245,12 @@ interface SettingsActions {
   setWorktreeRootPath: (path: string) => Promise<void>;
   getWorktreeRootPath: () => string;
 
+  // S3 Sync Settings
+  setS3SyncEnabled: (enabled: boolean) => Promise<void>;
+  getS3SyncEnabled: () => boolean;
+  setS3SyncPathStyle: (enabled: boolean) => Promise<void>;
+  getS3SyncPathStyle: () => boolean;
+
   // LSP Settings
   setLspEnabled: (enabled: boolean) => Promise<void>;
   getLspEnabled: () => boolean;
@@ -311,6 +330,17 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
     'Menlo, Monaco, "DejaVu Sans Mono", "Ubuntu Mono", "Liberation Mono", "Droid Sans Mono", "Courier New", monospace',
   terminal_font_size: 14,
   worktree_root_path: '',
+  s3_sync_enabled: false,
+  s3_sync_endpoint: '',
+  s3_sync_region: 'us-east-1',
+  s3_sync_bucket: '',
+  s3_sync_access_key_id: '',
+  s3_sync_secret_access_key: '',
+  s3_sync_session_token: '',
+  s3_sync_path_style: false,
+  s3_sync_namespace: '',
+  s3_sync_key_prefix: 'talkcody-sync',
+  s3_sync_last_backup_at: '',
   lsp_enabled: true,
   lsp_show_diagnostics: true,
   lsp_show_errors: true,
@@ -401,6 +431,17 @@ class SettingsDatabase {
         'Menlo, Monaco, "DejaVu Sans Mono", "Ubuntu Mono", "Liberation Mono", "Droid Sans Mono", "Courier New", monospace',
       terminal_font_size: '14',
       worktree_root_path: '',
+      s3_sync_enabled: 'false',
+      s3_sync_endpoint: '',
+      s3_sync_region: 'us-east-1',
+      s3_sync_bucket: '',
+      s3_sync_access_key_id: '',
+      s3_sync_secret_access_key: '',
+      s3_sync_session_token: '',
+      s3_sync_path_style: 'false',
+      s3_sync_namespace: '',
+      s3_sync_key_prefix: 'talkcody-sync',
+      s3_sync_last_backup_at: '',
       lsp_enabled: 'true',
       lsp_show_diagnostics: 'true',
       lsp_show_errors: 'true',
@@ -547,6 +588,17 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         'terminal_font',
         'terminal_font_size',
         'worktree_root_path',
+        's3_sync_enabled',
+        's3_sync_endpoint',
+        's3_sync_region',
+        's3_sync_bucket',
+        's3_sync_access_key_id',
+        's3_sync_secret_access_key',
+        's3_sync_session_token',
+        's3_sync_path_style',
+        's3_sync_namespace',
+        's3_sync_key_prefix',
+        's3_sync_last_backup_at',
         'lsp_enabled',
         'lsp_show_diagnostics',
         'lsp_show_errors',
@@ -646,6 +698,17 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           'Menlo, Monaco, "DejaVu Sans Mono", "Ubuntu Mono", "Liberation Mono", "Droid Sans Mono", "Courier New", monospace',
         terminal_font_size: Number(rawSettings.terminal_font_size) || 14,
         worktree_root_path: rawSettings.worktree_root_path || '',
+        s3_sync_enabled: rawSettings.s3_sync_enabled === 'true',
+        s3_sync_endpoint: rawSettings.s3_sync_endpoint || '',
+        s3_sync_region: rawSettings.s3_sync_region || 'us-east-1',
+        s3_sync_bucket: rawSettings.s3_sync_bucket || '',
+        s3_sync_access_key_id: rawSettings.s3_sync_access_key_id || '',
+        s3_sync_secret_access_key: rawSettings.s3_sync_secret_access_key || '',
+        s3_sync_session_token: rawSettings.s3_sync_session_token || '',
+        s3_sync_path_style: rawSettings.s3_sync_path_style === 'true',
+        s3_sync_namespace: rawSettings.s3_sync_namespace || '',
+        s3_sync_key_prefix: rawSettings.s3_sync_key_prefix || 'talkcody-sync',
+        s3_sync_last_backup_at: rawSettings.s3_sync_last_backup_at || '',
         lsp_enabled: rawSettings.lsp_enabled !== 'false',
         lsp_show_diagnostics: rawSettings.lsp_show_diagnostics !== 'false',
         lsp_show_errors: rawSettings.lsp_show_errors !== 'false',
@@ -1170,6 +1233,25 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     return get().worktree_root_path || '';
   },
 
+  // S3 Sync Settings
+  setS3SyncEnabled: async (enabled: boolean) => {
+    await settingsDb.set('s3_sync_enabled', enabled.toString());
+    set({ s3_sync_enabled: enabled });
+  },
+
+  getS3SyncEnabled: () => {
+    return get().s3_sync_enabled;
+  },
+
+  setS3SyncPathStyle: async (enabled: boolean) => {
+    await settingsDb.set('s3_sync_path_style', enabled.toString());
+    set({ s3_sync_path_style: enabled });
+  },
+
+  getS3SyncPathStyle: () => {
+    return get().s3_sync_path_style;
+  },
+
   // LSP Settings
   setLspEnabled: async (enabled: boolean) => {
     await settingsDb.set('lsp_enabled', enabled.toString());
@@ -1326,6 +1408,8 @@ export const settingsManager = {
     useSettingsStore.getState().setAutoCodeReviewGlobal(enabled),
   setHooksEnabled: (enabled: boolean) => useSettingsStore.getState().setHooksEnabled(enabled),
   setTraceEnabled: (enabled: boolean) => useSettingsStore.getState().setTraceEnabled(enabled),
+  setS3SyncEnabled: (enabled: boolean) => useSettingsStore.getState().setS3SyncEnabled(enabled),
+  setS3SyncPathStyle: (enabled: boolean) => useSettingsStore.getState().setS3SyncPathStyle(enabled),
   setTelegramRemoteEnabled: (enabled: boolean) =>
     useSettingsStore.getState().setTelegramRemoteEnabled(enabled),
   setFeishuRemoteEnabled: (enabled: boolean) =>

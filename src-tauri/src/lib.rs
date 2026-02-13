@@ -26,6 +26,8 @@ mod script_executor;
 mod search;
 mod security;
 mod server;
+mod s3;
+mod s3_sync;
 mod shell_utils;
 mod storage;
 mod streaming;
@@ -798,6 +800,12 @@ pub fn run() {
                 cleanup_old_logs(&log_dir, 3);
             }
             let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+
+            // Apply any pending restore before opening databases or starting services.
+            if let Err(err) = s3_sync::apply_pending_restore(&app.handle(), &app_data_dir) {
+                log::error!("Failed to apply pending restore: {}", err);
+            }
+
             let db_path = app_data_dir.join("talkcody.db");
             let db_path_str = db_path.to_string_lossy().to_string();
             let database = Arc::new(Database::new(db_path_str));
@@ -1100,6 +1108,12 @@ pub fn run() {
             keep_awake::keep_awake_release,
             keep_awake::keep_awake_get_ref_count,
             keep_awake::keep_awake_is_preventing,
+            s3::s3_presign_get_object,
+            s3::s3_presign_put_object,
+            s3::s3_presign_delete_object,
+            s3_sync::s3_sync_test_connection,
+            s3_sync::s3_sync_backup,
+            s3_sync::s3_sync_schedule_restore,
             telegram_gateway::telegram_get_config,
             telegram_gateway::telegram_set_config,
             telegram_gateway::telegram_start,

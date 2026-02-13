@@ -29,12 +29,12 @@ pub struct ToolExecutionOutput {
 
 /// Tool handler function type
 pub type ToolHandler = Arc<
-    dyn Fn(ToolRequest, ToolContext) -> futures::future::BoxFuture<'static, ToolExecutionOutput>
+    dyn Fn(ToolRequest, ToolContext) -> futures_util::future::BoxFuture<'static, ToolExecutionOutput>
         + Send
         + Sync,
 >;
 
-use futures::future::BoxFuture;
+use futures_util::future::BoxFuture;
 
 /// Tool registry containing all available tools
 pub struct ToolRegistry {

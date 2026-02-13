@@ -1,5 +1,6 @@
 import {
   Bot,
+  Cloud,
   Code,
   FileCode,
   GitBranch,
@@ -23,6 +24,7 @@ import { LintSettings } from '@/components/settings/lint-settings';
 import { LspSettings } from '@/components/settings/lsp-settings';
 import { ModelTypeSettings } from '@/components/settings/model-type-settings';
 import { RemoteControlSettings } from '@/components/settings/remote-control-settings';
+import { S3SyncSettings } from '@/components/settings/s3-sync-settings';
 import { TerminalSettings } from '@/components/settings/terminal-settings';
 import { WorktreeSettings } from '@/components/settings/worktree-settings';
 import { ShortcutSettingsPanel } from '@/components/shortcuts/shortcut-settings';
@@ -84,6 +86,11 @@ export function SettingsPage() {
             >
               <Settings className="size-4" />
               {t.Settings.tabs.general || 'General'}
+            </TabsTrigger>
+
+            <TabsTrigger value="sync" className="w-full justify-start gap-2 rounded-md px-3 py-2">
+              <Cloud className="size-4" />
+              {t.Settings.tabs.sync}
             </TabsTrigger>
 
             <TabsTrigger
@@ -192,6 +199,10 @@ export function SettingsPage() {
 
             <TabsContent value="general" className="mt-0 flex-none space-y-6">
               <GeneralSettings />
+            </TabsContent>
+
+            <TabsContent value="sync" className="mt-0 flex-none space-y-6">
+              <S3SyncSettings />
             </TabsContent>
 
             <TabsContent value="remote-control" className="mt-0 flex-none space-y-6">

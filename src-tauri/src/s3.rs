@@ -63,7 +63,6 @@ fn build_bucket(cfg: &S3BucketConfig) -> Result<Bucket, String> {
         style,
         cfg.bucket.clone(),
         cfg.region.clone(),
-        rusty_s3::BucketSettings::default(),
     )
     .map_err(|e| format!("Failed to create S3 bucket: {e}"))
 }
@@ -103,7 +102,7 @@ fn apply_headers_and_query<'a, A: S3Action<'a>>(
         action.headers_mut().insert(key.clone(), value.clone());
     }
     for (key, value) in query {
-        action.queries_mut().insert(key.clone(), value.clone());
+        action.query_mut().insert(key.clone(), value.clone());
     }
 }
 
@@ -259,4 +258,3 @@ mod tests {
         assert!(err.to_lowercase().contains("host"));
     }
 }
-
