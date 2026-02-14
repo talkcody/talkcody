@@ -150,9 +150,9 @@ export const RepositorySidebar = memo(function RepositorySidebar({
             ? 'border-r bg-white dark:bg-gray-950'
             : 'flex items-center justify-center bg-white dark:bg-gray-950'
         }
-        defaultSize={shouldShowSidebar ? 20 : 50}
-        maxSize={shouldShowSidebar ? 40 : 70}
-        minSize={shouldShowSidebar ? 10 : 30}
+        defaultSize={shouldShowSidebar ? 8 : 50}
+        maxSize={shouldShowSidebar ? 28 : 70}
+        minSize={shouldShowSidebar ? 8 : 10}
       >
         {shouldShowSidebar ? (
           <div className="flex h-full flex-col">
