@@ -41,6 +41,7 @@ pub struct ContextCompactionRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ContextCompactionResult {
+    #[serde(rename = "compressedSummary")]
     pub compressed_summary: String,
 }
 

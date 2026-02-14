@@ -66,6 +66,7 @@ impl ContextCompactionService {
         .await?;
 
         let compressed_summary = result.text;
+        self.validate_compaction_summary(&compressed_summary)?;
         let duration = start_time.elapsed();
 
         log::info!(
@@ -79,6 +80,17 @@ impl ContextCompactionService {
         );
 
         Ok(ContextCompactionResult { compressed_summary })
+    }
+
+    fn validate_compaction_summary(&self, summary: &str) -> Result<(), String> {
+        if summary.trim().is_empty() {
+            log::error!("Context compaction returned empty summary");
+            return Err(
+                "Context compaction failed: AI returned an empty summary. Please try again."
+                    .to_string(),
+            );
+        }
+        Ok(())
     }
 
     /// Build the compaction prompt with the 8-section template
@@ -261,5 +273,24 @@ mod tests {
         assert!(result
             .unwrap_err()
             .contains("Conversation history is required"));
+    }
+
+    #[test]
+    fn validate_compaction_summary_rejects_empty() {
+        let service = ContextCompactionService::new();
+        let result = service.validate_compaction_summary("   ");
+
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .contains("Context compaction failed: AI returned an empty summary"));
+    }
+
+    #[test]
+    fn validate_compaction_summary_accepts_non_empty() {
+        let service = ContextCompactionService::new();
+        let result = service.validate_compaction_summary("Summary content");
+
+        assert!(result.is_ok());
     }
 }

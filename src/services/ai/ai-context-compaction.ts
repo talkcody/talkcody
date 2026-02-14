@@ -29,11 +29,19 @@ class AIContextCompactionService {
         model: modelIdentifier,
       });
 
+      const compressedSummaryValue = result?.compressedSummary;
+      const compressedSummary =
+        typeof compressedSummaryValue === 'string' ? compressedSummaryValue : '';
+
+      if (compressedSummaryValue == null) {
+        logger.warn('AI context compaction returned no summary; defaulting to empty string');
+      }
+
       logger.info(
-        `Compressed summary length: ${result.compressedSummary.length} characters (from ${conversationHistory.length})`
+        `Compressed summary length: ${compressedSummary.length} characters (from ${conversationHistory.length})`
       );
 
-      return result.compressedSummary;
+      return compressedSummary;
     } catch (error) {
       logger.error('AI context compaction error:', error);
       throw error;
