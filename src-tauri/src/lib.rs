@@ -1088,6 +1088,7 @@ pub fn run() {
             llm::commands::llm_is_model_available,
             llm::commands::llm_transcribe_audio,
             llm::commands::llm_generate_image,
+            llm::commands::llm_download_image,
             llm::commands::llm_calculate_cost,
             llm::commands::llm_get_completion,
             llm::commands::llm_generate_commit_message,

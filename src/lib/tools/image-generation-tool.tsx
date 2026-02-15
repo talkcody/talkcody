@@ -3,7 +3,6 @@ import { GenericToolDoing } from '@/components/tools/generic-tool-doing';
 import { GenericToolResult } from '@/components/tools/generic-tool-result';
 import { createTool } from '@/lib/create-tool';
 import { logger } from '@/lib/logger';
-import { simpleFetch } from '@/lib/tauri-fetch';
 import { generateId } from '@/lib/utils';
 import { getLocale, type SupportedLocale } from '@/locales';
 import { fileService } from '@/services/file-service';
@@ -122,38 +121,31 @@ Quality options:
 
           if (img.url) {
             logger.info(
-              `[imageGeneration] Downloading image from URL: ${img.url.substring(0, 100)}...`
+              `[imageGeneration] Downloading image from URL via backend: ${img.url.substring(0, 100)}...`
             );
-            // Use native fetch for image download to avoid binary data corruption
-            // simpleFetch uses Tauri proxy which converts body to string, breaking binary data
-            const download = await fetch(img.url, {
-              method: 'GET',
-              headers: { Accept: 'image/*' },
-            });
-
-            if (!download.ok) {
-              logger.error(
-                `[imageGeneration] Failed to download image: ${download.status} ${download.statusText}`
+            try {
+              // Use backend download to bypass browser CORS restrictions
+              const downloadResponse = await llmClient.downloadImage({ url: img.url });
+              bytes = new Uint8Array(downloadResponse.data);
+              mimeType = downloadResponse.mimeType;
+              logger.info(
+                `[imageGeneration] Downloaded ${bytes.length} bytes via backend, MIME: ${mimeType}`
               );
-              throw new Error(`Failed to download image: ${download.status}`);
-            }
 
-            const buffer = await download.arrayBuffer();
-            bytes = new Uint8Array(buffer);
-            logger.info(`[imageGeneration] Downloaded ${bytes.length} bytes`);
-
-            const headerType = download.headers.get('content-type');
-            if (headerType) {
-              mimeType = headerType;
-              logger.info(`[imageGeneration] Content-Type from header: ${mimeType}`);
-            }
-
-            // Check if downloaded data looks like an image (check magic bytes)
-            if (bytes.length > 4) {
-              const magic = Array.from(bytes.slice(0, 4))
-                .map((b) => b.toString(16).padStart(2, '0'))
-                .join(' ');
-              logger.info(`[imageGeneration] File magic bytes: ${magic}`);
+              // Check if downloaded data looks like an image (check magic bytes)
+              if (bytes.length > 4) {
+                const magic = Array.from(bytes.slice(0, 4))
+                  .map((b) => b.toString(16).padStart(2, '0'))
+                  .join(' ');
+                logger.info(`[imageGeneration] File magic bytes: ${magic}`);
+              }
+            } catch (downloadError) {
+              logger.error(`[imageGeneration] Backend download error:`, {
+                error:
+                  downloadError instanceof Error ? downloadError.message : String(downloadError),
+                url: img.url.substring(0, 100),
+              });
+              throw downloadError;
             }
           } else if (img.b64Json) {
             bytes = decodeBase64ToBytes(img.b64Json);

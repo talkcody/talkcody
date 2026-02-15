@@ -322,6 +322,20 @@ pub struct GeneratedImage {
     pub revised_prompt: Option<String>,
 }
 
+/// Request to download an image from a URL
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageDownloadRequest {
+    pub url: String,
+}
+
+/// Response containing downloaded image data
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImageDownloadResponse {
+    pub data: Vec<u8>,
+    #[serde(rename = "mimeType")]
+    pub mime_type: String,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CustomProviderConfig {
     pub id: String,

@@ -18,6 +18,8 @@ import type {
   ContextCompactionResult,
   GitMessageContext,
   GitMessageResult,
+  ImageDownloadRequest,
+  ImageDownloadResponse,
   ImageGenerationRequest,
   ImageGenerationResponse,
   Message,
@@ -207,6 +209,10 @@ export class LlmClient {
 
   async generateImage(request: ImageGenerationRequest): Promise<ImageGenerationResponse> {
     return invoke<ImageGenerationResponse>('llm_generate_image', { request });
+  }
+
+  async downloadImage(request: ImageDownloadRequest): Promise<ImageDownloadResponse> {
+    return invoke<ImageDownloadResponse>('llm_download_image', { request });
   }
 
   async registerCustomProvider(config: {

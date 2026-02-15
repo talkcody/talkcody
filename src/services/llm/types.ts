@@ -194,6 +194,15 @@ export type ImageGenerationResponse = {
   requestId?: string | null;
 };
 
+export type ImageDownloadRequest = {
+  url: string;
+};
+
+export type ImageDownloadResponse = {
+  data: number[];
+  mimeType: string;
+};
+
 // AI Services Types
 
 export type CompletionContext = {

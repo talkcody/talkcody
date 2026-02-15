@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::time::Duration;
 
+/// Minimum pixel count required by Volcengine Seedream model (3,686,400 pixels)
+/// This equals dimensions like 2560x1440, 1920x1920, etc.
+const MIN_PIXEL_COUNT: u32 = 3_686_400;
+
 /// Request format for Volcengine/ByteDance Seedream image generation
 /// Follows OpenAI-compatible format
 #[derive(Debug, Clone, Serialize)]
@@ -46,6 +50,50 @@ impl VolcengineImageClient {
         Self { config }
     }
 
+    /// Validates and converts the requested size to a valid Volcengine size.
+    /// If the requested size doesn't meet the minimum pixel requirement (3,686,400),
+    /// it will be converted to the closest valid size.
+    fn validate_and_convert_size(&self, requested_size: Option<String>) -> Option<String> {
+        let size = requested_size?;
+
+        // Parse the size string (format: "WIDTHxHEIGHT")
+        let parts: Vec<&str> = size.split('x').collect();
+        if parts.len() != 2 {
+            // Invalid format, return a safe default
+            return Some("2560x1440".to_string());
+        }
+
+        // Try to parse dimensions; if parsing fails, return default
+        let width_result: Result<u32, _> = parts[0].parse();
+        let height_result: Result<u32, _> = parts[1].parse();
+
+        let (width, height) = match (width_result, height_result) {
+            (Ok(w), Ok(h)) => (w, h),
+            _ => return Some("2560x1440".to_string()), // Invalid numbers, return default
+        };
+
+        let pixel_count = width * height;
+
+        // If size meets minimum requirement, use it
+        if pixel_count >= MIN_PIXEL_COUNT {
+            return Some(size);
+        }
+
+        // Otherwise, convert to closest valid size based on aspect ratio
+        let aspect_ratio = width as f32 / height as f32;
+
+        // Find the best matching preset
+        let best_match = if aspect_ratio >= 1.5 {
+            "2560x1440" // 16:9 landscape
+        } else if aspect_ratio <= 0.67 {
+            "1440x2560" // 9:16 portrait
+        } else {
+            "1920x1920" // 1:1 square
+        };
+
+        Some(best_match.to_string())
+    }
+
     pub async fn generate(
         &self,
         api_keys: &ApiKeyManager,
@@ -67,10 +115,13 @@ impl VolcengineImageClient {
         let base_url = base.resolve_base_url_with_fallback(api_keys).await?;
         let url = format!("{}/images/generations", base_url.trim_end_matches('/'));
 
+        // Validate and convert size to meet Volcengine's minimum pixel requirement
+        let validated_size = self.validate_and_convert_size(request.size);
+
         let body = VolcengineImageRequest {
             model: model.to_string(),
             prompt: request.prompt,
-            size: request.size,
+            size: validated_size,
             quality: request.quality,
             n: request.n,
             response_format: request.response_format,
@@ -179,5 +230,129 @@ mod tests {
             auth_type: crate::llm::types::AuthType::Bearer,
         };
         let _client = VolcengineImageClient::new(config);
+    }
+
+    #[test]
+    fn test_validate_size_meets_minimum() {
+        let config = ProviderConfig {
+            id: "volcengine".to_string(),
+            name: "Volcengine".to_string(),
+            protocol: crate::llm::types::ProtocolType::OpenAiCompatible,
+            base_url: "https://ark.cn-beijing.volces.com/api/v3".to_string(),
+            api_key_name: "VOLCENGINE_API_KEY".to_string(),
+            supports_oauth: false,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: crate::llm::types::AuthType::Bearer,
+        };
+        let client = VolcengineImageClient::new(config);
+
+        // 2560x1440 (3,686,400 pixels) - exactly at minimum
+        let result = client.validate_and_convert_size(Some("2560x1440".to_string()));
+        assert_eq!(result, Some("2560x1440".to_string()));
+
+        // 3840x2160 (8,294,400 pixels) - well above minimum
+        let result = client.validate_and_convert_size(Some("3840x2160".to_string()));
+        assert_eq!(result, Some("3840x2160".to_string()));
+    }
+
+    #[test]
+    fn test_validate_size_converts_small_sizes() {
+        let config = ProviderConfig {
+            id: "volcengine".to_string(),
+            name: "Volcengine".to_string(),
+            protocol: crate::llm::types::ProtocolType::OpenAiCompatible,
+            base_url: "https://ark.cn-beijing.volces.com/api/v3".to_string(),
+            api_key_name: "VOLCENGINE_API_KEY".to_string(),
+            supports_oauth: false,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: crate::llm::types::AuthType::Bearer,
+        };
+        let client = VolcengineImageClient::new(config);
+
+        // 1024x1024 (1,048,576 pixels) - too small, should convert to square
+        let result = client.validate_and_convert_size(Some("1024x1024".to_string()));
+        assert_eq!(result, Some("1920x1920".to_string()));
+
+        // 1792x1024 (1,835,008 pixels) - landscape, too small, should convert to 16:9
+        let result = client.validate_and_convert_size(Some("1792x1024".to_string()));
+        assert_eq!(result, Some("2560x1440".to_string()));
+
+        // 1024x1792 (1,835,008 pixels) - portrait, too small, should convert to 9:16
+        let result = client.validate_and_convert_size(Some("1024x1792".to_string()));
+        assert_eq!(result, Some("1440x2560".to_string()));
+    }
+
+    #[test]
+    fn test_validate_size_handles_invalid_input() {
+        let config = ProviderConfig {
+            id: "volcengine".to_string(),
+            name: "Volcengine".to_string(),
+            protocol: crate::llm::types::ProtocolType::OpenAiCompatible,
+            base_url: "https://ark.cn-beijing.volces.com/api/v3".to_string(),
+            api_key_name: "VOLCENGINE_API_KEY".to_string(),
+            supports_oauth: false,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: crate::llm::types::AuthType::Bearer,
+        };
+        let client = VolcengineImageClient::new(config);
+
+        // Invalid format like "2K"
+        let result = client.validate_and_convert_size(Some("2K".to_string()));
+        assert_eq!(result, Some("2560x1440".to_string()));
+
+        // None input
+        let result = client.validate_and_convert_size(None);
+        assert_eq!(result, None);
+
+        // Non-numeric dimensions
+        let result = client.validate_and_convert_size(Some("abcxyz".to_string()));
+        assert_eq!(result, Some("2560x1440".to_string()));
+    }
+
+    #[test]
+    fn test_validate_size_preserves_aspect_ratio() {
+        let config = ProviderConfig {
+            id: "volcengine".to_string(),
+            name: "Volcengine".to_string(),
+            protocol: crate::llm::types::ProtocolType::OpenAiCompatible,
+            base_url: "https://ark.cn-beijing.volces.com/api/v3".to_string(),
+            api_key_name: "VOLCENGINE_API_KEY".to_string(),
+            supports_oauth: false,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: crate::llm::types::AuthType::Bearer,
+        };
+        let client = VolcengineImageClient::new(config);
+
+        // Wide landscape (21:9 approx)
+        let result = client.validate_and_convert_size(Some("1920x823".to_string()));
+        assert_eq!(result, Some("2560x1440".to_string()));
+
+        // Tall portrait
+        let result = client.validate_and_convert_size(Some("823x1920".to_string()));
+        assert_eq!(result, Some("1440x2560".to_string()));
+
+        // Square-ish
+        let result = client.validate_and_convert_size(Some("1024x1024".to_string()));
+        assert_eq!(result, Some("1920x1920".to_string()));
     }
 }

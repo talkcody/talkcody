@@ -17,9 +17,9 @@ use crate::llm::streaming::stream_handler::StreamHandler;
 use crate::llm::transcription::service::TranscriptionService;
 use crate::llm::transcription::types::TranscriptionContext;
 use crate::llm::types::{
-    AvailableModel, CustomProviderConfig, ImageGenerationRequest, ImageGenerationResponse,
-    ModelsConfiguration, StreamResponse, StreamTextRequest, TranscriptionRequest,
-    TranscriptionResponse,
+    AvailableModel, CustomProviderConfig, ImageDownloadRequest, ImageDownloadResponse,
+    ImageGenerationRequest, ImageGenerationResponse, ModelsConfiguration, StreamResponse,
+    StreamTextRequest, TranscriptionRequest, TranscriptionResponse,
 };
 use tauri::{Manager, State, Window};
 
@@ -221,6 +221,61 @@ pub async fn llm_generate_image(
         request,
     )
     .await
+}
+
+/// Download image from URL (bypasses browser CORS restrictions)
+#[tauri::command]
+pub async fn llm_download_image(
+    request: ImageDownloadRequest,
+) -> Result<ImageDownloadResponse, String> {
+    use std::time::Duration;
+
+    log::info!(
+        "[llm_download_image] Downloading image from URL: {}",
+        request.url
+    );
+
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .build()
+        .map_err(|e| format!("Failed to create HTTP client: {}", e))?;
+
+    let response = client
+        .get(&request.url)
+        .header("Accept", "image/*,*/*")
+        .send()
+        .await
+        .map_err(|e| format!("Failed to download image: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!(
+            "Failed to download image: HTTP {}",
+            response.status()
+        ));
+    }
+
+    let mime_type = response
+        .headers()
+        .get("content-type")
+        .and_then(|v| v.to_str().ok())
+        .map(|s| s.to_string())
+        .unwrap_or_else(|| "image/png".to_string());
+
+    let bytes = response
+        .bytes()
+        .await
+        .map_err(|e| format!("Failed to read image bytes: {}", e))?;
+
+    log::info!(
+        "[llm_download_image] Successfully downloaded {} bytes with MIME type: {}",
+        bytes.len(),
+        mime_type
+    );
+
+    Ok(ImageDownloadResponse {
+        data: bytes.to_vec(),
+        mime_type,
+    })
 }
 
 // AI Services Commands

@@ -1,0 +1,2188 @@
+{
+  "version": 1,
+  "provider_id": "kimi_coding",
+  "protocol": "OpenAiCompatible",
+  "model": "kimi-k2.5",
+  "endpoint_path": "coding/v1/chat/completions",
+  "request": {
+    "method": "POST",
+    "url": "https://api.kimi.com/coding/v1/chat/completions",
+    "headers": {
+      "content-type": "application/json",
+      "authorization": "REDACTED",
+      "user-agent": "KimiCLI/1.3"
+    },
+    "body": {
+      "max_tokens": 15000,
+      "messages": [
+        {
+          "content": "\n# Role and Identity\n\nYou are a professional AI image generator—an intelligent agent focused on generating high-quality images.\n\nYour goal is to generate images that meet user requirements.\n\n---\n\n# User Interaction Standards\n\n## Requirements Gathering\n\nWhen user descriptions are unclear or incomplete, please use askUserQuestionsTool to gather the following information:\n\n- **Visual Style**: Realistic, cartoon, abstract art style preferences\n\n- **Color Scheme**: Warm/cool tones, specific colors, monochromatic preferences\n\n- **Composition**: Layout preferences, focal point, perspective\n\n- **Technical Specifications**: Image size, aspect ratio, quality requirements\n\n- **Application Scenarios**: Intended use, audience, atmosphere\n\n---\n\n# Tool Usage Strategy\n\n## Using askUserQuestionsTool to Gather Requirements\n\n**When to Use askUserQuestionsTool:**\n\n- User description is too vague or unclear\n\n- Missing key visual elements (style, color, composition)\n\n- User requests clarification of technical specifications\n\n- Multiple interpretation options exist\n\n**Question Categories:**\n\n1. **Style and Aesthetics**: Art style, realism, visual techniques\n\n2. **Color and Atmosphere**: Color preferences, hue, atmosphere\n\n3. **Composition and Layout:** Perspective, Focus, Layout\n\n4. **Technical Requirements:** Size, Quality, Formatting Preferences\n\n## Question Design Principles\n\n### Keep Questions Focused\n\n- Maximum 4 questions per interaction\n\n- 2-5 options per question\n\n- Mix single and multiple selections\n\n- Include an \"Other\" option for custom input\n\n## Using imageGeneration Tool\n\n- After requirements are clear, call imageGeneration to create the image.\n- Provide a detailed prompt with style, color, and composition.\n- Specify size, quality, and model only when the user requests it.\n\n\n---\n\nIMPORTANT: Here is important information about the environment you are running in:\n<env>\n<working_directory>/Users/kks/mygit/talkcody</working_directory>\n<is_git_repo>Yes</is_git_repo>\n<platform>mac_arm</platform>\n<today_date>2026-02-15</today_date>\n<plan_mode>TRUE</plan_mode>\n</env>\n\n---\n\n## Markdown Context\n\n<project>\n# Project Development Guide for AI Agents\n\n## Project Overview\n\nTalkCody 1.0 adopts a unified AI Agent architecture that supports both **Local** and **Service** deployment modes. All UI clients (Desktop, Mobile, Web, CLI, IM bots) function as thin interaction layers, communicating with the backend Agent service through a unified interface.\n\n## Architecture Diagram\n\n```\n+----------------------------------------------------------------------------------+\n|                                 UI / CLIENT LAYER                                |\n+----------------------------------------------------------------------------------+\n|  +----------+  +----------+  +----------+  +----------+  +----------+  +--------+ |\n|  | Desktop  |  | Mobile   |  |   Web    |  |   CLI    |  |  IM Bots |  |  Other | |\n|  | (mac/lnx)|  | iOS/Andr |  | Browser  |  |  TTY     |  | Feishu/  |  |  SDKs  | |\n|  | Windows  |  |          |  |          |  |          |  | TG/Slack |  |        | |\n|  +----------+  +----------+  +----------+  +----------+  +----------+  +--------+ |\n+----------------------------------------------------------------------------------+\n        |                                    |\n        |                                    |\n   +----+----+                          +----+----+\n   |  LOCAL  |                          | SERVICE |\n   |  MODE   |                          |  MODE   |\n   | (Device)|                          | (Cloud) |\n   +----+----+                          +----+----+\n        |                                    |\n        +----------------+-------------------+\n                         |\n                         v\n+----------------------------------------------------------------------------------+\n|                                  AGENT GATEWAY                                   |\n|  +------------------+  +------------------+  +------------------+  +-----------+ |\n|  | Auth & Tenancy   |  | Routing & Policy |  | Rate Limit & QoS |  | API Mgmt | |\n|  +------------------+  +------------------+  +------------------+  +-----------+ |\n|  +------------------+  +------------------+  +------------------+              |\n|  | Session Manager  |  | Context Broker   |  | Tool Registry    |              |\n|  +------------------+  +------------------+  +------------------+              |\n+----------------------------------------------------------------------------------+\n                                       |\n                                       v\n+----------------------------------------------------------------------------------+\n|                              AI AGENT FRAMEWORK (Rust)                           |\n|                                                                                  |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|   |       TOOLS        |     |       SKILLS       |     |      MEMORY        |   |\n|   | (exec, file, db)   |     | (domain modules)   |     | (short/long term)   |   |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|                                                                                  |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|   |      CONTEXT       |     |   OBSERVABILITY    |     |        LLM         |   |\n|   | (state & buffers)  |     | (logs/metrics)     |     | (local/service)    |   |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|                                                                                  |\n|                         +------------------------------+                         |\n|                         |          AGENT LOOP          |                         |\n|                         |  Plan -> Act -> Observe ->   |                         |\n|                         |  Reflect -> Update Context   |                         |\n|                         +------------------------------+                         |\n|                                                                                  |\n+----------------------------------------------------------------------------------+\n```\n\nImportant Notes:\n\nThe entire project is cur$$rently undergoing a refactoring process. New code for both the AI ​​agent (AGENT GATEWAY) and AI agent (FRAMEWORK) needs to be implemented in Rust.\n\n## Technology Stack\n\n### Frontend\n\n- Framework: React 19\n- Language: TypeScript\n- Styling: Tailwind CSS + Shadcn UI\n- Testing: Vitest\n- State Management: Zustand\n\n### Backend\n\n- Framework: Tauri 2\n- Language: Rust\n\n### Database\n\n- Type: SQLite\n\n## Project Structure\n\n```\ntalkcody/\n│\n├── src/                    # Main source code directory\n│   ├── components/         # React UI components\n│   ├── hooks/              # Custom React hooks\n│   ├── lib/                # Utility functions and shared logic\n│   ├── pages/              # Page components\n│   ├── styles/             # Global styles and CSS\n│   └── types/              # TypeScript type definitions\n|   ├── services/           # AI, database and other services\n|   ├── utils/\n│\n├── src-tauri/              # Rust backend code\n│   ├── src/                # Rust source files\n│   ├── Cargo.toml\n│   └── tauri.conf.json\n|   package.json\n|   tsconfig.json\n|   vite.config.ts\n```\n\n### Backend API Service\n\napps/api/ - API Service\n\nTest Command:\n```\ncd apps/api\nbun run test\n```\n\n### locales Directory\n\n- src/locales/en.ts - English locale file\n- src/locales/zh.ts - Chinese locale file\n- src/locales/types.ts - Locale type definitions\n- src/hooks/use-locale.ts\n...\n[trimmed]\n...\no run all tests and ensure functionality.\n\n### bun run lint Fixes\n\n- Cannot modify the rules in biome.json; only fix code to pass lint checks.\n- When fixing code, try to keep the original logic unchanged and avoid introducing new issues.\n- Perform fixes in parallel as much as possible to reduce fixing time.\n- Do not use biome's unsafe fixes; you should manually fix the code.\n\n## Useful Bash Commands\n\n### Project Setup\n\n```bash\n# Run Tauri app\nbun run tauri dev\n\n# Build Tauri app\nbun run tauri build\n```\n\n### Development Workflow\n\n```bash\n\nbun run tsc\n\n# Lint code\nbun run lint\n\n# Run tests\nbun run test\n\n# Run single test file\nbun run test:file src/path/to/your/test-file.test.tsx\n\n# build\nbun run build\n```\n\nNote: You couldn't use `bun test` command. must use `bun run test` instead.\n\n### Log Directory\n\nTalkCody runtime log path:\n\n```\n~/Library/Logs/com.talkcody/talkcody.log\n```\n\nThe log in macOS dev env:\n\n```\n~/Library/Logs/com.com.talkcody.dev/TalkCody\\ Dev.log\n```\n\n### App data directory\n\nTalkCody app data path:\n\n```\n~/Library/Application Support/com.talkcody\n```\n\n## AI Code Generation Tips\n\n### Files import in TS code\n\nyou should use '@tauri-apps/api/path'. like this:\n\n```typescript\nimport { join, normalize, isAbsolute, appDataDir, dirname} from '@tauri-apps/api/path';\n```\n\n\nWhen generating code, consider:\n\n- Follow React functional component patterns\n- Use Tailwind CSS for styling\n- Implement responsive design\n- UI must support dark mode\n- Use accurate type definitions and do not use `any` types\n- Keep components modular and reusable\n- Use zustand for state management in ts\n- Try to avoid using dynamic imports in ts\n- User-visible messages and text need to support both English and Chinese.\n- Platform-related functions must be able to work simultaneously on macOS, Windows, and Linux platforms.\n- when handle the file path, should consider the windows path separator `\\` and the unix path separator `/`.\n- when serde the rust command, your serialization format should be compatible with TS.\n  - example:\n  ```\n #[derive(Debug, Clone, Serialize, Deserialize)]\n pub struct ContextCompactionResult {\n     #[serde(rename = \"compressedSummary\")]\n     pub compressed_summary: String,\n }\n```\n- when need fetch in ts, use `simpleFetch` from `@/lib/tauri-fetch`, not `fetch`.\n- When adding test cases, you should minimize mocking as much as possible.\n</project>\n\nIMPORTANT: You MUST respond in English.",
+          "role": "system"
+        },
+        {
+          "content": "请生成一张介绍 talkcody的手绘风格的图片",
+          "role": "user"
+        },
+        {
+          "content": "我来帮您生成一张介绍TalkCody的手绘风格图片。为了让图片更符合您的需求，我需要了解一些细节：",
+          "reasoning_content": "用户想要生成一张介绍TalkCody的手绘风格图片。为了生成符合用户需求的图片，我需要先询问用户一些细节信息，比如：\n\n1. 图片中应该包含哪些TalkCody相关的元素？（比如架构图、界面截图、logo等）\n2. 色彩偏好\n3. 构图/布局偏好\n4. 图片尺寸要求\n\n让我先询问用户这些问题。",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"questions\":[{\"header\":\"视觉风格\",\"id\":\"visual_style\",\"multiSelect\":false,\"options\":[{\"description\":\"随意、手绘感的涂鸦效果\",\"label\":\"涂鸦风格\"},{\"description\":\"铅笔手绘的精细素描风格\",\"label\":\"铅笔素描\"},{\"description\":\"色彩鲜艳的马克笔手绘效果\",\"label\":\"马克笔手绘\"},{\"description\":\"柔和的水彩画风格\",\"label\":\"水彩手绘\"}],\"question\":\"您希望图片的视觉风格是？\"},{\"header\":\"内容元素\",\"id\":\"content_elements\",\"multiSelect\":true,\"options\":[{\"description\":\"展示TalkCody的多层架构\",\"label\":\"系统架构图\"},{\"description\":\"展示桌面、移动端等UI界面\",\"label\":\"UI界面草图\"},{\"description\":\"Tools、Skills、Memory等模块\",\"label\":\"AI Agent核心概念\"},{\"description\":\"突出TalkCody品牌标识\",\"label\":\"Logo和品牌名称\"}],\"question\":\"图片中应该包含哪些TalkCody相关元素？\"},{\"header\":\"配色方案\",\"id\":\"color_scheme\",\"multiSelect\":false,\"options\":[{\"description\":\"橙色、黄色、红色等温暖色调\",\"label\":\"暖色调\"},{\"description\":\"蓝色、绿色、紫色等冷色调\",\"label\":\"冷色调\"},{\"description\":\"经典黑白手绘风格\",\"label\":\"黑白灰\"},{\"description\":\"丰富的彩色手绘效果\",\"label\":\"多彩活力\"}],\"question\":\"您偏好什么样的配色方案？\"},{\"header\":\"图片尺寸\",\"id\":\"image_size\",\"multiSelect\":false,\"options\":[{\"description\":\"16:9 横向图片，适合PPT展示\",\"label\":\"演示文稿/幻灯片\"},{\"description\":\"1:1 正方形图片\",\"label\":\"社交媒体分享\"},{\"description\":\"适合插入文档的通用比例\",\"label\":\"文档插图\"}],\"question\":\"图片用于什么场景？\"}]}",
+                "name": "askUserQuestions"
+              },
+              "id": "tool_an83hP7oliM0DiN5EXO9fIL6",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\n  \"visual_style\": {\n    \"selectedOptions\": [\n      \"水彩手绘\"\n    ]\n  },\n  \"content_elements\": {\n    \"selectedOptions\": [\n      \"系统架构图\"\n    ]\n  },\n  \"color_scheme\": {\n    \"selectedOptions\": [\n      \"暖色调\"\n    ]\n  },\n  \"image_size\": {\n    \"selectedOptions\": [\n      \"演示文稿/幻灯片\"\n    ]\n  }\n}",
+          "role": "tool",
+          "tool_call_id": "tool_an83hP7oliM0DiN5EXO9fIL6"
+        },
+        {
+          "content": "好的，我已经了解了您的需求。现在为您生成一张水彩手绘风格的TalkCody系统架构图：",
+          "reasoning_content": "用户选择了：\n1. 视觉风格：水彩手绘\n2. 内容元素：系统架构图\n3. 配色方案：暖色调\n4. 图片尺寸：演示文稿/幻灯片（16:9横向）\n\n现在我需要根据这些要求生成图片。根据项目信息，TalkCody是一个AI Agent架构，包含：\n- UI客户端层（Desktop, Mobile, Web, CLI, IM Bots）\n- 部署模式（Local Mode, Service Mode）\n- Agent Gateway（包含多个组件）\n- AI Agent Framework（Tools, Skills, Memory, Context, Observability, LLM, Agent Loop）\n\n我需要创建一个水彩手绘风格的架构图，使用暖色调，16:9横向尺寸。\n\n让我构造一个详细的prompt来生成这张图片。",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"prompt\":\"Watercolor hand-painted style technical architecture diagram of \\\"TalkCody\\\" AI Agent system. Warm color palette with soft orange, amber, golden yellow, and coral tones. The composition shows a layered architecture from top to bottom:\\n\\nTop layer labeled \\\"UI CLIENT LAYER\\\" with soft sketches of Desktop (monitor icon), Mobile (phone icon), Web (browser icon), CLI (terminal icon), and IM Bots (chat bubbles).\\n\\nSecond row shows two branching paths: \\\"LOCAL MODE\\\" (Device) and \\\"SERVICE MODE\\\" (Cloud) connected by flowing watercolor lines.\\n\\nMiddle section shows \\\"AGENT GATEWAY\\\" with connected boxes representing Auth & Tenancy, Routing & Policy, Session Manager, and Tool Registry - painted with loose brush strokes.\\n\\nBottom layer shows \\\"AI AGENT FRAMEWORK\\\" with illustrated modules: TOOLS (wrench icon), SKILLS (star icon), MEMORY (brain/cloud icon), CONTEXT (layers), OBSERVABILITY (eye icon), and LLM (neural network pattern). Central \\\"AGENT LOOP\\\" shows circular arrows with Plan-Act-Observe-Reflect workflow.\\n\\nArtistic watercolor textures with visible brush strokes, paper grain texture, soft bleeding edges, hand-lettered style text labels, warm sunlight atmosphere, white background with subtle cream tint, professional yet artistic technical illustration suitable for presentation slides.\",\"quality\":\"high\",\"size\":\"1792x1024\"}",
+                "name": "imageGeneration"
+              },
+              "id": "tool_3GqrjNs1WX6WGic8K4s36b3d",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\n  \"success\": true,\n  \"provider\": \"google\",\n  \"images\": [\n    {\n      \"filePath\": \"/Users/kks/Library/Application Support/com.talkcody.dev/attachments/generated-1771193279120-1.jpg\",\n      \"filename\": \"generated-1771193279120-1.jpg\",\n      \"size\": 949247,\n      \"mimeType\": \"image/jpeg\",\n      \"revisedPrompt\": null,\n      \"url\": null\n    }\n  ],\n  \"count\": 1,\n  \"attachments\": [\n    {\n      \"id\": \"TcDdSPRdAp\",\n      \"type\": \"image\",\n      \"filename\": \"generated-1771193279120-1.jpg\",\n      \"filePath\": \"/Users/kks/Library/Application Support/com.talkcody.dev/attachments/generated-1771193279120-1.jpg\",\n      \"mimeType\": \"image/jpeg\",\n      \"size\": 949247\n    }\n  ]\n}",
+          "role": "tool",
+          "tool_call_id": "tool_3GqrjNs1WX6WGic8K4s36b3d"
+        }
+      ],
+      "model": "kimi-k2.5",
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 1.0,
+      "tools": [
+        {
+          "function": {
+            "description": "Ask the user one or more questions to gather additional information needed to complete the task.\n\nThis tool should be used when you encounter ambiguities, need clarification, or require more details to proceed effectively. It allows for interactive problem-solving by enabling direct communication with the user.\n\nEach question can have:\n- 2-5 predefined options for the user to choose from\n- Support for single or multiple selection\n- An automatic \"Other\" option for custom text input\n\nUse this tool judiciously to maintain a balance between gathering necessary information and avoiding excessive back-and-forth.",
+            "name": "askUserQuestions",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "questions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "header": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "multiSelect": {
+                        "type": "boolean"
+                      },
+                      "options": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "description": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "description"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "question": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "question",
+                      "header",
+                      "options",
+                      "multiSelect"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "questions"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Generate images using AI image generation models.\n\nSize recommendations for presentations:\n- \"1024x1024\" (1:1) - Square slides\n- \"1792x1024\" (16:9 approx) - Landscape slides (best for PPT)\n- \"1024x1792\" (9:16) - Portrait slides\n\nQuality options:\n- \"standard\" - Standard quality (faster, cheaper)\n- \"hd\" or \"high\" - High quality (better results)",
+            "name": "imageGeneration",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "n": {
+                  "type": "number"
+                },
+                "prompt": {
+                  "type": "string"
+                },
+                "quality": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "prompt"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "top_p": 0.949999988079071
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "cf-cache-status": "DYNAMIC",
+      "server": "cloudflare",
+      "content-type": "text/event-stream;charset=utf-8",
+      "cf-ray": "9ce81f0ecb62cfe1-SJC",
+      "transfer-encoding": "chunked",
+      "date": "Sun, 15 Feb 2026 22:08:01 GMT",
+      "strict-transport-security": "max-age=31536000; includeSubDomains",
+      "connection": "keep-alive",
+      "cache-control": "no-cache"
+    },
+    "sse_events": [
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"图片\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"已经\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"生成\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"成功了\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"。\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"让我\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"告诉\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"用户\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"结果\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"。\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"图片\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"已经\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"生成\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"完成\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"！\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"✨\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"这是一\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"张\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"水彩\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"手绘\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"风格的\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Talk\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"C\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ody\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"系统\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"架构\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"图\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"，\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"特点\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"包括\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"：\\n\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"🎨\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" **\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"风格\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"特点\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"**\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"：\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"-\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"柔和\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"的水\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"彩\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"笔触\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"质感\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"-\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"暖\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"色调\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"配色\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"（\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"橙色\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"琥珀\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"色\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"金黄色\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"珊瑚\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"色\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"）\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"-\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"手绘\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"感的\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"文本\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"标签\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"-\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"纸张\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"纹理\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"效果\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"🏗\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"️\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" **\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"架构\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"内容\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"**\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"：\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"-\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"顶部\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"展示了\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" UI\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"客户端\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"层\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"（\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Desktop\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Mobile\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Web\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"CLI\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"IM\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Bots\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"）\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"-\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"中间\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"展示了\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Local\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Mode\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"和\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Service\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Mode\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"两种\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"部署\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"模式\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"-\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Agent\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Gateway\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"核心\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"组件\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"-\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" AI\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Agent\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Framework\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"模块\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"（\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Tools\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Skills\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Memory\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Context\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"Obs\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"erv\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ability\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"LL\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"M\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"）\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"-\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"中心的\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Agent\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Loop\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"工作\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"流\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"循环\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"📐\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" **\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"尺寸\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"**：\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"16\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\":\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"9\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"横向\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"比例\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"，\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"非常适合\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"用于\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"演示\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"文稿\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"/P\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"PT\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"展示\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"\\n\\n\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"图片\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"已\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"保存\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"至\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"您的\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" Talk\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"C\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"ody\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\" \"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"应用\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"目录\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"中\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"。\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"如需\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"调整\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"任何\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"细节\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"（\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"如\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"颜色\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"、\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"布局\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"或\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"元素\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"），\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"请\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"告诉我\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{\"content\":\"！\"},\"finish_reason\":null}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"stop\",\"usage\":{\"prompt_tokens\":3764,\"completion_tokens\":212,\"total_tokens\":3976,\"cached_tokens\":2816}}],\"system_fingerprint\":\"fpv0_f7e5c49a\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"id\":\"chatcmpl-Pv8nWx4VOJln8TXuw8E78f7v\",\"object\":\"chat.completion.chunk\",\"created\":1771193280,\"model\":\"kimi-for-coding\",\"choices\":[],\"usage\":{\"prompt_tokens\":3764,\"completion_tokens\":212,\"total_tokens\":3976,\"cached_tokens\":2816}}"
+      },
+      {
+        "event": null,
+        "data": "[DONE]"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "kimi-k2.5",
+    "messages": [
+      {
+        "role": "system",
+        "content": "\n# Role and Identity\n\nYou are a professional AI image generator—an intelligent agent focused on generating high-quality images.\n\nYour goal is to generate images that meet user requirements.\n\n---\n\n# User Interaction Standards\n\n## Requirements Gathering\n\nWhen user descriptions are unclear or incomplete, please use askUserQuestionsTool to gather the following information:\n\n- **Visual Style**: Realistic, cartoon, abstract art style preferences\n\n- **Color Scheme**: Warm/cool tones, specific colors, monochromatic preferences\n\n- **Composition**: Layout preferences, focal point, perspective\n\n- **Technical Specifications**: Image size, aspect ratio, quality requirements\n\n- **Application Scenarios**: Intended use, audience, atmosphere\n\n---\n\n# Tool Usage Strategy\n\n## Using askUserQuestionsTool to Gather Requirements\n\n**When to Use askUserQuestionsTool:**\n\n- User description is too vague or unclear\n\n- Missing key visual elements (style, color, composition)\n\n- User requests clarification of technical specifications\n\n- Multiple interpretation options exist\n\n**Question Categories:**\n\n1. **Style and Aesthetics**: Art style, realism, visual techniques\n\n2. **Color and Atmosphere**: Color preferences, hue, atmosphere\n\n3. **Composition and Layout:** Perspective, Focus, Layout\n\n4. **Technical Requirements:** Size, Quality, Formatting Preferences\n\n## Question Design Principles\n\n### Keep Questions Focused\n\n- Maximum 4 questions per interaction\n\n- 2-5 options per question\n\n- Mix single and multiple selections\n\n- Include an \"Other\" option for custom input\n\n## Using imageGeneration Tool\n\n- After requirements are clear, call imageGeneration to create the image.\n- Provide a detailed prompt with style, color, and composition.\n- Specify size, quality, and model only when the user requests it.\n\n\n---\n\nIMPORTANT: Here is important information about the environment you are running in:\n<env>\n<working_directory>/Users/kks/mygit/talkcody</working_directory>\n<is_git_repo>Yes</is_git_repo>\n<platform>mac_arm</platform>\n<today_date>2026-02-15</today_date>\n<plan_mode>TRUE</plan_mode>\n</env>\n\n---\n\n## Markdown Context\n\n<project>\n# Project Development Guide for AI Agents\n\n## Project Overview\n\nTalkCody 1.0 adopts a unified AI Agent architecture that supports both **Local** and **Service** deployment modes. All UI clients (Desktop, Mobile, Web, CLI, IM bots) function as thin interaction layers, communicating with the backend Agent service through a unified interface.\n\n## Architecture Diagram\n\n```\n+----------------------------------------------------------------------------------+\n|                                 UI / CLIENT LAYER                                |\n+----------------------------------------------------------------------------------+\n|  +----------+  +----------+  +----------+  +----------+  +----------+  +--------+ |\n|  | Desktop  |  | Mobile   |  |   Web    |  |   CLI    |  |  IM Bots |  |  Other | |\n|  | (mac/lnx)|  | iOS/Andr |  | Browser  |  |  TTY     |  | Feishu/  |  |  SDKs  | |\n|  | Windows  |  |          |  |          |  |          |  | TG/Slack |  |        | |\n|  +----------+  +----------+  +----------+  +----------+  +----------+  +--------+ |\n+----------------------------------------------------------------------------------+\n        |                                    |\n        |                                    |\n   +----+----+                          +----+----+\n   |  LOCAL  |                          | SERVICE |\n   |  MODE   |                          |  MODE   |\n   | (Device)|                          | (Cloud) |\n   +----+----+                          +----+----+\n        |                                    |\n        +----------------+-------------------+\n                         |\n                         v\n+----------------------------------------------------------------------------------+\n|                                  AGENT GATEWAY                                   |\n|  +------------------+  +------------------+  +------------------+  +-----------+ |\n|  | Auth & Tenancy   |  | Routing & Policy |  | Rate Limit & QoS |  | API Mgmt | |\n|  +------------------+  +------------------+  +------------------+  +-----------+ |\n|  +------------------+  +------------------+  +------------------+              |\n|  | Session Manager  |  | Context Broker   |  | Tool Registry    |              |\n|  +------------------+  +------------------+  +------------------+              |\n+----------------------------------------------------------------------------------+\n                                       |\n                                       v\n+----------------------------------------------------------------------------------+\n|                              AI AGENT FRAMEWORK (Rust)                           |\n|                                                                                  |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|   |       TOOLS        |     |       SKILLS       |     |      MEMORY        |   |\n|   | (exec, file, db)   |     | (domain modules)   |     | (short/long term)   |   |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|                                                                                  |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|   |      CONTEXT       |     |   OBSERVABILITY    |     |        LLM         |   |\n|   | (state & buffers)  |     | (logs/metrics)     |     | (local/service)    |   |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|                                                                                  |\n|                         +------------------------------+                         |\n|                         |          AGENT LOOP          |                         |\n|                         |  Plan -> Act -> Observe ->   |                         |\n|                         |  Reflect -> Update Context   |                         |\n|                         +------------------------------+                         |\n|                                                                                  |\n+----------------------------------------------------------------------------------+\n```\n\nImportant Notes:\n\nThe entire project is cur$$rently undergoing a refactoring process. New code for both the AI ​​agent (AGENT GATEWAY) and AI agent (FRAMEWORK) needs to be implemented in Rust.\n\n## Technology Stack\n\n### Frontend\n\n- Framework: React 19\n- Language: TypeScript\n- Styling: Tailwind CSS + Shadcn UI\n- Testing: Vitest\n- State Management: Zustand\n\n### Backend\n\n- Framework: Tauri 2\n- Language: Rust\n\n### Database\n\n- Type: SQLite\n\n## Project Structure\n\n```\ntalkcody/\n│\n├── src/                    # Main source code directory\n│   ├── components/         # React UI components\n│   ├── hooks/              # Custom React hooks\n│   ├── lib/                # Utility functions and shared logic\n│   ├── pages/              # Page components\n│   ├── styles/             # Global styles and CSS\n│   └── types/              # TypeScript type definitions\n|   ├── services/           # AI, database and other services\n|   ├── utils/\n│\n├── src-tauri/              # Rust backend code\n│   ├── src/                # Rust source files\n│   ├── Cargo.toml\n│   └── tauri.conf.json\n|   package.json\n|   tsconfig.json\n|   vite.config.ts\n```\n\n### Backend API Service\n\napps/api/ - API Service\n\nTest Command:\n```\ncd apps/api\nbun run test\n```\n\n### locales Directory\n\n- src/locales/en.ts - English locale file\n- src/locales/zh.ts - Chinese locale file\n- src/locales/types.ts - Locale type definitions\n- src/hooks/use-locale.ts\n...\n[trimmed]\n...\no run all tests and ensure functionality.\n\n### bun run lint Fixes\n\n- Cannot modify the rules in biome.json; only fix code to pass lint checks.\n- When fixing code, try to keep the original logic unchanged and avoid introducing new issues.\n- Perform fixes in parallel as much as possible to reduce fixing time.\n- Do not use biome's unsafe fixes; you should manually fix the code.\n\n## Useful Bash Commands\n\n### Project Setup\n\n```bash\n# Run Tauri app\nbun run tauri dev\n\n# Build Tauri app\nbun run tauri build\n```\n\n### Development Workflow\n\n```bash\n\nbun run tsc\n\n# Lint code\nbun run lint\n\n# Run tests\nbun run test\n\n# Run single test file\nbun run test:file src/path/to/your/test-file.test.tsx\n\n# build\nbun run build\n```\n\nNote: You couldn't use `bun test` command. must use `bun run test` instead.\n\n### Log Directory\n\nTalkCody runtime log path:\n\n```\n~/Library/Logs/com.talkcody/talkcody.log\n```\n\nThe log in macOS dev env:\n\n```\n~/Library/Logs/com.com.talkcody.dev/TalkCody\\ Dev.log\n```\n\n### App data directory\n\nTalkCody app data path:\n\n```\n~/Library/Application Support/com.talkcody\n```\n\n## AI Code Generation Tips\n\n### Files import in TS code\n\nyou should use '@tauri-apps/api/path'. like this:\n\n```typescript\nimport { join, normalize, isAbsolute, appDataDir, dirname} from '@tauri-apps/api/path';\n```\n\n\nWhen generating code, consider:\n\n- Follow React functional component patterns\n- Use Tailwind CSS for styling\n- Implement responsive design\n- UI must support dark mode\n- Use accurate type definitions and do not use `any` types\n- Keep components modular and reusable\n- Use zustand for state management in ts\n- Try to avoid using dynamic imports in ts\n- User-visible messages and text need to support both English and Chinese.\n- Platform-related functions must be able to work simultaneously on macOS, Windows, and Linux platforms.\n- when handle the file path, should consider the windows path separator `\\` and the unix path separator `/`.\n- when serde the rust command, your serialization format should be compatible with TS.\n  - example:\n  ```\n #[derive(Debug, Clone, Serialize, Deserialize)]\n pub struct ContextCompactionResult {\n     #[serde(rename = \"compressedSummary\")]\n     pub compressed_summary: String,\n }\n```\n- when need fetch in ts, use `simpleFetch` from `@/lib/tauri-fetch`, not `fetch`.\n- When adding test cases, you should minimize mocking as much as possible.\n</project>\n\nIMPORTANT: You MUST respond in English.",
+        "providerOptions": {
+          "anthropic": {
+            "cacheControl": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "user",
+        "content": "请生成一张介绍 talkcody的手绘风格的图片",
+        "providerOptions": null
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "我来帮您生成一张介绍TalkCody的手绘风格图片。为了让图片更符合您的需求，我需要了解一些细节："
+          },
+          {
+            "type": "tool-call",
+            "toolCallId": "tool_an83hP7oliM0DiN5EXO9fIL6",
+            "toolName": "askUserQuestions",
+            "input": {
+              "questions": [
+                {
+                  "header": "视觉风格",
+                  "id": "visual_style",
+                  "multiSelect": false,
+                  "options": [
+                    {
+                      "description": "随意、手绘感的涂鸦效果",
+                      "label": "涂鸦风格"
+                    },
+                    {
+                      "description": "铅笔手绘的精细素描风格",
+                      "label": "铅笔素描"
+                    },
+                    {
+                      "description": "色彩鲜艳的马克笔手绘效果",
+                      "label": "马克笔手绘"
+                    },
+                    {
+                      "description": "柔和的水彩画风格",
+                      "label": "水彩手绘"
+                    }
+                  ],
+                  "question": "您希望图片的视觉风格是？"
+                },
+                {
+                  "header": "内容元素",
+                  "id": "content_elements",
+                  "multiSelect": true,
+                  "options": [
+                    {
+                      "description": "展示TalkCody的多层架构",
+                      "label": "系统架构图"
+                    },
+                    {
+                      "description": "展示桌面、移动端等UI界面",
+                      "label": "UI界面草图"
+                    },
+                    {
+                      "description": "Tools、Skills、Memory等模块",
+                      "label": "AI Agent核心概念"
+                    },
+                    {
+                      "description": "突出TalkCody品牌标识",
+                      "label": "Logo和品牌名称"
+                    }
+                  ],
+                  "question": "图片中应该包含哪些TalkCody相关元素？"
+                },
+                {
+                  "header": "配色方案",
+                  "id": "color_scheme",
+                  "multiSelect": false,
+                  "options": [
+                    {
+                      "description": "橙色、黄色、红色等温暖色调",
+                      "label": "暖色调"
+                    },
+                    {
+                      "description": "蓝色、绿色、紫色等冷色调",
+                      "label": "冷色调"
+                    },
+                    {
+                      "description": "经典黑白手绘风格",
+                      "label": "黑白灰"
+                    },
+                    {
+                      "description": "丰富的彩色手绘效果",
+                      "label": "多彩活力"
+                    }
+                  ],
+                  "question": "您偏好什么样的配色方案？"
+                },
+                {
+                  "header": "图片尺寸",
+                  "id": "image_size",
+                  "multiSelect": false,
+                  "options": [
+                    {
+                      "description": "16:9 横向图片，适合PPT展示",
+                      "label": "演示文稿/幻灯片"
+                    },
+                    {
+                      "description": "1:1 正方形图片",
+                      "label": "社交媒体分享"
+                    },
+                    {
+                      "description": "适合插入文档的通用比例",
+                      "label": "文档插图"
+                    }
+                  ],
+                  "question": "图片用于什么场景？"
+                }
+              ]
+            },
+            "provider_metadata": null
+          }
+        ],
+        "providerOptions": {
+          "openaiCompatible": {
+            "reasoning_content": "用户想要生成一张介绍TalkCody的手绘风格图片。为了生成符合用户需求的图片，我需要先询问用户一些细节信息，比如：\n\n1. 图片中应该包含哪些TalkCody相关的元素？（比如架构图、界面截图、logo等）\n2. 色彩偏好\n3. 构图/布局偏好\n4. 图片尺寸要求\n\n让我先询问用户这些问题。"
+          }
+        }
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool-result",
+            "toolCallId": "tool_an83hP7oliM0DiN5EXO9fIL6",
+            "toolName": "askUserQuestions",
+            "output": {
+              "type": "text",
+              "value": "{\n  \"visual_style\": {\n    \"selectedOptions\": [\n      \"水彩手绘\"\n    ]\n  },\n  \"content_elements\": {\n    \"selectedOptions\": [\n      \"系统架构图\"\n    ]\n  },\n  \"color_scheme\": {\n    \"selectedOptions\": [\n      \"暖色调\"\n    ]\n  },\n  \"image_size\": {\n    \"selectedOptions\": [\n      \"演示文稿/幻灯片\"\n    ]\n  }\n}"
+            }
+          }
+        ],
+        "providerOptions": null
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "好的，我已经了解了您的需求。现在为您生成一张水彩手绘风格的TalkCody系统架构图："
+          },
+          {
+            "type": "tool-call",
+            "toolCallId": "tool_3GqrjNs1WX6WGic8K4s36b3d",
+            "toolName": "imageGeneration",
+            "input": {
+              "prompt": "Watercolor hand-painted style technical architecture diagram of \"TalkCody\" AI Agent system. Warm color palette with soft orange, amber, golden yellow, and coral tones. The composition shows a layered architecture from top to bottom:\n\nTop layer labeled \"UI CLIENT LAYER\" with soft sketches of Desktop (monitor icon), Mobile (phone icon), Web (browser icon), CLI (terminal icon), and IM Bots (chat bubbles).\n\nSecond row shows two branching paths: \"LOCAL MODE\" (Device) and \"SERVICE MODE\" (Cloud) connected by flowing watercolor lines.\n\nMiddle section shows \"AGENT GATEWAY\" with connected boxes representing Auth & Tenancy, Routing & Policy, Session Manager, and Tool Registry - painted with loose brush strokes.\n\nBottom layer shows \"AI AGENT FRAMEWORK\" with illustrated modules: TOOLS (wrench icon), SKILLS (star icon), MEMORY (brain/cloud icon), CONTEXT (layers), OBSERVABILITY (eye icon), and LLM (neural network pattern). Central \"AGENT LOOP\" shows circular arrows with Plan-Act-Observe-Reflect workflow.\n\nArtistic watercolor textures with visible brush strokes, paper grain texture, soft bleeding edges, hand-lettered style text labels, warm sunlight atmosphere, white background with subtle cream tint, professional yet artistic technical illustration suitable for presentation slides.",
+              "quality": "high",
+              "size": "1792x1024"
+            },
+            "provider_metadata": null
+          }
+        ],
+        "providerOptions": {
+          "openaiCompatible": {
+            "reasoning_content": "用户选择了：\n1. 视觉风格：水彩手绘\n2. 内容元素：系统架构图\n3. 配色方案：暖色调\n4. 图片尺寸：演示文稿/幻灯片（16:9横向）\n\n现在我需要根据这些要求生成图片。根据项目信息，TalkCody是一个AI Agent架构，包含：\n- UI客户端层（Desktop, Mobile, Web, CLI, IM Bots）\n- 部署模式（Local Mode, Service Mode）\n- Agent Gateway（包含多个组件）\n- AI Agent Framework（Tools, Skills, Memory, Context, Observability, LLM, Agent Loop）\n\n我需要创建一个水彩手绘风格的架构图，使用暖色调，16:9横向尺寸。\n\n让我构造一个详细的prompt来生成这张图片。"
+          }
+        }
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool-result",
+            "toolCallId": "tool_3GqrjNs1WX6WGic8K4s36b3d",
+            "toolName": "imageGeneration",
+            "output": {
+              "type": "text",
+              "value": "{\n  \"success\": true,\n  \"provider\": \"google\",\n  \"images\": [\n    {\n      \"filePath\": \"/Users/kks/Library/Application Support/com.talkcody.dev/attachments/generated-1771193279120-1.jpg\",\n      \"filename\": \"generated-1771193279120-1.jpg\",\n      \"size\": 949247,\n      \"mimeType\": \"image/jpeg\",\n      \"revisedPrompt\": null,\n      \"url\": null\n    }\n  ],\n  \"count\": 1,\n  \"attachments\": [\n    {\n      \"id\": \"TcDdSPRdAp\",\n      \"type\": \"image\",\n      \"filename\": \"generated-1771193279120-1.jpg\",\n      \"filePath\": \"/Users/kks/Library/Application Support/com.talkcody.dev/attachments/generated-1771193279120-1.jpg\",\n      \"mimeType\": \"image/jpeg\",\n      \"size\": 949247\n    }\n  ]\n}"
+            }
+          }
+        ],
+        "providerOptions": null
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "name": "askUserQuestions",
+        "description": "Ask the user one or more questions to gather additional information needed to complete the task.\n\nThis tool should be used when you encounter ambiguities, need clarification, or require more details to proceed effectively. It allows for interactive problem-solving by enabling direct communication with the user.\n\nEach question can have:\n- 2-5 predefined options for the user to choose from\n- Support for single or multiple selection\n- An automatic \"Other\" option for custom text input\n\nUse this tool judiciously to maintain a balance between gathering necessary information and avoiding excessive back-and-forth.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "questions": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "header": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "multiSelect": {
+                    "type": "boolean"
+                  },
+                  "options": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "description"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "question": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "question",
+                  "header",
+                  "options",
+                  "multiSelect"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "questions"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "imageGeneration",
+        "description": "Generate images using AI image generation models.\n\nSize recommendations for presentations:\n- \"1024x1024\" (1:1) - Square slides\n- \"1792x1024\" (16:9 approx) - Landscape slides (best for PPT)\n- \"1024x1792\" (9:16) - Portrait slides\n\nQuality options:\n- \"standard\" - Standard quality (faster, cheaper)\n- \"hd\" or \"high\" - High quality (better results)",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "n": {
+              "type": "number"
+            },
+            "prompt": {
+              "type": "string"
+            },
+            "quality": {
+              "type": "string"
+            },
+            "size": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "prompt"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      }
+    ],
+    "temperature": 1.0,
+    "max_tokens": 15000,
+    "top_p": 0.95,
+    "top_k": null,
+    "provider_options": {
+      "anthropic": {
+        "thinking": {
+          "budgetTokens": 12000,
+          "type": "enabled"
+        }
+      },
+      "google": {
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingBudget": 8192
+        }
+      },
+      "moonshot": {
+        "temperature": 1,
+        "thinking": {
+          "type": "enabled"
+        }
+      }
+    },
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "reasoning-start",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "text": "图片",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "text": "已经",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "text": "生成",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "text": "成功了",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "text": "。",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "text": "让我",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "text": "告诉",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "text": "用户",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "text": "结果",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42",
+      "text": "。",
+      "provider_metadata": null
+    },
+    {
+      "type": "text-start"
+    },
+    {
+      "type": "text-delta",
+      "text": "图片"
+    },
+    {
+      "type": "text-delta",
+      "text": "已经"
+    },
+    {
+      "type": "text-delta",
+      "text": "生成"
+    },
+    {
+      "type": "text-delta",
+      "text": "完成"
+    },
+    {
+      "type": "text-delta",
+      "text": "！"
+    },
+    {
+      "type": "text-delta",
+      "text": "✨"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "这是一"
+    },
+    {
+      "type": "text-delta",
+      "text": "张"
+    },
+    {
+      "type": "text-delta",
+      "text": "水彩"
+    },
+    {
+      "type": "text-delta",
+      "text": "手绘"
+    },
+    {
+      "type": "text-delta",
+      "text": "风格的"
+    },
+    {
+      "type": "text-delta",
+      "text": " Talk"
+    },
+    {
+      "type": "text-delta",
+      "text": "C"
+    },
+    {
+      "type": "text-delta",
+      "text": "ody"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "系统"
+    },
+    {
+      "type": "text-delta",
+      "text": "架构"
+    },
+    {
+      "type": "text-delta",
+      "text": "图"
+    },
+    {
+      "type": "text-delta",
+      "text": "，"
+    },
+    {
+      "type": "text-delta",
+      "text": "特点"
+    },
+    {
+      "type": "text-delta",
+      "text": "包括"
+    },
+    {
+      "type": "text-delta",
+      "text": "：\n\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "🎨"
+    },
+    {
+      "type": "text-delta",
+      "text": " **"
+    },
+    {
+      "type": "text-delta",
+      "text": "风格"
+    },
+    {
+      "type": "text-delta",
+      "text": "特点"
+    },
+    {
+      "type": "text-delta",
+      "text": "**"
+    },
+    {
+      "type": "text-delta",
+      "text": "：\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "-"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "柔和"
+    },
+    {
+      "type": "text-delta",
+      "text": "的水"
+    },
+    {
+      "type": "text-delta",
+      "text": "彩"
+    },
+    {
+      "type": "text-delta",
+      "text": "笔触"
+    },
+    {
+      "type": "text-delta",
+      "text": "质感"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "-"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "暖"
+    },
+    {
+      "type": "text-delta",
+      "text": "色调"
+    },
+    {
+      "type": "text-delta",
+      "text": "配色"
+    },
+    {
+      "type": "text-delta",
+      "text": "（"
+    },
+    {
+      "type": "text-delta",
+      "text": "橙色"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "琥珀"
+    },
+    {
+      "type": "text-delta",
+      "text": "色"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "金黄色"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "珊瑚"
+    },
+    {
+      "type": "text-delta",
+      "text": "色"
+    },
+    {
+      "type": "text-delta",
+      "text": "）\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "-"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "手绘"
+    },
+    {
+      "type": "text-delta",
+      "text": "感的"
+    },
+    {
+      "type": "text-delta",
+      "text": "文本"
+    },
+    {
+      "type": "text-delta",
+      "text": "标签"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "-"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "纸张"
+    },
+    {
+      "type": "text-delta",
+      "text": "纹理"
+    },
+    {
+      "type": "text-delta",
+      "text": "效果"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "🏗"
+    },
+    {
+      "type": "text-delta",
+      "text": "️"
+    },
+    {
+      "type": "text-delta",
+      "text": " **"
+    },
+    {
+      "type": "text-delta",
+      "text": "架构"
+    },
+    {
+      "type": "text-delta",
+      "text": "内容"
+    },
+    {
+      "type": "text-delta",
+      "text": "**"
+    },
+    {
+      "type": "text-delta",
+      "text": "：\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "-"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "顶部"
+    },
+    {
+      "type": "text-delta",
+      "text": "展示了"
+    },
+    {
+      "type": "text-delta",
+      "text": " UI"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "客户端"
+    },
+    {
+      "type": "text-delta",
+      "text": "层"
+    },
+    {
+      "type": "text-delta",
+      "text": "（"
+    },
+    {
+      "type": "text-delta",
+      "text": "Desktop"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "Mobile"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "Web"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "CLI"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "IM"
+    },
+    {
+      "type": "text-delta",
+      "text": " Bots"
+    },
+    {
+      "type": "text-delta",
+      "text": "）\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "-"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "中间"
+    },
+    {
+      "type": "text-delta",
+      "text": "展示了"
+    },
+    {
+      "type": "text-delta",
+      "text": " Local"
+    },
+    {
+      "type": "text-delta",
+      "text": " Mode"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "和"
+    },
+    {
+      "type": "text-delta",
+      "text": " Service"
+    },
+    {
+      "type": "text-delta",
+      "text": " Mode"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "两种"
+    },
+    {
+      "type": "text-delta",
+      "text": "部署"
+    },
+    {
+      "type": "text-delta",
+      "text": "模式"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "-"
+    },
+    {
+      "type": "text-delta",
+      "text": " Agent"
+    },
+    {
+      "type": "text-delta",
+      "text": " Gateway"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "核心"
+    },
+    {
+      "type": "text-delta",
+      "text": "组件"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "-"
+    },
+    {
+      "type": "text-delta",
+      "text": " AI"
+    },
+    {
+      "type": "text-delta",
+      "text": " Agent"
+    },
+    {
+      "type": "text-delta",
+      "text": " Framework"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "模块"
+    },
+    {
+      "type": "text-delta",
+      "text": "（"
+    },
+    {
+      "type": "text-delta",
+      "text": "Tools"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "Skills"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "Memory"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "Context"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "Obs"
+    },
+    {
+      "type": "text-delta",
+      "text": "erv"
+    },
+    {
+      "type": "text-delta",
+      "text": "ability"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "LL"
+    },
+    {
+      "type": "text-delta",
+      "text": "M"
+    },
+    {
+      "type": "text-delta",
+      "text": "）\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "-"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "中心的"
+    },
+    {
+      "type": "text-delta",
+      "text": " Agent"
+    },
+    {
+      "type": "text-delta",
+      "text": " Loop"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "工作"
+    },
+    {
+      "type": "text-delta",
+      "text": "流"
+    },
+    {
+      "type": "text-delta",
+      "text": "循环"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "📐"
+    },
+    {
+      "type": "text-delta",
+      "text": " **"
+    },
+    {
+      "type": "text-delta",
+      "text": "尺寸"
+    },
+    {
+      "type": "text-delta",
+      "text": "**："
+    },
+    {
+      "type": "text-delta",
+      "text": "16"
+    },
+    {
+      "type": "text-delta",
+      "text": ":"
+    },
+    {
+      "type": "text-delta",
+      "text": "9"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "横向"
+    },
+    {
+      "type": "text-delta",
+      "text": "比例"
+    },
+    {
+      "type": "text-delta",
+      "text": "，"
+    },
+    {
+      "type": "text-delta",
+      "text": "非常适合"
+    },
+    {
+      "type": "text-delta",
+      "text": "用于"
+    },
+    {
+      "type": "text-delta",
+      "text": "演示"
+    },
+    {
+      "type": "text-delta",
+      "text": "文稿"
+    },
+    {
+      "type": "text-delta",
+      "text": "/P"
+    },
+    {
+      "type": "text-delta",
+      "text": "PT"
+    },
+    {
+      "type": "text-delta",
+      "text": "展示"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "图片"
+    },
+    {
+      "type": "text-delta",
+      "text": "已"
+    },
+    {
+      "type": "text-delta",
+      "text": "保存"
+    },
+    {
+      "type": "text-delta",
+      "text": "至"
+    },
+    {
+      "type": "text-delta",
+      "text": "您的"
+    },
+    {
+      "type": "text-delta",
+      "text": " Talk"
+    },
+    {
+      "type": "text-delta",
+      "text": "C"
+    },
+    {
+      "type": "text-delta",
+      "text": "ody"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "应用"
+    },
+    {
+      "type": "text-delta",
+      "text": "目录"
+    },
+    {
+      "type": "text-delta",
+      "text": "中"
+    },
+    {
+      "type": "text-delta",
+      "text": "。"
+    },
+    {
+      "type": "text-delta",
+      "text": "如需"
+    },
+    {
+      "type": "text-delta",
+      "text": "调整"
+    },
+    {
+      "type": "text-delta",
+      "text": "任何"
+    },
+    {
+      "type": "text-delta",
+      "text": "细节"
+    },
+    {
+      "type": "text-delta",
+      "text": "（"
+    },
+    {
+      "type": "text-delta",
+      "text": "如"
+    },
+    {
+      "type": "text-delta",
+      "text": "颜色"
+    },
+    {
+      "type": "text-delta",
+      "text": "、"
+    },
+    {
+      "type": "text-delta",
+      "text": "布局"
+    },
+    {
+      "type": "text-delta",
+      "text": "或"
+    },
+    {
+      "type": "text-delta",
+      "text": "元素"
+    },
+    {
+      "type": "text-delta",
+      "text": "），"
+    },
+    {
+      "type": "text-delta",
+      "text": "请"
+    },
+    {
+      "type": "text-delta",
+      "text": "告诉我"
+    },
+    {
+      "type": "text-delta",
+      "text": "！"
+    },
+    {
+      "type": "reasoning-end",
+      "id": "reasoning_bff02bc9-1c6f-4bb8-8446-b5ddc1019c42"
+    },
+    {
+      "type": "usage",
+      "input_tokens": 3764,
+      "output_tokens": 212,
+      "total_tokens": 3976,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "done",
+      "finish_reason": "stop"
+    }
+  ]
+}
