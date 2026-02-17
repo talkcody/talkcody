@@ -28,41 +28,44 @@ export interface ChangelogEntry {
 // Only include the most recent versions that users care about
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: '0.4.1',
-    date: '2026-02-11',
+    version: '0.4.2',
+    date: '2026-02-16',
     en: {
       added: [
         {
-          title: 'Video Input Support',
-          description:
-            'Added video input feature, allowing direct generation of frontend pages from videos (currently only Kimi API model is supported, more models will be supported in the next version).',
+          title: 'PPT Generator Agent',
+          description: 'One-click AI-powered PPT generation.',
         },
-        'MiniMax M2.5 Model: Added MiniMax M2.5 model support and set it as the default free model.',
-        'GLM-5 Model: Added GLM-5 series model support.',
+        'Multiple Image Generation Models: Doubao Seedream, GLM Image, Qwen Image Max.',
+        'Qwen 3.5 Plus Model: Added Qwen 3.5 Plus model support.',
+        {
+          title: 'Prompt AI Enhancement',
+          description: 'Enhanced AI prompt generation for better results.',
+        },
+        '[PPT Generator Documentation](/docs/features/ppt-generator)',
+        '[Image Generator Documentation](/docs/features/image-generator)',
       ],
-      changed: ['Made Kimi Coding Plan a separate Provider.'],
       fixed: [
-        'Fixed Issue #50: Fixed terminal panel related bug.',
-        'Fixed Issue #51: Fixed workspace root related bug.',
-        'Fixed Issue #52: Fixed bug where application did not fully exit when window was closed.',
+        'Fixed Compaction Bug: Fixed context compaction related bug.',
+        'Fixed Windows compatibility bug.',
       ],
     },
     zh: {
       added: [
         {
-          title: '视频输入支持',
-          description:
-            '新增视频输入功能，可以直接根据视频生成前端页面（当前只有 Kimi API 模型支持，下个版本将支持更多模型）。',
+          title: 'PPT 生成 Agent',
+          description: '利用 AI 一键生成 PPT。',
         },
-        'MiniMax M2.5 模型：新增 MiniMax M2.5 模型支持，并设为默认免费模型。',
-        'GLM-5 模型：新增 GLM-5 系列模型。',
+        '多个图片生成模型：Doubao Seedream, GLM Image, Qwen Image Max。',
+        'Qwen 3.5 Plus 模型：新增 Qwen 3.5 Plus 模型支持。',
+        {
+          title: 'Prompt AI 增强',
+          description: '对 Prompt AI 进行增强，提升生成效果。',
+        },
+        '[PPT 生成器文档](/zh/docs/features/ppt-generator)',
+        '[图片生成器文档](/zh/docs/features/image-generator)',
       ],
-      changed: ['将 Kimi Coding Plan 作为单独的 Provider。'],
-      fixed: [
-        '修复 Issue #50：修复终端面板相关的 bug。',
-        '修复 Issue #51：修复 workspace root 相关的 bug。',
-        '修复 Issue #52：修复窗口关闭应用没有完全退出的 bug。',
-      ],
+      fixed: ['修复压缩 Bug：修复上下文压缩相关的 bug。', '修复 Windows 兼容性 bug。'],
     },
   },
 ];
