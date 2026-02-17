@@ -4,11 +4,7 @@ import { GenericToolDoing } from '@/components/tools/generic-tool-doing';
 import { GenericToolResult } from '@/components/tools/generic-tool-result';
 import { createTool } from '@/lib/create-tool';
 import { logger } from '@/lib/logger';
-import {
-  isResourcePath,
-  resolveResourcePath,
-  stripResourcePrefix,
-} from '@/lib/tools/resource-paths';
+
 import { repositoryService } from '@/services/repository-service';
 import { normalizeFilePath } from '@/services/repository-utils';
 import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
@@ -146,37 +142,6 @@ You can optionally specify a starting line and number of lines to read a specifi
           content: null,
           message: 'Missing required file_path parameter.',
         };
-      }
-
-      // Handle $RESOURCE prefix for bundled resource files
-      if (isResourcePath(resolvedPath)) {
-        const resourcePath = stripResourcePrefix(resolvedPath);
-        logger.info('Reading resource file', {
-          resourcePath,
-          taskId: context.taskId,
-        });
-        try {
-          const fullPath = await resolveResourcePath(resolvedPath);
-          logger.info('Resolved resource file path', {
-            fullPath,
-            taskId: context.taskId,
-          });
-          const content = await readTextFile(fullPath);
-          return {
-            success: true,
-            file_path: resolvedPath,
-            content,
-            message: `Successfully read resource file: ${resolvedPath}`,
-          };
-        } catch (_error) {
-          logger.error('Error reading resource file:', _error);
-          return {
-            success: false,
-            file_path: resolvedPath,
-            content: null,
-            message: `Resource file not found: ${resourcePath}`,
-          };
-        }
       }
 
       const rootPath = await getEffectiveWorkspaceRoot(context.taskId);

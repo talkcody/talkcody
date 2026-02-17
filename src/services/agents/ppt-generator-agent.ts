@@ -2,23 +2,24 @@ import { getToolSync } from '@/lib/tools';
 import type { AgentDefinition } from '@/types/agent';
 import { ModelType } from '@/types/model-types';
 
-/**
- * PPT Generator Agent - Professional slide deck creator
- *
- * Transforms content into professional slide deck images optimized for reading and sharing.
- * Follows a 9-step workflow with user confirmation at key decision points.
- *
- * Resource files are loaded using $RESOURCE prefix:
- * - $RESOURCE/ppt-references/base-prompt.md
- * - $RESOURCE/ppt-references/outline-template.md
- * - $RESOURCE/ppt-references/design-guidelines.md
- * - $RESOURCE/ppt-references/analysis-framework.md
- * - $RESOURCE/ppt-references/layouts.md
- * - $RESOURCE/ppt-references/styles/{preset}.md
- * - $RESOURCE/ppt-references/dimensions/*.md
- */
 const PPTGeneratorCorePrompt = `
 You are a Presentation Designer AI focused on creating professional slide deck images.
+
+## Skill Management (REQUIRED - Execute First)
+
+Before starting ANY work, ensure the baoyu-slide-deck skill is available:
+
+1. **Check if skill exists**: Use bash to check if the skill directory exists:
+   \`\`\`bash
+   test -d "$HOME/.talkcody/skills/baoyu-slide-deck" && echo "exists"
+   \`\`\`
+
+2. **Install if missing**: If skill does not exist, use installSkill tool to download it:
+   - repository: "JimLiu/baoyu-skills"
+   - path: "skills/baoyu-slide-deck"
+   - skillId: "baoyu-slide-deck"
+
+3. **Use skill resources**: All resource references use $SKILL prefix pointing to ~/.talkcody/skills/baoyu-slide-deck/
 
 ## Design Philosophy
 
@@ -113,9 +114,8 @@ Copy this checklist and track progress:
 
 Slide Deck Progress:
 - [ ] Step 1: Setup & Analyze
-  - [ ] 1.1 Load preferences (EXTEND.md)
-  - [ ] 1.2 Analyze content
-  - [ ] 1.3 Check existing - REQUIRED
+  - [ ] 1.1 Analyze content
+  - [ ] 1.2 Check existing - REQUIRED
 - [ ] Step 2: Confirmation - REQUIRED (Round 1, optional Round 2)
 - [ ] Step 3: Generate outline
 - [ ] Step 4: Review outline (conditional)
@@ -143,17 +143,10 @@ slide-deck/{topic-slug}/
 
 ### Step 1: Setup & Analyze
 
-**1.1 Load Preferences (EXTEND.md)**
-
-Check EXTEND.md existence using bash:
-bash
-test -f .baoyu-skills/baoyu-slide-deck/EXTEND.md && echo "project"
-test -f "$HOME/.baoyu-skills/baoyu-slide-deck/EXTEND.md" && echo "user"
-
-**1.2 Analyze Content**
+**1.1 Analyze Content**
 
 1. Save source content to slide-deck/{topic-slug}/source.md
-2. Read and analyze: $RESOURCE/ppt-references/analysis-framework.md
+2. Read and analyze: $SKILL/references/analysis-framework.md
 3. Analyze content signals for style recommendation
 4. Detect source language
 5. Estimate slide count:
@@ -282,19 +275,14 @@ Ask these questions:
 
 ### Step 3: Generate Outline
 
-1. Read required resources:
-   - $RESOURCE/ppt-references/outline-template.md
-   - $RESOURCE/ppt-references/design-guidelines.md
-2. If preset selected → Read $RESOURCE/ppt-references/styles/{preset}.md
-3. If custom dimensions → Read dimension files from $RESOURCE/ppt-references/dimensions/
+1. Read required resources from skill:
+   - $HOME/.talkcody/skills/references/outline-template.md
+   - $HOME/.talkcody/skills/references/design-guidelines.md
+2. If preset selected → Read $HOME/.talkcody/skills/references/styles/{preset}.md
+3. If custom dimensions → Read dimension files from $HOME/.talkcody/skills/references/dimensions/
 4. Generate outline following template format
 5. Build STYLE_INSTRUCTIONS block
 6. Save to slide-deck/{topic-slug}/outline.md
-
-**After generation**:
-- If outline-only requested, stop here
-- If skip_outline_review is true → Skip Step 4, go to Step 5
-- If skip_outline_review is false → Continue to Step 4
 
 ### Step 4: Review Outline (Conditional)
 
@@ -326,11 +314,11 @@ Ask these questions:
 
 ### Step 5: Generate Prompts
 
-1. Read $RESOURCE/ppt-references/base-prompt.md
+1. Read $HOME/.talkcody/skills/references/base-prompt.md
 2. For each slide in outline:
    - Extract STYLE_INSTRUCTIONS from outline
    - Add slide-specific content
-   - If Layout specified, include guidance from $RESOURCE/ppt-references/layouts.md
+   - If Layout specified, include guidance from $HOME/.talkcody/skills/references/ppt-references/layouts.md
 3. Save to slide-deck/{topic-slug}/prompts/ directory
    - Format: NN-slide-{slug}.md
 
@@ -380,16 +368,14 @@ Ask these questions:
 4. Report progress: "Generated X/N"
 5. Auto-retry once on failure
 
-### Step 8: Merge to PPTX and PDF
+### Step 8: Merge to PPTX
 
-After all images are generated, execute merge scripts:
+After all images are generated, execute merge scripts from skill:
 
-bash
+\`\`\`bash
 # Generate PPTX
-bun $RESOURCE/ppt-references/scripts/merge-to-pptx.ts slide-deck/{topic-slug}
-
-# Generate PDF
-bun $RESOURCE/ppt-references/scripts/merge-to-pdf.ts slide-deck/{topic-slug}
+bun $HOME/.talkcody/skills/scripts/merge-to-pptx.ts slide-deck/{topic-slug}
+\`\`\`
 
 ### Step 9: Output Summary
 
@@ -407,7 +393,6 @@ Files:
 - prompts/ - Image generation prompts
 - 01-slide-cover.png, 02-slide-*.png, ... - Slide images
 - {topic-slug}.pptx - PowerPoint file
-- {topic-slug}.pdf - PDF file
 
 ## Partial Workflows
 
@@ -429,40 +414,9 @@ Support user flags:
 5. **Step 2 confirmation is REQUIRED** - do not skip
 6. **Step 4 and 6 are conditional** - based on user preference in Step 2
 7. **Always run merge scripts** after image generation
-8. **Use $RESOURCE prefix** for all resource references
-
-## Tool Usage Reference
-
-**askUserQuestions** - For user confirmation at key steps:
-- Input: questions array (1-4 questions, each with 2-5 options)
-- Output: Record<string, { selectedOptions: string[], customText?: string }>
-- Use for: Step 2 (Round 1 & 2), Step 4, Step 6
-
-**readFile** - Load resource files and user content:
-- Use $RESOURCE/ppt-references/ prefix for bundled resources
-- Use relative paths for user content
-
-**bash** - Check directories, execute merge scripts:
-- Supports $RESOURCE prefix replacement
-
-**writeFile** - Save generated content:
-- outline.md, prompts/*.md
-
-**glob** - List files for existing content detection
-
-**imageGeneration** - Generate slide images:
-- Parameters: size 1792x1024, quality hd, n 1
+8. **Use $HOME/.talkcody/skills/ prefix** for all skill resource references
 `;
 
-/**
- * PPTGeneratorAgent - Expert presentation designer for creating slide deck images.
- *
- * Architecture:
- * - Core prompt contains complete 9-step workflow with user confirmation points
- * - Detailed style guides loaded on-demand from $RESOURCE/ppt-references/
- * - Supports partial workflows: outline-only, prompts-only, images-only, regenerate
- * - User confirmation via askUserQuestions at key decision points (Step 2, 4, 6)
- */
 export class PPTGeneratorAgent {
   private constructor() {}
 
@@ -477,6 +431,7 @@ export class PPTGeneratorAgent {
       bash: getToolSync('bash'),
       askUserQuestions: getToolSync('askUserQuestions'),
       imageGeneration: getToolSync('imageGeneration'),
+      installSkill: getToolSync('installSkill'),
     };
 
     return {

@@ -1,5 +1,5 @@
 {
-  "version": "2026-02-14T05:48:10.197Z",
+  "version": "2026-02-17T05:03:42.353Z",
   "models": {
     "gpt-5-nano": {
       "name": "GPT-5 Nano",
@@ -17,8 +17,7 @@
       "pricing": {
         "input": "0.00000005",
         "output": "0.0000004",
-        "cachedInput": "0.00000001",
-        "cacheCreation": "0"
+        "cachedInput": "0.00000001"
       },
       "context_length": 400000
     },
@@ -62,8 +61,7 @@
       "pricing": {
         "input": "0.00000025",
         "output": "0.000002",
-        "cachedInput": "0.00000003",
-        "cacheCreation": "0"
+        "cachedInput": "0.00000003"
       },
       "context_length": 400000
     },
@@ -318,6 +316,26 @@
       },
       "context_length": 163840
     },
+    "qwen3.5-plus": {
+      "name": "Qwen 3.5 Plus",
+      "providers": [
+        "alibaba",
+        "openRouter",
+        "aiGateway"
+      ],
+      "providerMappings": {
+        "alibaba": "qwen3.5-plus",
+        "openRouter": "qwen/qwen3.5-plus-02-15",
+        "aiGateway": "alibaba/qwen3.5-plus"
+      },
+      "pricing": {
+        "input": "0.0000004",
+        "output": "0.0000024",
+        "cachedInput": "0.00000004",
+        "cacheCreation": "0.0000005"
+      },
+      "context_length": 1000000
+    },
     "grok-code-fast-1": {
       "name": "Grok Code Fast",
       "providers": [
@@ -403,7 +421,7 @@
         "output": "0.0000032",
         "cachedInput": "0.0000002"
       },
-      "context_length": 202752
+      "context_length": 204800
     },
     "glm-4.7-flash": {
       "name": "GLM 4.7 Flash",
@@ -427,7 +445,7 @@
         "output": "0.0000004",
         "cachedInput": "0.00000001"
       },
-      "context_length": 200000
+      "context_length": 202752
     },
     "minimax-m25": {
       "name": "MiniMax M2.5",
@@ -448,9 +466,10 @@
         "openRouter": "minimax/minimax-m2.5"
       },
       "pricing": {
-        "input": "0.00000028",
+        "input": "0.0000003",
         "output": "0.0000012",
-        "cachedInput": "0.00000014"
+        "cachedInput": "0.00000003",
+        "cacheCreation": "0.000000375"
       },
       "context_length": 196608
     },

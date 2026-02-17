@@ -49,9 +49,6 @@
     "active": true,
     "targets": "all",
     "createUpdaterArtifacts": true,
-    "resources": {
-      "resources/ppt-references/": "ppt-references/"
-    },
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",

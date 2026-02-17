@@ -152,7 +152,10 @@ impl DashScopeImageClient {
         };
 
         let base = BaseProvider::new(self.config.clone());
-        let base_url = base.resolve_base_url_with_fallback(api_keys).await?;
+        let mut base_url = base.resolve_base_url_with_fallback(api_keys).await?;
+        if base_url.contains("dashscope.aliyuncs.com/compatible-mode") {
+            base_url = "https://dashscope.aliyuncs.com/api/v1".to_string();
+        }
         log::info!("[DashScopeImageClient] Resolved base URL: {}", base_url);
 
         // Qwen Image Max uses a different endpoint path
@@ -382,7 +385,7 @@ mod tests {
             id: "alibaba".to_string(),
             name: "Alibaba".to_string(),
             protocol: crate::llm::types::ProtocolType::OpenAiCompatible,
-            base_url: "https://dashscope.aliyuncs.com/api/v1".to_string(),
+            base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
             api_key_name: "ALIBABA_API_KEY".to_string(),
             supports_oauth: false,
             supports_coding_plan: false,

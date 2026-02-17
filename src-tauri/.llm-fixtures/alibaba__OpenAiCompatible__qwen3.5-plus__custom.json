@@ -1,0 +1,1344 @@
+{
+  "version": 1,
+  "provider_id": "alibaba",
+  "protocol": "OpenAiCompatible",
+  "model": "qwen3.5-plus",
+  "endpoint_path": "compatible-mode/v1/chat/completions",
+  "request": {
+    "method": "POST",
+    "url": "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    "headers": {
+      "content-type": "application/json",
+      "authorization": "REDACTED"
+    },
+    "body": {
+      "max_tokens": 15000,
+      "messages": [
+        {
+          "content": "\n# Role and Identity\n\nYou are a professional AI image generator—an intelligent agent focused on generating high-quality images.\n\nYour goal is to generate images that meet user requirements.\n\n---\n\n# User Interaction Standards\n\n## Requirements Gathering\n\nWhen user descriptions are unclear or incomplete, please use askUserQuestionsTool to gather the following information:\n\n- **Visual Style**: Realistic, cartoon, abstract art style preferences\n\n- **Color Scheme**: Warm/cool tones, specific colors, monochromatic preferences\n\n- **Composition**: Layout preferences, focal point, perspective\n\n- **Technical Specifications**: Image size, aspect ratio, quality requirements\n\n- **Application Scenarios**: Intended use, audience, atmosphere\n\n---\n\n# Tool Usage Strategy\n\n## Using askUserQuestionsTool to Gather Requirements\n\n**When to Use askUserQuestionsTool:**\n\n- User description is too vague or unclear\n\n- Missing key visual elements (style, color, composition)\n\n- User requests clarification of technical specifications\n\n- Multiple interpretation options exist\n\n**Question Categories:**\n\n1. **Style and Aesthetics**: Art style, realism, visual techniques\n\n2. **Color and Atmosphere**: Color preferences, hue, atmosphere\n\n3. **Composition and Layout:** Perspective, Focus, Layout\n\n4. **Technical Requirements:** Size, Quality, Formatting Preferences\n\n## Question Design Principles\n\n### Keep Questions Focused\n\n- Maximum 4 questions per interaction\n\n- 2-5 options per question\n\n- Mix single and multiple selections\n\n- Include an \"Other\" option for custom input\n\n## Using imageGeneration Tool\n\n- After requirements are clear, call imageGeneration to create the image.\n- Provide a detailed prompt with style, color, and composition.\n- Specify size, quality, and model only when the user requests it.\n\n\n---\n\nIMPORTANT: Here is important information about the environment you are running in:\n<env>\n<working_directory>/Users/kks/mygit/talkcody</working_directory>\n<is_git_repo>Yes</is_git_repo>\n<platform>mac_arm</platform>\n<today_date>2026-02-16</today_date>\n<plan_mode>TRUE</plan_mode>\n</env>\n\n---\n\n## Markdown Context\n\n<project>\n# Project Development Guide for AI Agents\n\n## Project Overview\n\nTalkCody 1.0 adopts a unified AI Agent architecture that supports both **Local** and **Service** deployment modes. All UI clients (Desktop, Mobile, Web, CLI, IM bots) function as thin interaction layers, communicating with the backend Agent service through a unified interface.\n\n## Architecture Diagram\n\n```\n+----------------------------------------------------------------------------------+\n|                                 UI / CLIENT LAYER                                |\n+----------------------------------------------------------------------------------+\n|  +----------+  +----------+  +----------+  +----------+  +----------+  +--------+ |\n|  | Desktop  |  | Mobile   |  |   Web    |  |   CLI    |  |  IM Bots |  |  Other | |\n|  | (mac/lnx)|  | iOS/Andr |  | Browser  |  |  TTY     |  | Feishu/  |  |  SDKs  | |\n|  | Windows  |  |          |  |          |  |          |  | TG/Slack |  |        | |\n|  +----------+  +----------+  +----------+  +----------+  +----------+  +--------+ |\n+----------------------------------------------------------------------------------+\n        |                                    |\n        |                                    |\n   +----+----+                          +----+----+\n   |  LOCAL  |                          | SERVICE |\n   |  MODE   |                          |  MODE   |\n   | (Device)|                          | (Cloud) |\n   +----+----+                          +----+----+\n        |                                    |\n        +----------------+-------------------+\n                         |\n                         v\n+----------------------------------------------------------------------------------+\n|                                  AGENT GATEWAY                                   |\n|  +------------------+  +------------------+  +------------------+  +-----------+ |\n|  | Auth & Tenancy   |  | Routing & Policy |  | Rate Limit & QoS |  | API Mgmt | |\n|  +------------------+  +------------------+  +------------------+  +-----------+ |\n|  +------------------+  +------------------+  +------------------+              |\n|  | Session Manager  |  | Context Broker   |  | Tool Registry    |              |\n|  +------------------+  +------------------+  +------------------+              |\n+----------------------------------------------------------------------------------+\n                                       |\n                                       v\n+----------------------------------------------------------------------------------+\n|                              AI AGENT FRAMEWORK (Rust)                           |\n|                                                                                  |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|   |       TOOLS        |     |       SKILLS       |     |      MEMORY        |   |\n|   | (exec, file, db)   |     | (domain modules)   |     | (short/long term)   |   |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|                                                                                  |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|   |      CONTEXT       |     |   OBSERVABILITY    |     |        LLM         |   |\n|   | (state & buffers)  |     | (logs/metrics)     |     | (local/service)    |   |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|                                                                                  |\n|                         +------------------------------+                         |\n|                         |          AGENT LOOP          |                         |\n|                         |  Plan -> Act -> Observe ->   |                         |\n|                         |  Reflect -> Update Context   |                         |\n|                         +------------------------------+                         |\n|                                                                                  |\n+----------------------------------------------------------------------------------+\n```\n\nImportant Notes:\n\nThe entire project is cur$$rently undergoing a refactoring process. New code for both the AI ​​agent (AGENT GATEWAY) and AI agent (FRAMEWORK) needs to be implemented in Rust.\n\n## Technology Stack\n\n### Frontend\n\n- Framework: React 19\n- Language: TypeScript\n- Styling: Tailwind CSS + Shadcn UI\n- Testing: Vitest\n- State Management: Zustand\n\n### Backend\n\n- Framework: Tauri 2\n- Language: Rust\n\n### Database\n\n- Type: SQLite\n\n## Project Structure\n\n```\ntalkcody/\n│\n├── src/                    # Main source code directory\n│   ├── components/         # React UI components\n│   ├── hooks/              # Custom React hooks\n│   ├── lib/                # Utility functions and shared logic\n│   ├── pages/              # Page components\n│   ├── styles/             # Global styles and CSS\n│   └── types/              # TypeScript type definitions\n|   ├── services/           # AI, database and other services\n|   ├── utils/\n│\n├── src-tauri/              # Rust backend code\n│   ├── src/                # Rust source files\n│   ├── Cargo.toml\n│   └── tauri.conf.json\n|   package.json\n|   tsconfig.json\n|   vite.config.ts\n```\n\n### Backend API Service\n\napps/api/ - API Service\n\nTest Command:\n```\ncd apps/api\nbun run test\n```\n\n### locales Directory\n\n- src/locales/en.ts - English locale file\n- src/locales/zh.ts - Chinese locale file\n- src/locales/types.ts - Locale type definitions\n- src/hooks/use-locale.ts\n...\n[trimmed]\n...\no run all tests and ensure functionality.\n\n### bun run lint Fixes\n\n- Cannot modify the rules in biome.json; only fix code to pass lint checks.\n- When fixing code, try to keep the original logic unchanged and avoid introducing new issues.\n- Perform fixes in parallel as much as possible to reduce fixing time.\n- Do not use biome's unsafe fixes; you should manually fix the code.\n\n## Useful Bash Commands\n\n### Project Setup\n\n```bash\n# Run Tauri app\nbun run tauri dev\n\n# Build Tauri app\nbun run tauri build\n```\n\n### Development Workflow\n\n```bash\n\nbun run tsc\n\n# Lint code\nbun run lint\n\n# Run tests\nbun run test\n\n# Run single test file\nbun run test:file src/path/to/your/test-file.test.tsx\n\n# build\nbun run build\n```\n\nNote: You couldn't use `bun test` command. must use `bun run test` instead.\n\n### Log Directory\n\nTalkCody runtime log path:\n\n```\n~/Library/Logs/com.talkcody/talkcody.log\n```\n\nThe log in macOS dev env:\n\n```\n~/Library/Logs/com.com.talkcody.dev/TalkCody\\ Dev.log\n```\n\n### App data directory\n\nTalkCody app data path:\n\n```\n~/Library/Application Support/com.talkcody\n```\n\n## AI Code Generation Tips\n\n### Files import in TS code\n\nyou should use '@tauri-apps/api/path'. like this:\n\n```typescript\nimport { join, normalize, isAbsolute, appDataDir, dirname} from '@tauri-apps/api/path';\n```\n\n\nWhen generating code, consider:\n\n- Follow React functional component patterns\n- Use Tailwind CSS for styling\n- Implement responsive design\n- UI must support dark mode\n- Use accurate type definitions and do not use `any` types\n- Keep components modular and reusable\n- Use zustand for state management in ts\n- Try to avoid using dynamic imports in ts\n- User-visible messages and text need to support both English and Chinese.\n- Platform-related functions must be able to work simultaneously on macOS, Windows, and Linux platforms.\n- when handle the file path, should consider the windows path separator `\\` and the unix path separator `/`.\n- when serde the rust command, your serialization format should be compatible with TS.\n  - example:\n  ```\n #[derive(Debug, Clone, Serialize, Deserialize)]\n pub struct ContextCompactionResult {\n     #[serde(rename = \"compressedSummary\")]\n     pub compressed_summary: String,\n }\n```\n- when need fetch in ts, use `simpleFetch` from `@/lib/tauri-fetch`, not `fetch`.\n- When adding test cases, you should minimize mocking as much as possible.\n</project>\n\nIMPORTANT: You MUST respond in English.",
+          "role": "system"
+        },
+        {
+          "content": "Please generate a PPT for talkcody use cases",
+          "role": "user"
+        },
+        {
+          "content": "I'd be happy to help you generate images for a TalkCody use cases PPT presentation. To create the most suitable images, I need to gather some information about your requirements.",
+          "reasoning_content": "The user wants me to generate images for a TalkCody PPT presentation about use cases. Based on the project context, TalkCody is an AI Agent platform that supports both Local and Service deployment modes with multiple UI clients (Desktop, Mobile, Web, CLI, IM bots).\n\nBefore generating images, I need to understand more about what specific use cases they want to illustrate and their visual preferences. Let me ask some clarifying questions to gather requirements for the PPT images.",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"questions\":[{\"header\":\"Use Case Selection\",\"id\":\"use_cases\",\"multiSelect\":true,\"options\":[{\"description\":\"Desktop, Mobile, Web, CLI, IM bots connecting to AI Agent\",\"label\":\"Multi-Platform Integration\"},{\"description\":\"Device-based local deployment vs cloud service deployment\",\"label\":\"Local vs Service Mode\"},{\"description\":\"Tools, Skills, Memory, Context, LLM components\",\"label\":\"AI Agent Framework\"},{\"description\":\"Business automation and team collaboration scenarios\",\"label\":\"Enterprise Workflow\"},{\"description\":\"Generate images for multiple use cases\",\"label\":\"All of the above\"}],\"question\":\"Which TalkCody use cases would you like to illustrate in the PPT?\"},{\"header\":\"Visual Style\",\"id\":\"visual_style\",\"multiSelect\":false,\"options\":[{\"description\":\"Clean, professional tech illustrations with gradients\",\"label\":\"Modern Tech\"},{\"description\":\"Simple, clean lines with minimal details\",\"label\":\"Minimalist\"},{\"description\":\"3D isometric diagrams and illustrations\",\"label\":\"Isometric 3D\"},{\"description\":\"2D flat design with solid colors\",\"label\":\"Flat Design\"}],\"question\":\"What visual style do you prefer for the PPT images?\"},{\"header\":\"Color Scheme\",\"id\":\"color_scheme\",\"multiSelect\":false,\"options\":[{\"description\":\"Cool tech tones with blue and purple gradients\",\"label\":\"Blue & Purple\"},{\"description\":\"Dark background with vibrant accent colors\",\"label\":\"Dark Theme\"},{\"description\":\"White/light background with subtle colors\",\"label\":\"Light & Clean\"},{\"description\":\"Match TalkCody project branding\",\"label\":\"Brand Colors\"}],\"question\":\"What color scheme should the images follow?\"},{\"header\":\"Technical Specifications\",\"id\":\"slide_format\",\"multiSelect\":false,\"options\":[{\"description\":\"Standard widescreen presentation format (1792x1024)\",\"label\":\"16:9 Landscape\"},{\"description\":\"Square format for flexible layouts (1024x1024)\",\"label\":\"1:1 Square\"},{\"description\":\"Traditional presentation format\",\"label\":\"4:3 Standard\"}],\"question\":\"What aspect ratio do you need for the PPT slides?\"}]}",
+                "name": "askUserQuestions"
+              },
+              "id": "call_6e803c07789f4117b274ace7",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\n  \"use_cases\": {\n    \"selectedOptions\": [\n      \"Multi-Platform Integration\"\n    ]\n  },\n  \"visual_style\": {\n    \"selectedOptions\": [\n      \"Isometric 3D\"\n    ]\n  },\n  \"color_scheme\": {\n    \"selectedOptions\": [\n      \"Brand Colors\"\n    ]\n  },\n  \"slide_format\": {\n    \"selectedOptions\": [\n      \"16:9 Landscape\"\n    ]\n  }\n}",
+          "role": "tool",
+          "tool_call_id": "call_6e803c07789f4117b274ace7"
+        },
+        {
+          "content": "Perfect! I'll generate a professional PPT slide image for TalkCody's Multi-Platform Integration use case with an isometric 3D style in 16:9 landscape format.",
+          "reasoning_content": "Great! Now I have the requirements:\n- Use Case: Multi-Platform Integration (Desktop, Mobile, Web, CLI, IM bots connecting to AI Agent)\n- Visual Style: Isometric 3D\n- Color Scheme: Brand Colors (I'll use a professional tech palette that would match a modern AI platform)\n- Format: 16:9 Landscape (1792x1024) - best for PPT\n\nNow I'll generate an image that illustrates the TalkCody multi-platform integration use case with an isometric 3D style. I should create a professional-looking diagram showing various client platforms connecting to the AI Agent gateway.\n\nLet me create a detailed prompt for the image generation.",
+          "role": "assistant",
+          "tool_calls": [
+            {
+              "function": {
+                "arguments": "{\"n\":1,\"prompt\":\"Professional isometric 3D illustration for a PPT slide showing TalkCody AI Agent multi-platform integration architecture. Center: a glowing AI Agent gateway hub with neural network patterns. Surrounding the hub: 6 isometric device icons connected by flowing data lines - Desktop computer (macOS/Windows), Mobile phone (iOS/Android), Web browser window, CLI terminal window, IM bot icons (Feishu/Telegram/Slack), and SDK cube. Clean modern tech aesthetic with blue and purple gradient accents on a light neutral background. Professional business presentation style, high quality 3D render, isometric perspective, clear visual hierarchy, suitable for enterprise PPT. Include subtle circuit board patterns and connection nodes. Minimalist text labels for each platform.\",\"quality\":\"hd\",\"size\":\"1792x1024\"}",
+                "name": "imageGeneration"
+              },
+              "id": "call_ae1c57b144ac450aaf6006b5",
+              "type": "function"
+            }
+          ]
+        },
+        {
+          "content": "{\n  \"success\": true,\n  \"provider\": \"alibaba\",\n  \"images\": [\n    {\n      \"filePath\": \"/Users/kks/Library/Application Support/com.talkcody.dev/attachments/generated-1771304728730-1.png\",\n      \"filename\": \"generated-1771304728730-1.png\",\n      \"size\": 2557453,\n      \"mimeType\": \"image/png\",\n      \"revisedPrompt\": null,\n      \"url\": \"https://dashscope-result-sh.oss-cn-shanghai.aliyuncs.com/7d/14/20260217/d23adf3d/e1407e5e-7c6d-497d-808e-6476fa24e2ab3907757990.png?Expires=1771910527&OSSAccessKeyId=LTAI5tKPD3TMqf2Lna1fASuh&Signature=7RSfBAJvRVCTJtV8idXRLeSB7D0%3D\"\n    }\n  ],\n  \"count\": 1,\n  \"attachments\": [\n    {\n      \"id\": \"9vTtgIg5lO\",\n      \"type\": \"image\",\n      \"filename\": \"generated-1771304728730-1.png\",\n      \"filePath\": \"/Users/kks/Library/Application Support/com.talkcody.dev/attachments/generated-1771304728730-1.png\",\n      \"mimeType\": \"image/png\",\n      \"size\": 2557453\n    }\n  ]\n}",
+          "role": "tool",
+          "tool_call_id": "call_ae1c57b144ac450aaf6006b5"
+        }
+      ],
+      "model": "qwen3.5-plus",
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "temperature": 0.550000011920929,
+      "tools": [
+        {
+          "function": {
+            "description": "Ask the user one or more questions to gather additional information needed to complete the task.\n\nThis tool should be used when you encounter ambiguities, need clarification, or require more details to proceed effectively. It allows for interactive problem-solving by enabling direct communication with the user.\n\nEach question can have:\n- 2-5 predefined options for the user to choose from\n- Support for single or multiple selection\n- An automatic \"Other\" option for custom text input\n\nUse this tool judiciously to maintain a balance between gathering necessary information and avoiding excessive back-and-forth.",
+            "name": "askUserQuestions",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "questions": {
+                  "items": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "header": {
+                        "type": "string"
+                      },
+                      "id": {
+                        "type": "string"
+                      },
+                      "multiSelect": {
+                        "type": "boolean"
+                      },
+                      "options": {
+                        "items": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "description": {
+                              "type": "string"
+                            },
+                            "label": {
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "label",
+                            "description"
+                          ],
+                          "type": "object"
+                        },
+                        "type": "array"
+                      },
+                      "question": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "question",
+                      "header",
+                      "options",
+                      "multiSelect"
+                    ],
+                    "type": "object"
+                  },
+                  "type": "array"
+                }
+              },
+              "required": [
+                "questions"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Generate images using AI image generation models.\n\nSize recommendations for presentations:\n- \"1024x1024\" (1:1) - Square slides\n- \"1792x1024\" (16:9 approx) - Landscape slides (best for PPT)\n- \"1024x1792\" (9:16) - Portrait slides\n\nQuality options:\n- \"standard\" - Standard quality (faster, cheaper)\n- \"hd\" or \"high\" - High quality (better results)",
+            "name": "imageGeneration",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "n": {
+                  "type": "number"
+                },
+                "prompt": {
+                  "type": "string"
+                },
+                "quality": {
+                  "type": "string"
+                },
+                "size": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "prompt"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ],
+      "top_p": 1.0
+    }
+  },
+  "response": {
+    "type": "stream",
+    "status": 200,
+    "headers": {
+      "transfer-encoding": "chunked",
+      "content-type": "text/event-stream;charset=UTF-8",
+      "x-dashscope-call-gateway": "true",
+      "req-arrive-time": "1771304730734",
+      "x-envoy-upstream-service-time": "665",
+      "server": "istio-envoy",
+      "vary": "Origin",
+      "resp-start-time": "1771304731400",
+      "x-request-id": "479b40a9-dbec-94dc-91d4-518a9343f945",
+      "req-cost-time": "665",
+      "date": "Tue, 17 Feb 2026 05:05:31 GMT"
+    },
+    "sse_events": [
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\"Great\",\"role\":\"assistant\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\"! The\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\" image\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\" has been generated successfully\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\". Let me provide\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\" the user with the\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\" result and\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\" offer to create additional\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\" images for other use\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\" cases if\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":null,\"reasoning_content\":\" needed.\"},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"I\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"'ve generated your first\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" Talk\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"Cody PPT\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" slide\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" image! \\n\\n##\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" 📊 Multi-\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"Platform Integration Use Case\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"\\n\\n\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"**Image Details:**\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"\\n\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"- **Style:**\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" Isometric 3\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"D\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" illustration\\n- **\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"Format:** 1\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"6:\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"9 Landscape (1\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"79\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"2x10\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"2\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"4) - optimized\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" for PPT\\n\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"- **Quality:**\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" HD\\n- **\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"Theme:** Professional tech\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" aesthetic with brand colors\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"\\n\\n\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"**What the image\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" shows\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\":**\\n- Central\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" AI Agent gateway hub\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" with neural\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" network patterns\\n-\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" \",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"6 connected platform icons\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\": Desktop, Mobile\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\", Web, CLI\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\",\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" IM Bots,\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" and SDKs\\n\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"- Flow\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"ing data lines showing\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" integration between clients and\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" the\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" AI Agent\\n-\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" Clean\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\", professional presentation-ready\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" design\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"\\n\\nThe image is\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" saved at: `/\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"Users/k\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"ks/Library/Application Support\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"/com.talkc\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"ody.dev/attachments\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"/generated-17\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"7130\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"4\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"7287\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"30-1\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\".png\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"`\\n\\n---\\n\\n\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"**Would you like\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" me to generate\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" additional PPT slides\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" for other TalkC\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"ody use cases?**\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" I can create images\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" for:\\n-\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" Local vs Service Mode\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" deployment comparison\\n-\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" AI Agent Framework architecture\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" (Tools, Skills\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\", Memory, Context\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\", LLM)\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"\\n- Enterprise\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" workflow and automation scenarios\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"\\n- Agent Loop\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" visualization (Plan →\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" Act\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" → Observe →\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" Reflect)\\n\\nJust\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" let\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" me know which additional\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" slides you'd like\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\"!\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"delta\":{\"content\":\" 🎨\",\"reasoning_content\":null},\"finish_reason\":null,\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[{\"finish_reason\":\"stop\",\"delta\":{\"content\":\"\",\"reasoning_content\":null},\"index\":0,\"logprobs\":null}],\"object\":\"chat.completion.chunk\",\"usage\":null,\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "{\"choices\":[],\"object\":\"chat.completion.chunk\",\"usage\":{\"prompt_tokens\":4619,\"completion_tokens\":314,\"total_tokens\":4933,\"completion_tokens_details\":{\"reasoning_tokens\":30,\"text_tokens\":314},\"prompt_tokens_details\":{\"text_tokens\":4619}},\"created\":1771304731,\"system_fingerprint\":null,\"model\":\"qwen3.5-plus\",\"id\":\"chatcmpl-479b40a9-dbec-94dc-91d4-518a9343f945\"}"
+      },
+      {
+        "event": null,
+        "data": "[DONE]"
+      }
+    ]
+  },
+  "test_input": {
+    "model": "qwen3.5-plus",
+    "messages": [
+      {
+        "role": "system",
+        "content": "\n# Role and Identity\n\nYou are a professional AI image generator—an intelligent agent focused on generating high-quality images.\n\nYour goal is to generate images that meet user requirements.\n\n---\n\n# User Interaction Standards\n\n## Requirements Gathering\n\nWhen user descriptions are unclear or incomplete, please use askUserQuestionsTool to gather the following information:\n\n- **Visual Style**: Realistic, cartoon, abstract art style preferences\n\n- **Color Scheme**: Warm/cool tones, specific colors, monochromatic preferences\n\n- **Composition**: Layout preferences, focal point, perspective\n\n- **Technical Specifications**: Image size, aspect ratio, quality requirements\n\n- **Application Scenarios**: Intended use, audience, atmosphere\n\n---\n\n# Tool Usage Strategy\n\n## Using askUserQuestionsTool to Gather Requirements\n\n**When to Use askUserQuestionsTool:**\n\n- User description is too vague or unclear\n\n- Missing key visual elements (style, color, composition)\n\n- User requests clarification of technical specifications\n\n- Multiple interpretation options exist\n\n**Question Categories:**\n\n1. **Style and Aesthetics**: Art style, realism, visual techniques\n\n2. **Color and Atmosphere**: Color preferences, hue, atmosphere\n\n3. **Composition and Layout:** Perspective, Focus, Layout\n\n4. **Technical Requirements:** Size, Quality, Formatting Preferences\n\n## Question Design Principles\n\n### Keep Questions Focused\n\n- Maximum 4 questions per interaction\n\n- 2-5 options per question\n\n- Mix single and multiple selections\n\n- Include an \"Other\" option for custom input\n\n## Using imageGeneration Tool\n\n- After requirements are clear, call imageGeneration to create the image.\n- Provide a detailed prompt with style, color, and composition.\n- Specify size, quality, and model only when the user requests it.\n\n\n---\n\nIMPORTANT: Here is important information about the environment you are running in:\n<env>\n<working_directory>/Users/kks/mygit/talkcody</working_directory>\n<is_git_repo>Yes</is_git_repo>\n<platform>mac_arm</platform>\n<today_date>2026-02-16</today_date>\n<plan_mode>TRUE</plan_mode>\n</env>\n\n---\n\n## Markdown Context\n\n<project>\n# Project Development Guide for AI Agents\n\n## Project Overview\n\nTalkCody 1.0 adopts a unified AI Agent architecture that supports both **Local** and **Service** deployment modes. All UI clients (Desktop, Mobile, Web, CLI, IM bots) function as thin interaction layers, communicating with the backend Agent service through a unified interface.\n\n## Architecture Diagram\n\n```\n+----------------------------------------------------------------------------------+\n|                                 UI / CLIENT LAYER                                |\n+----------------------------------------------------------------------------------+\n|  +----------+  +----------+  +----------+  +----------+  +----------+  +--------+ |\n|  | Desktop  |  | Mobile   |  |   Web    |  |   CLI    |  |  IM Bots |  |  Other | |\n|  | (mac/lnx)|  | iOS/Andr |  | Browser  |  |  TTY     |  | Feishu/  |  |  SDKs  | |\n|  | Windows  |  |          |  |          |  |          |  | TG/Slack |  |        | |\n|  +----------+  +----------+  +----------+  +----------+  +----------+  +--------+ |\n+----------------------------------------------------------------------------------+\n        |                                    |\n        |                                    |\n   +----+----+                          +----+----+\n   |  LOCAL  |                          | SERVICE |\n   |  MODE   |                          |  MODE   |\n   | (Device)|                          | (Cloud) |\n   +----+----+                          +----+----+\n        |                                    |\n        +----------------+-------------------+\n                         |\n                         v\n+----------------------------------------------------------------------------------+\n|                                  AGENT GATEWAY                                   |\n|  +------------------+  +------------------+  +------------------+  +-----------+ |\n|  | Auth & Tenancy   |  | Routing & Policy |  | Rate Limit & QoS |  | API Mgmt | |\n|  +------------------+  +------------------+  +------------------+  +-----------+ |\n|  +------------------+  +------------------+  +------------------+              |\n|  | Session Manager  |  | Context Broker   |  | Tool Registry    |              |\n|  +------------------+  +------------------+  +------------------+              |\n+----------------------------------------------------------------------------------+\n                                       |\n                                       v\n+----------------------------------------------------------------------------------+\n|                              AI AGENT FRAMEWORK (Rust)                           |\n|                                                                                  |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|   |       TOOLS        |     |       SKILLS       |     |      MEMORY        |   |\n|   | (exec, file, db)   |     | (domain modules)   |     | (short/long term)   |   |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|                                                                                  |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|   |      CONTEXT       |     |   OBSERVABILITY    |     |        LLM         |   |\n|   | (state & buffers)  |     | (logs/metrics)     |     | (local/service)    |   |\n|   +--------------------+     +--------------------+     +--------------------+   |\n|                                                                                  |\n|                         +------------------------------+                         |\n|                         |          AGENT LOOP          |                         |\n|                         |  Plan -> Act -> Observe ->   |                         |\n|                         |  Reflect -> Update Context   |                         |\n|                         +------------------------------+                         |\n|                                                                                  |\n+----------------------------------------------------------------------------------+\n```\n\nImportant Notes:\n\nThe entire project is cur$$rently undergoing a refactoring process. New code for both the AI ​​agent (AGENT GATEWAY) and AI agent (FRAMEWORK) needs to be implemented in Rust.\n\n## Technology Stack\n\n### Frontend\n\n- Framework: React 19\n- Language: TypeScript\n- Styling: Tailwind CSS + Shadcn UI\n- Testing: Vitest\n- State Management: Zustand\n\n### Backend\n\n- Framework: Tauri 2\n- Language: Rust\n\n### Database\n\n- Type: SQLite\n\n## Project Structure\n\n```\ntalkcody/\n│\n├── src/                    # Main source code directory\n│   ├── components/         # React UI components\n│   ├── hooks/              # Custom React hooks\n│   ├── lib/                # Utility functions and shared logic\n│   ├── pages/              # Page components\n│   ├── styles/             # Global styles and CSS\n│   └── types/              # TypeScript type definitions\n|   ├── services/           # AI, database and other services\n|   ├── utils/\n│\n├── src-tauri/              # Rust backend code\n│   ├── src/                # Rust source files\n│   ├── Cargo.toml\n│   └── tauri.conf.json\n|   package.json\n|   tsconfig.json\n|   vite.config.ts\n```\n\n### Backend API Service\n\napps/api/ - API Service\n\nTest Command:\n```\ncd apps/api\nbun run test\n```\n\n### locales Directory\n\n- src/locales/en.ts - English locale file\n- src/locales/zh.ts - Chinese locale file\n- src/locales/types.ts - Locale type definitions\n- src/hooks/use-locale.ts\n...\n[trimmed]\n...\no run all tests and ensure functionality.\n\n### bun run lint Fixes\n\n- Cannot modify the rules in biome.json; only fix code to pass lint checks.\n- When fixing code, try to keep the original logic unchanged and avoid introducing new issues.\n- Perform fixes in parallel as much as possible to reduce fixing time.\n- Do not use biome's unsafe fixes; you should manually fix the code.\n\n## Useful Bash Commands\n\n### Project Setup\n\n```bash\n# Run Tauri app\nbun run tauri dev\n\n# Build Tauri app\nbun run tauri build\n```\n\n### Development Workflow\n\n```bash\n\nbun run tsc\n\n# Lint code\nbun run lint\n\n# Run tests\nbun run test\n\n# Run single test file\nbun run test:file src/path/to/your/test-file.test.tsx\n\n# build\nbun run build\n```\n\nNote: You couldn't use `bun test` command. must use `bun run test` instead.\n\n### Log Directory\n\nTalkCody runtime log path:\n\n```\n~/Library/Logs/com.talkcody/talkcody.log\n```\n\nThe log in macOS dev env:\n\n```\n~/Library/Logs/com.com.talkcody.dev/TalkCody\\ Dev.log\n```\n\n### App data directory\n\nTalkCody app data path:\n\n```\n~/Library/Application Support/com.talkcody\n```\n\n## AI Code Generation Tips\n\n### Files import in TS code\n\nyou should use '@tauri-apps/api/path'. like this:\n\n```typescript\nimport { join, normalize, isAbsolute, appDataDir, dirname} from '@tauri-apps/api/path';\n```\n\n\nWhen generating code, consider:\n\n- Follow React functional component patterns\n- Use Tailwind CSS for styling\n- Implement responsive design\n- UI must support dark mode\n- Use accurate type definitions and do not use `any` types\n- Keep components modular and reusable\n- Use zustand for state management in ts\n- Try to avoid using dynamic imports in ts\n- User-visible messages and text need to support both English and Chinese.\n- Platform-related functions must be able to work simultaneously on macOS, Windows, and Linux platforms.\n- when handle the file path, should consider the windows path separator `\\` and the unix path separator `/`.\n- when serde the rust command, your serialization format should be compatible with TS.\n  - example:\n  ```\n #[derive(Debug, Clone, Serialize, Deserialize)]\n pub struct ContextCompactionResult {\n     #[serde(rename = \"compressedSummary\")]\n     pub compressed_summary: String,\n }\n```\n- when need fetch in ts, use `simpleFetch` from `@/lib/tauri-fetch`, not `fetch`.\n- When adding test cases, you should minimize mocking as much as possible.\n</project>\n\nIMPORTANT: You MUST respond in English.",
+        "providerOptions": {
+          "anthropic": {
+            "cacheControl": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "user",
+        "content": "Please generate a PPT for talkcody use cases",
+        "providerOptions": null
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "I'd be happy to help you generate images for a TalkCody use cases PPT presentation. To create the most suitable images, I need to gather some information about your requirements."
+          },
+          {
+            "type": "tool-call",
+            "toolCallId": "call_6e803c07789f4117b274ace7",
+            "toolName": "askUserQuestions",
+            "input": {
+              "questions": [
+                {
+                  "header": "Use Case Selection",
+                  "id": "use_cases",
+                  "multiSelect": true,
+                  "options": [
+                    {
+                      "description": "Desktop, Mobile, Web, CLI, IM bots connecting to AI Agent",
+                      "label": "Multi-Platform Integration"
+                    },
+                    {
+                      "description": "Device-based local deployment vs cloud service deployment",
+                      "label": "Local vs Service Mode"
+                    },
+                    {
+                      "description": "Tools, Skills, Memory, Context, LLM components",
+                      "label": "AI Agent Framework"
+                    },
+                    {
+                      "description": "Business automation and team collaboration scenarios",
+                      "label": "Enterprise Workflow"
+                    },
+                    {
+                      "description": "Generate images for multiple use cases",
+                      "label": "All of the above"
+                    }
+                  ],
+                  "question": "Which TalkCody use cases would you like to illustrate in the PPT?"
+                },
+                {
+                  "header": "Visual Style",
+                  "id": "visual_style",
+                  "multiSelect": false,
+                  "options": [
+                    {
+                      "description": "Clean, professional tech illustrations with gradients",
+                      "label": "Modern Tech"
+                    },
+                    {
+                      "description": "Simple, clean lines with minimal details",
+                      "label": "Minimalist"
+                    },
+                    {
+                      "description": "3D isometric diagrams and illustrations",
+                      "label": "Isometric 3D"
+                    },
+                    {
+                      "description": "2D flat design with solid colors",
+                      "label": "Flat Design"
+                    }
+                  ],
+                  "question": "What visual style do you prefer for the PPT images?"
+                },
+                {
+                  "header": "Color Scheme",
+                  "id": "color_scheme",
+                  "multiSelect": false,
+                  "options": [
+                    {
+                      "description": "Cool tech tones with blue and purple gradients",
+                      "label": "Blue & Purple"
+                    },
+                    {
+                      "description": "Dark background with vibrant accent colors",
+                      "label": "Dark Theme"
+                    },
+                    {
+                      "description": "White/light background with subtle colors",
+                      "label": "Light & Clean"
+                    },
+                    {
+                      "description": "Match TalkCody project branding",
+                      "label": "Brand Colors"
+                    }
+                  ],
+                  "question": "What color scheme should the images follow?"
+                },
+                {
+                  "header": "Technical Specifications",
+                  "id": "slide_format",
+                  "multiSelect": false,
+                  "options": [
+                    {
+                      "description": "Standard widescreen presentation format (1792x1024)",
+                      "label": "16:9 Landscape"
+                    },
+                    {
+                      "description": "Square format for flexible layouts (1024x1024)",
+                      "label": "1:1 Square"
+                    },
+                    {
+                      "description": "Traditional presentation format",
+                      "label": "4:3 Standard"
+                    }
+                  ],
+                  "question": "What aspect ratio do you need for the PPT slides?"
+                }
+              ]
+            },
+            "provider_metadata": null
+          }
+        ],
+        "providerOptions": {
+          "openaiCompatible": {
+            "reasoning_content": "The user wants me to generate images for a TalkCody PPT presentation about use cases. Based on the project context, TalkCody is an AI Agent platform that supports both Local and Service deployment modes with multiple UI clients (Desktop, Mobile, Web, CLI, IM bots).\n\nBefore generating images, I need to understand more about what specific use cases they want to illustrate and their visual preferences. Let me ask some clarifying questions to gather requirements for the PPT images."
+          }
+        }
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool-result",
+            "toolCallId": "call_6e803c07789f4117b274ace7",
+            "toolName": "askUserQuestions",
+            "output": {
+              "type": "text",
+              "value": "{\n  \"use_cases\": {\n    \"selectedOptions\": [\n      \"Multi-Platform Integration\"\n    ]\n  },\n  \"visual_style\": {\n    \"selectedOptions\": [\n      \"Isometric 3D\"\n    ]\n  },\n  \"color_scheme\": {\n    \"selectedOptions\": [\n      \"Brand Colors\"\n    ]\n  },\n  \"slide_format\": {\n    \"selectedOptions\": [\n      \"16:9 Landscape\"\n    ]\n  }\n}"
+            }
+          }
+        ],
+        "providerOptions": null
+      },
+      {
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "Perfect! I'll generate a professional PPT slide image for TalkCody's Multi-Platform Integration use case with an isometric 3D style in 16:9 landscape format."
+          },
+          {
+            "type": "tool-call",
+            "toolCallId": "call_ae1c57b144ac450aaf6006b5",
+            "toolName": "imageGeneration",
+            "input": {
+              "n": 1,
+              "prompt": "Professional isometric 3D illustration for a PPT slide showing TalkCody AI Agent multi-platform integration architecture. Center: a glowing AI Agent gateway hub with neural network patterns. Surrounding the hub: 6 isometric device icons connected by flowing data lines - Desktop computer (macOS/Windows), Mobile phone (iOS/Android), Web browser window, CLI terminal window, IM bot icons (Feishu/Telegram/Slack), and SDK cube. Clean modern tech aesthetic with blue and purple gradient accents on a light neutral background. Professional business presentation style, high quality 3D render, isometric perspective, clear visual hierarchy, suitable for enterprise PPT. Include subtle circuit board patterns and connection nodes. Minimalist text labels for each platform.",
+              "quality": "hd",
+              "size": "1792x1024"
+            },
+            "provider_metadata": null
+          }
+        ],
+        "providerOptions": {
+          "openaiCompatible": {
+            "reasoning_content": "Great! Now I have the requirements:\n- Use Case: Multi-Platform Integration (Desktop, Mobile, Web, CLI, IM bots connecting to AI Agent)\n- Visual Style: Isometric 3D\n- Color Scheme: Brand Colors (I'll use a professional tech palette that would match a modern AI platform)\n- Format: 16:9 Landscape (1792x1024) - best for PPT\n\nNow I'll generate an image that illustrates the TalkCody multi-platform integration use case with an isometric 3D style. I should create a professional-looking diagram showing various client platforms connecting to the AI Agent gateway.\n\nLet me create a detailed prompt for the image generation."
+          }
+        }
+      },
+      {
+        "role": "tool",
+        "content": [
+          {
+            "type": "tool-result",
+            "toolCallId": "call_ae1c57b144ac450aaf6006b5",
+            "toolName": "imageGeneration",
+            "output": {
+              "type": "text",
+              "value": "{\n  \"success\": true,\n  \"provider\": \"alibaba\",\n  \"images\": [\n    {\n      \"filePath\": \"/Users/kks/Library/Application Support/com.talkcody.dev/attachments/generated-1771304728730-1.png\",\n      \"filename\": \"generated-1771304728730-1.png\",\n      \"size\": 2557453,\n      \"mimeType\": \"image/png\",\n      \"revisedPrompt\": null,\n      \"url\": \"https://dashscope-result-sh.oss-cn-shanghai.aliyuncs.com/7d/14/20260217/d23adf3d/e1407e5e-7c6d-497d-808e-6476fa24e2ab3907757990.png?Expires=1771910527&OSSAccessKeyId=LTAI5tKPD3TMqf2Lna1fASuh&Signature=7RSfBAJvRVCTJtV8idXRLeSB7D0%3D\"\n    }\n  ],\n  \"count\": 1,\n  \"attachments\": [\n    {\n      \"id\": \"9vTtgIg5lO\",\n      \"type\": \"image\",\n      \"filename\": \"generated-1771304728730-1.png\",\n      \"filePath\": \"/Users/kks/Library/Application Support/com.talkcody.dev/attachments/generated-1771304728730-1.png\",\n      \"mimeType\": \"image/png\",\n      \"size\": 2557453\n    }\n  ]\n}"
+            }
+          }
+        ],
+        "providerOptions": null
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "name": "askUserQuestions",
+        "description": "Ask the user one or more questions to gather additional information needed to complete the task.\n\nThis tool should be used when you encounter ambiguities, need clarification, or require more details to proceed effectively. It allows for interactive problem-solving by enabling direct communication with the user.\n\nEach question can have:\n- 2-5 predefined options for the user to choose from\n- Support for single or multiple selection\n- An automatic \"Other\" option for custom text input\n\nUse this tool judiciously to maintain a balance between gathering necessary information and avoiding excessive back-and-forth.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "questions": {
+              "items": {
+                "additionalProperties": false,
+                "properties": {
+                  "header": {
+                    "type": "string"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "multiSelect": {
+                    "type": "boolean"
+                  },
+                  "options": {
+                    "items": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "description": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [
+                        "label",
+                        "description"
+                      ],
+                      "type": "object"
+                    },
+                    "type": "array"
+                  },
+                  "question": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "id",
+                  "question",
+                  "header",
+                  "options",
+                  "multiSelect"
+                ],
+                "type": "object"
+              },
+              "type": "array"
+            }
+          },
+          "required": [
+            "questions"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "imageGeneration",
+        "description": "Generate images using AI image generation models.\n\nSize recommendations for presentations:\n- \"1024x1024\" (1:1) - Square slides\n- \"1792x1024\" (16:9 approx) - Landscape slides (best for PPT)\n- \"1024x1792\" (9:16) - Portrait slides\n\nQuality options:\n- \"standard\" - Standard quality (faster, cheaper)\n- \"hd\" or \"high\" - High quality (better results)",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "n": {
+              "type": "number"
+            },
+            "prompt": {
+              "type": "string"
+            },
+            "quality": {
+              "type": "string"
+            },
+            "size": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "prompt"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      }
+    ],
+    "temperature": 0.55,
+    "max_tokens": 15000,
+    "top_p": 1.0,
+    "top_k": null,
+    "provider_options": {
+      "anthropic": {
+        "thinking": {
+          "budgetTokens": 12000,
+          "type": "enabled"
+        }
+      },
+      "google": {
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingBudget": 8192
+        }
+      },
+      "moonshot": {
+        "temperature": 1,
+        "thinking": {
+          "type": "enabled"
+        }
+      }
+    },
+    "extra_body": null
+  },
+  "expected_events": [
+    {
+      "type": "reasoning-start",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": "Great",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": "! The",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": " image",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": " has been generated successfully",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": ". Let me provide",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": " the user with the",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": " result and",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": " offer to create additional",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": " images for other use",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": " cases if",
+      "provider_metadata": null
+    },
+    {
+      "type": "reasoning-delta",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d",
+      "text": " needed.",
+      "provider_metadata": null
+    },
+    {
+      "type": "text-start"
+    },
+    {
+      "type": "text-delta",
+      "text": "I"
+    },
+    {
+      "type": "text-delta",
+      "text": "'ve generated your first"
+    },
+    {
+      "type": "text-delta",
+      "text": " Talk"
+    },
+    {
+      "type": "text-delta",
+      "text": "Cody PPT"
+    },
+    {
+      "type": "text-delta",
+      "text": " slide"
+    },
+    {
+      "type": "text-delta",
+      "text": " image! \n\n##"
+    },
+    {
+      "type": "text-delta",
+      "text": " 📊 Multi-"
+    },
+    {
+      "type": "text-delta",
+      "text": "Platform Integration Use Case"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "**Image Details:**"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "- **Style:**"
+    },
+    {
+      "type": "text-delta",
+      "text": " Isometric 3"
+    },
+    {
+      "type": "text-delta",
+      "text": "D"
+    },
+    {
+      "type": "text-delta",
+      "text": " illustration\n- **"
+    },
+    {
+      "type": "text-delta",
+      "text": "Format:** 1"
+    },
+    {
+      "type": "text-delta",
+      "text": "6:"
+    },
+    {
+      "type": "text-delta",
+      "text": "9 Landscape (1"
+    },
+    {
+      "type": "text-delta",
+      "text": "79"
+    },
+    {
+      "type": "text-delta",
+      "text": "2x10"
+    },
+    {
+      "type": "text-delta",
+      "text": "2"
+    },
+    {
+      "type": "text-delta",
+      "text": "4) - optimized"
+    },
+    {
+      "type": "text-delta",
+      "text": " for PPT\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "- **Quality:**"
+    },
+    {
+      "type": "text-delta",
+      "text": " HD\n- **"
+    },
+    {
+      "type": "text-delta",
+      "text": "Theme:** Professional tech"
+    },
+    {
+      "type": "text-delta",
+      "text": " aesthetic with brand colors"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "**What the image"
+    },
+    {
+      "type": "text-delta",
+      "text": " shows"
+    },
+    {
+      "type": "text-delta",
+      "text": ":**\n- Central"
+    },
+    {
+      "type": "text-delta",
+      "text": " AI Agent gateway hub"
+    },
+    {
+      "type": "text-delta",
+      "text": " with neural"
+    },
+    {
+      "type": "text-delta",
+      "text": " network patterns\n-"
+    },
+    {
+      "type": "text-delta",
+      "text": " "
+    },
+    {
+      "type": "text-delta",
+      "text": "6 connected platform icons"
+    },
+    {
+      "type": "text-delta",
+      "text": ": Desktop, Mobile"
+    },
+    {
+      "type": "text-delta",
+      "text": ", Web, CLI"
+    },
+    {
+      "type": "text-delta",
+      "text": ","
+    },
+    {
+      "type": "text-delta",
+      "text": " IM Bots,"
+    },
+    {
+      "type": "text-delta",
+      "text": " and SDKs\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "- Flow"
+    },
+    {
+      "type": "text-delta",
+      "text": "ing data lines showing"
+    },
+    {
+      "type": "text-delta",
+      "text": " integration between clients and"
+    },
+    {
+      "type": "text-delta",
+      "text": " the"
+    },
+    {
+      "type": "text-delta",
+      "text": " AI Agent\n-"
+    },
+    {
+      "type": "text-delta",
+      "text": " Clean"
+    },
+    {
+      "type": "text-delta",
+      "text": ", professional presentation-ready"
+    },
+    {
+      "type": "text-delta",
+      "text": " design"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n\nThe image is"
+    },
+    {
+      "type": "text-delta",
+      "text": " saved at: `/"
+    },
+    {
+      "type": "text-delta",
+      "text": "Users/k"
+    },
+    {
+      "type": "text-delta",
+      "text": "ks/Library/Application Support"
+    },
+    {
+      "type": "text-delta",
+      "text": "/com.talkc"
+    },
+    {
+      "type": "text-delta",
+      "text": "ody.dev/attachments"
+    },
+    {
+      "type": "text-delta",
+      "text": "/generated-17"
+    },
+    {
+      "type": "text-delta",
+      "text": "7130"
+    },
+    {
+      "type": "text-delta",
+      "text": "4"
+    },
+    {
+      "type": "text-delta",
+      "text": "7287"
+    },
+    {
+      "type": "text-delta",
+      "text": "30-1"
+    },
+    {
+      "type": "text-delta",
+      "text": ".png"
+    },
+    {
+      "type": "text-delta",
+      "text": "`\n\n---\n\n"
+    },
+    {
+      "type": "text-delta",
+      "text": "**Would you like"
+    },
+    {
+      "type": "text-delta",
+      "text": " me to generate"
+    },
+    {
+      "type": "text-delta",
+      "text": " additional PPT slides"
+    },
+    {
+      "type": "text-delta",
+      "text": " for other TalkC"
+    },
+    {
+      "type": "text-delta",
+      "text": "ody use cases?**"
+    },
+    {
+      "type": "text-delta",
+      "text": " I can create images"
+    },
+    {
+      "type": "text-delta",
+      "text": " for:\n-"
+    },
+    {
+      "type": "text-delta",
+      "text": " Local vs Service Mode"
+    },
+    {
+      "type": "text-delta",
+      "text": " deployment comparison\n-"
+    },
+    {
+      "type": "text-delta",
+      "text": " AI Agent Framework architecture"
+    },
+    {
+      "type": "text-delta",
+      "text": " (Tools, Skills"
+    },
+    {
+      "type": "text-delta",
+      "text": ", Memory, Context"
+    },
+    {
+      "type": "text-delta",
+      "text": ", LLM)"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n- Enterprise"
+    },
+    {
+      "type": "text-delta",
+      "text": " workflow and automation scenarios"
+    },
+    {
+      "type": "text-delta",
+      "text": "\n- Agent Loop"
+    },
+    {
+      "type": "text-delta",
+      "text": " visualization (Plan →"
+    },
+    {
+      "type": "text-delta",
+      "text": " Act"
+    },
+    {
+      "type": "text-delta",
+      "text": " → Observe →"
+    },
+    {
+      "type": "text-delta",
+      "text": " Reflect)\n\nJust"
+    },
+    {
+      "type": "text-delta",
+      "text": " let"
+    },
+    {
+      "type": "text-delta",
+      "text": " me know which additional"
+    },
+    {
+      "type": "text-delta",
+      "text": " slides you'd like"
+    },
+    {
+      "type": "text-delta",
+      "text": "!"
+    },
+    {
+      "type": "text-delta",
+      "text": " 🎨"
+    },
+    {
+      "type": "reasoning-end",
+      "id": "reasoning_0fef280b-b6f7-4e74-82b6-4a9a8d97736d"
+    },
+    {
+      "type": "usage",
+      "input_tokens": 4619,
+      "output_tokens": 314,
+      "total_tokens": 4933,
+      "cached_input_tokens": null,
+      "cache_creation_input_tokens": null
+    },
+    {
+      "type": "done",
+      "finish_reason": "stop"
+    }
+  ]
+}

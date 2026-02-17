@@ -66,10 +66,77 @@ export async function importSkillFromGitHub(options: ImportFromGitHubOptions): P
       // Find the skill in the discovered list
       skillInfo = skills.find((s: GitHubSkillInfo) => s.directoryName === skillDirectoryName);
 
+      // If not found in batch scan, try to fetch the specific skill directory directly
+      // This handles cases where GitHub API pagination limits the batch scan results
       if (!skillInfo) {
-        throw new Error(
-          `Skill not found at ${githubUrl}. Discovered skills: ${skills.map((s: GitHubSkillInfo) => s.directoryName).join(', ')}`
-        );
+        logger.info(`Skill ${skillDirectoryName} not found in batch scan, trying direct fetch...`);
+
+        try {
+          const directSkillPath = `${parentPath}/${skillDirectoryName}`;
+          const directRepoInfo = {
+            owner,
+            repo,
+            branch,
+            path: directSkillPath,
+          };
+
+          // Try to fetch the specific skill directory contents
+          const contents = await GitHubImporter.fetchDirectoryContents(directRepoInfo);
+
+          // Check if this is a valid skill directory (has SKILL.md)
+          const hasSkillMd = contents.some(
+            (item) => item.name === 'SKILL.md' && item.type === 'file'
+          );
+
+          if (hasSkillMd) {
+            // Extract directory info using inspectGitHubSkill logic
+            const skillMdFile = contents.find(
+              (item) => item.name === 'SKILL.md' && item.type === 'file'
+            );
+
+            if (skillMdFile?.download_url) {
+              const skillMdContent = await GitHubImporter.fetchFileContent(
+                skillMdFile.download_url
+              );
+              const { SkillMdParser } = await import('./skill-md-parser');
+              const parsed = SkillMdParser.parse(skillMdContent, {
+                validate: true,
+                logWarnings: false,
+              });
+
+              skillInfo = {
+                directoryName: skillDirectoryName,
+                skillName: parsed.frontmatter.name,
+                description: parsed.frontmatter.description,
+                author: owner,
+                repoUrl: `https://github.com/${owner}/${repo}`,
+                hasSkillMd: true,
+                hasReferencesDir: contents.some(
+                  (item) => item.name === 'references' && item.type === 'dir'
+                ),
+                hasScriptsDir: contents.some(
+                  (item) => item.name === 'scripts' && item.type === 'dir'
+                ),
+                hasAssetsDir: contents.some(
+                  (item) => item.name === 'assets' && item.type === 'dir'
+                ),
+                files: await GitHubImporter.collectSkillFiles(directRepoInfo, contents),
+                isValid: true,
+              };
+
+              logger.info(`Successfully found skill via direct fetch: ${skillDirectoryName}`);
+            }
+          }
+        } catch (directFetchError) {
+          logger.warn(`Direct fetch for ${skillDirectoryName} failed:`, directFetchError);
+        }
+
+        // If still not found after direct fetch, throw error
+        if (!skillInfo) {
+          throw new Error(
+            `Skill not found at ${githubUrl}. Discovered skills: ${skills.map((s: GitHubSkillInfo) => s.directoryName).join(', ')}`
+          );
+        }
       }
 
       if (!skillInfo.isValid) {

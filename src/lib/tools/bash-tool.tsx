@@ -3,13 +3,9 @@ import { BashToolDoing } from '@/components/tools/bash-tool-doing';
 import { BashToolResult } from '@/components/tools/bash-tool-result';
 import { createTool } from '@/lib/create-tool';
 import { logger } from '@/lib/logger';
-import { replaceResourcePathsInCommand } from '@/lib/tools/resource-paths';
+
 import type { BashResult } from '@/services/bash-executor';
 import { bashExecutor } from '@/services/bash-executor';
-
-export async function resolveCommandResourcePaths(command: string): Promise<string> {
-  return await replaceResourcePathsInCommand(command);
-}
 
 export const bashTool = createTool({
   name: 'bash',
@@ -57,30 +53,15 @@ Output can be read using \`cat\` or \`tail -f\` on the output file path returned
   }),
   canConcurrent: false,
   execute: async ({ command, runInBackground }, context): Promise<BashResult> => {
-    // Resolve $RESOURCE paths before executing
-    const resolvedCommand = await resolveCommandResourcePaths(command);
     logger.info('Executing bash command', {
-      command: resolvedCommand,
+      command,
       taskId: context.taskId,
     });
 
-    // Log if command was modified
-    if (resolvedCommand !== command) {
-      logger.info('Resolved $RESOURCE paths in command', {
-        original: command,
-        resolved: resolvedCommand,
-        taskId: context.taskId,
-      });
-    }
-
     if (runInBackground) {
-      return await bashExecutor.executeInBackground(
-        resolvedCommand,
-        context.taskId,
-        context.toolId
-      );
+      return await bashExecutor.executeInBackground(command, context.taskId, context.toolId);
     }
-    return await bashExecutor.execute(resolvedCommand, context.taskId, context.toolId);
+    return await bashExecutor.execute(command, context.taskId, context.toolId);
   },
   renderToolDoing: ({ command }) => <BashToolDoing command={command} />,
   renderToolResult: (result) => (

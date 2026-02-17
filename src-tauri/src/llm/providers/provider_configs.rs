@@ -301,7 +301,7 @@ pub fn builtin_providers() -> Vec<ProviderConfig> {
             id: "alibaba".to_string(),
             name: "Alibaba (DashScope)".to_string(),
             protocol: ProtocolType::OpenAiCompatible,
-            base_url: "https://dashscope.aliyuncs.com/api/v1".to_string(),
+            base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
             api_key_name: "ALIBABA_API_KEY".to_string(),
             supports_oauth: false,
             supports_coding_plan: false,

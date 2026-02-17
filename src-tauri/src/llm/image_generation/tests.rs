@@ -453,7 +453,7 @@ async fn resolve_image_generator_model_finds_alibaba_model() {
         id: "alibaba".to_string(),
         name: "Alibaba".to_string(),
         protocol: ProtocolType::OpenAiCompatible,
-        base_url: "https://dashscope.aliyuncs.com/api/v1".to_string(),
+        base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1".to_string(),
         api_key_name: "DASHSCOPE_API_KEY".to_string(),
         supports_oauth: false,
         supports_coding_plan: false,

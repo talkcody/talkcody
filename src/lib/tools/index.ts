@@ -118,7 +118,7 @@ export const TOOL_DEFINITIONS = {
     metadata: {
       category: 'other' as ToolCategory,
       canConcurrent: false,
-      fileOperation: true,
+      fileOperation: false,
       renderDoingUI: true,
     },
   },

@@ -189,7 +189,7 @@ export const PROVIDER_CONFIGS: ProviderRegistry = {
     id: 'alibaba',
     name: 'Alibaba (DashScope)',
     apiKeyName: 'ALIBABA_API_KEY',
-    baseUrl: 'https://dashscope.aliyuncs.com/api/v1',
+    baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     required: false,
     type: 'openai-compatible',
   },
