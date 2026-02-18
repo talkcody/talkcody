@@ -9,7 +9,6 @@ use axum::{
 };
 use std::convert::Infallible;
 use tokio::sync::broadcast;
-use tokio_stream::StreamExt;
 
 use crate::core::types::{RuntimeEvent, TaskInput};
 use crate::server::state::ServerState;
@@ -102,10 +101,20 @@ pub async fn chat(
     State(state): State<ServerState>,
     Json(payload): Json<ChatRequest>,
 ) -> Result<Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>>, Json<ErrorResponse>> {
+    log::info!("[CHAT] Received chat request");
+    log::debug!("[CHAT] Request payload: model={:?}, stream={:?}, session_id={:?}, agent_id={:?}, project_name={:?}",
+        payload.model, payload.stream, payload.session_id, payload.agent_id, payload.project_name);
+    log::debug!(
+        "[CHAT] Messages count: {}, workspace: {:?}",
+        payload.messages.len(),
+        payload.workspace.as_ref().map(|w| &w.root_path)
+    );
+
     let stream_enabled = payload.stream.unwrap_or(true);
+    log::debug!("[CHAT] Stream enabled: {}", stream_enabled);
 
     if !stream_enabled {
-        // Non-streaming mode - not implemented yet
+        log::warn!("[CHAT] Non-streaming mode requested but not supported");
         return Err(Json(ErrorResponse::new(
             "NOT_IMPLEMENTED",
             "Non-streaming mode is not yet supported. Use stream: true".to_string(),
@@ -114,11 +123,15 @@ pub async fn chat(
 
     // Get or create session
     let session_id = match payload.session_id {
-        Some(id) => id,
+        Some(id) => {
+            log::info!("[CHAT] Using existing session: {}", id);
+            id
+        }
         None => {
             let new_session_id =
                 format!("sess_{}", uuid::Uuid::new_v4().to_string().replace("-", ""));
             let now = chrono::Utc::now().timestamp();
+            log::info!("[CHAT] Creating new session: {}", new_session_id);
 
             // Create new session
             let session = crate::storage::models::Session {
@@ -141,32 +154,64 @@ pub async fn chat(
                 .create_session(&session)
                 .await
                 .map_err(|e| {
+                    log::error!("[CHAT] Failed to create session: {}", e);
                     Json(ErrorResponse::new(
                         "INTERNAL_ERROR",
                         format!("Failed to create session: {}", e),
                     ))
                 })?;
 
+            log::debug!("[CHAT] Session created successfully in storage");
             new_session_id
         }
     };
 
     // Get the last user message
+    log::debug!("[CHAT] Processing {} messages", payload.messages.len());
+    for (i, msg) in payload.messages.iter().enumerate() {
+        log::debug!(
+            "[CHAT] Message {}: role={}, content_preview={}",
+            i,
+            msg.role,
+            match &msg.content {
+                serde_json::Value::String(s) => format!("{:.50}...", s),
+                _ =>
+                    format!("{:?}", msg.content)
+                        .chars()
+                        .take(50)
+                        .collect::<String>()
+                        + "...",
+            }
+        );
+    }
+
     let user_message = payload
         .messages
         .iter()
         .rev()
         .find(|m| m.role == "user")
         .ok_or_else(|| {
+            log::error!("[CHAT] No user message found in request");
             Json(ErrorResponse::new(
                 "BAD_REQUEST",
                 "No user message found".to_string(),
             ))
         })?;
 
+    log::info!("[CHAT] Found user message");
+
     let user_content = match &user_message.content {
-        serde_json::Value::String(s) => s.clone(),
-        _ => user_message.content.to_string(),
+        serde_json::Value::String(s) => {
+            log::debug!("[CHAT] User content (string): {} chars", s.len());
+            s.clone()
+        }
+        _ => {
+            log::debug!(
+                "[CHAT] User content (non-string): {:?}",
+                user_message.content
+            );
+            user_message.content.to_string()
+        }
     };
 
     // Save user message to storage
@@ -192,17 +237,24 @@ pub async fn chat(
         parent_id: None,
     };
 
+    log::debug!(
+        "[CHAT] Saving user message to storage: message_id={}, session_id={}",
+        message_id,
+        session_id
+    );
     state
         .storage()
         .chat_history
         .create_message(&message)
         .await
         .map_err(|e| {
+            log::error!("[CHAT] Failed to save message: {}", e);
             Json(ErrorResponse::new(
                 "INTERNAL_ERROR",
                 format!("Failed to save message: {}", e),
             ))
         })?;
+    log::debug!("[CHAT] User message saved successfully");
 
     // Build task settings with model
     let mut extra = std::collections::HashMap::new();
@@ -255,24 +307,46 @@ pub async fn chat(
     };
 
     // Subscribe to broadcast events BEFORE starting the task to avoid race condition
+    log::debug!("[CHAT] Subscribing to event broadcast channel");
     let mut rx = state.event_broadcast.subscribe();
+    log::debug!("[CHAT] Subscribed to broadcast channel");
 
     // Start the task
+    log::info!("[CHAT] Starting task with session_id={}", session_id);
+    log::debug!(
+        "[CHAT] Task settings: model={:?}, temperature={:?}, max_tokens={:?}",
+        payload.model,
+        payload.temperature,
+        payload.max_tokens
+    );
+
     state.runtime().start_task(task_input).await.map_err(|e| {
+        log::error!("[CHAT] Failed to start task: {}", e);
         Json(ErrorResponse::new(
             "INTERNAL_ERROR",
             format!("Failed to start task: {}", e),
         ))
     })?;
+    log::info!("[CHAT] Task started successfully, beginning SSE stream");
 
     // Create SSE stream using the already-subscribed receiver
     let session_id_clone = session_id.clone();
+    log::debug!(
+        "[CHAT] Creating SSE stream for session: {}",
+        session_id_clone
+    );
+
     let stream = async_stream::stream! {
         // Move the receiver into the stream to avoid missing early events
         let mut rx = rx;
+        let mut event_count = 0u64;
+        log::debug!("[CHAT] SSE stream started, waiting for events...");
+
         loop {
             match rx.recv().await {
                 Ok(event) => {
+                    event_count += 1;
+                    log::debug!("[CHAT] Received event #{}: {:?}", event_count, std::mem::discriminant(&event));
                     // Filter events for this session
                     let session_matches = match &event {
                         RuntimeEvent::Token { session_id: s, .. } => s == &session_id_clone,
@@ -290,46 +364,62 @@ pub async fn chat(
                     };
 
                     if !session_matches {
+                        log::trace!("[CHAT] Event #{} filtered out (session mismatch)", event_count);
                         continue;
                     }
+                    log::debug!("[CHAT] Event #{} matches session {}, converting to SSE", event_count, session_id_clone);
 
                     // Convert RuntimeEvent to SSE event
                     let sse_event = convert_runtime_event_to_sse(&event);
+                    log::trace!("[CHAT] Yielding SSE event #{} to client", event_count);
                     yield Ok::<_, Infallible>(sse_event);
 
                     // Stop stream on task completion or error
                     if matches!(&event, RuntimeEvent::TaskCompleted { .. }) {
+                        log::info!("[CHAT] Task completed, closing SSE stream after {} events", event_count);
                         break;
                     }
                 }
-                Err(broadcast::error::RecvError::Lagged(_)) => {
-                    // Skip lagged events
+                Err(broadcast::error::RecvError::Lagged(n)) => {
+                    log::warn!("[CHAT] Broadcast channel lagged, skipped {} events", n);
                     continue;
                 }
                 Err(broadcast::error::RecvError::Closed) => {
-                    // Channel closed, break the loop
+                    log::warn!("[CHAT] Broadcast channel closed, ending stream after {} events", event_count);
                     break;
                 }
             }
         }
+        log::info!("[CHAT] SSE stream ended for session: {} (total events: {})", session_id_clone, event_count);
     };
 
+    log::debug!("[CHAT] Returning SSE response for session: {}", session_id);
     Ok(Sse::new(stream).keep_alive(KeepAlive::new()))
 }
 
 /// Convert RuntimeEvent to SSE Event
 pub fn convert_runtime_event_to_sse(event: &RuntimeEvent) -> Event {
+    log::trace!(
+        "[CHAT] Converting RuntimeEvent to SSE: {:?}",
+        std::mem::discriminant(event)
+    );
     match event {
-        RuntimeEvent::Token { session_id, token } => Event::default().event("token").data(
-            serde_json::json!({
-                "type": "token",
-                "data": {
-                    "token": token,
-                    "sessionId": session_id
-                }
-            })
-            .to_string(),
-        ),
+        RuntimeEvent::Token { session_id, token } => {
+            log::trace!(
+                "[CHAT] Converting Token event, token length: {} chars",
+                token.len()
+            );
+            Event::default().event("token").data(
+                serde_json::json!({
+                    "type": "token",
+                    "data": {
+                        "token": token,
+                        "sessionId": session_id
+                    }
+                })
+                .to_string(),
+            )
+        }
         RuntimeEvent::ReasoningStart { session_id, id } => {
             Event::default().event("reasoning.start").data(
                 serde_json::json!({
@@ -439,30 +529,45 @@ pub fn convert_runtime_event_to_sse(event: &RuntimeEvent) -> Event {
         RuntimeEvent::TaskCompleted {
             task_id,
             session_id,
-        } => Event::default().event("task.completed").data(
-            serde_json::json!({
-                "type": "task.completed",
-                "data": {
-                    "taskId": task_id,
-                    "sessionId": session_id
-                }
-            })
-            .to_string(),
-        ),
+        } => {
+            log::debug!(
+                "[CHAT] Converting TaskCompleted event: task_id={}, session_id={}",
+                task_id,
+                session_id
+            );
+            Event::default().event("task.completed").data(
+                serde_json::json!({
+                    "type": "task.completed",
+                    "data": {
+                        "taskId": task_id,
+                        "sessionId": session_id
+                    }
+                })
+                .to_string(),
+            )
+        }
         RuntimeEvent::Error {
             task_id,
             session_id,
             message,
-        } => Event::default().event("error").data(
-            serde_json::json!({
-                "type": "error",
-                "data": {
-                    "message": message,
-                    "taskId": task_id,
-                    "sessionId": session_id
-                }
-            })
-            .to_string(),
-        ),
+        } => {
+            log::error!(
+                "[CHAT] Converting Error event: task_id={:?}, session_id={:?}, message={}",
+                task_id,
+                session_id,
+                message
+            );
+            Event::default().event("error").data(
+                serde_json::json!({
+                    "type": "error",
+                    "data": {
+                        "message": message,
+                        "taskId": task_id,
+                        "sessionId": session_id
+                    }
+                })
+                .to_string(),
+            )
+        }
     }
 }

@@ -5,6 +5,7 @@ primary_region = "sin"
 
 [build]
   dockerfile = "Dockerfile"
+  build-target = "runtime"
 
 [env]
   HOST = "0.0.0.0"

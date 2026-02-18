@@ -4,6 +4,7 @@ pub mod state;
 pub mod streaming_bridge;
 pub mod types;
 
+use std::env;
 use std::net::SocketAddr;
 use tokio::net::TcpListener;
 
@@ -33,8 +34,19 @@ pub async fn start_server(
         api_key_middleware,
     ));
 
-    // Bind to any available port
-    let listener = TcpListener::bind(("127.0.0.1", 0))
+    // Read host and port from environment variables (for cloud deployment)
+    let host = env::var("HOST").unwrap_or_else(|_| "127.0.0.1".to_string());
+    let port = env::var("PORT")
+        .ok()
+        .and_then(|p| p.parse().ok())
+        .unwrap_or(0);
+
+    // Bind to the specified host and port
+    let addr: SocketAddr = format!("{}:{}", host, port)
+        .parse()
+        .map_err(|e| format!("Invalid server address: {}", e))?;
+
+    let listener = TcpListener::bind(addr)
         .await
         .map_err(|e| format!("Failed to bind server: {}", e))?;
 

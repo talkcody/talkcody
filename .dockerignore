@@ -18,7 +18,8 @@ Thumbs.db
 .gitignore
 
 # Documentation
-*.md
+# NOTE: Uncommented because Dockerfile needs codex-instructions.md
+# *.md
 docs/
 
 # Test files
@@ -33,13 +34,59 @@ tests/
 node_modules/
 dist/
 build/
+.talkcody/
+.parcel-cache/
+.eslintcache
+.stylelintcache
+.llm-fixtures/
+
+# Test and dev files
+**/__tests__/
+**/__mocks__/
+*.spec.ts
+*.spec.tsx
+*.test.ts
+*.test.tsx
+vitest.config.*
+playwright.config.*
+coverage/
+.nyc_output/
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+azure-pipelines.yml
+.travis.yml
+
+# Local env files
+.env.*
+!.env.example
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+*.pid
+*.seed
+*.pid.lock
 
 # Frontend source (not needed for API service)
-src/components/
-src/pages/
-src/hooks/
-src/styles/
-src/assets/
+src/
+
+# Exception: Keep only the file needed by API service
+!src/services/
+src/services/*
+!src/services/codex-instructions.md
+apps/
+specs/
+~/
+scripts/
+
+
+# Backend UI files (not needed for API)
+# NOTE: Uncommented because Dockerfile needs these for build
+# src-tauri/icons/
+# src-tauri/capabilities/
 
 # Large/binary files
 *.png
