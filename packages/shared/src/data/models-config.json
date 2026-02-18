@@ -1,5 +1,5 @@
 {
-  "version": "2026-02-17T06:03:42.353Z",
+  "version": "2026-02-18T06:03:42.353Z",
   "models": {
     "gpt-5-nano": {
       "name": "GPT-5 Nano",
@@ -80,6 +80,22 @@
         "cachedInput": "0.000000175"
       },
       "context_length": 400000
+    },
+    "gpt-5.3-codex-spark": {
+      "name": "GPT-5.3-Codex-Spark",
+      "imageInput": false,
+      "providers": [
+        "openai"
+      ],
+      "providerMappings": {
+        "openai": "gpt-5.3-codex-spark"
+      },
+      "pricing": {
+        "input": "0",
+        "output": "0",
+        "cachedInput": "0"
+      },
+      "context_length": 128000
     },
     "gpt-5.2-codex": {
       "name": "GPT-5.2-Codex",
@@ -229,8 +245,8 @@
       },
       "context_length": 1000000
     },
-    "claude-sonnet-4.5": {
-      "name": "Claude Sonnet 4.5",
+    "claude-sonnet-4.6": {
+      "name": "Claude Sonnet 4.6",
       "imageInput": true,
       "interleaved": true,
       "providers": [
@@ -240,10 +256,10 @@
         "openRouter"
       ],
       "providerMappings": {
-        "anthropic": "claude-sonnet-4-5",
-        "aiGateway": "anthropic/claude-sonnet-4.5",
-        "openRouter": "anthropic/claude-sonnet-4.5",
-        "github_copilot": "claude-sonnet-4.5"
+        "anthropic": "claude-sonnet-4-6",
+        "aiGateway": "anthropic/claude-sonnet-4-6",
+        "openRouter": "anthropic/claude-sonnet-4-6",
+        "github_copilot": "claude-sonnet-4-6"
       },
       "pricing": {
         "input": "0.000003",
