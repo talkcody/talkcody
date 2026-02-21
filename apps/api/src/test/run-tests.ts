@@ -90,6 +90,7 @@ console.log('✅ Database schema initialized\n');
 const testProcess = Bun.spawn(
   [
     'bun',
+    'run',
     'test',
     'src/test/marketplace.test.ts',
     'src/test/skills-marketplace.test.ts',
