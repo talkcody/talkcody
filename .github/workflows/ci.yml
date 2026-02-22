@@ -100,7 +100,7 @@ jobs:
 
       - name: Run Rust tests
         working-directory: src-tauri
-        run: cargo test --verbose -- --nocapture
+        run: cargo test --workspace --verbose -- --nocapture
 
   test-rust-linux:
     name: Rust Tests (Linux)
@@ -137,7 +137,7 @@ jobs:
 
       - name: Run Rust tests
         working-directory: src-tauri
-        run: cargo test --verbose -- --nocapture
+        run: cargo test --workspace --verbose -- --nocapture
 
   build:
     name: Build
