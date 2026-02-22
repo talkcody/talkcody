@@ -1,5 +1,4 @@
 use std::sync::Arc;
-
 use talkcody_core::core::types::{EventSender, RuntimeEvent};
 use talkcody_core::core::CoreRuntime;
 use talkcody_core::platform::Platform;
@@ -69,7 +68,7 @@ impl ServerStateFactory {
     /// Create server state with the given configuration
     pub async fn create(
         config: super::config::ServerConfig,
-        _event_sender: EventSender,
+        event_sender: EventSender,
     ) -> Result<ServerState, String> {
         // Create storage
         let storage =

@@ -258,14 +258,17 @@ impl StreamHandler {
             });
         }
 
-        let client = reqwest::Client::builder()
-            .connect_timeout(Duration::from_secs(10))
-            .timeout(Duration::from_secs(3000)) // Add overall request timeout
-            .brotli(false)
-            .tcp_nodelay(true)
-            .pool_max_idle_per_host(5)
-            .build()
-            .expect("Failed to build HTTP client");
+        let client = HTTP_CLIENT.get_or_init(|| {
+            reqwest::Client::builder()
+                .connect_timeout(Duration::from_secs(10))
+                .timeout(Duration::from_secs(3000)) // Add overall request timeout
+                .gzip(false)
+                .brotli(false)
+                .tcp_nodelay(true)
+                .pool_max_idle_per_host(5)
+                .build()
+                .expect("Failed to build HTTP client")
+        });
         log::debug!("[LLM Stream {}] HTTP client ready", request_id);
 
         let mut req_builder = client.post(&url);

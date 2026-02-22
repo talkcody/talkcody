@@ -11,6 +11,10 @@ description = "TalkCody Desktop Application (Tauri)"
 license = "MIT"
 default-run = "talkcody"
 
+[[bin]]
+name = "talkcody"
+path = "desktop/src/main.rs"
+
 [dependencies]
 talkcody_desktop_lib = { package = "talkcody-desktop", path = "desktop" }
 talkcody_core = { package = "talkcody-core", path = "core" }

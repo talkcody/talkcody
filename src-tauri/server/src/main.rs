@@ -1,4 +1,4 @@
-//! TalkCody API Service - Standalone Server
+//! TalkCody API Service Binary
 //!
 //! This binary runs the Rust backend as a standalone API service for fly.io deployment.
 //! It reads configuration from environment variables and starts the Axum server.
@@ -9,8 +9,9 @@ use tokio::net::TcpListener;
 use tower_http::cors::{Any, CorsLayer};
 
 use talkcody_core::core::types::RuntimeEvent;
-use talkcody_core::security::api_key_middleware;
-use talkcody_server::{config::ServerConfig, routes, state::ServerStateFactory};
+use talkcody_server::config::ServerConfig;
+use talkcody_server::routes;
+use talkcody_server::state::ServerStateFactory;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -48,12 +49,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .allow_methods(Any)
         .allow_headers(Any);
 
-    let app = routes::router(state.clone())
-        .layer(axum::middleware::from_fn_with_state(
-            state.storage().clone(),
-            api_key_middleware,
-        ))
-        .layer(cors);
+    let app = routes::router(state.clone()).layer(cors);
 
     // Create TCP listener
     let listener = TcpListener::bind(bind_addr)

@@ -200,6 +200,7 @@ pub struct FileResponse {
     pub mime_type: String,
     pub size: i64,
     pub created_at: i64,
+    pub origin: String,
 }
 
 impl From<Attachment> for FileResponse {
@@ -211,100 +212,129 @@ impl From<Attachment> for FileResponse {
             mime_type: attachment.mime_type,
             size: attachment.size,
             created_at: attachment.created_at,
+            origin: attachment.origin.as_str().to_string(),
         }
     }
+}
+
+// ============== Event Types ==============
+
+#[derive(Debug, Serialize)]
+#[serde(tag = "type", rename_all = "camelCase")]
+pub enum SseEvent {
+    #[serde(rename = "status")]
+    Status { data: StatusEventData },
+    #[serde(rename = "token")]
+    Token { data: TokenEventData },
+    #[serde(rename = "message.final")]
+    MessageFinal { data: MessageFinalEventData },
+    #[serde(rename = "tool.call")]
+    ToolCall { data: ToolCallEventData },
+    #[serde(rename = "tool.result")]
+    ToolResult { data: ToolResultEventData },
+    #[serde(rename = "error")]
+    Error { data: ErrorEventData },
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct StatusEventData {
+    pub message: String,
+    pub session_id: SessionId,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct TokenEventData {
+    pub token: String,
+    pub session_id: SessionId,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MessageFinalEventData {
+    pub message_id: String,
+    pub content: String,
+    pub session_id: SessionId,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolCallEventData {
+    pub tool_call_id: String,
+    pub name: String,
+    pub input: serde_json::Value,
+    pub provider_metadata: Option<serde_json::Value>,
+    pub session_id: SessionId,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ToolResultEventData {
+    pub tool_call_id: String,
+    pub name: Option<String>,
+    pub output: serde_json::Value,
+    pub session_id: SessionId,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ErrorEventData {
+    pub message: String,
+    pub session_id: Option<SessionId>,
+    pub task_id: Option<String>,
 }
 
 // ============== WebSocket Types ==============
 
 #[derive(Debug, Deserialize)]
-#[serde(tag = "type", rename_all = "camelCase")]
+#[serde(tag = "action", rename_all = "camelCase")]
 pub enum WebSocketMessage {
+    #[serde(rename = "subscribe")]
+    Subscribe { session_id: SessionId },
+    #[serde(rename = "unsubscribe")]
+    Unsubscribe { session_id: SessionId },
+    #[serde(rename = "ping")]
     Ping,
-    Subscribe {
-        session_id: SessionId,
-    },
-    Unsubscribe {
-        session_id: SessionId,
-    },
-    Action {
-        session_id: SessionId,
-        action: TaskActionRequest,
-    },
 }
 
 #[derive(Debug, Serialize)]
 #[serde(tag = "type", rename_all = "camelCase")]
 pub enum WebSocketResponse {
-    Pong,
+    #[serde(rename = "subscribed")]
     Subscribed { session_id: SessionId },
+    #[serde(rename = "unsubscribed")]
     Unsubscribed { session_id: SessionId },
-    ActionResult { success: bool, message: String },
+    #[serde(rename = "event")]
+    Event { event: SseEvent },
+    #[serde(rename = "pong")]
+    Pong,
+    #[serde(rename = "error")]
     Error { message: String },
 }
 
-#[derive(Debug, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskActionRequest {
-    pub action_type: String,
-    pub tool_call_id: Option<String>,
-    pub reason: Option<String>,
-    pub result: Option<serde_json::Value>,
-}
-
-// ============== Misc Types ==============
+// ============== Error Response ==============
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct ErrorResponse {
-    pub error: ErrorDetail,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ErrorDetail {
-    pub code: String,
+    pub error: String,
     pub message: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub details: Option<serde_json::Value>,
 }
 
 impl ErrorResponse {
-    pub fn new(code: &str, message: impl Into<String>) -> Self {
+    pub fn new(error: impl Into<String>, message: impl Into<String>) -> Self {
         Self {
-            error: ErrorDetail {
-                code: code.to_string(),
-                message: message.into(),
-            },
+            error: error.into(),
+            message: message.into(),
+            details: None,
         }
     }
-}
 
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct HealthResponse {
-    pub status: String,
-    pub version: String,
-    pub uptime: u64,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct ListResponse<T> {
-    pub data: Vec<T>,
-    pub total: usize,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct TaskStateResponse {
-    pub task_id: String,
-    pub state: RuntimeTaskState,
-    pub updated_at: i64,
-}
-
-#[derive(Debug, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct StreamEvent {
-    pub event_id: String,
-    pub event_type: String,
-    pub data: serde_json::Value,
+    pub fn with_details(mut self, details: serde_json::Value) -> Self {
+        self.details = Some(details);
+        self
+    }
 }

@@ -1,14 +1,17 @@
 use axum::extract::{Path, Query, State};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::Json;
+use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
-
-use talkcody_core::core::types::RuntimeEvent;
-use talkcody_core::storage::models::{Session, SessionStatus, TaskSettings};
+use std::time::Duration;
+use tokio_stream::wrappers::IntervalStream;
+use tokio_stream::StreamExt;
 
 use crate::routes::chat::convert_runtime_event_to_sse;
 use crate::state::ServerState;
 use crate::types::*;
+use talkcody_core::core::types::RuntimeEvent;
+use talkcody_core::storage::models::{Session, SessionStatus, TaskSettings};
 
 /// Create a new session
 pub async fn create_session(
@@ -168,7 +171,7 @@ pub async fn update_session_settings(
 pub async fn session_events(
     Path(session_id): Path<String>,
     State(state): State<ServerState>,
-) -> Sse<impl futures::Stream<Item = Result<Event, Infallible>>> {
+) -> Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>> {
     use async_stream::stream;
     use tokio::sync::broadcast;
 

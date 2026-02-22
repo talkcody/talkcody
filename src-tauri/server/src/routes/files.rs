@@ -1,10 +1,9 @@
 use axum::extract::{Path, State};
 use axum::{body::Bytes, Json};
 
-use talkcody_core::storage::models::{Attachment, AttachmentOrigin};
-
 use crate::state::ServerState;
 use crate::types::*;
+use talkcody_core::storage::models::{Attachment, AttachmentOrigin};
 
 /// Upload a file to a session
 pub async fn upload_file(

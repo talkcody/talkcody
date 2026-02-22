@@ -92,18 +92,9 @@ impl ApiKeyManager {
             serde_json::from_str::<ModelsConfiguration>(&raw)
                 .map_err(|e| format!("Failed to parse models config: {}", e))?
         } else {
-            let data_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-                .join("..")
-                .join("..")
-                .join("packages")
-                .join("shared")
-                .join("src")
-                .join("data")
-                .join("models-config.json");
-
-            let default_config = std::fs::read_to_string(&data_dir)
-                .map_err(|e| format!("Failed to read bundled models config: {}", e))?;
-            serde_json::from_str::<ModelsConfiguration>(&default_config)
+            let default_config =
+                include_str!("../../../../../packages/shared/src/data/models-config.json");
+            serde_json::from_str::<ModelsConfiguration>(default_config)
                 .map_err(|e| format!("Failed to parse bundled models config: {}", e))?
         };
 

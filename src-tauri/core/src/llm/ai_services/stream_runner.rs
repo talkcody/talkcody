@@ -27,7 +27,7 @@ impl StreamRunner {
     where
         F: FnMut(StreamEvent) + Send,
     {
-        let (_model_key, provider_id, provider_model_name) =
+        let (model_key, provider_id, provider_model_name) =
             self.resolve_model_info(&request.model).await?;
 
         let provider = self
@@ -55,6 +55,7 @@ impl StreamRunner {
         let client = reqwest::Client::builder()
             .connect_timeout(Duration::from_secs(10))
             .timeout(Duration::from_secs(300))
+            .gzip(false)
             .brotli(false)
             .tcp_nodelay(true)
             .pool_max_idle_per_host(5)

@@ -51,17 +51,10 @@ pub async fn ws_connect(
     info!("[WebSocket] Connecting to: {}", url);
 
     // Create request with custom headers
-    let mut request = url
-        .parse::<http::Uri>()
-        .map_err(|e| {
-            error!("[WebSocket] Invalid URL: {}", e);
-            format!("Invalid URL: {}", e)
-        })?
-        .into_client_request()
-        .map_err(|e| {
-            error!("[WebSocket] Failed to create request: {}", e);
-            format!("Failed to create request: {}", e)
-        })?;
+    let mut request = url.into_client_request().map_err(|e| {
+        error!("[WebSocket] Failed to create request: {}", e);
+        format!("Failed to create request: {}", e)
+    })?;
 
     // Add custom headers (this is why we need native WebSocket)
     request.headers_mut().insert(

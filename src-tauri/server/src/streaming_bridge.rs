@@ -3,10 +3,11 @@
 //! Bridges runtime events to the StreamingManager for SSE and WebSocket delivery.
 //! Implements Phase 4: Wire runtime events to streaming manager.
 
+use crate::state::ServerState;
+use std::sync::Arc;
 use talkcody_core::core::types::{EventReceiver, RuntimeEvent};
 use talkcody_core::streaming::events::StreamingEvent;
-
-use crate::state::ServerState;
+use tokio::sync::RwLock;
 
 /// Bridge that forwards runtime events to the streaming manager
 pub struct StreamingBridge {

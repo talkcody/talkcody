@@ -6,7 +6,6 @@ use crate::llm::protocols::{
 };
 use crate::llm::types::{ContentPart, Message, MessageContent, StreamEvent, ToolDefinition};
 use serde_json::{json, Value};
-use std::path::PathBuf;
 
 pub struct OpenAiResponsesProtocol;
 
@@ -188,15 +187,7 @@ impl ProtocolRequestBuilder for OpenAiResponsesProtocol {
             }
         }
 
-        let instructions_path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("..")
-            .join("..")
-            .join("src")
-            .join("services")
-            .join("codex-instructions.md");
-
-        let instructions =
-            std::fs::read_to_string(&instructions_path).unwrap_or_else(|_| "".to_string());
+        let instructions = include_str!("../../../../../src/services/codex-instructions.md");
 
         let mut body = json!({
             "model": Self::normalize_model(ctx.model),

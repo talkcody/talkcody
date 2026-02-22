@@ -224,6 +224,7 @@ pub async fn proxy_fetch(request: ProxyRequest) -> Result<ProxyResponse, String>
     // Configure client with proper decompression and connection settings
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(10))
+        .gzip(true)
         .brotli(true)
         .tcp_nodelay(true)
         .pool_max_idle_per_host(5)
@@ -384,6 +385,7 @@ async fn stream_fetch_inner<R: tauri::Runtime>(
     // Configure client with connection settings for streaming and avoid auto-decompression.
     let client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(10))
+        .gzip(false)
         .brotli(false)
         .tcp_nodelay(true) // Reduce latency for streaming
         .pool_max_idle_per_host(5) // Enable connection pooling

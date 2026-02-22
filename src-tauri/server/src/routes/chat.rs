@@ -10,13 +10,12 @@ use axum::{
 use std::convert::Infallible;
 use tokio::sync::broadcast;
 
+use crate::state::ServerState;
+use crate::types::*;
 use talkcody_core::core::types::{RuntimeEvent, TaskInput};
 use talkcody_core::storage::models::{
     Message, MessageContent, MessageRole, SessionStatus, TaskSettings,
 };
-
-use crate::state::ServerState;
-use crate::types::*;
 
 /// Chat request - OpenAI compatible format
 #[derive(Debug, serde::Deserialize)]
@@ -103,7 +102,7 @@ pub struct Usage {
 pub async fn chat(
     State(state): State<ServerState>,
     Json(payload): Json<ChatRequest>,
-) -> Result<Sse<impl futures::Stream<Item = Result<Event, Infallible>>>, Json<ErrorResponse>> {
+) -> Result<Sse<impl tokio_stream::Stream<Item = Result<Event, Infallible>>>, Json<ErrorResponse>> {
     log::info!("[CHAT] Received chat request");
     log::debug!("[CHAT] Request payload: model={:?}, stream={:?}, session_id={:?}, agent_id={:?}, project_name={:?}",
         payload.model, payload.stream, payload.session_id, payload.agent_id, payload.project_name);

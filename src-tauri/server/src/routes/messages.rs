@@ -1,10 +1,9 @@
 use axum::extract::{Path, Query, State};
 use axum::Json;
 
-use talkcody_core::storage::models::{Message, MessageContent, MessageRole};
-
 use crate::state::ServerState;
 use crate::types::*;
+use talkcody_core::storage::models::{Message, MessageContent, MessageRole};
 
 /// Create a new message in a session
 pub async fn create_message(

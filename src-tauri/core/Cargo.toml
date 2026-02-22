@@ -12,7 +12,7 @@ path = "src/lib.rs"
 
 [dependencies]
 # Workspace dependencies
- tokio.workspace = true
+tokio.workspace = true
 futures.workspace = true
 futures-util.workspace = true
 async-trait.workspace = true
@@ -70,6 +70,7 @@ streaming-iterator.workspace = true
 open-lark.workspace = true
 axum.workspace = true
 tokio-tungstenite.workspace = true
+
 
 lazy_static.workspace = true
 tiny_http.workspace = true

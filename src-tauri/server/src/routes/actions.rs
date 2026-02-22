@@ -1,10 +1,9 @@
 use axum::extract::{Path, State};
 use axum::Json;
 
-use talkcody_core::core::types::{TaskAction, ToolRequest};
-
 use crate::state::ServerState;
 use crate::types::*;
+use talkcody_core::core::types::{TaskAction, ToolRequest};
 
 /// Create an action on a session (approve, reject, tool_result, cancel)
 pub async fn create_action(

@@ -146,7 +146,7 @@ impl GitPlatform {
 
         match self.validate_path(&path, ctx) {
             Ok(validated_path) => {
-                let _full_path = validated_path.join(file_path);
+                let full_path = validated_path.join(file_path);
 
                 match crate::git::git_get_raw_diff_text(
                     validated_path.to_string_lossy().to_string(),

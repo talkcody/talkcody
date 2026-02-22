@@ -1,7 +1,7 @@
-use axum::body::Body;
-use axum::extract::{Request, State};
-use axum::middleware::Next;
-use axum::response::{IntoResponse, Response};
+pub use axum::body::Body;
+pub use axum::extract::{Request, State};
+pub use axum::middleware::Next;
+pub use axum::response::{IntoResponse, Response};
 
 use crate::storage::Storage;
 
@@ -9,7 +9,7 @@ const API_KEY_HEADER: &str = "x-api-key";
 
 /// API key middleware that validates against configured key
 pub async fn api_key_middleware(
-    State(storage): State<Storage>,
+    State(state): State<Storage>,
     req: Request,
     next: Next,
 ) -> Response {
@@ -22,7 +22,7 @@ pub async fn api_key_middleware(
         .filter(|value| !value.is_empty());
 
     // Check if API key validation is configured
-    let validation_enabled = match storage
+    let validation_enabled = match state
         .settings
         .get_setting("api_key_validation_enabled")
         .await
@@ -37,7 +37,7 @@ pub async fn api_key_middleware(
     }
 
     // Get the configured API key from settings
-    let configured_key = match storage.settings.get_setting("api_key").await {
+    let configured_key = match state.settings.get_setting("api_key").await {
         Ok(Some(val)) => val.as_str().map(|s| s.to_string()),
         _ => None,
     };
