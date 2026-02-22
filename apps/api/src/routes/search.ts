@@ -95,10 +95,6 @@ function transformSerperResults(serperResults: SerperSearchResult[]): WebSearchR
   }));
 }
 
-/**
- * POST /api/search
- * Search endpoint with rate limiting
- */
 search.post('/', optionalAuthMiddleware, async (c) => {
   // Get device ID from header (required)
   const deviceId = c.req.header('X-Device-ID');
@@ -216,10 +212,6 @@ search.post('/', optionalAuthMiddleware, async (c) => {
   }
 });
 
-/**
- * GET /api/search/usage
- * Get search usage statistics
- */
 search.get('/usage', optionalAuthMiddleware, async (c) => {
   const deviceId = c.req.header('X-Device-ID');
   if (!deviceId) {
@@ -243,10 +235,6 @@ search.get('/usage', optionalAuthMiddleware, async (c) => {
   }
 });
 
-/**
- * GET /api/search/health
- * Health check for search endpoint
- */
 search.get('/health', async (c) => {
   const serperApiKey = getSerperApiKey(c.env);
 

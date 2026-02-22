@@ -4,7 +4,6 @@
 //! Tools execute on the backend host (filesystem, git, shell, LSP, search).
 
 use crate::core::types::*;
-use crate::platform::types::PlatformResult;
 use crate::storage::models::*;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -34,8 +33,6 @@ pub type ToolHandler = Arc<
         + Send
         + Sync,
 >;
-
-use futures::future::BoxFuture;
 
 /// Tool registry containing all available tools
 pub struct ToolRegistry {

@@ -11,6 +11,7 @@ pub mod platform;
 pub mod security;
 pub mod storage;
 pub mod streaming;
+pub mod tools;
 pub mod types;
 
 // Shared utilities used by server/desktop

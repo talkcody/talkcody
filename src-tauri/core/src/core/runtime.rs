@@ -10,7 +10,8 @@ use crate::core::types::*;
 use crate::llm::auth::api_key_manager::ApiKeyManager;
 use crate::llm::providers::provider_registry::ProviderRegistry;
 use crate::storage::{
-    Message, MessageContent, MessageRole, SessionId, SessionStatus, Storage, TaskSettings,
+    Message, MessageContent, MessageRole, SessionId, SessionStatus, Storage, StoredToolResult,
+    TaskSettings, ToolCall, ToolResultStatus,
 };
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -315,50 +316,13 @@ impl CoreRuntime {
             .get_messages(&task.session_id, None, None)
             .await
             .unwrap_or_default();
+        let mut messages = messages;
+        let max_iterations = AgentLoopConfig::default().max_iterations;
+        let mut iteration = 0u32;
 
-        match agent_loop.run_iteration(&ctx, &messages).await {
-            Ok(AgentLoopResult::Completed { message }) => {
-                // Add assistant message
-                let assistant_message = Message {
-                    id: format!("msg_{}", uuid::Uuid::new_v4()),
-                    session_id: task.session_id.clone(),
-                    role: MessageRole::Assistant,
-                    content: MessageContent::Text { text: message },
-                    created_at: chrono::Utc::now().timestamp(),
-                    tool_call_id: None,
-                    parent_id: None,
-                };
-
-                let _ = self
-                    .session_manager
-                    .add_message(assistant_message.clone())
-                    .await;
-                let _ = event_sender.send(RuntimeEvent::MessageCreated {
-                    session_id: task.session_id.clone(),
-                    message: assistant_message,
-                });
-
-                self.complete_task(&task, RuntimeTaskState::Completed, None, &event_sender)
-                    .await;
-            }
-            Ok(AgentLoopResult::WaitingForApproval { request }) => {
-                *task_state.write().await = RuntimeTaskState::WaitingForUser;
-                let _ = event_sender.send(RuntimeEvent::ToolCallRequested {
-                    task_id: task.id.clone(),
-                    request,
-                });
-                // Task will wait for user action via action_rx
-            }
-            Ok(AgentLoopResult::Error { message }) => {
-                self.complete_task(
-                    &task,
-                    RuntimeTaskState::Failed,
-                    Some(message),
-                    &event_sender,
-                )
-                .await;
-            }
-            Ok(AgentLoopResult::MaxIterationsReached) => {
+        loop {
+            iteration += 1;
+            if iteration > max_iterations {
                 self.complete_task(
                     &task,
                     RuntimeTaskState::Completed,
@@ -366,24 +330,215 @@ impl CoreRuntime {
                     &event_sender,
                 )
                 .await;
+                break;
             }
-            Ok(AgentLoopResult::Cancelled) => {
-                self.complete_task(&task, RuntimeTaskState::Cancelled, None, &event_sender)
+
+            match agent_loop.run_iteration(&ctx, &messages).await {
+                Ok(AgentLoopResult::Completed { message }) => {
+                    // Add assistant message
+                    let assistant_message = Message {
+                        id: format!("msg_{}", uuid::Uuid::new_v4()),
+                        session_id: task.session_id.clone(),
+                        role: MessageRole::Assistant,
+                        content: MessageContent::Text { text: message },
+                        created_at: chrono::Utc::now().timestamp(),
+                        tool_call_id: None,
+                        parent_id: None,
+                    };
+
+                    let _ = self
+                        .session_manager
+                        .add_message(assistant_message.clone())
+                        .await;
+                    let _ = event_sender.send(RuntimeEvent::MessageCreated {
+                        session_id: task.session_id.clone(),
+                        message: assistant_message.clone(),
+                    });
+                    messages.push(assistant_message);
+
+                    self.complete_task(&task, RuntimeTaskState::Completed, None, &event_sender)
+                        .await;
+                    break;
+                }
+                Ok(AgentLoopResult::ToolCalls {
+                    accumulated_text,
+                    tool_calls,
+                    ..
+                }) => {
+                    if !accumulated_text.is_empty() {
+                        let assistant_message = Message {
+                            id: format!("msg_{}", uuid::Uuid::new_v4()),
+                            session_id: task.session_id.clone(),
+                            role: MessageRole::Assistant,
+                            content: MessageContent::Text {
+                                text: accumulated_text,
+                            },
+                            created_at: chrono::Utc::now().timestamp(),
+                            tool_call_id: None,
+                            parent_id: None,
+                        };
+                        let _ = self
+                            .session_manager
+                            .add_message(assistant_message.clone())
+                            .await;
+                        let _ = event_sender.send(RuntimeEvent::MessageCreated {
+                            session_id: task.session_id.clone(),
+                            message: assistant_message.clone(),
+                        });
+                        messages.push(assistant_message);
+                    }
+
+                    let stored_calls = tool_calls
+                        .iter()
+                        .map(|call| ToolCall {
+                            id: call.tool_call_id.clone(),
+                            name: call.name.clone(),
+                            input: call.input.clone(),
+                        })
+                        .collect::<Vec<_>>();
+                    let tool_calls_message = Message {
+                        id: format!("msg_{}", uuid::Uuid::new_v4()),
+                        session_id: task.session_id.clone(),
+                        role: MessageRole::Assistant,
+                        content: MessageContent::ToolCalls {
+                            calls: stored_calls,
+                        },
+                        created_at: chrono::Utc::now().timestamp(),
+                        tool_call_id: None,
+                        parent_id: None,
+                    };
+
+                    let _ = self
+                        .session_manager
+                        .add_message(tool_calls_message.clone())
+                        .await;
+                    let _ = event_sender.send(RuntimeEvent::MessageCreated {
+                        session_id: task.session_id.clone(),
+                        message: tool_calls_message.clone(),
+                    });
+                    messages.push(tool_calls_message);
+
+                    for call in tool_calls {
+                        let tool_context = ToolContext {
+                            session_id: ctx.session_id.clone(),
+                            task_id: ctx.task_id.clone(),
+                            workspace_root: ctx.workspace_root.clone(),
+                            worktree_path: ctx.worktree_path.clone(),
+                            settings: ctx.settings.clone(),
+                        };
+
+                        let auto_approve = ctx.settings.auto_approve_edits.unwrap_or(false);
+                        match self
+                            .tool_registry
+                            .clone()
+                            .requires_approval(&call.name)
+                            .await
+                        {
+                            true if !auto_approve => {
+                                *task_state.write().await = RuntimeTaskState::WaitingForUser;
+                                let _ = event_sender.send(RuntimeEvent::ToolCallRequested {
+                                    task_id: task.id.clone(),
+                                    request: call,
+                                });
+                                return;
+                            }
+                            _ => {
+                                let result = self
+                                    .tool_registry
+                                    .clone()
+                                    .execute(call.clone(), tool_context)
+                                    .await;
+                                let _ = event_sender.send(RuntimeEvent::ToolCallCompleted {
+                                    task_id: task.id.clone(),
+                                    result: result.clone(),
+                                });
+
+                                let stored_result = StoredToolResult {
+                                    tool_call_id: result.tool_call_id.clone(),
+                                    tool_name: result.name.clone().unwrap_or_default(),
+                                    input: None,
+                                    output: Some(result.output.clone()),
+                                    status: if result.success {
+                                        ToolResultStatus::Success
+                                    } else {
+                                        ToolResultStatus::Error
+                                    },
+                                    error_message: result.error.clone(),
+                                };
+
+                                let tool_result_message = Message {
+                                    id: format!("msg_{}", uuid::Uuid::new_v4()),
+                                    session_id: task.session_id.clone(),
+                                    role: MessageRole::Tool,
+                                    content: MessageContent::ToolResult {
+                                        result: stored_result,
+                                    },
+                                    created_at: chrono::Utc::now().timestamp(),
+                                    tool_call_id: Some(result.tool_call_id.clone()),
+                                    parent_id: None,
+                                };
+
+                                let _ = self
+                                    .session_manager
+                                    .add_message(tool_result_message.clone())
+                                    .await;
+                                let _ = event_sender.send(RuntimeEvent::MessageCreated {
+                                    session_id: task.session_id.clone(),
+                                    message: tool_result_message.clone(),
+                                });
+                                messages.push(tool_result_message);
+                            }
+                        }
+                    }
+                }
+                Ok(AgentLoopResult::WaitingForApproval { request }) => {
+                    *task_state.write().await = RuntimeTaskState::WaitingForUser;
+                    let _ = event_sender.send(RuntimeEvent::ToolCallRequested {
+                        task_id: task.id.clone(),
+                        request,
+                    });
+                    break;
+                }
+                Ok(AgentLoopResult::Error { message }) => {
+                    self.complete_task(
+                        &task,
+                        RuntimeTaskState::Failed,
+                        Some(message),
+                        &event_sender,
+                    )
                     .await;
-            }
-            Ok(AgentLoopResult::WaitingForToolResult { .. }) => {
-                // This shouldn't happen in our simplified implementation
-                self.complete_task(
-                    &task,
-                    RuntimeTaskState::Failed,
-                    Some("Unexpected tool result wait".to_string()),
-                    &event_sender,
-                )
-                .await;
-            }
-            Err(e) => {
-                self.complete_task(&task, RuntimeTaskState::Failed, Some(e), &event_sender)
+                    break;
+                }
+                Ok(AgentLoopResult::MaxIterationsReached) => {
+                    self.complete_task(
+                        &task,
+                        RuntimeTaskState::Completed,
+                        Some("Maximum iterations reached".to_string()),
+                        &event_sender,
+                    )
                     .await;
+                    break;
+                }
+                Ok(AgentLoopResult::Cancelled) => {
+                    self.complete_task(&task, RuntimeTaskState::Cancelled, None, &event_sender)
+                        .await;
+                    break;
+                }
+                Ok(AgentLoopResult::WaitingForToolResult { .. }) => {
+                    self.complete_task(
+                        &task,
+                        RuntimeTaskState::Failed,
+                        Some("Unexpected tool result wait".to_string()),
+                        &event_sender,
+                    )
+                    .await;
+                    break;
+                }
+                Err(e) => {
+                    self.complete_task(&task, RuntimeTaskState::Failed, Some(e), &event_sender)
+                        .await;
+                    break;
+                }
             }
         }
 

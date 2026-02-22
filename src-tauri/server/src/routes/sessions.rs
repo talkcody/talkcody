@@ -189,13 +189,15 @@ pub async fn session_events(
                         RuntimeEvent::ReasoningDelta { session_id: s, .. } => s == &session_id_clone,
                         RuntimeEvent::ReasoningEnd { session_id: s, .. } => s == &session_id_clone,
                         RuntimeEvent::MessageCreated { session_id: s, .. } => s == &session_id_clone,
-                        RuntimeEvent::ToolCallRequested { task_id: _, .. } => true,
-                        RuntimeEvent::ToolCallCompleted { task_id: _, .. } => true,
-                        RuntimeEvent::TaskStateChanged { task_id: _, .. } => true,
+                        RuntimeEvent::Usage { session_id: s, .. } => s == &session_id_clone,
+                        RuntimeEvent::Done { session_id: s, .. } => s == &session_id_clone,
                         RuntimeEvent::TaskCompleted { session_id: s, .. } => s == &session_id_clone,
                         RuntimeEvent::Error { session_id: s, .. } => {
                             s.as_ref().map(|s| s == &session_id_clone).unwrap_or(false)
                         }
+                        RuntimeEvent::ToolCallRequested { task_id: _, .. } => true,
+                        RuntimeEvent::ToolCallCompleted { task_id: _, .. } => true,
+                        RuntimeEvent::TaskStateChanged { task_id: _, .. } => true,
                     };
 
                     if !session_matches {

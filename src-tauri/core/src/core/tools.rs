@@ -4,7 +4,6 @@
 //! Tools execute on the backend host (filesystem, git, shell, LSP, search).
 
 use crate::core::types::*;
-use crate::platform::types::PlatformResult;
 use crate::storage::models::*;
 use std::collections::HashMap;
 use std::sync::Arc;
@@ -35,7 +34,7 @@ pub type ToolHandler = Arc<
         + Sync,
 >;
 
-use futures::future::BoxFuture;
+use crate::tools::{web_fetch, web_search};
 
 /// Tool registry containing all available tools
 pub struct ToolRegistry {
@@ -437,24 +436,16 @@ async fn execute_tool_by_name(
         }
         "webFetch" | "web_fetch" => {
             if let Some(url) = request.input.get("url").and_then(|v| v.as_str()) {
-                // Perform HTTP fetch
-                match reqwest::get(url).await {
-                    Ok(response) => match response.text().await {
-                        Ok(text) => ToolExecutionOutput {
-                            success: true,
-                            data: serde_json::json!({"content": text}),
-                            error: None,
-                        },
-                        Err(e) => ToolExecutionOutput {
-                            success: false,
-                            data: serde_json::Value::Null,
-                            error: Some(format!("Failed to read response: {}", e)),
-                        },
+                match web_fetch::execute_web_fetch(url, &ctx, &request.tool_call_id).await {
+                    Ok(result) => ToolExecutionOutput {
+                        success: true,
+                        data: serde_json::to_value(&result).unwrap_or_default(),
+                        error: None,
                     },
                     Err(e) => ToolExecutionOutput {
                         success: false,
                         data: serde_json::Value::Null,
-                        error: Some(format!("Failed to fetch: {}", e)),
+                        error: Some(e),
                     },
                 }
             } else {
@@ -466,11 +457,25 @@ async fn execute_tool_by_name(
             }
         }
         "webSearch" | "web_search" => {
-            // Web search - return placeholder
-            ToolExecutionOutput {
-                success: true,
-                data: serde_json::json!({"results": [], "message": "Web search placeholder"}),
-                error: None,
+            if let Some(query) = request.input.get("query").and_then(|v| v.as_str()) {
+                match web_search::execute_web_search(query).await {
+                    Ok(results) => ToolExecutionOutput {
+                        success: true,
+                        data: serde_json::to_value(&results).unwrap_or_default(),
+                        error: None,
+                    },
+                    Err(e) => ToolExecutionOutput {
+                        success: false,
+                        data: serde_json::Value::Null,
+                        error: Some(e),
+                    },
+                }
+            } else {
+                ToolExecutionOutput {
+                    success: false,
+                    data: serde_json::Value::Null,
+                    error: Some("No query provided".to_string()),
+                }
             }
         }
         "callAgent" | "call_agent" => {

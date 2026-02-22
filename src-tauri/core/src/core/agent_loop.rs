@@ -44,6 +44,12 @@ pub struct AgentLoopContext {
 pub enum AgentLoopResult {
     /// Completed successfully with final response
     Completed { message: String },
+    /// Tool calls returned, waiting for execution
+    ToolCalls {
+        accumulated_text: String,
+        tool_calls: Vec<ToolRequest>,
+        finish_reason: Option<String>,
+    },
     /// Waiting for user approval of tool call
     WaitingForApproval { request: ToolRequest },
     /// Waiting for tool result
@@ -61,6 +67,7 @@ pub enum AgentLoopResult {
 struct StreamProcessorState {
     accumulated_text: String,
     tool_calls: Vec<ToolRequest>,
+    finish_reason: Option<String>,
     has_error: bool,
     error_message: Option<String>,
 }
@@ -94,6 +101,9 @@ impl AgentLoop {
             match self.run_iteration(ctx, &messages).await? {
                 AgentLoopResult::Completed { message } => {
                     return Ok(AgentLoopResult::Completed { message });
+                }
+                AgentLoopResult::ToolCalls { .. } => {
+                    return Ok(AgentLoopResult::MaxIterationsReached);
                 }
                 AgentLoopResult::WaitingForApproval { request } => {
                     return Ok(AgentLoopResult::WaitingForApproval { request });
@@ -179,46 +189,23 @@ impl AgentLoop {
 
         // Handle tool calls
         if !state.tool_calls.is_empty() {
-            // For now, handle first tool call
-            let tool_call = state.tool_calls.remove(0);
-            let tool_context = ToolContext {
-                session_id: ctx.session_id.clone(),
-                task_id: ctx.task_id.clone(),
-                workspace_root: ctx.workspace_root.clone(),
-                worktree_path: ctx.worktree_path.clone(),
-                settings: ctx.settings.clone(),
-            };
-
-            let auto_approve = ctx.settings.auto_approve_edits.unwrap_or(false);
-
-            match self
-                .tool_dispatcher
-                .dispatch(tool_call.clone(), tool_context, auto_approve)
-                .await
-            {
-                Ok(ToolDispatchResult::Completed(result)) => {
-                    // Emit completion event
-                    let _ = self.event_sender.send(RuntimeEvent::ToolCallCompleted {
-                        task_id: ctx.task_id.clone(),
-                        result: result.clone(),
-                    });
-
-                    // Continue with tool result
-                    Ok(AgentLoopResult::Completed {
-                        message: format!("Tool executed: {:?}", result),
-                    })
-                }
-                Ok(ToolDispatchResult::PendingApproval(request)) => {
-                    Ok(AgentLoopResult::WaitingForApproval { request })
-                }
-                Err(e) => Ok(AgentLoopResult::Error { message: e }),
-            }
-        } else {
-            // No tool calls, return completed with accumulated text
-            Ok(AgentLoopResult::Completed {
-                message: state.accumulated_text,
-            })
+            return Ok(AgentLoopResult::ToolCalls {
+                accumulated_text: state.accumulated_text,
+                tool_calls: state.tool_calls,
+                finish_reason: state.finish_reason,
+            });
         }
+
+        if state.finish_reason.is_some() {
+            let _ = self.event_sender.send(RuntimeEvent::Done {
+                session_id: ctx.session_id.clone(),
+                finish_reason: state.finish_reason.clone(),
+            });
+        }
+
+        Ok(AgentLoopResult::Completed {
+            message: state.accumulated_text,
+        })
     }
 
     /// Process a stream event from the LLM
@@ -287,6 +274,25 @@ impl AgentLoop {
                     id,
                 });
             }
+            StreamEvent::Usage {
+                input_tokens,
+                output_tokens,
+                total_tokens,
+                cached_input_tokens,
+                cache_creation_input_tokens,
+            } => {
+                let _ = self.event_sender.send(RuntimeEvent::Usage {
+                    session_id: ctx.session_id.clone(),
+                    input_tokens,
+                    output_tokens,
+                    total_tokens,
+                    cached_input_tokens,
+                    cache_creation_input_tokens,
+                });
+            }
+            StreamEvent::Done { finish_reason } => {
+                state.finish_reason = finish_reason;
+            }
             StreamEvent::Error { message } => {
                 state.has_error = true;
                 state.error_message = Some(message);
@@ -299,30 +305,103 @@ impl AgentLoop {
     fn convert_message_to_llm(&self, message: &Message) -> LlmMessage {
         match message.role {
             MessageRole::User => LlmMessage::User {
-                content: crate::llm::types::MessageContent::Text(match &message.content {
-                    MessageContent::Text { text } => text.clone(),
-                    _ => serde_json::to_string(&message.content).unwrap_or_default(),
-                }),
+                content: match &message.content {
+                    MessageContent::Text { text } => {
+                        crate::llm::types::MessageContent::Text(text.clone())
+                    }
+                    MessageContent::ToolCalls { calls } => {
+                        let parts = calls
+                            .iter()
+                            .map(|call| crate::llm::types::ContentPart::ToolCall {
+                                tool_call_id: call.id.clone(),
+                                tool_name: call.name.clone(),
+                                input: call.input.clone(),
+                                provider_metadata: None,
+                            })
+                            .collect();
+                        crate::llm::types::MessageContent::Parts(parts)
+                    }
+                    MessageContent::ToolResult { result } => {
+                        let output = result.output.clone().unwrap_or(serde_json::Value::Null);
+                        let parts = vec![crate::llm::types::ContentPart::ToolResult {
+                            tool_call_id: result.tool_call_id.clone(),
+                            tool_name: result.tool_name.clone(),
+                            output,
+                        }];
+                        crate::llm::types::MessageContent::Parts(parts)
+                    }
+                },
                 provider_options: None,
             },
             MessageRole::Assistant => LlmMessage::Assistant {
-                content: crate::llm::types::MessageContent::Text(match &message.content {
-                    MessageContent::Text { text } => text.clone(),
-                    _ => serde_json::to_string(&message.content).unwrap_or_default(),
-                }),
+                content: match &message.content {
+                    MessageContent::Text { text } => {
+                        crate::llm::types::MessageContent::Text(text.clone())
+                    }
+                    MessageContent::ToolCalls { calls } => {
+                        let parts = calls
+                            .iter()
+                            .map(|call| crate::llm::types::ContentPart::ToolCall {
+                                tool_call_id: call.id.clone(),
+                                tool_name: call.name.clone(),
+                                input: call.input.clone(),
+                                provider_metadata: None,
+                            })
+                            .collect();
+                        crate::llm::types::MessageContent::Parts(parts)
+                    }
+                    MessageContent::ToolResult { result } => {
+                        let output = result.output.clone().unwrap_or(serde_json::Value::Null);
+                        let parts = vec![crate::llm::types::ContentPart::ToolResult {
+                            tool_call_id: result.tool_call_id.clone(),
+                            tool_name: result.tool_name.clone(),
+                            output,
+                        }];
+                        crate::llm::types::MessageContent::Parts(parts)
+                    }
+                },
                 provider_options: None,
             },
             MessageRole::System => LlmMessage::System {
                 content: match &message.content {
                     MessageContent::Text { text } => text.clone(),
-                    _ => serde_json::to_string(&message.content).unwrap_or_default(),
+                    MessageContent::ToolCalls { calls } => {
+                        serde_json::to_string(calls).unwrap_or_default()
+                    }
+                    MessageContent::ToolResult { result } => {
+                        serde_json::to_string(result).unwrap_or_default()
+                    }
                 },
                 provider_options: None,
             },
-            MessageRole::Tool => LlmMessage::Tool {
-                content: vec![],
-                provider_options: None,
-            },
+            MessageRole::Tool => {
+                let parts = match &message.content {
+                    MessageContent::ToolResult { result } => {
+                        let output = result.output.clone().unwrap_or(serde_json::Value::Null);
+                        vec![crate::llm::types::ContentPart::ToolResult {
+                            tool_call_id: result.tool_call_id.clone(),
+                            tool_name: result.tool_name.clone(),
+                            output,
+                        }]
+                    }
+                    MessageContent::Text { text } => {
+                        vec![crate::llm::types::ContentPart::Text { text: text.clone() }]
+                    }
+                    MessageContent::ToolCalls { calls } => calls
+                        .iter()
+                        .map(|call| crate::llm::types::ContentPart::ToolCall {
+                            tool_call_id: call.id.clone(),
+                            tool_name: call.name.clone(),
+                            input: call.input.clone(),
+                            provider_metadata: None,
+                        })
+                        .collect(),
+                };
+                LlmMessage::Tool {
+                    content: parts,
+                    provider_options: None,
+                }
+            }
         }
     }
 

@@ -90,12 +90,117 @@ pub struct ChatMessageResponse {
 }
 
 /// Usage information
-#[derive(Debug, serde::Serialize)]
+#[derive(Debug, serde::Serialize, Clone, Copy)]
 #[serde(rename_all = "camelCase")]
 pub struct Usage {
     pub prompt_tokens: i32,
     pub completion_tokens: i32,
     pub total_tokens: i32,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct OpenAiDelta {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    role: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_calls: Option<Vec<OpenAiToolCallDelta>>,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct OpenAiToolCallDelta {
+    index: i32,
+    id: String,
+    #[serde(rename = "type")]
+    tool_type: String,
+    function: OpenAiToolCallFunction,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct OpenAiToolCallFunction {
+    name: String,
+    arguments: String,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct OpenAiChunkChoice {
+    index: i32,
+    delta: OpenAiDelta,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    finish_reason: Option<String>,
+}
+
+#[derive(Debug, serde::Serialize)]
+struct OpenAiChunk {
+    id: String,
+    object: String,
+    created: i64,
+    model: String,
+    choices: Vec<OpenAiChunkChoice>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    usage: Option<Usage>,
+}
+
+struct OpenAiStreamState {
+    completion_id: String,
+    created: i64,
+    model: String,
+    emitted_role: bool,
+    buffered_usage: Option<Usage>,
+    finish_reason: Option<String>,
+}
+
+impl OpenAiStreamState {
+    fn new(model: Option<&String>) -> Self {
+        let completion_id = format!(
+            "chatcmpl_{}",
+            uuid::Uuid::new_v4().to_string().replace("-", "")
+        );
+        let created = chrono::Utc::now().timestamp();
+        Self {
+            completion_id,
+            created,
+            model: model.cloned().unwrap_or_else(|| "unknown".to_string()),
+            emitted_role: false,
+            buffered_usage: None,
+            finish_reason: None,
+        }
+    }
+
+    fn make_chunk(&self, delta: OpenAiDelta) -> OpenAiChunk {
+        OpenAiChunk {
+            id: self.completion_id.clone(),
+            object: "chat.completion.chunk".to_string(),
+            created: self.created,
+            model: self.model.clone(),
+            choices: vec![OpenAiChunkChoice {
+                index: 0,
+                delta,
+                finish_reason: None,
+            }],
+            usage: None,
+        }
+    }
+
+    fn make_finish_chunk(&self) -> OpenAiChunk {
+        OpenAiChunk {
+            id: self.completion_id.clone(),
+            object: "chat.completion.chunk".to_string(),
+            created: self.created,
+            model: self.model.clone(),
+            choices: vec![OpenAiChunkChoice {
+                index: 0,
+                delta: OpenAiDelta {
+                    role: None,
+                    content: None,
+                    tool_calls: None,
+                },
+                finish_reason: self.finish_reason.clone(),
+            }],
+            usage: self.buffered_usage,
+        }
+    }
 }
 
 /// Handle chat request
@@ -310,7 +415,7 @@ pub async fn chat(
 
     // Subscribe to broadcast events BEFORE starting the task to avoid race condition
     log::debug!("[CHAT] Subscribing to event broadcast channel");
-    let mut rx = state.event_broadcast.subscribe();
+    let rx = state.event_broadcast.subscribe();
     log::debug!("[CHAT] Subscribed to broadcast channel");
 
     // Start the task
@@ -338,6 +443,7 @@ pub async fn chat(
         // Move the receiver into the stream to avoid missing early events
         let mut rx = rx;
         let mut event_count = 0u64;
+        let mut stream_state = OpenAiStreamState::new(payload.model.as_ref());
         log::debug!("[CHAT] SSE stream started, waiting for events...");
 
         loop {
@@ -351,6 +457,8 @@ pub async fn chat(
                         RuntimeEvent::ReasoningDelta { session_id: s, .. } => s == &session_id_clone,
                         RuntimeEvent::ReasoningEnd { session_id: s, .. } => s == &session_id_clone,
                         RuntimeEvent::MessageCreated { session_id: s, .. } => s == &session_id_clone,
+                        RuntimeEvent::Usage { session_id: s, .. } => s == &session_id_clone,
+                        RuntimeEvent::Done { session_id: s, .. } => s == &session_id_clone,
                         RuntimeEvent::ToolCallRequested { task_id: _, .. } => true,
                         RuntimeEvent::ToolCallCompleted { task_id: _, .. } => true,
                         RuntimeEvent::TaskStateChanged { task_id: _, .. } => true,
@@ -365,10 +473,11 @@ pub async fn chat(
                     }
                     log::debug!("[CHAT] Event #{} matches session {}, converting to SSE", event_count, session_id_clone);
 
-                    // Convert RuntimeEvent to SSE event
-                    let sse_event = convert_runtime_event_to_sse(&event);
-                    log::trace!("[CHAT] Yielding SSE event #{} to client", event_count);
-                    yield Ok::<_, Infallible>(sse_event);
+                    // Convert RuntimeEvent to OpenAI-compatible SSE event (if applicable)
+                    if let Some(sse_event) = convert_runtime_event_to_openai_sse(&event, &mut stream_state) {
+                        log::trace!("[CHAT] Yielding SSE event #{} to client", event_count);
+                        yield Ok::<_, Infallible>(sse_event);
+                    }
 
                     // Stop stream on task completion or error
                     if matches!(&event, RuntimeEvent::TaskCompleted { .. }) {
@@ -386,11 +495,108 @@ pub async fn chat(
                 }
             }
         }
+
+        if let Some(done_event) = finalize_openai_stream(&stream_state) {
+            yield Ok::<_, Infallible>(done_event);
+        }
+        yield Ok::<_, Infallible>(Event::default().data("[DONE]"));
+
         log::info!("[CHAT] SSE stream ended for session: {} (total events: {})", session_id_clone, event_count);
     };
 
     log::debug!("[CHAT] Returning SSE response for session: {}", session_id);
     Ok(Sse::new(stream).keep_alive(KeepAlive::new()))
+}
+
+/// Convert RuntimeEvent to OpenAI-compatible SSE Event
+fn convert_runtime_event_to_openai_sse(
+    event: &RuntimeEvent,
+    state: &mut OpenAiStreamState,
+) -> Option<Event> {
+    log::trace!(
+        "[CHAT] Converting RuntimeEvent to OpenAI SSE: {:?}",
+        std::mem::discriminant(event)
+    );
+
+    match event {
+        RuntimeEvent::Token { token, .. } => {
+            let delta = if state.emitted_role {
+                OpenAiDelta {
+                    role: None,
+                    content: Some(token.clone()),
+                    tool_calls: None,
+                }
+            } else {
+                OpenAiDelta {
+                    role: Some("assistant".to_string()),
+                    content: Some(token.clone()),
+                    tool_calls: None,
+                }
+            };
+            state.emitted_role = true;
+            let chunk = state.make_chunk(delta);
+            Some(Event::default().data(serde_json::to_string(&chunk).unwrap_or_default()))
+        }
+        RuntimeEvent::ToolCallRequested { request, .. } => {
+            let arguments = match serde_json::to_string(&request.input) {
+                Ok(value) => value,
+                Err(_) => "{}".to_string(),
+            };
+            let delta = OpenAiDelta {
+                role: if state.emitted_role {
+                    None
+                } else {
+                    Some("assistant".to_string())
+                },
+                content: None,
+                tool_calls: Some(vec![OpenAiToolCallDelta {
+                    index: 0,
+                    id: request.tool_call_id.clone(),
+                    tool_type: "function".to_string(),
+                    function: OpenAiToolCallFunction {
+                        name: request.name.clone(),
+                        arguments,
+                    },
+                }]),
+            };
+            state.emitted_role = true;
+            let chunk = state.make_chunk(delta);
+            Some(Event::default().data(serde_json::to_string(&chunk).unwrap_or_default()))
+        }
+        RuntimeEvent::Usage {
+            input_tokens,
+            output_tokens,
+            total_tokens,
+            ..
+        } => {
+            let total = total_tokens.unwrap_or(input_tokens + output_tokens);
+            state.buffered_usage = Some(Usage {
+                prompt_tokens: *input_tokens,
+                completion_tokens: *output_tokens,
+                total_tokens: total,
+            });
+            None
+        }
+        RuntimeEvent::Done { finish_reason, .. } => {
+            state.finish_reason = finish_reason.clone();
+            None
+        }
+        RuntimeEvent::Error { message, .. } => {
+            let error_payload = serde_json::json!({
+                "error": {
+                    "message": message,
+                    "type": "server_error"
+                }
+            });
+            Some(Event::default().data(error_payload.to_string()))
+        }
+        _ => None,
+    }
+}
+
+fn finalize_openai_stream(state: &OpenAiStreamState) -> Option<Event> {
+    let chunk = state.make_finish_chunk();
+    Some(Event::default().data(serde_json::to_string(&chunk).unwrap_or_default()))
 }
 
 /// Convert RuntimeEvent to SSE Event
@@ -560,6 +766,17 @@ pub fn convert_runtime_event_to_sse(event: &RuntimeEvent) -> Event {
                         "message": message,
                         "taskId": task_id,
                         "sessionId": session_id
+                    }
+                })
+                .to_string(),
+            )
+        }
+        RuntimeEvent::Usage { .. } | RuntimeEvent::Done { .. } => {
+            Event::default().event("status").data(
+                serde_json::json!({
+                    "type": "status",
+                    "data": {
+                        "message": "Runtime event ignored for session SSE"
                     }
                 })
                 .to_string(),

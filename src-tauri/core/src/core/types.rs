@@ -182,6 +182,20 @@ pub enum RuntimeEvent {
     },
     /// Reasoning end
     ReasoningEnd { session_id: SessionId, id: String },
+    /// Usage from LLM stream
+    Usage {
+        session_id: SessionId,
+        input_tokens: i32,
+        output_tokens: i32,
+        total_tokens: Option<i32>,
+        cached_input_tokens: Option<i32>,
+        cache_creation_input_tokens: Option<i32>,
+    },
+    /// LLM stream done
+    Done {
+        session_id: SessionId,
+        finish_reason: Option<String>,
+    },
     /// Tool execution requested
     ToolCallRequested {
         task_id: RuntimeTaskId,
