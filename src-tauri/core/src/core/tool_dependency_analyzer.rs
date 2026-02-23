@@ -5,8 +5,7 @@
 
 use crate::core::tool_definitions::{ToolCategory, ToolMetadata};
 use crate::core::types::ToolRequest;
-use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 /// Execution stage - a logical phase in the execution plan
 #[derive(Debug, Clone)]
@@ -113,7 +112,7 @@ impl ToolDependencyAnalyzer {
             .collect();
 
         if !write_edit_tools.is_empty() {
-            let (write_groups, write_tools, write_concurrent) =
+            let (write_groups, write_tools, _write_concurrent) =
                 self.create_write_edit_groups(&write_edit_tools, tool_metadata);
 
             total_tools += write_tools;
@@ -286,8 +285,8 @@ impl ToolDependencyAnalyzer {
                 targets.push(path.to_string());
             } else if let Some(file_path) = tool.input.get("file_path").and_then(|v| v.as_str()) {
                 targets.push(file_path.to_string());
-            } else if let Some(filePath) = tool.input.get("filePath").and_then(|v| v.as_str()) {
-                targets.push(filePath.to_string());
+            } else if let Some(file_path) = tool.input.get("filePath").and_then(|v| v.as_str()) {
+                targets.push(file_path.to_string());
             }
         }
 

@@ -175,18 +175,6 @@ impl TranscriptionService {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::llm::transcription::types::TranscriptionContext;
-
-    fn create_test_context(audio_base64: &str) -> TranscriptionContext {
-        TranscriptionContext {
-            audio_base64: audio_base64.to_string(),
-            mime_type: "audio/webm".to_string(),
-            language: None,
-            prompt: None,
-            temperature: None,
-            response_format: None,
-        }
-    }
 
     #[test]
     fn transcription_provider_from_id() {

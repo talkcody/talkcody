@@ -4,8 +4,7 @@
 //! Matches TypeScript install-skill-tool.tsx logic.
 
 use crate::core::tools::ToolContext;
-use serde::{Deserialize, Serialize};
-use std::path::Path;
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]

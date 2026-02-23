@@ -11,7 +11,7 @@ use crate::llm::protocols::{
 use crate::llm::providers::provider::{
     BaseProvider, Provider, ProviderContext, ProviderCredentials as Creds,
 };
-use crate::llm::types::{ContentPart, Message, MessageContent, ProtocolType, ProviderConfig};
+use crate::llm::types::{ProtocolType, ProviderConfig};
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -26,27 +26,6 @@ impl MoonshotProvider {
         Self {
             base: BaseProvider::new(config),
             protocol: OpenAiProtocol,
-        }
-    }
-
-    fn has_video_input(messages: &[Message]) -> bool {
-        messages.iter().any(|msg| match msg {
-            Message::User { content, .. } | Message::Assistant { content, .. } => {
-                Self::content_has_video(content)
-            }
-            Message::Tool { content, .. } => content
-                .iter()
-                .any(|part| matches!(part, ContentPart::Video { .. })),
-            Message::System { .. } => false,
-        })
-    }
-
-    fn content_has_video(content: &MessageContent) -> bool {
-        match content {
-            MessageContent::Text(_) => false,
-            MessageContent::Parts(parts) => parts
-                .iter()
-                .any(|part| matches!(part, ContentPart::Video { .. })),
         }
     }
 }

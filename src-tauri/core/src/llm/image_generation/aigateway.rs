@@ -34,7 +34,8 @@ struct Choice {
 
 #[derive(Debug, Clone, Deserialize)]
 struct ResponseMessage {
-    content: Option<String>,
+    #[serde(rename = "content")]
+    _content: Option<String>,
     /// Images are returned in this array for non-streaming responses
     /// Format: [{"type": "image_url", "image_url": {"url": "data:image/png;base64,..."}}]
     images: Option<Vec<ResponseImage>>,
@@ -45,7 +46,7 @@ struct ResponseMessage {
 #[derive(Debug, Clone, Deserialize)]
 struct ResponseImage {
     #[serde(rename = "type")]
-    image_type: Option<String>,
+    _image_type: Option<String>,
     #[serde(rename = "image_url")]
     image_url: Option<ImageUrl>,
 }

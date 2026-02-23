@@ -100,7 +100,7 @@ pub fn get_repository_root(repo: &Repository) -> Option<String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::process::Command;
+
     use tempfile::TempDir;
 
     /// Helper to create a temporary git repository

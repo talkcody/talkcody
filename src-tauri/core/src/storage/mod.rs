@@ -140,7 +140,7 @@ mod tests {
 
         assert!(storage.is_ok());
 
-        let storage = storage.unwrap();
+        let _storage = storage.unwrap();
 
         // Verify databases were created
         assert!(temp_dir.path().join("chat_history.db").exists());

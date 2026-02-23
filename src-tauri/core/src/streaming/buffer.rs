@@ -157,7 +157,7 @@ pub struct BufferStats {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::streaming::events::{StatusEventData, TokenEventData};
+    use crate::streaming::events::TokenEventData;
 
     #[tokio::test]
     async fn test_event_buffer() {

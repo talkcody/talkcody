@@ -4,7 +4,7 @@
 //! Matches TypeScript exit-plan-mode-tool.tsx logic.
 
 use crate::core::tools::ToolContext;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -23,7 +23,7 @@ pub struct ExitPlanModeResult {
 /// In backend-only mode, this tool checks the auto_approve_plan setting.
 /// If auto-approve is enabled, it auto-approves the plan.
 /// Otherwise, it returns an error indicating that user interaction is required.
-pub async fn execute(plan: &str, ctx: &ToolContext) -> Result<ExitPlanModeResult, String> {
+pub async fn execute(_plan: &str, ctx: &ToolContext) -> Result<ExitPlanModeResult, String> {
     // Check if auto-approve is enabled
     let auto_approve = ctx.settings.auto_approve_plan.unwrap_or(false);
 

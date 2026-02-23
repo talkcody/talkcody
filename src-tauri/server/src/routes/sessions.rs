@@ -1,11 +1,7 @@
 use axum::extract::{Path, Query, State};
 use axum::response::sse::{Event, KeepAlive, Sse};
 use axum::Json;
-use serde::{Deserialize, Serialize};
 use std::convert::Infallible;
-use std::time::Duration;
-use tokio_stream::wrappers::IntervalStream;
-use tokio_stream::StreamExt;
 
 use crate::routes::chat::convert_runtime_event_to_sse;
 use crate::state::ServerState;

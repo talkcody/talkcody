@@ -53,7 +53,6 @@ use talkcody_core::core::types::RuntimeEvent;
 use talkcody_server::{config::ServerConfig, state::ServerStateFactory};
 use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
 use tokio::io::BufReader;
-use tokio::process::Command as TokioCommand;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::time::Duration as TokioDuration;
 use websocket::WebSocketState;

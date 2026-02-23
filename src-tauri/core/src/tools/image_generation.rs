@@ -4,7 +4,7 @@
 //! Matches TypeScript image-generation-tool.tsx logic.
 
 use crate::core::tools::ToolContext;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[derive(Debug, Serialize)]
@@ -139,9 +139,7 @@ async fn _execute_full_impl(
     n: Option<u32>,
     ctx: &ToolContext,
 ) -> ImageGenerationResult {
-    use crate::llm::image_generation::service::ImageGenerationService;
-
-    let request = crate::llm::types::ImageGenerationRequest {
+    let _request = crate::llm::types::ImageGenerationRequest {
         model: String::new(),
         prompt: prompt.to_string(),
         size: Some(size.unwrap_or("1024x1024").to_string()),

@@ -3,8 +3,6 @@
 //! Hooks that run after a successful agent loop completion (no tool calls).
 //! Ported from TypeScript completion-hooks.ts and ralph-loop-service.ts
 
-use async_trait::async_trait;
-
 pub mod auto_review;
 pub mod ralph_loop;
 pub mod stop_hook;

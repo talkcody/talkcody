@@ -305,7 +305,7 @@ enum MatchType {
 
 struct SmartMatchResult {
     result: String,
-    occurrences: usize,
+    _occurrences: usize,
     match_type: MatchType,
     corrected_old_string: Option<String>,
 }
@@ -316,7 +316,7 @@ fn smart_match(content: &str, search_text: &str) -> SmartMatchResult {
     if content.contains(search_text) {
         return SmartMatchResult {
             result: content.to_string(),
-            occurrences: 1,
+            _occurrences: 1,
             match_type: MatchType::Exact,
             corrected_old_string: None,
         };
@@ -329,7 +329,7 @@ fn smart_match(content: &str, search_text: &str) -> SmartMatchResult {
     if normalized_content.contains(&normalized_search) {
         return SmartMatchResult {
             result: normalized_content,
-            occurrences: 1,
+            _occurrences: 1,
             match_type: MatchType::Smart,
             corrected_old_string: Some(normalized_search),
         };
@@ -342,7 +342,7 @@ fn smart_match(content: &str, search_text: &str) -> SmartMatchResult {
     if search_lines.is_empty() {
         return SmartMatchResult {
             result: content.to_string(),
-            occurrences: 0,
+            _occurrences: 0,
             match_type: MatchType::None,
             corrected_old_string: None,
         };
@@ -358,7 +358,7 @@ fn smart_match(content: &str, search_text: &str) -> SmartMatchResult {
             let exact_text_from_file = candidate_lines.join("\n");
             return SmartMatchResult {
                 result: normalized_content,
-                occurrences: 1,
+                _occurrences: 1,
                 match_type: MatchType::Smart,
                 corrected_old_string: Some(exact_text_from_file),
             };
@@ -367,7 +367,7 @@ fn smart_match(content: &str, search_text: &str) -> SmartMatchResult {
 
     SmartMatchResult {
         result: content.to_string(),
-        occurrences: 0,
+        _occurrences: 0,
         match_type: MatchType::None,
         corrected_old_string: None,
     }

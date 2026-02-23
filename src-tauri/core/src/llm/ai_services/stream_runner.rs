@@ -27,7 +27,7 @@ impl StreamRunner {
     where
         F: FnMut(StreamEvent) + Send,
     {
-        let (model_key, provider_id, provider_model_name) =
+        let (_model_key, provider_id, provider_model_name) =
             self.resolve_model_info(&request.model).await?;
 
         let provider = self

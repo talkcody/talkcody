@@ -4,7 +4,7 @@
 //! Matches TypeScript code-search-tool.tsx logic.
 
 use crate::core::tools::ToolContext;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::path::Path;
 
 #[derive(Debug, Serialize)]

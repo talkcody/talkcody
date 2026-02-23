@@ -1,5 +1,5 @@
 use crate::llm::ai_services::types::{CalculateCostRequest, CalculateCostResult, TokenUsage};
-use crate::llm::types::{ModelConfig, ModelPricing};
+use crate::llm::types::ModelConfig;
 use std::collections::HashMap;
 
 pub struct PricingService;

@@ -3,7 +3,7 @@
 //! Wraps existing telegram_gateway.rs for cloud backend integration.
 
 use crate::integrations::types::*;
-use std::sync::Arc;
+
 use tokio::sync::RwLock;
 
 /// Telegram adapter configuration
@@ -16,7 +16,7 @@ pub struct TelegramConfig {
 /// Telegram integration adapter
 pub struct TelegramAdapter {
     id: IntegrationId,
-    config: TelegramConfig,
+    _config: TelegramConfig,
     connected: RwLock<bool>,
 }
 
@@ -24,7 +24,7 @@ impl TelegramAdapter {
     pub fn new(id: impl Into<IntegrationId>, config: TelegramConfig) -> Self {
         Self {
             id: id.into(),
-            config,
+            _config: config,
             connected: RwLock::new(false),
         }
     }
@@ -33,7 +33,7 @@ impl TelegramAdapter {
     pub fn from_gateway(id: impl Into<IntegrationId>) -> Self {
         Self {
             id: id.into(),
-            config: TelegramConfig {
+            _config: TelegramConfig {
                 bot_token: String::new(),
                 webhook_url: None,
             },

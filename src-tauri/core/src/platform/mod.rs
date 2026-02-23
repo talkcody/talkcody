@@ -197,7 +197,7 @@ mod tests {
 
     #[test]
     fn test_platform_creation() {
-        let platform = Platform::new();
+        let _platform = Platform::new();
         // Platform created successfully
     }
 

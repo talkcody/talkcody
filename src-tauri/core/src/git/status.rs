@@ -146,7 +146,7 @@ pub fn get_all_file_statuses(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::process::Command;
+
     use tempfile::TempDir;
 
     /// Helper to create a temporary git repository with initial commit

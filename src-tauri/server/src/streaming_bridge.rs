@@ -29,7 +29,7 @@ impl StreamingBridge {
     /// Handle a single runtime event
     async fn handle_event(&self, event: RuntimeEvent) {
         let streaming = self.state.streaming();
-        let mut manager = streaming.write().await;
+        let manager = streaming.write().await;
 
         let streaming_event = match event {
             RuntimeEvent::Token { session_id, token } => Some(StreamingEvent::Token {

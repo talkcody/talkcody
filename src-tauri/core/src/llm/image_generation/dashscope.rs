@@ -49,10 +49,6 @@ struct QwenImageParameters {
 #[derive(Debug, Clone, Deserialize)]
 struct QwenImageResponse {
     output: QwenImageOutput,
-    #[serde(rename = "request_id")]
-    request_id: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    usage: Option<QwenImageUsage>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -60,20 +56,21 @@ struct QwenImageOutput {
     choices: Vec<QwenImageChoice>,
     #[serde(rename = "task_metric")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    task_metric: Option<QwenTaskMetric>,
+    _task_metric: Option<QwenTaskMetric>,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 struct QwenImageChoice {
     #[serde(rename = "finish_reason")]
-    finish_reason: String,
+    _finish_reason: String,
     message: QwenImageMessageResponse,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 struct QwenImageMessageResponse {
     content: Vec<QwenImageContentResponse>,
-    role: String,
+    #[serde(rename = "role")]
+    _role: String,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -85,30 +82,28 @@ enum QwenImageContentResponse {
 
 #[derive(Debug, Clone, Deserialize)]
 struct QwenTaskMetric {
-    #[serde(default)]
-    failed: i32,
-    #[serde(default)]
-    succeeded: i32,
-    #[serde(default)]
-    total: i32,
+    #[serde(default, rename = "failed")]
+    _failed: i32,
+    #[serde(default, rename = "succeeded")]
+    _succeeded: i32,
+    #[serde(default, rename = "total")]
+    _total: i32,
 }
 
 #[derive(Debug, Clone, Deserialize)]
 struct QwenImageUsage {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    height: Option<i32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    width: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "height")]
+    _height: Option<i32>,
+    #[serde(skip_serializing_if = "Option::is_none", rename = "width")]
+    _width: Option<i32>,
     #[serde(rename = "image_count")]
     #[serde(skip_serializing_if = "Option::is_none")]
-    image_count: Option<i32>,
+    _image_count: Option<i32>,
 }
 
 /// Error response from Qwen Image API
 #[derive(Debug, Clone, Deserialize)]
 struct QwenImageErrorResponse {
-    #[serde(rename = "request_id")]
-    request_id: String,
     code: String,
     message: String,
 }
@@ -350,9 +345,7 @@ mod tests {
         }"#;
         let parsed: QwenImageResponse = serde_json::from_str(json).expect("parse response");
         assert_eq!(parsed.output.choices.len(), 1);
-        assert_eq!(parsed.output.choices[0].finish_reason, "stop");
-        assert_eq!(parsed.request_id, "d0250a3d-b07f-49e1-bdc8-6793f4929xxx");
-
+        assert_eq!(parsed.output.choices[0]._finish_reason, "stop");
         // Extract image URL
         if let QwenImageContentResponse::Image { image } =
             &parsed.output.choices[0].message.content[0]
@@ -377,6 +370,28 @@ mod tests {
             serde_json::from_str(json).expect("parse error response");
         assert_eq!(parsed.code, "InvalidParameter");
         assert_eq!(parsed.message, "num_images_per_prompt must be 1");
+    }
+
+    #[test]
+    fn parses_qwen_image_response_minimal() {
+        let json = r#"{
+            "output": {
+                "choices": [
+                    {
+                        "finish_reason": "stop",
+                        "message": {
+                            "content": [
+                                {"image": "https://dashscope-result-sh.oss-cn-shanghai.aliyuncs.com/xxx.png"}
+                            ],
+                            "role": "assistant"
+                        }
+                    }
+                ]
+            }
+        }"#;
+        let parsed: QwenImageResponse = serde_json::from_str(json).expect("parse response");
+        assert_eq!(parsed.output.choices.len(), 1);
+        assert_eq!(parsed.output.choices[0]._finish_reason, "stop");
     }
 
     #[test]

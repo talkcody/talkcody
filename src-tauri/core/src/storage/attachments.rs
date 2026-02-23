@@ -3,7 +3,7 @@
 //! Also manages file system operations for attachment storage
 
 use crate::database::Database;
-use crate::storage::models::{Attachment, AttachmentId, AttachmentOrigin, SessionId};
+use crate::storage::models::{Attachment, AttachmentOrigin};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 

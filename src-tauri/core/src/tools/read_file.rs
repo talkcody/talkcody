@@ -4,7 +4,7 @@
 //! Matches TypeScript read-file-tool.tsx logic.
 
 use crate::core::tools::ToolContext;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::path::Path;
 
 const MAX_LINES: usize = 1000;

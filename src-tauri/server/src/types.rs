@@ -3,8 +3,7 @@
 //! Request and response types for the REST API
 
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
-use talkcody_core::core::types::RuntimeTaskState;
+
 use talkcody_core::storage::models::*;
 
 // ============== Session Types ==============

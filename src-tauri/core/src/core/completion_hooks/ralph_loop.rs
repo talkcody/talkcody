@@ -7,16 +7,18 @@ use super::{CompletionHook, HookContext, HookResult};
 
 /// Ralph loop hook for task evaluation
 pub struct RalphLoopHook {
-    max_iterations: u32,
+    _max_iterations: u32,
 }
 
 impl RalphLoopHook {
     pub fn new() -> Self {
-        Self { max_iterations: 3 }
+        Self { _max_iterations: 3 }
     }
 
     pub fn with_max_iterations(max_iterations: u32) -> Self {
-        Self { max_iterations }
+        Self {
+            _max_iterations: max_iterations,
+        }
     }
 
     /// Check if task needs more work

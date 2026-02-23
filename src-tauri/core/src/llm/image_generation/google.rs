@@ -330,7 +330,7 @@ mod tests {
 
     #[test]
     fn identifies_imagen_model() {
-        let client = GoogleImageClient::new();
+        let _client = GoogleImageClient::new();
         // This test verifies the logic we use to detect model type
         assert!("imagen-3.0-generate-002".starts_with("imagen"));
         assert!(!"gemini-2.0-flash-exp-image-generation".starts_with("imagen"));

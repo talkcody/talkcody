@@ -4,7 +4,7 @@
 //! Matches TypeScript github-pr-tool.tsx logic.
 
 use crate::core::tools::ToolContext;
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 
 #[derive(Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -39,7 +39,7 @@ pub async fn execute(
     action: &str,
     page: Option<u32>,
     per_page: Option<u32>,
-    filename_filter: Option<&str>,
+    _filename_filter: Option<&str>,
     _ctx: &ToolContext,
 ) -> GitHubPRResult {
     // Parse the GitHub PR URL

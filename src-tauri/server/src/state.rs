@@ -162,7 +162,7 @@ impl ServerStateFactory {
     /// Create server state with the given configuration
     pub async fn create(
         config: super::config::ServerConfig,
-        event_sender: EventSender,
+        _event_sender: EventSender,
     ) -> Result<ServerState, String> {
         // Create storage
         let storage =

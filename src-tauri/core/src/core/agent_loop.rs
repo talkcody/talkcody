@@ -16,7 +16,6 @@ use crate::llm::types::{
 use crate::storage::models::*;
 use std::sync::Arc;
 use std::time::Duration;
-use tokio::sync::{mpsc, RwLock};
 
 /// Agent loop configuration
 pub struct AgentLoop {
@@ -92,11 +91,11 @@ impl AgentLoop {
 
     /// Run the agent loop with full LLM integration
     pub async fn run(&self, ctx: &AgentLoopContext) -> Result<AgentLoopResult, String> {
-        let mut iteration = 0;
-        let mut messages = ctx.messages.clone();
+        let messages = ctx.messages.clone();
+        let iteration = 0;
 
         while iteration < self.config.max_iterations {
-            iteration += 1;
+            let _ = iteration + 1;
 
             // Run a single iteration
             match self.run_iteration(ctx, &messages).await? {
@@ -248,7 +247,7 @@ impl AgentLoop {
             }
             StreamEvent::ReasoningStart {
                 id,
-                provider_metadata,
+                provider_metadata: _,
             } => {
                 // Emit reasoning start event
                 let _ = self.event_sender.send(RuntimeEvent::ReasoningStart {
@@ -259,7 +258,7 @@ impl AgentLoop {
             StreamEvent::ReasoningDelta {
                 id,
                 text,
-                provider_metadata,
+                provider_metadata: _,
             } => {
                 // Emit reasoning delta event
                 let _ = self.event_sender.send(RuntimeEvent::ReasoningDelta {
@@ -480,6 +479,7 @@ impl AgentLoop {
         result
     }
 
+    #[allow(dead_code)]
     /// Build LLM prompt from context
     fn build_prompt(&self, ctx: &AgentLoopContext) -> Result<String, String> {
         let mut prompt = String::new();
@@ -509,6 +509,7 @@ impl AgentLoop {
         Ok(prompt)
     }
 
+    #[allow(dead_code)]
     /// Stream a token to the event channel
     fn stream_token(&self, session_id: &str, token: &str) {
         let _ = self.event_sender.send(RuntimeEvent::Token {
@@ -552,6 +553,7 @@ impl AgentLoopFactory {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tokio::sync::mpsc;
 
     async fn create_test_loop() -> (AgentLoop, mpsc::UnboundedReceiver<RuntimeEvent>) {
         use crate::database::Database;

@@ -3,7 +3,7 @@
 //! The main runtime that orchestrates task execution, session management,
 //! agent loops, and tool dispatch. Owns the lifecycle of all runtime tasks.
 
-use crate::core::agent_loop::{AgentLoop, AgentLoopContext, AgentLoopFactory, AgentLoopResult};
+use crate::core::agent_loop::{AgentLoopContext, AgentLoopFactory, AgentLoopResult};
 use crate::core::session::SessionManager;
 use crate::core::tools::{ToolContext, ToolRegistry};
 use crate::core::types::*;
@@ -16,13 +16,12 @@ use crate::storage::{
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
-use tokio::task::JoinHandle;
 
 /// Core runtime that manages all tasks and sessions
 #[derive(Clone)]
 pub struct CoreRuntime {
     /// Storage layer
-    storage: Storage,
+    _storage: Storage,
     /// Session manager
     session_manager: Arc<SessionManager>,
     /// Tool registry
@@ -93,7 +92,7 @@ impl CoreRuntime {
         let tool_registry = Arc::new(ToolRegistry::create_default().await);
 
         Ok(Self {
-            storage,
+            _storage: storage,
             session_manager,
             tool_registry,
             tasks: Arc::new(RwLock::new(HashMap::new())),
@@ -216,7 +215,7 @@ impl CoreRuntime {
         mut task: RuntimeTask,
         input: TaskInput,
         task_state: Arc<RwLock<RuntimeTaskState>>,
-        mut action_rx: mpsc::UnboundedReceiver<TaskAction>,
+        _action_rx: mpsc::UnboundedReceiver<TaskAction>,
         event_sender: EventSender,
     ) {
         // Update task state to running

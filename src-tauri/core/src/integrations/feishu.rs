@@ -3,7 +3,7 @@
 //! Wraps existing feishu_gateway.rs for cloud backend integration.
 
 use crate::integrations::types::*;
-use std::sync::Arc;
+
 use tokio::sync::RwLock;
 
 /// Feishu adapter configuration
@@ -17,7 +17,7 @@ pub struct FeishuConfig {
 /// Feishu integration adapter
 pub struct FeishuAdapter {
     id: IntegrationId,
-    config: FeishuConfig,
+    _config: FeishuConfig,
     connected: RwLock<bool>,
 }
 
@@ -25,7 +25,7 @@ impl FeishuAdapter {
     pub fn new(id: impl Into<IntegrationId>, config: FeishuConfig) -> Self {
         Self {
             id: id.into(),
-            config,
+            _config: config,
             connected: RwLock::new(false),
         }
     }
@@ -34,7 +34,7 @@ impl FeishuAdapter {
     pub fn from_gateway(id: impl Into<IntegrationId>) -> Self {
         Self {
             id: id.into(),
-            config: FeishuConfig {
+            _config: FeishuConfig {
                 app_id: String::new(),
                 app_secret: String::new(),
                 webhook_url: None,

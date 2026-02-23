@@ -100,7 +100,7 @@ impl GitPlatform {
                     Ok(statuses) => {
                         let mut staged = vec![];
                         let mut unstaged = vec![];
-                        let mut untracked = vec![];
+                        let untracked = vec![];
 
                         for (path, (status, is_staged)) in statuses {
                             let git_status = GitFileStatus {
@@ -146,7 +146,7 @@ impl GitPlatform {
 
         match self.validate_path(&path, ctx) {
             Ok(validated_path) => {
-                let full_path = validated_path.join(file_path);
+                let _full_path = validated_path.join(file_path);
 
                 match crate::git::git_get_raw_diff_text(
                     validated_path.to_string_lossy().to_string(),
@@ -229,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_git_platform_creation() {
-        let git = GitPlatform::new();
+        let _git = GitPlatform::new();
         // Platform created successfully
     }
 }

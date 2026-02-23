@@ -3,10 +3,7 @@
 //! Manages session lifecycle, message handling, and session state persistence.
 //! Coordinates with storage layer for persistence and runtime for execution.
 
-use crate::core::types::*;
-use crate::storage::{
-    Message, MessageContent, MessageRole, Session, SessionId, SessionStatus, Storage, TaskSettings,
-};
+use crate::storage::{Message, Session, SessionId, SessionStatus, Storage, TaskSettings};
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::RwLock;

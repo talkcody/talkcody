@@ -54,7 +54,7 @@ impl LspPlatform {
         match self.validate_path(path, ctx) {
             Ok(validated_path) => {
                 // Use LSP client if available
-                let language = self.detect_language(&validated_path);
+                let _language = self.detect_language(&validated_path);
 
                 // Try to use existing LSP functionality
                 // Note: This is a simplified implementation
@@ -92,8 +92,8 @@ impl LspPlatform {
     pub async fn find_references(
         &self,
         file_path: &str,
-        line: u32,
-        character: u32,
+        _line: u32,
+        _character: u32,
         ctx: &PlatformContext,
     ) -> PlatformResult<Vec<LspLocation>> {
         let path = Path::new(file_path);
@@ -127,7 +127,7 @@ impl LspPlatform {
     /// Get workspace symbols
     pub async fn get_workspace_symbols(
         &self,
-        query: &str,
+        _query: &str,
         ctx: &PlatformContext,
     ) -> PlatformResult<Vec<LspSymbol>> {
         // Workspace symbols don't require a specific file path
@@ -145,8 +145,8 @@ impl LspPlatform {
     pub async fn get_hover(
         &self,
         file_path: &str,
-        line: u32,
-        character: u32,
+        _line: u32,
+        _character: u32,
         ctx: &PlatformContext,
     ) -> PlatformResult<Option<String>> {
         let path = Path::new(file_path);
@@ -173,7 +173,7 @@ mod tests {
 
     #[test]
     fn test_lsp_platform_creation() {
-        let lsp = LspPlatform::new();
+        let _lsp = LspPlatform::new();
         // Platform created successfully
     }
 }

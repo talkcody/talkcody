@@ -332,8 +332,6 @@ async fn execute_tool_by_name(
         "glob" => {
             // Glob implementation using walkdir
             if let Some(pattern) = request.input.get("pattern").and_then(|v| v.as_str()) {
-                use std::path::Path;
-
                 // Simple glob implementation - convert pattern to suffix matching
                 let files: Vec<String> = std::fs::read_dir(&ctx.workspace_root)
                     .ok()

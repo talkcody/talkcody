@@ -3,7 +3,7 @@
 //! The main runtime that orchestrates task execution, session management,
 //! agent loops, and tool dispatch. Owns the lifecycle of all runtime tasks.
 
-use crate::core::agent_loop::{AgentLoop, AgentLoopContext, AgentLoopFactory, AgentLoopResult};
+use crate::core::agent_loop::{AgentLoopContext, AgentLoopFactory, AgentLoopResult};
 use crate::core::session::SessionManager;
 use crate::core::tools::{ToolContext, ToolRegistry};
 use crate::core::types::*;
@@ -16,13 +16,12 @@ use crate::storage::{
 use std::collections::HashMap;
 use std::sync::Arc;
 use tokio::sync::{mpsc, RwLock};
-use tokio::task::JoinHandle;
 
 /// Core runtime that manages all tasks and sessions
 #[derive(Clone)]
 pub struct CoreRuntime {
     /// Storage layer
-    storage: Storage,
+    _storage: Storage,
     /// Session manager
     session_manager: Arc<SessionManager>,
     /// Tool registry
@@ -32,7 +31,7 @@ pub struct CoreRuntime {
     /// Event broadcaster
     event_sender: EventSender,
     /// Settings for validation
-    _settings_validator: SettingsValidator,
+    settings_validator: SettingsValidator,
     /// Provider registry for LLM
     provider_registry: ProviderRegistry,
     /// API key manager
@@ -93,12 +92,12 @@ impl CoreRuntime {
         let tool_registry = Arc::new(ToolRegistry::create_default().await);
 
         Ok(Self {
-            storage,
+            _storage: storage,
             session_manager,
             tool_registry,
             tasks: Arc::new(RwLock::new(HashMap::new())),
             event_sender,
-            _settings_validator: SettingsValidator::new(),
+            settings_validator: SettingsValidator::new(),
             provider_registry,
             api_key_manager,
         })
@@ -108,7 +107,7 @@ impl CoreRuntime {
     pub async fn start_task(&self, input: TaskInput) -> Result<TaskHandle, String> {
         // Validate settings if provided
         if let Some(ref settings) = input.settings {
-            let validation = self._settings_validator.validate(settings);
+            let validation = self.settings_validator.validate(settings);
             if !validation.valid {
                 return Err(format!(
                     "Invalid settings: {}",
@@ -165,7 +164,7 @@ impl CoreRuntime {
         }
 
         // Spawn task execution
-        let runtime_clone = self.clone_for_task();
+        let runtime_clone = self.clone();
         let event_sender = self.event_sender.clone();
 
         tokio::spawn(async move {
@@ -216,7 +215,7 @@ impl CoreRuntime {
         mut task: RuntimeTask,
         input: TaskInput,
         task_state: Arc<RwLock<RuntimeTaskState>>,
-        mut action_rx: mpsc::UnboundedReceiver<TaskAction>,
+        _action_rx: mpsc::UnboundedReceiver<TaskAction>,
         event_sender: EventSender,
     ) {
         // Update task state to running
@@ -587,35 +586,6 @@ impl CoreRuntime {
     fn find_session_for_task(&self, input: &TaskInput) -> Option<SessionId> {
         // If session_id is explicitly provided in input, use that
         Some(input.session_id.clone())
-    }
-
-    /// Clone runtime state for task execution
-    fn clone_for_task(&self) -> RuntimeTaskContext {
-        RuntimeTaskContext {
-            session_manager: self.session_manager.clone(),
-            tool_registry: self.tool_registry.clone(),
-        }
-    }
-}
-
-/// Context passed to task execution (lighter weight than full runtime)
-#[derive(Clone)]
-struct RuntimeTaskContext {
-    session_manager: Arc<SessionManager>,
-    tool_registry: Arc<ToolRegistry>,
-}
-
-impl RuntimeTaskContext {
-    async fn run_task(
-        &self,
-        _task: RuntimeTask,
-        _input: TaskInput,
-        _task_state: Arc<RwLock<RuntimeTaskState>>,
-        _action_rx: mpsc::UnboundedReceiver<TaskAction>,
-        _event_sender: EventSender,
-    ) {
-        // This is called from the spawned task - actual implementation is in CoreRuntime
-        // This method exists for type compatibility
     }
 }
 
