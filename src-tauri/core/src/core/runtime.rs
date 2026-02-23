@@ -308,6 +308,7 @@ impl CoreRuntime {
                     .get("model")
                     .and_then(|v| v.as_str().map(|s| s.to_string()))
             }),
+            llm_state: None,
         };
 
         // Get current messages and run agent loop
@@ -425,6 +426,7 @@ impl CoreRuntime {
                             workspace_root: ctx.workspace_root.clone(),
                             worktree_path: ctx.worktree_path.clone(),
                             settings: ctx.settings.clone(),
+                            llm_state: ctx.llm_state.clone(),
                         };
 
                         let auto_approve = ctx.settings.auto_approve_edits.unwrap_or(false);

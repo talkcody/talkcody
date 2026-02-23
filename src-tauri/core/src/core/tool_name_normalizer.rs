@@ -22,6 +22,9 @@ pub const CANONICAL_TOOL_NAMES: &[&str] = &[
     "askUserQuestions",
     "exitPlanMode",
     "githubPR",
+    "imageGeneration",
+    "installSkill",
+    "test_custom_tool",
 ];
 
 /// Normalize a tool name to the canonical camelCase identifier.
@@ -86,6 +89,13 @@ fn legacy_aliases() -> HashMap<&'static str, &'static str> {
         ("exit-plan-mode", "exitPlanMode"),
         ("github_pr", "githubPR"),
         ("github-pr", "githubPR"),
+        ("github_pr_tool", "githubPR"),
+        ("image_generation", "imageGeneration"),
+        ("image-generation", "imageGeneration"),
+        ("install_skill", "installSkill"),
+        ("install-skill", "installSkill"),
+        ("install_skill_tool", "installSkill"),
+        ("test-custom-tool", "test_custom_tool"),
         ("lsp", "lsp"),
     ])
 }
@@ -104,6 +114,8 @@ mod tests {
         assert_eq!(normalize_tool_name("web_fetch"), "webFetch");
         assert_eq!(normalize_tool_name("web_search"), "webSearch");
         assert_eq!(normalize_tool_name("call_agent"), "callAgent");
+        assert_eq!(normalize_tool_name("image_generation"), "imageGeneration");
+        assert_eq!(normalize_tool_name("install_skill"), "installSkill");
     }
 
     #[test]
@@ -111,6 +123,8 @@ mod tests {
         assert_eq!(normalize_tool_name("readFile"), "readFile");
         assert_eq!(normalize_tool_name("webFetch"), "webFetch");
         assert_eq!(normalize_tool_name("githubPR"), "githubPR");
+        assert_eq!(normalize_tool_name("imageGeneration"), "imageGeneration");
+        assert_eq!(normalize_tool_name("test_custom_tool"), "test_custom_tool");
     }
 
     #[test]

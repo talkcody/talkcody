@@ -16,6 +16,14 @@ pub struct ProviderRegistry {
     claude_protocol: ClaudeProtocol,
 }
 
+impl std::fmt::Debug for ProviderRegistry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ProviderRegistry")
+            .field("providers", &self.providers)
+            .finish_non_exhaustive()
+    }
+}
+
 impl Clone for ProviderRegistry {
     fn clone(&self) -> Self {
         Self {

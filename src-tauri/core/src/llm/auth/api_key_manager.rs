@@ -33,6 +33,14 @@ pub struct ApiKeyManager {
     models_cache: RwLock<Option<ModelsCacheEntry>>,
 }
 
+impl std::fmt::Debug for ApiKeyManager {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ApiKeyManager")
+            .field("app_data_dir", &self.app_data_dir)
+            .finish_non_exhaustive()
+    }
+}
+
 struct ModelsCacheEntry {
     config: ModelsConfiguration,
     timestamp: Instant,
@@ -491,6 +499,7 @@ pub enum ProviderCredentials {
     Token(String),
 }
 
+#[derive(Debug)]
 pub struct LlmState {
     pub registry: Mutex<crate::llm::providers::provider_registry::ProviderRegistry>,
     pub api_keys: Mutex<ApiKeyManager>,

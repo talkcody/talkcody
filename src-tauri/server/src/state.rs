@@ -79,7 +79,9 @@ async fn bootstrap_provider_api_keys_from_env(
     let mut matched = 0usize;
     let mut updated = 0usize;
 
-    for (key, value) in env::vars() {
+    let env_vars: Vec<(String, String)> = env::vars().collect();
+
+    for (key, value) in env_vars {
         if !key.to_ascii_uppercase().starts_with(PREFIX) {
             continue;
         }

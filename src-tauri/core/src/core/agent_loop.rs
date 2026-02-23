@@ -37,6 +37,7 @@ pub struct AgentLoopContext {
     pub settings: TaskSettings,
     pub messages: Vec<Message>,
     pub model: Option<String>,
+    pub llm_state: Option<Arc<crate::llm::auth::api_key_manager::LlmState>>,
 }
 
 /// Result of agent loop execution
@@ -433,6 +434,7 @@ impl AgentLoop {
             workspace_root: ctx.workspace_root.clone(),
             worktree_path: ctx.worktree_path.clone(),
             settings: ctx.settings.clone(),
+            llm_state: ctx.llm_state.clone(),
         };
 
         // Check auto-approve settings
@@ -461,6 +463,7 @@ impl AgentLoop {
             workspace_root: ctx.workspace_root.clone(),
             worktree_path: ctx.worktree_path.clone(),
             settings: ctx.settings.clone(),
+            llm_state: ctx.llm_state.clone(),
         };
 
         let result = self
@@ -595,6 +598,7 @@ mod tests {
             settings: TaskSettings::default(),
             messages: vec![],
             model: None,
+            llm_state: None,
         };
 
         // Test that the loop runs without panicking

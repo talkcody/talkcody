@@ -17,6 +17,8 @@ pub struct ToolContext {
     pub workspace_root: String,
     pub worktree_path: Option<String>,
     pub settings: TaskSettings,
+    /// Optional LLM state for tools that need AI services (image generation, etc.)
+    pub llm_state: Option<Arc<LlmState>>,
 }
 
 /// Result of tool execution
@@ -34,7 +36,12 @@ pub type ToolHandler = Arc<
         + Sync,
 >;
 
-use crate::tools::{web_fetch, web_search};
+use crate::llm::auth::api_key_manager::LlmState;
+use crate::tools::{
+    ask_user_questions, bash_tool, call_agent, code_search, edit_file, exit_plan_mode, github_pr,
+    glob_tool, image_generation, install_skill, list_files, read_file, todo_write, web_fetch,
+    web_search, write_file,
+};
 
 /// Tool registry containing all available tools
 pub struct ToolRegistry {
@@ -230,210 +237,196 @@ pub enum ToolDispatchResult {
     PendingApproval(ToolRequest),
 }
 
-/// Execute a tool by name using the platform
+/// Execute a tool by name using the dedicated tool modules
 async fn execute_tool_by_name(
     name: &str,
     request: ToolRequest,
     ctx: ToolContext,
 ) -> ToolExecutionOutput {
-    let platform = crate::platform::Platform::new();
-    let platform_ctx = platform.create_context(&ctx.workspace_root, ctx.worktree_path.as_deref());
-
-    // Map camelCase tool name to platform tool name
-    // All arms return ToolExecutionOutput directly for consistency
+    // Route to appropriate tool module based on name
     let result: ToolExecutionOutput = match name {
+        // File tools
         "readFile" | "read_file" => {
-            let path = request
+            let file_path = request
                 .input
                 .get("file_path")
                 .and_then(|v| v.as_str())
-                .or_else(|| request.input.get("path").and_then(|v| v.as_str()))
                 .unwrap_or("");
-            let platform_result = platform.filesystem.read_file(path, &platform_ctx).await;
+            let start_line = request
+                .input
+                .get("start_line")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize);
+            let line_count = request
+                .input
+                .get("line_count")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize);
+
+            let result = read_file::execute(file_path, start_line, line_count, &ctx).await;
             ToolExecutionOutput {
-                success: platform_result.success,
-                data: serde_json::to_value(&platform_result.data).unwrap_or_default(),
-                error: platform_result.error,
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: if result.success {
+                    None
+                } else {
+                    Some(result.message)
+                },
             }
         }
         "writeFile" | "write_file" => {
-            let path = request
+            let file_path = request
                 .input
                 .get("file_path")
                 .and_then(|v| v.as_str())
-                .or_else(|| request.input.get("path").and_then(|v| v.as_str()))
                 .unwrap_or("");
             let content = request
                 .input
                 .get("content")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let platform_result = platform
-                .filesystem
-                .write_file(path, content, &platform_ctx)
-                .await;
+            // Backend always auto-approves
+            let result = write_file::execute(file_path, content, false, &ctx).await;
             ToolExecutionOutput {
-                success: platform_result.success,
-                data: serde_json::to_value(&platform_result.data).unwrap_or_default(),
-                error: platform_result.error,
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: if result.success {
+                    None
+                } else {
+                    Some(result.message)
+                },
             }
         }
         "editFile" | "edit_file" => {
-            // Edit file using platform
-            let path = request
+            let file_path = request
                 .input
                 .get("file_path")
                 .and_then(|v| v.as_str())
-                .or_else(|| request.input.get("path").and_then(|v| v.as_str()))
                 .unwrap_or("");
-            if let Some(edits) = request.input.get("edits").and_then(|v| v.as_array()) {
-                // Read current content
-                let read_result = platform.filesystem.read_file(path, &platform_ctx).await;
-                if read_result.success {
-                    if let Some(content) = read_result.data {
-                        let mut new_content = content;
-                        for edit in edits {
-                            if let (Some(old_str), Some(new_str)) = (
-                                edit.get("old_string").and_then(|v| v.as_str()),
-                                edit.get("new_string").and_then(|v| v.as_str()),
-                            ) {
-                                new_content = new_content.replace(old_str, new_str);
-                            }
-                        }
-                        let write_result = platform
-                            .filesystem
-                            .write_file(path, &new_content, &platform_ctx)
-                            .await;
-                        ToolExecutionOutput {
-                            success: write_result.success,
-                            data: serde_json::to_value(&write_result.data).unwrap_or_default(),
-                            error: write_result.error,
-                        }
-                    } else {
-                        ToolExecutionOutput {
-                            success: false,
-                            data: serde_json::Value::Null,
-                            error: Some("Failed to read file content".to_string()),
-                        }
-                    }
+
+            let edits: Vec<edit_file::EditBlock> = request
+                .input
+                .get("edits")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|e| {
+                            Some(edit_file::EditBlock {
+                                old_string: e.get("old_string")?.as_str()?.to_string(),
+                                new_string: e.get("new_string")?.as_str()?.to_string(),
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            // Backend always auto-approves
+            let result = edit_file::execute(file_path, edits, false, &ctx).await;
+            ToolExecutionOutput {
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: if result.success {
+                    None
                 } else {
-                    ToolExecutionOutput {
-                        success: false,
-                        data: serde_json::Value::Null,
-                        error: Some("Failed to read file for editing".to_string()),
-                    }
-                }
-            } else {
-                ToolExecutionOutput {
-                    success: false,
-                    data: serde_json::Value::Null,
-                    error: Some("No edits provided".to_string()),
-                }
-            }
-        }
-        "glob" => {
-            // Glob implementation using walkdir
-            if let Some(pattern) = request.input.get("pattern").and_then(|v| v.as_str()) {
-                use std::path::Path;
-
-                // Simple glob implementation - convert pattern to suffix matching
-                let files: Vec<String> = std::fs::read_dir(&ctx.workspace_root)
-                    .ok()
-                    .into_iter()
-                    .flatten()
-                    .filter_map(|e| e.ok())
-                    .filter(|e| {
-                        let name = e.file_name().to_string_lossy().to_string();
-                        // Very simple pattern matching
-                        if pattern.starts_with("**/*.") {
-                            let ext = &pattern[4..]; // Get extension after "**/*."
-                            name.ends_with(ext)
-                        } else if pattern.starts_with("*.") {
-                            let ext = &pattern[2..]; // Get extension after "*."
-                            name.ends_with(ext)
-                        } else {
-                            name.contains(pattern)
-                        }
-                    })
-                    .map(|e| e.path().to_string_lossy().to_string())
-                    .collect();
-
-                ToolExecutionOutput {
-                    success: true,
-                    data: serde_json::json!(files),
-                    error: None,
-                }
-            } else {
-                ToolExecutionOutput {
-                    success: false,
-                    data: serde_json::Value::Null,
-                    error: Some("No pattern provided".to_string()),
-                }
-            }
-        }
-        "codeSearch" | "search_files" => {
-            if let Some(query) = request.input.get("query").and_then(|v| v.as_str()) {
-                let search_result = crate::search::RipgrepSearch::new()
-                    .with_max_results(50)
-                    .search_content(query, &ctx.workspace_root);
-                match search_result {
-                    Ok(results) => ToolExecutionOutput {
-                        success: true,
-                        data: serde_json::json!(results),
-                        error: None,
-                    },
-                    Err(e) => ToolExecutionOutput {
-                        success: false,
-                        data: serde_json::Value::Null,
-                        error: Some(e),
-                    },
-                }
-            } else {
-                ToolExecutionOutput {
-                    success: false,
-                    data: serde_json::Value::Null,
-                    error: Some("No query provided".to_string()),
-                }
+                    Some(result.message)
+                },
             }
         }
         "listFiles" | "list_files" | "list_directory" => {
+            let directory_path = request
+                .input
+                .get("directory_path")
+                .or_else(|| request.input.get("path"))
+                .and_then(|v| v.as_str())
+                .unwrap_or(".");
+            let max_depth = request
+                .input
+                .get("max_depth")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as usize);
+
+            let result = list_files::execute(directory_path, max_depth, &ctx).await;
+            ToolExecutionOutput {
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: result.error,
+            }
+        }
+        // Search tools
+        "codeSearch" | "code_search" | "search_files" => {
+            let pattern = request
+                .input
+                .get("pattern")
+                .or_else(|| request.input.get("query"))
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
             let path = request
                 .input
                 .get("path")
                 .and_then(|v| v.as_str())
-                .unwrap_or(".");
-            let platform_result = platform
-                .filesystem
-                .list_directory(path, &platform_ctx)
-                .await;
+                .unwrap_or(&ctx.workspace_root);
+            let file_types: Option<Vec<String>> = request
+                .input
+                .get("file_types")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                });
+
+            let result = code_search::execute(pattern, path, file_types, &ctx).await;
             ToolExecutionOutput {
-                success: platform_result.success,
-                data: serde_json::to_value(&platform_result.data).unwrap_or_default(),
-                error: platform_result.error,
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: result.error,
             }
         }
+        "glob" => {
+            let pattern = request
+                .input
+                .get("pattern")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let path = request.input.get("path").and_then(|v| v.as_str());
+
+            let result = glob_tool::execute(pattern, path, &ctx).await;
+            ToolExecutionOutput {
+                success: result.success,
+                data: serde_json::json!({"result": result.result}),
+                error: result.error,
+            }
+        }
+        // Shell tool
         "bash" | "execute_shell" | "executeShell" => {
             let command = request
                 .input
                 .get("command")
                 .and_then(|v| v.as_str())
                 .unwrap_or("");
-            let cwd = request.input.get("cwd").and_then(|v| v.as_str());
-            let platform_result = platform.shell.execute(command, cwd, &platform_ctx).await;
+            let run_in_background = request
+                .input
+                .get("runInBackground")
+                .and_then(|v| v.as_bool())
+                .unwrap_or(false);
+
+            let result = bash_tool::execute(command, run_in_background, &ctx).await;
             ToolExecutionOutput {
-                success: platform_result.success,
-                data: serde_json::to_value(&platform_result.data).unwrap_or_default(),
-                error: platform_result.error,
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: result.error,
             }
         }
+        // LSP tool
         "lsp" => {
-            // LSP operations - return placeholder for now
+            // For now, return a placeholder - full LSP implementation would require LSP client
             ToolExecutionOutput {
                 success: true,
-                data: serde_json::json!({"message": "LSP tool executed"}),
+                data: serde_json::json!({"message": "LSP tool executed (placeholder - full implementation requires LSP client setup"}),
                 error: None,
             }
         }
+        // Web tools
         "webFetch" | "web_fetch" => {
             if let Some(url) = request.input.get("url").and_then(|v| v.as_str()) {
                 match web_fetch::execute_web_fetch(url, &ctx, &request.tool_call_id).await {
@@ -478,35 +471,217 @@ async fn execute_tool_by_name(
                 }
             }
         }
-        "callAgent" | "call_agent" => {
-            // Call agent - return placeholder
+        // GitHub PR tool
+        "githubPR" | "github_pr" => {
+            let url = request
+                .input
+                .get("url")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let action = request
+                .input
+                .get("action")
+                .and_then(|v| v.as_str())
+                .unwrap_or("info");
+            let page = request
+                .input
+                .get("page")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as u32);
+            let per_page = request
+                .input
+                .get("perPage")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as u32);
+            let filename_filter = request.input.get("filenameFilter").and_then(|v| v.as_str());
+
+            let result =
+                github_pr::execute(url, action, page, per_page, filename_filter, &ctx).await;
             ToolExecutionOutput {
-                success: true,
-                data: serde_json::json!({"message": "Agent execution placeholder"}),
-                error: None,
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: result.error,
             }
         }
-        "todoWrite" | "todo_write" => ToolExecutionOutput {
-            success: true,
-            data: serde_json::json!({"message": "Todo write placeholder"}),
-            error: None,
-        },
-        "askUserQuestions" | "ask_user_questions" => ToolExecutionOutput {
-            success: true,
-            data: serde_json::json!({"message": "Ask user questions placeholder"}),
-            error: None,
-        },
-        "exitPlanMode" | "exit_plan_mode" => ToolExecutionOutput {
-            success: true,
-            data: serde_json::json!({"exited": true}),
-            error: None,
-        },
-        "githubPR" | "github_pr" => ToolExecutionOutput {
-            success: true,
-            data: serde_json::json!({"message": "GitHub PR placeholder"}),
-            error: None,
-        },
+        // Image Generation tool
+        "imageGeneration" | "image_generation" => {
+            let prompt = request
+                .input
+                .get("prompt")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let size = request.input.get("size").and_then(|v| v.as_str());
+            let quality = request.input.get("quality").and_then(|v| v.as_str());
+            let n = request
+                .input
+                .get("n")
+                .and_then(|v| v.as_u64())
+                .map(|v| v as u32);
+
+            let result = image_generation::execute(prompt, size, quality, n, &ctx).await;
+            ToolExecutionOutput {
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: result.error,
+            }
+        }
+        // Agent tools
+        "callAgent" | "call_agent" => {
+            let agent_id = request
+                .input
+                .get("agentId")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let task = request
+                .input
+                .get("task")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let context = request.input.get("context").and_then(|v| v.as_str());
+            let targets: Option<Vec<String>> = request
+                .input
+                .get("targets")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| v.as_str().map(String::from))
+                        .collect()
+                });
+
+            let result = call_agent::execute(agent_id, task, context, targets, &ctx).await;
+            ToolExecutionOutput {
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: result.error,
+            }
+        }
+        // Todo tool
+        "todoWrite" | "todo_write" => {
+            let todos: Vec<todo_write::TodoItem> = request
+                .input
+                .get("todos")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| {
+                            Some(todo_write::TodoItem {
+                                id: v.get("id")?.as_str()?.to_string(),
+                                content: v.get("content")?.as_str()?.to_string(),
+                                status: v.get("status")?.as_str()?.to_string(),
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let result = todo_write::execute(todos, &ctx).await;
+            ToolExecutionOutput {
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: result.error,
+            }
+        }
+        // Ask user tool
+        "askUserQuestions" | "ask_user_questions" => {
+            let questions: Vec<ask_user_questions::Question> = request
+                .input
+                .get("questions")
+                .and_then(|v| v.as_array())
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|v| {
+                            Some(ask_user_questions::Question {
+                                id: v.get("id")?.as_str()?.to_string(),
+                                question: v.get("question")?.as_str()?.to_string(),
+                                header: v.get("header")?.as_str()?.to_string(),
+                                options: v
+                                    .get("options")?
+                                    .as_array()?
+                                    .iter()
+                                    .filter_map(|o| {
+                                        Some(ask_user_questions::QuestionOption {
+                                            label: o.get("label")?.as_str()?.to_string(),
+                                            description: o
+                                                .get("description")?
+                                                .as_str()?
+                                                .to_string(),
+                                        })
+                                    })
+                                    .collect(),
+                                multi_select: v.get("multiSelect")?.as_bool()?,
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default();
+
+            let result = ask_user_questions::execute(questions, &ctx).await;
+            ToolExecutionOutput {
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: result.error,
+            }
+        }
+        // Exit plan mode
+        "exitPlanMode" | "exit_plan_mode" => {
+            let plan = request
+                .input
+                .get("plan")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+
+            match exit_plan_mode::execute(plan, &ctx).await {
+                Ok(result) => ToolExecutionOutput {
+                    success: true,
+                    data: serde_json::to_value(&result).unwrap_or_default(),
+                    error: None,
+                },
+                Err(e) => ToolExecutionOutput {
+                    success: false,
+                    data: serde_json::Value::Null,
+                    error: Some(e),
+                },
+            }
+        }
+        // Install Skill tool
+        "installSkill" | "install_skill" => {
+            let repository = request
+                .input
+                .get("repository")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let path = request
+                .input
+                .get("path")
+                .and_then(|v| v.as_str())
+                .unwrap_or("");
+            let skill_id = request.input.get("skillId").and_then(|v| v.as_str());
+
+            let result = install_skill::execute(repository, path, skill_id, &ctx).await;
+            ToolExecutionOutput {
+                success: result.success,
+                data: serde_json::to_value(&result).unwrap_or_default(),
+                error: if result.success {
+                    None
+                } else {
+                    Some(result.message)
+                },
+            }
+        }
+        // Test Custom Tool
+        "test_custom_tool" | "test_custom" => {
+            // Return placeholder - full implementation would require custom tool compiler
+            ToolExecutionOutput {
+                success: false,
+                data: serde_json::Value::Null,
+                error: Some("test_custom_tool requires custom tool compiler which is not fully implemented in backend mode".to_string()),
+            }
+        }
+        // Git tools (via platform)
         "git_status" | "gitStatus" => {
+            let platform = crate::platform::Platform::new();
+            let platform_ctx =
+                platform.create_context(&ctx.workspace_root, ctx.worktree_path.as_deref());
             let platform_result = platform.git.get_status(&platform_ctx).await;
             ToolExecutionOutput {
                 success: platform_result.success,

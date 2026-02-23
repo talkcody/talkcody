@@ -815,7 +815,7 @@ pub fn run() {
             let server_config_clone = server_config.clone();
             tauri::async_runtime::spawn(async move {
                 match ServerStateFactory::create(server_config_clone, event_tx).await {
-                    Ok(server_state) => {
+                    Ok(_server_state) => {
                         // Start server with the configured state
                         let bind_addr = std::net::SocketAddr::from(([127, 0, 0, 1], 0));
                         match tokio::net::TcpListener::bind(bind_addr).await {

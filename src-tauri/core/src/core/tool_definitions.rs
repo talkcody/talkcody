@@ -38,15 +38,15 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                     "properties": {
                         "file_path": {
                             "type": "string",
-                            "description": "The path of the file to read"
+                            "description": "The file path to read. Use absolute path for workspace files, or $RESOURCE/... prefix for bundled resources like PPT style guides. The $RESOURCE prefix MUST be used exactly as-is, do not convert to absolute path."
                         },
-                        "offset": {
+                        "start_line": {
                             "type": "integer",
-                            "description": "The line number to start reading from (1-indexed)"
+                            "description": "Starting line number (1-indexed). If specified, only reads from this line onwards"
                         },
-                        "limit": {
+                        "line_count": {
                             "type": "integer",
-                            "description": "The number of lines to read"
+                            "description": "Number of lines to read from start_line. If not specified, reads to end of file"
                         }
                     },
                     "required": ["file_path"]
@@ -58,21 +58,20 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                 can_concurrent: true,
                 file_operation: true,
                 requires_approval: false,
-                render_doing_ui: true,
+                render_doing_ui: false,
             },
         ),
         // Write tools
         (
             ToolDefinition {
                 name: "writeFile".to_string(),
-                description: "Create a new file or overwrite an existing file with new content."
-                    .to_string(),
+                description: "Create a new file or overwrite an existing file with new content.".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
                         "file_path": {
                             "type": "string",
-                            "description": "The path where the file should be written"
+                            "description": "The absolute path of file you want to write"
                         },
                         "content": {
                             "type": "string",
@@ -95,13 +94,13 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
         (
             ToolDefinition {
                 name: "editFile".to_string(),
-                description: "Make edits to an existing file using search and replace.".to_string(),
+                description: "Edit an existing file with one or more text replacements.".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
                         "file_path": {
                             "type": "string",
-                            "description": "The path of the file to edit"
+                            "description": "The absolute path of file you want to edit"
                         },
                         "edits": {
                             "type": "array",
@@ -110,11 +109,11 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                                 "properties": {
                                     "old_string": {
                                         "type": "string",
-                                        "description": "The text to search for"
+                                        "description": "EXACT text to replace. Must match perfectly including whitespace. Include 3-5 lines of context."
                                     },
                                     "new_string": {
                                         "type": "string",
-                                        "description": "The text to replace with"
+                                        "description": "Replacement text. Can be empty to delete. Must have correct indentation."
                                     }
                                 },
                                 "required": ["old_string", "new_string"]
@@ -141,16 +140,21 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                 parameters: json!({
                     "type": "object",
                     "properties": {
-                        "query": {
+                        "pattern": {
                             "type": "string",
-                            "description": "The search query (regex supported)"
+                            "description": "The regular expression pattern to search for in file contents"
                         },
                         "path": {
                             "type": "string",
-                            "description": "The directory to search in"
+                            "description": "The absolute path to the directory to search in"
+                        },
+                        "file_types": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "File extensions to search (e.g., [\"ts\", \"tsx\", \"js\"])"
                         }
                     },
-                    "required": ["query"]
+                    "required": ["pattern", "path"]
                 }),
                 requires_approval: false,
             },
@@ -159,24 +163,23 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                 can_concurrent: true,
                 file_operation: false,
                 requires_approval: false,
-                render_doing_ui: true,
+                render_doing_ui: false,
             },
         ),
         (
             ToolDefinition {
                 name: "glob".to_string(),
-                description: "Fast file pattern matching tool that works with any codebase size."
-                    .to_string(),
+                description: "Fast file pattern matching tool that works with any codebase size.".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
                         "pattern": {
                             "type": "string",
-                            "description": "The glob pattern to match (e.g., '**/*.ts')"
+                            "description": "The glob pattern to match files against (e.g., \"**/*.ts\")"
                         },
                         "path": {
                             "type": "string",
-                            "description": "The directory to search in"
+                            "description": "The directory to search in. Defaults to the current working directory."
                         }
                     },
                     "required": ["pattern"]
@@ -188,22 +191,26 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                 can_concurrent: true,
                 file_operation: false,
                 requires_approval: false,
-                render_doing_ui: true,
+                render_doing_ui: false,
             },
         ),
         (
             ToolDefinition {
                 name: "listFiles".to_string(),
-                description: "List files and directories in the specified path.".to_string(),
+                description: "List files and directories in the specified directory.".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
-                        "path": {
+                        "directory_path": {
                             "type": "string",
-                            "description": "The path to list"
+                            "description": "The absolute path to the directory you want to list"
+                        },
+                        "max_depth": {
+                            "type": "integer",
+                            "description": "Maximum depth for recursive listing (default: 3)"
                         }
                     },
-                    "required": ["path"]
+                    "required": ["directory_path"]
                 }),
                 requires_approval: false,
             },
@@ -212,24 +219,24 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                 can_concurrent: true,
                 file_operation: false,
                 requires_approval: false,
-                render_doing_ui: true,
+                render_doing_ui: false,
             },
         ),
         // Shell tool
         (
             ToolDefinition {
                 name: "bash".to_string(),
-                description: "Execute a bash command.".to_string(),
+                description: "Execute shell commands safely on the system.".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
                         "command": {
                             "type": "string",
-                            "description": "The bash command to execute"
+                            "description": "The bash command to execute. Supports $RESOURCE/ prefix for bundled resources"
                         },
-                        "cwd": {
-                            "type": "string",
-                            "description": "The working directory for the command"
+                        "runInBackground": {
+                            "type": "boolean",
+                            "description": "Run command in background and return task ID"
                         }
                     },
                     "required": ["command"]
@@ -248,38 +255,40 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
         (
             ToolDefinition {
                 name: "lsp".to_string(),
-                description:
-                    "Language Server Protocol operations (go to definition, find references, etc.)."
-                        .to_string(),
+                description: "Language Server Protocol operations (go to definition, find references, etc.).".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
                         "operation": {
                             "type": "string",
-                            "enum": ["goto_definition", "find_references", "hover", "document_symbols", "workspace_symbols"],
+                            "enum": ["goToDefinition", "findReferences", "hover", "documentSymbol", "workspaceSymbol", "goToImplementation", "prepareCallHierarchy", "incomingCalls", "outgoingCalls"],
                             "description": "The LSP operation to perform"
                         },
-                        "file_path": {
+                        "filePath": {
                             "type": "string",
                             "description": "The file path for the operation"
                         },
                         "line": {
                             "type": "integer",
-                            "description": "The line number (0-indexed)"
+                            "description": "The line number (1-based, as shown in editors)"
                         },
                         "character": {
                             "type": "integer",
-                            "description": "The character position (0-indexed)"
+                            "description": "The character offset (1-based, as shown in editors)"
+                        },
+                        "query": {
+                            "type": "string",
+                            "description": "Query string for workspace symbols"
                         }
                     },
-                    "required": ["operation", "file_path", "line", "character"]
+                    "required": ["operation"]
                 }),
                 requires_approval: false,
             },
             ToolMetadata {
                 category: ToolCategory::Read,
                 can_concurrent: true,
-                file_operation: false,
+                file_operation: true,
                 requires_approval: false,
                 render_doing_ui: true,
             },
@@ -333,30 +342,118 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                 render_doing_ui: true,
             },
         ),
-        // Agent tools
+        // GitHub PR tool
         (
             ToolDefinition {
-                name: "callAgent".to_string(),
-                description: "Call another agent to perform a specialized task.".to_string(),
+                name: "githubPR".to_string(),
+                description: "Fetch GitHub Pull Request information using GitHub REST API.".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
-                        "agent": {
+                        "url": {
                             "type": "string",
-                            "description": "The name of the agent to call"
+                            "description": "Full GitHub PR URL (e.g., https://github.com/owner/repo/pull/123)"
                         },
-                        "prompt": {
+                        "action": {
                             "type": "string",
-                            "description": "The prompt/context for the agent"
+                            "enum": ["info", "files", "diff", "comments"],
+                            "description": "The type of PR data to fetch"
+                        },
+                        "page": {
+                            "type": "integer",
+                            "description": "Page number for pagination (starts from 1). Only for files/diff actions."
+                        },
+                        "perPage": {
+                            "type": "integer",
+                            "description": "Items per page (max 100, default 30). Only for files/diff actions."
+                        },
+                        "filenameFilter": {
+                            "type": "string",
+                            "description": "Glob pattern to filter files (e.g., \"*.ts\", \"src/**\"). Only for files/diff actions."
                         }
                     },
-                    "required": ["agent", "prompt"]
+                    "required": ["url", "action"]
+                }),
+                requires_approval: false,
+            },
+            ToolMetadata {
+                category: ToolCategory::Read,
+                can_concurrent: true,
+                file_operation: false,
+                requires_approval: false,
+                render_doing_ui: true,
+            },
+        ),
+        // Image Generation tool
+        (
+            ToolDefinition {
+                name: "imageGeneration".to_string(),
+                description: "Generate images using AI image generation models.".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "prompt": {
+                            "type": "string",
+                            "description": "Detailed description of the image to generate. Be specific about style, colors, composition, and content."
+                        },
+                        "size": {
+                            "type": "string",
+                            "description": "Optional: Image size. Supported: \"1024x1024\" (square), \"1792x1024\" (landscape/best for PPT), \"1024x1792\" (portrait). Default: \"1024x1024\""
+                        },
+                        "quality": {
+                            "type": "string",
+                            "description": "Optional: Image quality - \"standard\" (default) or \"hd\"/\"high\" (better quality, slower)"
+                        },
+                        "n": {
+                            "type": "integer",
+                            "description": "Optional: Number of images to generate (1-4). Default: 1"
+                        }
+                    },
+                    "required": ["prompt"]
                 }),
                 requires_approval: false,
             },
             ToolMetadata {
                 category: ToolCategory::Other,
                 can_concurrent: false,
+                file_operation: false,
+                requires_approval: false,
+                render_doing_ui: true,
+            },
+        ),
+        // Agent tools
+        (
+            ToolDefinition {
+                name: "callAgent".to_string(),
+                description: "Call a registered sub-agent for a focused task. Subagents start with empty context.".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "agentId": {
+                            "type": "string",
+                            "description": "The id of the registered agent to call"
+                        },
+                        "task": {
+                            "type": "string",
+                            "description": "The instruction or task to be executed by the agent"
+                        },
+                        "context": {
+                            "type": "string",
+                            "description": "Relevant context for solving this task. For example, the file path that needs to be modified and created"
+                        },
+                        "targets": {
+                            "type": "array",
+                            "items": { "type": "string" },
+                            "description": "Optional resource targets (files/modules) this sub-agent will touch. Use to avoid conflicts and enable safe parallel execution."
+                        }
+                    },
+                    "required": ["agentId", "task"]
+                }),
+                requires_approval: false,
+            },
+            ToolMetadata {
+                category: ToolCategory::Other,
+                can_concurrent: true,
                 file_operation: false,
                 requires_approval: false,
                 render_doing_ui: true,
@@ -402,14 +499,14 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                 can_concurrent: false,
                 file_operation: false,
                 requires_approval: false,
-                render_doing_ui: true,
+                render_doing_ui: false,
             },
         ),
         // Ask user tool
         (
             ToolDefinition {
                 name: "askUserQuestions".to_string(),
-                description: "Ask the user questions to gather required information.".to_string(),
+                description: "Ask the user one or more questions to gather additional information needed to complete the task.".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
@@ -420,14 +517,39 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                                 "properties": {
                                     "id": {
                                         "type": "string",
-                                        "description": "The question ID"
+                                        "description": "Unique identifier for the question"
                                     },
                                     "question": {
                                         "type": "string",
-                                        "description": "The question text"
+                                        "description": "The question text to display"
+                                    },
+                                    "header": {
+                                        "type": "string",
+                                        "description": "Short header/title for the tab (max 12 chars recommended)"
+                                    },
+                                    "options": {
+                                        "type": "array",
+                                        "items": {
+                                            "type": "object",
+                                            "properties": {
+                                                "label": {
+                                                    "type": "string",
+                                                    "description": "The label/text for this option"
+                                                },
+                                                "description": {
+                                                    "type": "string",
+                                                    "description": "Description of what this option means"
+                                                }
+                                            },
+                                            "required": ["label", "description"]
+                                        }
+                                    },
+                                    "multiSelect": {
+                                        "type": "boolean",
+                                        "description": "Whether to allow multiple selections"
                                     }
                                 },
-                                "required": ["id", "question"]
+                                "required": ["id", "question", "header", "options", "multiSelect"]
                             }
                         }
                     },
@@ -447,11 +569,16 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
         (
             ToolDefinition {
                 name: "exitPlanMode".to_string(),
-                description: "Exit plan mode and return to normal operation.".to_string(),
+                description: "Present an implementation plan to the user for review and approval. This tool is REQUIRED in Plan Mode before making any file modifications.".to_string(),
                 parameters: json!({
                     "type": "object",
-                    "properties": {},
-                    "additionalProperties": false
+                    "properties": {
+                        "plan": {
+                            "type": "string",
+                            "description": "The implementation plan in Markdown format"
+                        }
+                    },
+                    "required": ["plan"]
                 }),
                 requires_approval: false,
             },
@@ -460,39 +587,68 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                 can_concurrent: false,
                 file_operation: false,
                 requires_approval: false,
-                render_doing_ui: false,
+                render_doing_ui: true,
             },
         ),
-        // GitHub PR
+        // Install Skill tool
         (
             ToolDefinition {
-                name: "githubPR".to_string(),
-                description: "Create a GitHub pull request.".to_string(),
+                name: "installSkill".to_string(),
+                description: "Install a skill from a GitHub repository into ~/.talkcody/skills.".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
-                        "title": {
+                        "repository": {
                             "type": "string",
-                            "description": "The PR title"
+                            "description": "GitHub repository in \"owner/repo\" format"
                         },
-                        "body": {
+                        "path": {
                             "type": "string",
-                            "description": "The PR body"
+                            "description": "Path to skill in repository, e.g. \"skills/my-skill\""
                         },
-                        "branch": {
+                        "skillId": {
                             "type": "string",
-                            "description": "The branch to merge"
+                            "description": "Optional skill identifier (defaults to directory name)"
                         }
                     },
-                    "required": ["title", "branch"]
+                    "required": ["repository", "path"]
                 }),
-                requires_approval: true,
+                requires_approval: false,
             },
             ToolMetadata {
-                category: ToolCategory::Write,
+                category: ToolCategory::Other,
                 can_concurrent: false,
                 file_operation: false,
-                requires_approval: true,
+                requires_approval: false,
+                render_doing_ui: true,
+            },
+        ),
+        // Test Custom Tool
+        (
+            ToolDefinition {
+                name: "test_custom_tool".to_string(),
+                description: "Validate a custom tool file (compile, execute, render)".to_string(),
+                parameters: json!({
+                    "type": "object",
+                    "properties": {
+                        "file_path": {
+                            "type": "string",
+                            "description": "Absolute path to the custom tool file"
+                        },
+                        "params": {
+                            "type": "object",
+                            "description": "Execution params for the custom tool"
+                        }
+                    },
+                    "required": ["file_path"]
+                }),
+                requires_approval: false,
+            },
+            ToolMetadata {
+                category: ToolCategory::Other,
+                can_concurrent: false,
+                file_operation: false,
+                requires_approval: false,
                 render_doing_ui: true,
             },
         ),

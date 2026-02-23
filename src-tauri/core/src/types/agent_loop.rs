@@ -37,6 +37,7 @@ pub struct AgentLoopContext {
     pub settings: TaskSettings,
     pub messages: Vec<Message>,
     pub model: Option<String>,
+    pub llm_state: Option<Arc<crate::llm::auth::api_key_manager::LlmState>>,
 }
 
 /// Result of agent loop execution
