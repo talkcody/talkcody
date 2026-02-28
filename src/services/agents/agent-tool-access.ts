@@ -21,22 +21,14 @@ export interface AgentAccessRule {
  * - Runtime (tool overrides + toolset loading)
  */
 export const TOOL_ACCESS_RULES: Record<string, ToolAccessRule> = {
-  callAgent: { allowAgents: ['planner'] },
+  callAgent: { allowAgents: ['planner', 'orchestrator'] },
 };
-
-export const AGENT_ACCESS_RULES: Record<string, AgentAccessRule> = {};
 
 export function isToolAllowedForAgent(agentId: string | undefined, toolId: string): boolean {
   const toolRule = TOOL_ACCESS_RULES[toolId];
   if (toolRule) {
     if (toolRule.allowAgents) return !!agentId && toolRule.allowAgents.includes(agentId);
     if (toolRule.denyAgents) return !toolRule.denyAgents.includes(agentId ?? '');
-  }
-
-  const agentRule = agentId ? AGENT_ACCESS_RULES[agentId] : undefined;
-  if (agentRule) {
-    if (agentRule.allowTools) return agentRule.allowTools.includes(toolId);
-    if (agentRule.denyTools) return !agentRule.denyTools.includes(toolId);
   }
 
   return true;

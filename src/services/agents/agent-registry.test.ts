@@ -263,6 +263,31 @@ describe('Agent Registry - Auto-load Behavior', () => {
     expect(agent?.hidden).toBe(true);
   });
 
+  it('should auto-load orchestrator agent', async () => {
+    const agent = await agentRegistry.get('orchestrator');
+
+    expect(agent).toBeDefined();
+    expect(agent?.id).toBe('orchestrator');
+    expect(agent?.name).toBe('Orchestrator');
+    expect(agent?.canBeSubagent).toBe(false);
+    expect(Object.keys(agent?.tools || {})).toEqual(
+      expect.arrayContaining(['callAgent', 'todoWrite', 'askUserQuestions'])
+    );
+  });
+
+  it('should enforce orchestrator tool allowlist', async () => {
+    const agent = await agentRegistry.getWithResolvedTools('orchestrator');
+
+    expect(agent).toBeDefined();
+    expect(Object.keys(agent?.tools || {})).toEqual(
+      expect.arrayContaining(['callAgent', 'todoWrite', 'askUserQuestions'])
+    );
+    expect(Object.keys(agent?.tools || {})).not.toContain('readFile');
+    expect(Object.keys(agent?.tools || {})).not.toContain('writeFile');
+    expect(Object.keys(agent?.tools || {})).not.toContain('editFile');
+    expect(Object.keys(agent?.tools || {})).not.toContain('bash');
+  });
+
   it('should auto-load agents when getWithResolvedTools() is called before loadAllAgents()', async () => {
     // Don't call loadAllAgents() explicitly
     // The registry should auto-load when we call getWithResolvedTools()

@@ -74,6 +74,7 @@ class AgentRegistry {
     const { CodeReviewAgent } = await import('./code-review-agent');
     const { GeneralAgent } = await import('./general-agent');
     const { ExploreAgent } = await import('./explore-agent');
+    const { OrchestratorAgent } = await import('./orchestrator-agent');
     const { DocumentWriterAgent } = await import('./document-writer-agent');
     const { TestWriterAgent } = await import('./test-writer-agent');
     const { CodingAgent } = await import('./coding-agent');
@@ -93,6 +94,7 @@ class AgentRegistry {
       CodeReviewAgent.getDefinition(),
       GeneralAgent.getDefinition(),
       ExploreAgent.getDefinition(),
+      OrchestratorAgent.getDefinition(),
       DocumentWriterAgent.getDefinition(),
       TestWriterAgent.getDefinition(),
       CodingAgent.getDefinition(),
