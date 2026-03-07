@@ -29,6 +29,9 @@ import { imageGenerationTool } from './image-generation-tool';
 import { installSkill } from './install-skill-tool';
 import { listFiles } from './list-files-tool';
 import { lspTool } from './lsp-tool';
+import { memoryRead } from './memory-read-tool';
+import { getProjectMemoryTargetCandidates } from './memory-targets';
+import { memoryWrite } from './memory-write-tool';
 import { readFile } from './read-file-tool';
 import { testCustomTool } from './test-custom-tool';
 import { todoWriteTool } from './todo-write-tool';
@@ -143,6 +146,16 @@ export const TOOL_DEFINITIONS = {
       renderDoingUI: true,
     },
   },
+  memoryRead: {
+    tool: memoryRead,
+    label: 'Memory Read',
+    metadata: {
+      category: 'read' as ToolCategory,
+      canConcurrent: true,
+      fileOperation: false,
+      renderDoingUI: true,
+    },
+  },
 
   // Write tools
   writeFile: {
@@ -154,6 +167,23 @@ export const TOOL_DEFINITIONS = {
       fileOperation: true,
       renderDoingUI: true,
       getTargetFile: (input) => (input?.file_path as string) || null,
+    },
+  },
+  memoryWrite: {
+    tool: memoryWrite,
+    label: 'Memory Write',
+    metadata: {
+      category: 'write' as ToolCategory,
+      canConcurrent: false,
+      fileOperation: true,
+      renderDoingUI: true,
+      getTargetFile: (input) => {
+        const scope = input?.scope;
+        if (scope === 'global') {
+          return 'appData://memory/memory.md';
+        }
+        return getProjectMemoryTargetCandidates(settingsManager.getCurrentRootPath());
+      },
     },
   },
 

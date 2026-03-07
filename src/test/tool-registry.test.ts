@@ -22,7 +22,9 @@ describe('Tool Registry', () => {
         'codeSearch',
         'listFiles',
         'lsp',
+        'memoryRead',
         'writeFile',
+        'memoryWrite',
         'editFile',
         'bash',
         'callAgent',
@@ -136,7 +138,9 @@ describe('Tool Registry', () => {
         codeSearch: 'Code Search',
         listFiles: 'List Files',
         lsp: 'LSP',
+        memoryRead: 'Memory Read',
         writeFile: 'Write File',
+        memoryWrite: 'Memory Write',
         editFile: 'Edit File',
         bash: 'Bash',
         callAgent: 'Call Agent',
@@ -202,7 +206,7 @@ describe('Tool Registry', () => {
 
   describe('Tool Categories', () => {
     it('should categorize read tools correctly', () => {
-      const readTools = ['readFile', 'glob', 'codeSearch', 'listFiles', 'lsp', 'githubPR'];
+      const readTools = ['readFile', 'glob', 'codeSearch', 'listFiles', 'lsp', 'memoryRead', 'githubPR'];
 
       for (const toolName of readTools) {
         const metadata = getToolMetadata(toolName);
@@ -211,7 +215,7 @@ describe('Tool Registry', () => {
     });
 
     it('should categorize write tools correctly', () => {
-      const writeTools = ['writeFile'];
+      const writeTools = ['writeFile', 'memoryWrite'];
 
       for (const toolName of writeTools) {
         const metadata = getToolMetadata(toolName);
@@ -246,16 +250,16 @@ describe('Tool Registry', () => {
       }
     });
 
-    it('should have exactly 6 read tools', () => {
+    it('should have exactly 7 read tools', () => {
       const allNames = getAllToolNames();
       const readTools = allNames.filter(name => getToolMetadata(name).category === 'read');
-      expect(readTools.length).toBe(6);
+      expect(readTools.length).toBe(7);
     });
 
-    it('should have exactly 1 write tool', () => {
+    it('should have exactly 2 write tools', () => {
       const allNames = getAllToolNames();
       const writeTools = allNames.filter(name => getToolMetadata(name).category === 'write');
-      expect(writeTools.length).toBe(1);
+      expect(writeTools.length).toBe(2);
     });
 
     it('should have exactly 1 edit tool', () => {
@@ -285,7 +289,7 @@ describe('Tool Registry', () => {
     });
 
     it('should mark write/edit tools as non-concurrent', () => {
-      const nonConcurrentTools = ['writeFile', 'editFile', 'bash'];
+      const nonConcurrentTools = ['writeFile', 'memoryWrite', 'editFile', 'bash'];
 
       for (const toolName of nonConcurrentTools) {
         const metadata = getToolMetadata(toolName);
@@ -296,7 +300,7 @@ describe('Tool Registry', () => {
 
   describe('File Operation Metadata', () => {
     it('should mark file operation tools correctly', () => {
-      const fileOpTools = ['readFile', 'writeFile', 'editFile'];
+      const fileOpTools = ['readFile', 'lsp', 'writeFile', 'memoryWrite', 'editFile'];
 
       for (const toolName of fileOpTools) {
         const metadata = getToolMetadata(toolName);
@@ -326,10 +330,10 @@ describe('Tool Registry', () => {
       }
     });
 
-    it('should have exactly 4 file operation tools', () => {
+    it('should have exactly 5 file operation tools', () => {
       const allNames = getAllToolNames();
       const fileOpTools = allNames.filter(name => getToolMetadata(name).fileOperation);
-      expect(fileOpTools.length).toBe(4);
+      expect(fileOpTools.length).toBe(5);
     });
   });
 

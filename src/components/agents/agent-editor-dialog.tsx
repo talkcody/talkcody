@@ -72,7 +72,12 @@ export function AgentEditorDialog({
   const [rules, setRules] = useState('');
   const [outputFormat, setOutputFormat] = useState('');
   const [dynamicEnabled, setDynamicEnabled] = useState(false);
-  const [dynamicProviders, setDynamicProviders] = useState<string[]>(['env', 'agents_md']);
+  const [dynamicProviders, setDynamicProviders] = useState<string[]>([
+    'env',
+    'global_memory',
+    'project_memory',
+    'agents_md',
+  ]);
   const [dynamicVariables, setDynamicVariables] = useState<Record<string, string>>({});
   const [dynamicProviderSettings, setDynamicProviderSettings] = useState<Record<string, unknown>>(
     {}
@@ -108,7 +113,9 @@ export function AgentEditorDialog({
       setRules(agent.rules || '');
       setOutputFormat(agent.outputFormat || '');
       setDynamicEnabled(agent.dynamicPrompt?.enabled ?? false);
-      setDynamicProviders(agent.dynamicPrompt?.providers ?? ['env', 'agents_md']);
+      setDynamicProviders(
+        agent.dynamicPrompt?.providers ?? ['env', 'global_memory', 'project_memory', 'agents_md']
+      );
       setDynamicVariables(agent.dynamicPrompt?.variables ?? {});
       setDynamicProviderSettings(agent.dynamicPrompt?.providerSettings ?? {});
     } else {
@@ -121,7 +128,7 @@ export function AgentEditorDialog({
       setRules('');
       setOutputFormat('');
       setDynamicEnabled(false);
-      setDynamicProviders(['env', 'agents_md']);
+      setDynamicProviders(['env', 'global_memory', 'project_memory', 'agents_md']);
       setDynamicVariables({});
       setDynamicProviderSettings({});
     }

@@ -1,5 +1,6 @@
 // src/services/prompt/prompt-composer.ts
 
+import { logger } from '@/lib/logger';
 import { repositoryService } from '@/services/repository-service';
 import { settingsManager } from '@/stores/settings-store';
 import type {
@@ -7,8 +8,11 @@ import type {
   PromptBuildOptions,
   PromptBuildResult,
   PromptContextProvider,
+  PromptContextSource,
+  ProviderResolveResult,
   ResolveContext,
 } from '@/types/prompt';
+import { buildSharedOperationalGuidance } from './shared-operational-guidance';
 
 function collectPlaceholders(text: string): string[] {
   const re = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g;
@@ -36,6 +40,88 @@ function replaceAllPlaceholders(text: string, values: Record<string, string>): s
 
 function joinSections(sections: string[]): string {
   return sections.filter(Boolean).join('\n\n---\n\n');
+}
+
+async function resolveProviderToken(
+  provider: PromptContextProvider,
+  token: string,
+  ctx: ResolveContext
+): Promise<ProviderResolveResult | undefined> {
+  try {
+    if (provider.resolveWithMetadata) {
+      return await provider.resolveWithMetadata(token, ctx);
+    }
+
+    const value = await provider.resolve(token, ctx);
+    if (value === undefined) {
+      return undefined;
+    }
+
+    return { value };
+  } catch (error) {
+    logger.warn('[PromptComposer] Provider resolve failed', {
+      providerId: provider.id,
+      token,
+      error,
+    });
+    return undefined;
+  }
+}
+
+function appendResolvedSources(
+  target: PromptContextSource[],
+  provider: PromptContextProvider,
+  token: string,
+  result: ProviderResolveResult | undefined
+) {
+  if (!result?.value) {
+    return;
+  }
+
+  const descriptors = result.sources && result.sources.length > 0 ? result.sources : [{}];
+  const charsInjected = result.value.length;
+
+  for (const descriptor of descriptors) {
+    const key = `${provider.id}|${token}|${descriptor.sourcePath ?? ''}|${descriptor.sectionKind ?? ''}|${charsInjected}`;
+    if (
+      target.some(
+        (source) =>
+          `${source.providerId}|${source.token}|${source.sourcePath ?? ''}|${source.sectionKind ?? ''}|${source.charsInjected}` ===
+          key
+      )
+    ) {
+      continue;
+    }
+
+    target.push({
+      providerId: provider.id,
+      providerLabel: provider.label,
+      token,
+      sourcePath: descriptor.sourcePath,
+      sectionKind: descriptor.sectionKind,
+      charsInjected,
+    });
+  }
+}
+
+function renderInjectedSection(
+  provider: PromptContextProvider,
+  values: Record<string, string>
+): string {
+  const injection = provider.injection;
+  if (!injection) {
+    return '';
+  }
+
+  try {
+    return injection.sectionTemplate(values);
+  } catch (error) {
+    logger.warn('[PromptComposer] Provider section render failed', {
+      providerId: provider.id,
+      error,
+    });
+    return '';
+  }
 }
 
 export class PromptComposer {
@@ -82,6 +168,11 @@ export class PromptComposer {
       sections.push(agent.outputFormat);
     }
 
+    const sharedOperationalGuidance = buildSharedOperationalGuidance(agent);
+    if (sharedOperationalGuidance) {
+      sections.push(sharedOperationalGuidance);
+    }
+
     let raw = joinSections(sections);
 
     const ctx: ResolveContext = {
@@ -98,6 +189,7 @@ export class PromptComposer {
     const enabledProviders = this.providers.filter((p) => enabledProviderIds.has(p.id));
 
     const explicitTokens = collectPlaceholders(raw);
+    const resolvedContextSources: PromptContextSource[] = [];
 
     // Resolve values: explicit placeholders first
     const resolvedValues: Record<string, string> = {};
@@ -123,10 +215,11 @@ export class PromptComposer {
     for (const token of Array.from(unresolved)) {
       for (const provider of enabledProviders) {
         if (!provider.canResolve(token)) continue;
-        const value = await provider.resolve(token, ctx);
-        if (value !== undefined) {
-          resolvedValues[token] = value;
+        const result = await resolveProviderToken(provider, token, ctx);
+        if (result?.value !== undefined) {
+          resolvedValues[token] = result.value;
           unresolved.delete(token);
+          appendResolvedSources(resolvedContextSources, provider, token, result);
           break;
         }
       }
@@ -164,11 +257,14 @@ export class PromptComposer {
             tokenValues[t] = agent.dynamicPrompt.variables[t];
             continue;
           }
-          const v = await provider.resolve(t, ctx);
-          if (v !== undefined) tokenValues[t] = v;
+          const result = await resolveProviderToken(provider, t, ctx);
+          if (result?.value !== undefined) {
+            tokenValues[t] = result.value;
+            appendResolvedSources(resolvedContextSources, provider, t, result);
+          }
         }
 
-        const sectionText = inj.sectionTemplate(tokenValues);
+        const sectionText = renderInjectedSection(provider, tokenValues);
         if (sectionText?.trim().length) {
           autoSections.push({ placement: inj.placement, text: sectionText });
         }
@@ -206,6 +302,7 @@ export class PromptComposer {
     return {
       finalSystemPrompt: raw,
       unresolvedPlaceholders: Array.from(unresolved),
+      resolvedContextSources,
     };
   }
 }

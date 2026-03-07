@@ -130,6 +130,7 @@ export class CreateToolAgent {
 
   static getDefinition(): AgentDefinition {
     const selectedTools = {
+      memoryRead: getToolSync('memoryRead'),
       readFile: getToolSync('readFile'),
       glob: getToolSync('glob'),
       codeSearch: getToolSync('codeSearch'),
@@ -155,7 +156,7 @@ export class CreateToolAgent {
       role: 'write',
       dynamicPrompt: {
         enabled: true,
-        providers: ['env'],
+        providers: ['env', 'global_memory', 'project_memory', 'agents_md'],
         variables: {},
         providerSettings: {},
       },
