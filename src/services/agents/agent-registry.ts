@@ -222,6 +222,8 @@ class AgentRegistry {
     // Get all required tools from centralized registry
     const bash = await getTool('bash');
     const callAgent = await getTool('callAgent');
+    const memoryRead = await getTool('memoryRead');
+    const memoryWrite = await getTool('memoryWrite');
     const readFile = await getTool('readFile');
     const codeSearch = await getTool('codeSearch');
     const glob = await getTool('glob');
@@ -236,6 +238,8 @@ class AgentRegistry {
     return {
       bash,
       callAgent,
+      memoryRead,
+      memoryWrite,
       readFile,
       codeSearch,
       glob,

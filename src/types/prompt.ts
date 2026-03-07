@@ -25,6 +25,26 @@ export type PromptBuildOptions = {
 export type PromptBuildResult = {
   finalSystemPrompt: string;
   unresolvedPlaceholders: string[];
+  resolvedContextSources: PromptContextSource[];
+};
+
+export type PromptContextSource = {
+  providerId: string;
+  providerLabel: string;
+  token: string;
+  sourcePath?: string | null;
+  sectionKind?: string;
+  charsInjected: number;
+};
+
+export type ProviderSourceDescriptor = {
+  sourcePath?: string | null;
+  sectionKind?: string;
+};
+
+export type ProviderResolveResult = {
+  value?: string;
+  sources?: ProviderSourceDescriptor[];
 };
 
 export type InjectionPlacement = 'append' | 'prepend' | { anchorToken: string };
@@ -59,6 +79,10 @@ export interface PromptContextProvider {
   providedTokens(): string[];
   canResolve(token: string): boolean;
   resolve(token: string, ctx: ResolveContext): Promise<string | undefined>;
+  resolveWithMetadata?: (
+    token: string,
+    ctx: ResolveContext
+  ) => Promise<ProviderResolveResult | undefined>;
   // Auto-injection description; if absent, provider only resolves explicit placeholders
   injection?: ProviderInjection;
 }

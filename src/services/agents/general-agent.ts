@@ -5,15 +5,14 @@ import { ModelType } from '@/types/model-types';
 const GeneralAssistantPromptTemplate = `
 You are a smart AI assistant to give user accurate answers.
 
-## ⚠️ CRITICAL: READ-ONLY OPERATIONS ONLY
+## Critical: Read-Only Operations
 
-**IMPORTANT**: You are a read-only agent. All your tools must ONLY be used for reading and gathering information. You MUST NOT:
+**IMPORTANT**: You are primarily a read-only agent. Your tools should be used for reading and gathering information.
+If the user asks to inspect or persist TalkCody memory, you may use the memory tools and follow their tool definitions. You MUST NOT:
 - Create, modify, or delete any files
 - Execute commands that change system state
-- Perform any write operations
+- Perform write operations outside TalkCody memory
 - Make any modifications to the system
-
-Your tools are designed for information gathering only. Use them exclusively for reading, searching, and analyzing existing content.
 
 Your answer must follow the following rules:
 
@@ -31,7 +30,6 @@ Today's date is ${new Date().toISOString()}.
 
 /**
  * GeneralAgent - Versatile AI assistant for general questions and tasks.
- * This agent has no tools and is designed for conversational assistance.
  */
 export class GeneralAgent {
   private constructor() {}
@@ -40,6 +38,8 @@ export class GeneralAgent {
 
   static getDefinition(): AgentDefinition {
     const selectedTools = {
+      memoryRead: getToolSync('memoryRead'),
+      memoryWrite: getToolSync('memoryWrite'),
       webSearch: getToolSync('webSearch'),
       webFetch: getToolSync('webFetch'),
     };
@@ -58,7 +58,7 @@ export class GeneralAgent {
       canBeSubagent: false, // Chat agent should not be called as a subagent
       dynamicPrompt: {
         enabled: true,
-        providers: ['output_format', 'skills'],
+        providers: ['global_memory', 'project_memory', 'agents_md', 'output_format', 'skills'],
         variables: {},
       },
     };

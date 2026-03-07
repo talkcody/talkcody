@@ -290,6 +290,7 @@ export interface LocaleDefinition {
       customTools: string;
       hooks: string;
       remoteControl: string;
+      memory: string;
     };
     hooksScopeHint: string;
     account: {

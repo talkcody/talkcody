@@ -223,7 +223,15 @@ export class PlannerAgent {
       canBeSubagent: false, // Planner should not be called as a subagent
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'agents_md', 'output_format', 'skills', 'subagents'],
+        providers: [
+          'env',
+          'global_memory',
+          'project_memory',
+          'agents_md',
+          'output_format',
+          'skills',
+          'subagents',
+        ],
         variables: {},
       },
     };

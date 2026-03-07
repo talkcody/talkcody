@@ -296,7 +296,12 @@ You are a test agent.`;
     // Verify dynamicPrompt is set with default providers
     expect(agent.dynamicPrompt).toBeDefined();
     expect(agent.dynamicPrompt?.enabled).toBe(true);
-    expect(agent.dynamicPrompt?.providers).toEqual(['env', 'agents_md']);
+    expect(agent.dynamicPrompt?.providers).toEqual([
+      'env',
+      'global_memory',
+      'project_memory',
+      'agents_md',
+    ]);
     expect(agent.dynamicPrompt?.providerSettings).toEqual({
       agents_md: {
         maxChars: 8000,

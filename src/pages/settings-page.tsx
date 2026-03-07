@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   Bot,
   Code,
   FileCode,
@@ -21,6 +22,7 @@ import { GeneralSettings } from '@/components/settings/general-settings';
 import { HooksSettings } from '@/components/settings/hooks-settings';
 import { LintSettings } from '@/components/settings/lint-settings';
 import { LspSettings } from '@/components/settings/lsp-settings';
+import { MemorySettings } from '@/components/settings/memory-settings';
 import { ModelTypeSettings } from '@/components/settings/model-type-settings';
 import { RemoteControlSettings } from '@/components/settings/remote-control-settings';
 import { TerminalSettings } from '@/components/settings/terminal-settings';
@@ -34,7 +36,6 @@ export function SettingsPage() {
   const [activeTab, setActiveTab] = useState('api-keys');
   const { t } = useLocale();
 
-  // Listen for keyboard shortcut to open model settings tab
   useEffect(() => {
     const handleOpenModelSettings = () => {
       setActiveTab('models');
@@ -54,7 +55,6 @@ export function SettingsPage() {
         orientation="vertical"
         className="flex h-full w-full flex-row"
       >
-        {/* Left sidebar navigation */}
         <aside className="w-56 shrink-0 border-r p-4">
           <TabsList className="flex h-auto w-full flex-col gap-1 bg-transparent">
             <TabsTrigger
@@ -75,6 +75,10 @@ export function SettingsPage() {
               <Bot className="size-4" />
               {t.Settings.tabs.models}
             </TabsTrigger>
+            <TabsTrigger value="memory" className="w-full justify-start gap-2 rounded-md px-3 py-2">
+              <BookOpen className="size-4" />
+              {t.Settings.tabs.memory}
+            </TabsTrigger>
 
             <Separator className="my-2" />
 
@@ -85,7 +89,6 @@ export function SettingsPage() {
               <Settings className="size-4" />
               {t.Settings.tabs.general || 'General'}
             </TabsTrigger>
-
             <TabsTrigger
               value="shortcuts"
               className="w-full justify-start gap-2 rounded-md px-3 py-2"
@@ -139,7 +142,6 @@ export function SettingsPage() {
               <Bot className="size-4" />
               {t.Settings.tabs.remoteControl || 'Remote Control'}
             </TabsTrigger>
-
             <TabsTrigger value="about" className="w-full justify-start gap-2 rounded-md px-3 py-2">
               <Info className="size-4" />
               {t.Settings.tabs.about}
@@ -147,57 +149,47 @@ export function SettingsPage() {
           </TabsList>
         </aside>
 
-        {/* Right content area */}
         <main className="flex-1 overflow-y-auto p-6">
           <div className="max-w-5xl">
             <TabsContent value="account" className="mt-0 flex-none space-y-6">
               <AccountSettings />
             </TabsContent>
-
             <TabsContent value="api-keys" className="mt-0 flex-none space-y-6">
               <ApiKeysSettings />
             </TabsContent>
-
             <TabsContent value="models" className="mt-0 flex-none space-y-6">
               <ModelTypeSettings />
             </TabsContent>
-
+            <TabsContent value="memory" className="mt-0 flex-none space-y-6">
+              <MemorySettings />
+            </TabsContent>
             <TabsContent value="terminal" className="mt-0 flex-none space-y-6">
               <TerminalSettings />
             </TabsContent>
-
             <TabsContent value="lint" className="mt-0 flex-none space-y-6">
               <LintSettings />
             </TabsContent>
-
             <TabsContent value="lsp" className="mt-0 flex-none space-y-6">
               <LspSettings />
             </TabsContent>
-
             <TabsContent value="worktree" className="mt-0 flex-none space-y-6">
               <WorktreeSettings />
             </TabsContent>
-
             <TabsContent value="custom-tools" className="mt-0 flex-none space-y-6">
               <CustomToolsSettings />
             </TabsContent>
-
             <TabsContent value="hooks" className="mt-0 flex-none space-y-6">
               <HooksSettings />
             </TabsContent>
-
             <TabsContent value="shortcuts" className="mt-0 flex-none space-y-6">
               <ShortcutSettingsPanel />
             </TabsContent>
-
             <TabsContent value="general" className="mt-0 flex-none space-y-6">
               <GeneralSettings />
             </TabsContent>
-
             <TabsContent value="remote-control" className="mt-0 flex-none space-y-6">
               <RemoteControlSettings />
             </TabsContent>
-
             <TabsContent value="about" className="mt-0 flex-none space-y-6">
               <AboutSettings />
             </TabsContent>

@@ -31,7 +31,7 @@ Explore agent has the following tools:
 
 ## Tool Usage Constraints
 
-- You MUST NOT use readFile, writeFile, editFile, bash, or any direct tool besides callAgent, todoWrite, askUserQuestions.
+- You MUST NOT use readFile, writeFile, editFile, bash, or any direct tool besides callAgent, todoWrite, askUserQuestions, memoryRead, and memoryWrite.
 - you should actively use callAgent tool
 - If you need information, call Explore agent.
 - If you need a plan, call Plan agent.
@@ -49,7 +49,7 @@ Explore agent has the following tools:
 ## Rules
 
 - You NEVER do direct coding, debugging, or exploration yourself.
-- You ONLY use callAgent, todoWrite, and askUserQuestions.
+- You ONLY use callAgent, todoWrite, askUserQuestions, and optional memory tools when needed.
 - All context gathering, planning, implementation, and review must be done by sub-agents.
 - You should invoke multiple sub-agents simultaneously to process tasks.
 
@@ -66,6 +66,8 @@ export class OrchestratorAgent {
 
   static getDefinition(): AgentDefinition {
     const selectedTools = {
+      memoryRead: getToolSync('memoryRead'),
+      memoryWrite: getToolSync('memoryWrite'),
       callAgent: getToolSync('callAgent'),
       todoWrite: getToolSync('todoWrite'),
       askUserQuestions: getToolSync('askUserQuestions'),
@@ -85,7 +87,15 @@ export class OrchestratorAgent {
       canBeSubagent: false,
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'agents_md', 'output_format', 'skills', 'subagents'],
+        providers: [
+          'env',
+          'global_memory',
+          'project_memory',
+          'agents_md',
+          'output_format',
+          'skills',
+          'subagents',
+        ],
         variables: {},
       },
     };

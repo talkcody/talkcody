@@ -1,4 +1,5 @@
 // src/services/prompt/providers/agents-md-provider.ts
+import { removeLongTermMemorySection } from '@/services/memory/memory-service';
 import type { PromptContextProvider, ResolveContext } from '@/types/prompt';
 
 /**
@@ -239,16 +240,21 @@ function mergeMarkdownContents(
  */
 async function readMarkdownFiles(
   ctx: ResolveContext
-): Promise<{ content: string; fileType: MarkdownFileType } | undefined> {
+): Promise<{ content: string; fileType: MarkdownFileType; relativePath: string } | undefined> {
   for (const fileType of MARKDOWN_FILES) {
     try {
       const content = await ctx.readFile(ctx.workspaceRoot, fileType);
-      return { content, fileType };
+      return { content, fileType, relativePath: fileType };
     } catch {
       // File doesn't exist, try next
     }
   }
   return;
+}
+
+function toSourcePath(workspaceRoot: string, relativePath: string): string {
+  const normalizedRoot = normalizePath(workspaceRoot).replace(/\/$/, '');
+  return relativePath ? `${normalizedRoot}/${relativePath}` : normalizedRoot;
 }
 
 function trimToMax(content: string, maxChars?: number): string {
@@ -270,9 +276,9 @@ export type AgentsMdSettings = {
 
 export const AgentsMdProvider = (settings?: AgentsMdSettings): PromptContextProvider => ({
   id: 'agents_md',
-  label: 'Markdown Context (AGENTS.md/CLAUDE.md/GEMINI.md)',
+  label: 'Project Instructions (AGENTS.md/CLAUDE.md/GEMINI.md)',
   description:
-    'Injects the content of AGENTS.md, CLAUDE.md, or GEMINI.md with hierarchical lookup and fallback support. Updates when workspace changes.',
+    'Injects hierarchical project instructions from AGENTS.md, CLAUDE.md, or GEMINI.md files in the workspace. Root Long-Term Memory is handled separately.',
   badges: ['Auto', 'Files', 'Local'],
 
   providedTokens() {
@@ -284,50 +290,84 @@ export const AgentsMdProvider = (settings?: AgentsMdSettings): PromptContextProv
   },
 
   async resolve(_token: string, ctx: ResolveContext): Promise<string | undefined> {
-    const strategy = settings?.searchStrategy ?? 'hierarchical';
-    const maxChars = settings?.maxChars ?? 8000;
+    const result = await resolveAgentsMdContent(ctx, settings);
+    return result?.value;
+  },
 
-    // Handle different search strategies
-    if (strategy === 'root-only') {
-      // Legacy behavior: only read root markdown files with fallback
-      const result = await readMarkdownFiles(ctx);
-      if (!result) return;
-      return trimToMax(result.content, maxChars);
-    }
-
-    if (strategy === 'hierarchical') {
-      // Find all markdown files in the hierarchy
-      const foundFiles = await findHierarchicalMarkdownFiles(ctx, settings);
-
-      if (foundFiles.length === 0) return;
-
-      // Read content for all found files
-      const files: Array<{ relativePath: string; content: string; fileType: MarkdownFileType }> =
-        [];
-      for (const { relativePath, fileType } of foundFiles) {
-        try {
-          const content = await ctx.readFile(ctx.workspaceRoot, relativePath);
-          files.push({ relativePath, content, fileType });
-        } catch {
-          // Skip if read fails
-        }
-      }
-
-      if (files.length === 0) return;
-      return mergeMarkdownContents(files, maxChars);
-    }
-
-    return;
+  async resolveWithMetadata(_token: string, ctx: ResolveContext) {
+    return await resolveAgentsMdContent(ctx, settings);
   },
 
   injection: {
     enabledByDefault: true,
     placement: 'append',
-    sectionTitle: 'Markdown Context',
+    sectionTitle: 'Project Instructions',
     sectionTemplate(values: Record<string, string>) {
       const content = values.agents_md || '';
       if (!content) return '';
-      return ['## Markdown Context', '', `<project>\n${content}\n</project>`].join('\n');
+      return ['## Project Instructions', '', `<project>\n${content}\n</project>`].join('\n');
     },
   },
 });
+
+async function resolveAgentsMdContent(
+  ctx: ResolveContext,
+  settings?: AgentsMdSettings
+): Promise<
+  { value: string; sources: Array<{ sourcePath: string; sectionKind: string }> } | undefined
+> {
+  const strategy = settings?.searchStrategy ?? 'hierarchical';
+  const maxChars = settings?.maxChars ?? 8000;
+
+  if (strategy === 'root-only') {
+    const result = await readMarkdownFiles(ctx);
+    if (!result) return;
+
+    const content = removeLongTermMemorySection(result.content);
+    if (!content.trim()) return;
+
+    return {
+      value: trimToMax(content, maxChars),
+      sources: [
+        {
+          sourcePath: toSourcePath(ctx.workspaceRoot, result.relativePath),
+          sectionKind: 'project_instructions',
+        },
+      ],
+    };
+  }
+
+  if (strategy === 'hierarchical') {
+    const foundFiles = await findHierarchicalMarkdownFiles(ctx, settings);
+
+    if (foundFiles.length === 0) return;
+
+    const files: Array<{ relativePath: string; content: string; fileType: MarkdownFileType }> = [];
+    for (const { relativePath, fileType } of foundFiles) {
+      try {
+        const rawContent = await ctx.readFile(ctx.workspaceRoot, relativePath);
+        const content =
+          relativePath === fileType ? removeLongTermMemorySection(rawContent) : rawContent;
+
+        if (!content.trim()) {
+          continue;
+        }
+
+        files.push({ relativePath, content, fileType });
+      } catch {
+        // Skip if read fails
+      }
+    }
+
+    if (files.length === 0) return;
+    return {
+      value: mergeMarkdownContents(files, maxChars),
+      sources: files.map((file) => ({
+        sourcePath: toSourcePath(ctx.workspaceRoot, file.relativePath),
+        sectionKind: 'project_instructions',
+      })),
+    };
+  }
+
+  return;
+}

@@ -328,6 +328,7 @@ export class CodeReviewAgent {
 
   static getDefinition(): AgentDefinition {
     const selectedTools = {
+      memoryRead: getToolSync('memoryRead'),
       readFile: getToolSync('readFile'),
       glob: getToolSync('glob'),
       codeSearch: getToolSync('codeSearch'),
@@ -349,7 +350,7 @@ export class CodeReviewAgent {
       role: 'read',
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'agents_md', 'skills'],
+        providers: ['env', 'global_memory', 'project_memory', 'agents_md', 'skills'],
         variables: {},
       },
     };

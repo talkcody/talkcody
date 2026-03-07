@@ -59,6 +59,7 @@ export class TestWriterAgent {
 
   static getDefinition(): AgentDefinition {
     const selectedTools = {
+      memoryRead: getToolSync('memoryRead'),
       readFile: getToolSync('readFile'),
       writeFile: getToolSync('writeFile'),
       editFile: getToolSync('editFile'),
@@ -82,7 +83,7 @@ export class TestWriterAgent {
       role: 'write',
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'agents_md', 'skills'],
+        providers: ['env', 'global_memory', 'project_memory', 'agents_md', 'skills'],
         variables: {},
         providerSettings: {
           agents_md: { maxChars: 4000 },

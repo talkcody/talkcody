@@ -37,6 +37,8 @@ interface SettingsState {
   is_plan_mode_enabled: boolean;
   is_worktree_mode_enabled: boolean;
   is_ralph_loop_enabled: boolean;
+  memory_global_enabled: boolean;
+  memory_project_enabled: boolean;
   auto_approve_edits_global: boolean;
   auto_approve_plan_global: boolean;
   auto_code_review_global: boolean;
@@ -140,6 +142,8 @@ interface SettingsActions {
   setPlanModeEnabled: (enabled: boolean) => Promise<void>;
   setWorktreeModeEnabled: (enabled: boolean) => Promise<void>;
   setRalphLoopEnabled: (enabled: boolean) => Promise<void>;
+  setMemoryGlobalEnabled: (enabled: boolean) => Promise<void>;
+  setMemoryProjectEnabled: (enabled: boolean) => Promise<void>;
   setAutoApproveEditsGlobal: (enabled: boolean) => Promise<void>;
   setAutoApprovePlanGlobal: (enabled: boolean) => Promise<void>;
   setAutoCodeReviewGlobal: (enabled: boolean) => Promise<void>;
@@ -266,6 +270,8 @@ interface SettingsActions {
   getPlanModeEnabled: () => boolean;
   getWorktreeModeEnabled: () => boolean;
   getRalphLoopEnabled: () => boolean;
+  getMemoryGlobalEnabled: () => boolean;
+  getMemoryProjectEnabled: () => boolean;
   getHooksEnabled: () => boolean;
 }
 
@@ -284,6 +290,8 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
   is_plan_mode_enabled: false,
   is_worktree_mode_enabled: false,
   is_ralph_loop_enabled: false,
+  memory_global_enabled: true,
+  memory_project_enabled: true,
   auto_approve_edits_global: false,
   auto_approve_plan_global: false,
   auto_code_review_global: false,
@@ -376,6 +384,8 @@ class SettingsDatabase {
       is_plan_mode_enabled: 'false',
       is_worktree_mode_enabled: 'false',
       is_ralph_loop_enabled: 'false',
+      memory_global_enabled: 'true',
+      memory_project_enabled: 'true',
       auto_approve_edits_global: 'false',
       auto_approve_plan_global: 'false',
       auto_code_review_global: 'false',
@@ -525,6 +535,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         'is_plan_mode_enabled',
         'is_worktree_mode_enabled',
         'is_ralph_loop_enabled',
+        'memory_global_enabled',
+        'memory_project_enabled',
         'auto_approve_edits_global',
         'auto_approve_plan_global',
         'auto_code_review_global',
@@ -624,6 +636,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         is_plan_mode_enabled: rawSettings.is_plan_mode_enabled === 'true',
         is_worktree_mode_enabled: rawSettings.is_worktree_mode_enabled === 'true',
         is_ralph_loop_enabled: rawSettings.is_ralph_loop_enabled === 'true',
+        memory_global_enabled: rawSettings.memory_global_enabled !== 'false',
+        memory_project_enabled: rawSettings.memory_project_enabled !== 'false',
         auto_approve_edits_global: rawSettings.auto_approve_edits_global === 'true',
         auto_approve_plan_global: rawSettings.auto_approve_plan_global === 'true',
         auto_code_review_global: rawSettings.auto_code_review_global === 'true',
@@ -775,6 +789,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setRalphLoopEnabled: async (enabled: boolean) => {
     await settingsDb.set('is_ralph_loop_enabled', enabled.toString());
     set({ is_ralph_loop_enabled: enabled });
+  },
+
+  setMemoryGlobalEnabled: async (enabled: boolean) => {
+    await settingsDb.set('memory_global_enabled', enabled.toString());
+    set({ memory_global_enabled: enabled });
+  },
+
+  setMemoryProjectEnabled: async (enabled: boolean) => {
+    await settingsDb.set('memory_project_enabled', enabled.toString());
+    set({ memory_project_enabled: enabled });
   },
 
   setAutoApproveEditsGlobal: async (enabled: boolean) => {
@@ -1304,6 +1328,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     return get().is_ralph_loop_enabled;
   },
 
+  getMemoryGlobalEnabled: () => {
+    return get().memory_global_enabled;
+  },
+
+  getMemoryProjectEnabled: () => {
+    return get().memory_project_enabled;
+  },
+
   getAutoApproveEditsGlobal: () => {
     return get().auto_approve_edits_global;
   },
@@ -1356,6 +1388,10 @@ export const settingsManager = {
     useSettingsStore.getState().setWorktreeModeEnabled(enabled),
   setRalphLoopEnabled: (enabled: boolean) =>
     useSettingsStore.getState().setRalphLoopEnabled(enabled),
+  setMemoryGlobalEnabled: (enabled: boolean) =>
+    useSettingsStore.getState().setMemoryGlobalEnabled(enabled),
+  setMemoryProjectEnabled: (enabled: boolean) =>
+    useSettingsStore.getState().setMemoryProjectEnabled(enabled),
   setAutoApproveEditsGlobal: (enabled: boolean) =>
     useSettingsStore.getState().setAutoApproveEditsGlobal(enabled),
   setAutoApprovePlanGlobal: (enabled: boolean) =>
@@ -1396,6 +1432,8 @@ export const settingsManager = {
   getPlanModeEnabled: () => useSettingsStore.getState().getPlanModeEnabled(),
   getWorktreeModeEnabled: () => useSettingsStore.getState().getWorktreeModeEnabled(),
   getRalphLoopEnabled: () => useSettingsStore.getState().getRalphLoopEnabled(),
+  getMemoryGlobalEnabled: () => useSettingsStore.getState().getMemoryGlobalEnabled(),
+  getMemoryProjectEnabled: () => useSettingsStore.getState().getMemoryProjectEnabled(),
   getAutoApproveEditsGlobal: () => useSettingsStore.getState().getAutoApproveEditsGlobal(),
   getAutoApprovePlanGlobal: () => useSettingsStore.getState().getAutoApprovePlanGlobal(),
   getAutoCodeReviewGlobal: () => useSettingsStore.getState().getAutoCodeReviewGlobal(),

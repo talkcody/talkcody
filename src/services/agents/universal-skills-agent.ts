@@ -99,6 +99,7 @@ export class UniversalSkillsAgent {
 
   static getDefinition(): AgentDefinition {
     const selectedTools = {
+      memoryRead: getToolSync('memoryRead'),
       readFile: getToolSync('readFile'),
       editFile: getToolSync('editFile'),
       writeFile: getToolSync('writeFile'),
@@ -122,7 +123,14 @@ export class UniversalSkillsAgent {
       canBeSubagent: false,
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'agents_md', 'output_format', 'skills'],
+        providers: [
+          'env',
+          'global_memory',
+          'project_memory',
+          'agents_md',
+          'output_format',
+          'skills',
+        ],
         variables: {},
       },
     };

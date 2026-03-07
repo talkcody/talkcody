@@ -274,6 +274,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
               workspaceRoot: root,
               taskId: activeTaskId,
               currentWorkingDirectory,
+              recentFilePaths: selectedFile ? [selectedFile] : undefined,
             });
             systemPrompt = finalSystemPrompt;
           } catch (e) {

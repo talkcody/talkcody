@@ -44,6 +44,10 @@ const TOOL_ALIAS_MAP: Record<string, string> = {
   listfiles: 'listFiles',
   websearch: 'webSearch',
   webfetch: 'webFetch',
+  memoryread: 'memoryRead',
+  memory_read: 'memoryRead',
+  memorywrite: 'memoryWrite',
+  memory_write: 'memoryWrite',
   todowrite: 'todoWrite',
   exitplanmode: 'exitPlanMode',
   skill: 'bash',
@@ -325,7 +329,7 @@ export function buildRemoteAgentConfig(params: {
   // Default dynamic prompt configuration for GitHub-imported agents
   const dynamicPrompt: RemoteAgentConfig['dynamicPrompt'] = {
     enabled: true,
-    providers: ['env', 'agents_md'],
+    providers: ['env', 'global_memory', 'project_memory', 'agents_md'],
     variables: {},
     providerSettings: {
       agents_md: {

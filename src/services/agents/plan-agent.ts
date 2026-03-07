@@ -130,6 +130,7 @@ export class PlanAgent {
 
   static getDefinition(): AgentDefinition {
     const selectedTools = {
+      memoryRead: getToolSync('memoryRead'),
       readFile: getToolSync('readFile'),
       glob: getToolSync('glob'),
       lsp: getToolSync('lsp'),
@@ -155,7 +156,7 @@ export class PlanAgent {
       canBeSubagent: true,
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'agents_md', 'skills'],
+        providers: ['env', 'global_memory', 'project_memory', 'agents_md', 'skills'],
         variables: {},
         providerSettings: {
           agents_md: { maxChars: 6000 },
