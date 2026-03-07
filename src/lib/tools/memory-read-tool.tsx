@@ -127,7 +127,9 @@ export const memoryRead = createTool({
               workspaceRoot,
               taskId: context.taskId,
             });
-      const nonEmptyCount = documents.filter((document) => document.content.trim().length > 0).length;
+      const nonEmptyCount = documents.filter(
+        (document) => document.content.trim().length > 0
+      ).length;
       return {
         success: true,
         mode: 'read',
