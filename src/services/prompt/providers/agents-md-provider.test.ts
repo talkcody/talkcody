@@ -98,4 +98,26 @@ describe('AgentsMdProvider', () => {
     expect(content).toContain('ROOT_ONLY_CONTENT');
     expect(content).not.toContain('APPS_CONTENT');
   });
+
+  it('strips the root Long-Term Memory section by default', async () => {
+    const provider = AgentsMdProvider();
+    const ctx = createContext({
+      currentWorkingDirectory: '/repo/apps',
+      files: {
+        'CLAUDE.md': ['# Root Instructions', '', '## Long-Term Memory', '', '- Secret memory'].join(
+          '\n'
+        ),
+        'apps/AGENTS.md': ['# App Instructions', '', '- Keep nested instructions'].join('\n'),
+      },
+    });
+
+    const result = await provider.resolve('agents_md', ctx);
+    expect(result).toBeTruthy();
+
+    const content = result || '';
+    expect(content).toContain('# Root Instructions');
+    expect(content).not.toContain('## Long-Term Memory');
+    expect(content).not.toContain('- Secret memory');
+    expect(content).toContain('# App Instructions');
+  });
 });

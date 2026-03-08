@@ -291,6 +291,7 @@ const zh: LocaleDefinition = {
       customTools: '自定义工具',
       hooks: 'Hooks',
       remoteControl: '远程控制',
+      memory: '长期记忆',
     },
     account: {
       title: '账户设置',

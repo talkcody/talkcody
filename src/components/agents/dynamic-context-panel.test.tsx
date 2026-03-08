@@ -1,21 +1,29 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { DynamicContextPanel } from './dynamic-context-panel';
 import type { AgentDefinition } from '@/types/agent';
 import { ModelType } from '@/types/model-types';
+import { DynamicContextPanel } from './dynamic-context-panel';
 
-// Mock external dependencies
 vi.mock('@/services/prompt/preview', () => ({
   previewSystemPrompt: vi.fn().mockResolvedValue({
     finalSystemPrompt: 'Test prompt',
     unresolvedPlaceholders: [],
+    resolvedContextSources: [
+      {
+        providerId: 'project_memory',
+        providerLabel: 'Project Memory',
+        token: 'project_memory',
+        sourcePath: '/test/workspace/AGENTS.md',
+        sectionKind: 'project_memory',
+        charsInjected: 24,
+      },
+    ],
   }),
 }));
 
 vi.mock('@/services/workspace-root-service', () => ({
   getValidatedWorkspaceRoot: vi.fn().mockResolvedValue('/test/workspace'),
 }));
-
 
 describe('DynamicContextPanel', () => {
   const mockAgent: AgentDefinition = {
@@ -49,15 +57,11 @@ describe('DynamicContextPanel', () => {
       render(<TestWrapper />);
     });
 
-    // Wait for effects to settle
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 500));
     });
 
-    // onChange should be called once initially, not continuously
-    // The exact count may vary, but it should be finite (not exceeding React's limit)
     expect(mockOnChange).toHaveBeenCalled();
-    // React's limit is ~50 before it throws "Maximum update depth exceeded"
     expect(renderCount).toBeLessThan(50);
   });
 
@@ -71,7 +75,7 @@ describe('DynamicContextPanel', () => {
     expect(screen.getByText('Dynamic Context')).toBeInTheDocument();
   });
 
-  it('should render provider checkboxes', async () => {
+  it('should render provider checkboxes for project memory and project instructions', async () => {
     const mockOnChange = vi.fn();
 
     await act(async () => {
@@ -79,7 +83,8 @@ describe('DynamicContextPanel', () => {
     });
 
     expect(screen.getByText('Environment')).toBeInTheDocument();
-    expect(screen.getByText('AGENTS.md')).toBeInTheDocument();
+    expect(screen.getByText('Project Memory')).toBeInTheDocument();
+    expect(screen.getByText('Project Instructions')).toBeInTheDocument();
   });
 
   it('should call onChange with correct structure when mounted', async () => {
@@ -89,7 +94,6 @@ describe('DynamicContextPanel', () => {
       render(<DynamicContextPanel agent={mockAgent} onChange={mockOnChange} />);
     });
 
-    // Wait for effects to settle
     await act(async () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     });
@@ -104,6 +108,21 @@ describe('DynamicContextPanel', () => {
         }),
       })
     );
+  });
+
+  it('should render resolved context sources from the preview result', async () => {
+    const mockOnChange = vi.fn();
+
+    await act(async () => {
+      render(<DynamicContextPanel agent={mockAgent} onChange={mockOnChange} />);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Resolved Context Sources')).toBeInTheDocument();
+    });
+
+    expect(screen.getAllByText('Project Memory').length).toBeGreaterThan(0);
+    expect(screen.getByText('/test/workspace/AGENTS.md')).toBeInTheDocument();
   });
 
   it('should handle agent with no dynamicPrompt gracefully', async () => {

@@ -94,6 +94,7 @@ export class ExploreAgent {
 
   static getDefinition(): AgentDefinition {
     const selectedTools = {
+      memoryRead: getToolSync('memoryRead'),
       readFile: getToolSync('readFile'),
       glob: getToolSync('glob'),
       lsp: getToolSync('lsp'),
@@ -117,7 +118,14 @@ export class ExploreAgent {
       role: 'read',
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'agents_md', 'output_format', 'skills'],
+        providers: [
+          'env',
+          'global_memory',
+          'project_memory',
+          'agents_md',
+          'output_format',
+          'skills',
+        ],
         variables: {},
         providerSettings: {
           agents_md: { maxChars: 4000 },

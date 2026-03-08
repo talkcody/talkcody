@@ -146,6 +146,8 @@ export class CodingAgent {
   static getDefinition(): AgentDefinition {
     // Get tools from the centralized registry
     const selectedTools = {
+      memoryRead: getToolSync('memoryRead'),
+      memoryWrite: getToolSync('memoryWrite'),
       readFile: getToolSync('readFile'),
       writeFile: getToolSync('writeFile'),
       editFile: getToolSync('editFile'),
@@ -169,7 +171,14 @@ export class CodingAgent {
       role: 'write',
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'agents_md', 'output_format', 'skills'],
+        providers: [
+          'env',
+          'global_memory',
+          'project_memory',
+          'agents_md',
+          'output_format',
+          'skills',
+        ],
         variables: {},
       },
     };

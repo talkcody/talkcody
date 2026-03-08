@@ -1,8 +1,24 @@
-import { describe, expect, it } from 'vitest';
-import { CommandType } from '@/types/command';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CommandType, type CommandContext } from '@/types/command';
+
+vi.mock('@/services/context/manual-context-compaction', () => ({
+  compactTaskContext: vi.fn(),
+}));
+
 import { getBuiltInCommands } from './built-in-commands';
 
 describe('getBuiltInCommands', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('does not expose the memory command anymore', async () => {
+    const commands = await getBuiltInCommands();
+
+    expect(commands.find((command) => command.id === 'memory')).toBeUndefined();
+    expect(commands.find((command) => command.name === 'memory')).toBeUndefined();
+  });
+
   it('includes create-tool command with preferred agent and install guidance', async () => {
     const commands = await getBuiltInCommands();
     const createTool = commands.find((command) => command.id === 'create-tool');
@@ -12,7 +28,7 @@ describe('getBuiltInCommands', () => {
     expect(createTool?.type).toBe(CommandType.AI_PROMPT);
     expect(createTool?.preferredAgentId).toBe('create-tool');
 
-    const result = await createTool?.executor({}, {} as any);
+    const result = await createTool?.executor({}, {} as CommandContext);
     expect(result?.success).toBe(true);
     expect(result?.continueProcessing).toBe(true);
     expect(result?.aiMessage).toContain('custom TalkCody tool');
@@ -29,7 +45,7 @@ describe('getBuiltInCommands', () => {
     expect(createAgent?.type).toBe(CommandType.AI_PROMPT);
     expect(createAgent?.preferredAgentId).toBe('create-agent');
 
-    const result = await createAgent?.executor({}, {} as any);
+    const result = await createAgent?.executor({}, {} as CommandContext);
     expect(result?.success).toBe(true);
     expect(result?.continueProcessing).toBe(true);
     expect(result?.aiMessage).toContain('custom TalkCody agent');
@@ -46,7 +62,7 @@ describe('getBuiltInCommands', () => {
     expect(createSkill?.type).toBe(CommandType.AI_PROMPT);
     expect(createSkill?.preferredAgentId).toBe('create-skill');
 
-    const result = await createSkill?.executor({}, {} as any);
+    const result = await createSkill?.executor({}, {} as CommandContext);
     expect(result?.success).toBe(true);
     expect(result?.continueProcessing).toBe(true);
     expect(result?.aiMessage).toContain('custom local TalkCody skill');

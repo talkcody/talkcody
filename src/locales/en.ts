@@ -301,6 +301,7 @@ const en: LocaleDefinition = {
       customTools: 'Custom Tools',
       hooks: 'Hooks',
       remoteControl: 'Remote Control',
+      memory: 'Long-Term Memory',
     },
     account: {
       title: 'Account Settings',

@@ -136,6 +136,22 @@ export function normalizeToolName(toolName: string): string | null {
     AskUserQuestions: 'askUserQuestions',
     askuserquestions: 'askUserQuestions',
 
+    // Memory read variations
+    memoryRead: 'memoryRead',
+    MemoryRead: 'memoryRead',
+    memoryread: 'memoryRead',
+    MEMORYREAD: 'memoryRead',
+    memory_read: 'memoryRead',
+    MemoryReadTool: 'memoryRead',
+
+    // Memory write variations
+    memoryWrite: 'memoryWrite',
+    MemoryWrite: 'memoryWrite',
+    memorywrite: 'memoryWrite',
+    MEMORYWRITE: 'memoryWrite',
+    memory_write: 'memoryWrite',
+    MemoryWriteTool: 'memoryWrite',
+
     // Exit plan mode variations
     exitPlanMode: 'exitPlanMode',
     exitPlanModeTool: 'exitPlanMode',
