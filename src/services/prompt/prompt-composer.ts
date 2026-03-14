@@ -1,6 +1,7 @@
 // src/services/prompt/prompt-composer.ts
 
 import { logger } from '@/lib/logger';
+import { MEMORY_INDEX_INJECTION_LINE_LIMIT } from '@/services/memory/memory-service';
 import { repositoryService } from '@/services/repository-service';
 import { settingsManager } from '@/stores/settings-store';
 import type {
@@ -13,6 +14,26 @@ import type {
   ResolveContext,
 } from '@/types/prompt';
 import { buildSharedOperationalGuidance } from './shared-operational-guidance';
+
+function buildAutoMemoryGuidance(enabledProviderIds: Set<string>): string {
+  const hasIndexedMemory =
+    enabledProviderIds.has('global_memory') || enabledProviderIds.has('project_memory');
+  if (!hasIndexedMemory) {
+    return '';
+  }
+
+  return [
+    'Auto memory guidance:',
+    `- Each memory scope is a markdown workspace with a MEMORY.md index and optional topic .md files.`,
+    `- Only the first ${MEMORY_INDEX_INJECTION_LINE_LIMIT} lines of each MEMORY.md are injected automatically.`,
+    '- Start with the injected MEMORY.md lines. If they do not show the route you need, read the full MEMORY.md before concluding the memory is missing.',
+    '- Treat MEMORY.md as a routing index, not the detailed memory payload. If it points to a relevant topic file, read that topic file before answering from memory.',
+    '- Never claim that you know a topic file\'s contents unless you have actually read that topic file.',
+    '- When writing memory, keep MEMORY.md synchronized with topic files, keep each topic focused on one stable subject, and avoid writing duplicate topic routes or duplicate memory facts.',
+    '- Save durable observations such as user preferences, repository conventions, architecture notes, commands, and recurring workflows.',
+    '- Do not save temporary task state, secrets, credentials, one-off troubleshooting noise, or instructions that belong in project instruction files.',
+  ].join('\n');
+}
 
 function collectPlaceholders(text: string): string[] {
   const re = /\{\{\s*([a-zA-Z0-9_.-]+)\s*\}\}/g;
@@ -173,6 +194,12 @@ export class PromptComposer {
       sections.push(sharedOperationalGuidance);
     }
 
+    const enabledProviderIds = new Set(agent.dynamicPrompt?.providers || []);
+    const autoMemoryGuidance = buildAutoMemoryGuidance(enabledProviderIds);
+    if (autoMemoryGuidance) {
+      sections.push(autoMemoryGuidance);
+    }
+
     let raw = joinSections(sections);
 
     const ctx: ResolveContext = {
@@ -185,7 +212,6 @@ export class PromptComposer {
       readFile: (root, file) => repositoryService.readFile(root, file),
     };
 
-    const enabledProviderIds = new Set(agent.dynamicPrompt?.providers || []);
     const enabledProviders = this.providers.filter((p) => enabledProviderIds.has(p.id));
 
     const explicitTokens = collectPlaceholders(raw);

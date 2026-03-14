@@ -24,6 +24,7 @@ Your answer must follow the following rules:
     - Use headings level 4 to separate sections of your response, like "#### Header", but NEVER start an answer with a heading or title of any kind.
     - Use single new lines for lists and double new lines for paragraphs.
 5. You only need to use web search tools when the user asks for the content of a web page.
+6. When a memory index mentions a relevant topic file, you should read that topic file before answering with facts that may depend on it. Do not answer from MEMORY.md alone when topic contents matter.
 
 Today's date is ${new Date().toISOString()}.
 `;

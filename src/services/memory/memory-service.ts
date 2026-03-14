@@ -1,25 +1,48 @@
 import { appDataDir, join } from '@tauri-apps/api/path';
-import { exists, mkdir, readTextFile, writeTextFile } from '@tauri-apps/plugin-fs';
+import {
+  exists,
+  mkdir,
+  readDir,
+  readTextFile,
+  remove,
+  rename,
+  writeTextFile,
+} from '@tauri-apps/plugin-fs';
 import { logger } from '@/lib/logger';
 
-export const GLOBAL_MEMORY_FILE_NAME = 'memory.md';
-export const PROJECT_MEMORY_FILE_NAME = 'AGENTS.md';
-export const PROJECT_MEMORY_ROOT_FILE_NAMES = [
-  PROJECT_MEMORY_FILE_NAME,
-  'CLAUDE.md',
-  'GEMINI.md',
-] as const;
-export const PROJECT_MEMORY_SECTION_TITLE = 'Long-Term Memory';
-export const PROJECT_MEMORY_SECTION_HEADING = `## ${PROJECT_MEMORY_SECTION_TITLE}`;
+export const MEMORY_WORKSPACE_INDEX_FILE_NAME = 'MEMORY.md';
+export const MEMORY_WORKSPACE_DIRECTORY_NAME = 'memory';
+export const GLOBAL_MEMORY_WORKSPACE_NAME = 'global';
+export const PROJECT_MEMORY_WORKSPACE_NAME = 'projects';
+export const MEMORY_INDEX_INJECTION_LINE_LIMIT = 200;
 
 export type MemoryScope = 'global' | 'project';
+export type MemoryDocumentKind = 'index' | 'topic';
+export type MemoryWorkspaceIdentityKind = 'git' | 'path';
+
+export interface MemoryWorkspaceIdentity {
+  kind: MemoryWorkspaceIdentityKind;
+  key: string;
+  sourcePath: string;
+}
+
+export interface MemoryWorkspace {
+  scope: MemoryScope;
+  path: string | null;
+  indexPath: string | null;
+  exists: boolean;
+  identity: MemoryWorkspaceIdentity | null;
+}
 
 export interface MemoryDocument {
   scope: MemoryScope;
   path: string | null;
   content: string;
   exists: boolean;
-  sourceType?: 'global_file' | 'project_root_section';
+  kind: MemoryDocumentKind;
+  fileName: string | null;
+  workspacePath?: string | null;
+  sourceType?: 'global_index' | 'project_index' | 'topic_file';
 }
 
 export interface MemorySnapshot {
@@ -34,6 +57,8 @@ export interface MemorySearchResult {
   score: number;
   backend: 'text';
   lineNumber: number;
+  kind: MemoryDocumentKind;
+  fileName: string | null;
 }
 
 export interface MemoryReadOptions {
@@ -45,6 +70,25 @@ export interface MemorySearchOptions extends MemoryReadOptions {
   scopes?: MemoryScope[];
   maxResults?: number;
 }
+
+export interface MemoryTopicWriteOptions extends MemoryReadOptions {
+  createIfMissing?: boolean;
+}
+
+export interface MemoryWorkspaceAudit {
+  overInjectionLimit: boolean;
+  injectedLineCount: number;
+  totalLineCount: number;
+  topicFiles: string[];
+  indexedTopicFiles: string[];
+  unindexedTopicFiles: string[];
+  missingTopicFiles: string[];
+}
+
+type SafeReadTextFileResult = {
+  content: string | null;
+  exists: boolean;
+};
 
 function normalizeLineEndings(value: string): string {
   return value.replace(/\r\n/g, '\n');
@@ -71,132 +115,133 @@ function formatAppendContent(value: string): string {
   return `- ${trimmed.replace(/\s+/g, ' ')}`;
 }
 
-type SectionRange = {
-  start: number;
-  contentStart: number;
-  end: number;
-  content: string;
-};
+function normalizeFsPath(value: string): string {
+  const normalized = value.replace(/\\/g, '/').trim();
+  if (!normalized) {
+    return normalized;
+  }
 
-function escapeForRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const withoutTrailing = normalized.replace(/\/+$/g, '');
+  if (/^[A-Za-z]:$/.test(withoutTrailing)) {
+    return `${withoutTrailing}/`;
+  }
+
+  return withoutTrailing || '/';
 }
 
-function findMarkdownSection(content: string, heading: string): SectionRange | null {
-  const normalized = normalizeLineEndings(content);
-  const headingPattern = new RegExp(`^${escapeForRegex(heading)}\\s*$`, 'm');
-  const headingMatch = headingPattern.exec(normalized);
-  if (!headingMatch || headingMatch.index === undefined) {
+function splitPathSegments(value: string): string[] {
+  return normalizeFsPath(value)
+    .split('/')
+    .filter((segment) => segment.length > 0);
+}
+
+function isAbsolutePath(value: string): boolean {
+  return /^[A-Za-z]:\//.test(value) || value.startsWith('/');
+}
+
+function joinPathSegments(basePath: string, ...segments: string[]): string {
+  const base = normalizeFsPath(basePath);
+  const prefix = /^[A-Za-z]:\/$/.test(base)
+    ? base.slice(0, 2)
+    : base.startsWith('/')
+      ? '/'
+      : '';
+  const parts = [...splitPathSegments(base), ...segments.flatMap((segment) => splitPathSegments(segment))];
+  const resolved: string[] = [];
+
+  for (const part of parts) {
+    if (!part || part === '.') {
+      continue;
+    }
+    if (part === '..') {
+      if (resolved.length > 0) {
+        resolved.pop();
+      }
+      continue;
+    }
+    resolved.push(part);
+  }
+
+  if (prefix === '/') {
+    return `/${resolved.join('/')}` || '/';
+  }
+  if (prefix) {
+    return resolved.length > 0 ? `${prefix}/${resolved.join('/')}` : `${prefix}/`;
+  }
+  return resolved.join('/');
+}
+
+function resolvePathFrom(basePath: string, targetPath: string): string {
+  if (isAbsolutePath(targetPath)) {
+    return normalizeFsPath(targetPath);
+  }
+
+  return joinPathSegments(basePath, targetPath);
+}
+
+function hashString(value: string): string {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  return (hash >>> 0).toString(16).padStart(8, '0');
+}
+
+function getFileName(filePath: string | null): string | null {
+  if (!filePath) {
     return null;
   }
 
-  const start = headingMatch.index;
-  const contentStart = start + headingMatch[0].length;
-  const currentHeadingLevel = headingMatch[0].match(/^(#{1,6})\s+/)?.[1]?.length ?? 6;
-  const nextHeadingPattern = /^(#{1,6})\s+.+$/gm;
-  nextHeadingPattern.lastIndex = contentStart;
-
-  let end = normalized.length;
-  let nextMatch = nextHeadingPattern.exec(normalized);
-  while (nextMatch) {
-    const nextHeadingLevel = nextMatch[1]?.length ?? 6;
-    if (nextHeadingLevel <= currentHeadingLevel) {
-      end = nextMatch.index;
-      break;
-    }
-    nextMatch = nextHeadingPattern.exec(normalized);
-  }
-
-  const sectionContent = normalized
-    .substring(contentStart, end)
-    .replace(/^\n+/, '')
-    .replace(/\n+$/, '');
-
-  return {
-    start,
-    contentStart,
-    end,
-    content: sectionContent,
-  };
+  const normalized = normalizeFsPath(filePath);
+  const segments = normalized.split('/').filter(Boolean);
+  const fileName = segments[segments.length - 1];
+  return fileName ?? null;
 }
 
-export function extractLongTermMemorySection(content: string): string {
-  return findMarkdownSection(content, PROJECT_MEMORY_SECTION_HEADING)?.content ?? '';
+function ensureTopicFileName(fileName: string): string {
+  const trimmed = fileName.trim();
+  if (!trimmed) {
+    throw new Error('Topic file name is required');
+  }
+
+  if (trimmed === MEMORY_WORKSPACE_INDEX_FILE_NAME) {
+    throw new Error('Topic file name cannot be MEMORY.md');
+  }
+
+  if (trimmed.includes('/') || trimmed.includes('\\')) {
+    throw new Error('Topic file name must not contain path separators');
+  }
+
+  if (!/\.md$/i.test(trimmed)) {
+    throw new Error('Topic files must use the .md extension');
+  }
+
+  if (trimmed.includes('..')) {
+    throw new Error('Topic file name must not contain parent directory segments');
+  }
+
+  return trimmed;
 }
 
-export function removeLongTermMemorySection(content: string): string {
-  const normalizedContent = normalizeLineEndings(content);
-  const section = findMarkdownSection(normalizedContent, PROJECT_MEMORY_SECTION_HEADING);
-
-  if (!section) {
-    return normalizedContent;
-  }
-
-  const before = normalizedContent.substring(0, section.start).trimEnd();
-  const after = normalizedContent.substring(section.end).replace(/^\n+/, '');
-
-  if (!before && !after) {
-    return '';
-  }
-
-  if (!before) {
-    return `${after.trimStart()}\n`;
-  }
-
-  if (!after) {
-    return `${before}\n`;
-  }
-
-  return `${before}\n\n${after.trimStart()}`.trimEnd() + '\n';
+function getInjectedLineSlice(content: string, maxLines = MEMORY_INDEX_INJECTION_LINE_LIMIT): string {
+  const lines = normalizeLineEndings(content).split('\n');
+  return lines.slice(0, maxLines).join('\n').trimEnd();
 }
 
-export function upsertLongTermMemorySection(content: string, sectionContent: string): string {
-  const normalizedContent = normalizeLineEndings(content);
-  const normalizedSectionContent = trimTrailingWhitespace(normalizeLineEndings(sectionContent));
-  const section = findMarkdownSection(normalizedContent, PROJECT_MEMORY_SECTION_HEADING);
-  const renderedSection =
-    `${PROJECT_MEMORY_SECTION_HEADING}\n\n${normalizedSectionContent}`.trimEnd();
-
-  if (!section) {
-    const base = normalizedContent.trimEnd();
-    if (!base) {
-      return `${renderedSection}\n`;
-    }
-    return `${base}\n\n${renderedSection}\n`;
+function countLines(content: string): number {
+  if (!content) {
+    return 0;
   }
 
-  const before = normalizedContent.substring(0, section.start).trimEnd();
-  const after = normalizedContent.substring(section.end).replace(/^\n+/, '');
-  if (!before && !after) {
-    return `${renderedSection}\n`;
-  }
-  if (!after) {
-    return `${before}\n\n${renderedSection}\n`;
-  }
-  if (!before) {
-    return `${renderedSection}\n\n${after.trimStart()}\n`;
-  }
-  return `${before}\n\n${renderedSection}\n\n${after.trimStart()}`.trimEnd() + '\n';
+  return normalizeLineEndings(content).split('\n').length;
 }
 
-export function appendToLongTermMemorySection(content: string, appendContent: string): string {
-  const formattedAppend = formatAppendContent(appendContent);
-  if (!formattedAppend) {
-    return content;
-  }
-
-  const existingSection = extractLongTermMemorySection(content);
-  const nextSectionContent = existingSection
-    ? `${existingSection.trimEnd()}\n${formattedAppend}`
-    : formattedAppend;
-
-  return upsertLongTermMemorySection(content, nextSectionContent);
+function extractIndexedTopicFiles(content: string): string[] {
+  const matches = normalizeLineEndings(content).match(/\b([A-Za-z0-9._-]+\.md)\b/g) ?? [];
+  return [...new Set(matches.filter((match) => match !== MEMORY_WORKSPACE_INDEX_FILE_NAME))].sort();
 }
-
-type SafeReadTextFileResult = {
-  content: string | null;
-  exists: boolean;
-};
 
 async function safeReadTextFile(filePath: string): Promise<SafeReadTextFileResult> {
   const fileExists = await exists(filePath);
@@ -234,71 +279,190 @@ async function readTextFileForMerge(filePath: string): Promise<string> {
   return '';
 }
 
-async function ensureParentDirectory(filePath: string): Promise<void> {
-  const parts = filePath.split(/[/\\]/);
-  parts.pop();
-  const directoryPath = parts.join('/');
-  if (!directoryPath) {
-    return;
-  }
+async function ensureDirectory(directoryPath: string): Promise<void> {
   if (!(await exists(directoryPath))) {
     await mkdir(directoryPath, { recursive: true });
   }
 }
 
-async function resolveGlobalMemoryPath(): Promise<string> {
-  const appDir = await appDataDir();
-  return await join(appDir, 'memory', GLOBAL_MEMORY_FILE_NAME);
+async function ensureParentDirectory(filePath: string): Promise<void> {
+  const normalized = normalizeFsPath(filePath);
+  const segments = normalized.split('/');
+  segments.pop();
+  const directoryPath = segments.join('/');
+  if (directoryPath) {
+    await ensureDirectory(directoryPath);
+  }
 }
 
-async function resolveProjectMemoryPath(workspaceRoot?: string): Promise<string | null> {
+async function resolveGlobalWorkspace(): Promise<MemoryWorkspace> {
+  const appDir = await appDataDir();
+  const path = await join(appDir, MEMORY_WORKSPACE_DIRECTORY_NAME, GLOBAL_MEMORY_WORKSPACE_NAME);
+  const indexPath = await join(path, MEMORY_WORKSPACE_INDEX_FILE_NAME);
+
+  return {
+    scope: 'global',
+    path,
+    indexPath,
+    exists: await exists(path),
+    identity: {
+      kind: 'path',
+      key: GLOBAL_MEMORY_WORKSPACE_NAME,
+      sourcePath: path,
+    },
+  };
+}
+
+async function resolveProjectWorkspaceIdentity(
+  workspaceRoot?: string
+): Promise<MemoryWorkspaceIdentity | null> {
   if (!workspaceRoot) {
     return null;
   }
 
-  for (const fileName of PROJECT_MEMORY_ROOT_FILE_NAMES) {
-    const candidatePath = await join(workspaceRoot, fileName);
-    if (await exists(candidatePath)) {
-      return candidatePath;
-    }
-  }
-
-  return await join(workspaceRoot, PROJECT_MEMORY_FILE_NAME);
-}
-
-class MemoryService {
-  async getGlobalDocument(): Promise<MemoryDocument> {
-    const path = await resolveGlobalMemoryPath();
-    const { content, exists: fileExists } = await safeReadTextFile(path);
+  const normalizedRoot = normalizeFsPath(workspaceRoot);
+  const dotGitPath = await join(normalizedRoot, '.git');
+  if (!(await exists(dotGitPath))) {
     return {
-      scope: 'global',
-      path,
-      content: content ?? '',
-      exists: fileExists,
-      sourceType: 'global_file',
+      kind: 'path',
+      key: `path-${hashString(normalizedRoot)}`,
+      sourcePath: normalizedRoot,
     };
   }
 
-  async getProjectMemoryDocument(workspaceRoot?: string): Promise<MemoryDocument> {
-    const path = await resolveProjectMemoryPath(workspaceRoot);
-    if (!path) {
+  try {
+    const dotGitContent = (await readTextFile(dotGitPath)).trim();
+    const gitDirMatch = /^gitdir:\s*(.+)$/im.exec(dotGitContent);
+    if (!gitDirMatch) {
       return {
-        scope: 'project',
-        path: null,
-        content: '',
-        exists: false,
-        sourceType: 'project_root_section',
+        kind: 'git',
+        key: `git-${hashString(normalizedRoot)}`,
+        sourcePath: normalizedRoot,
       };
     }
 
-    const { content: fullContent, exists: fileExists } = await safeReadTextFile(path);
+    const gitDirValue = gitDirMatch[1];
+    if (!gitDirValue) {
+      return {
+        kind: 'git',
+        key: `git-${hashString(normalizedRoot)}`,
+        sourcePath: normalizedRoot,
+      };
+    }
+
+    const gitDir = resolvePathFrom(normalizedRoot, gitDirValue.trim());
+    const gitDirSegments = splitPathSegments(gitDir);
+    const worktreesIndex = gitDirSegments.lastIndexOf('worktrees');
+    const commonDir =
+      worktreesIndex > 0
+        ? joinPathSegments('/', ...gitDirSegments.slice(0, worktreesIndex))
+        : gitDir;
+
+    return {
+      kind: 'git',
+      key: `git-${hashString(commonDir)}`,
+      sourcePath: normalizeFsPath(commonDir),
+    };
+  } catch {
+    return {
+      kind: 'git',
+      key: `git-${hashString(normalizedRoot)}`,
+      sourcePath: normalizedRoot,
+    };
+  }
+}
+
+async function resolveProjectWorkspace(workspaceRoot?: string): Promise<MemoryWorkspace> {
+  const identity = await resolveProjectWorkspaceIdentity(workspaceRoot);
+  if (!identity) {
     return {
       scope: 'project',
-      path,
-      content: extractLongTermMemorySection(fullContent ?? ''),
-      exists: fileExists,
-      sourceType: 'project_root_section',
+      path: null,
+      indexPath: null,
+      exists: false,
+      identity: null,
     };
+  }
+
+  const appDir = await appDataDir();
+  const path = await join(
+    appDir,
+    MEMORY_WORKSPACE_DIRECTORY_NAME,
+    PROJECT_MEMORY_WORKSPACE_NAME,
+    identity.key
+  );
+  const indexPath = await join(path, MEMORY_WORKSPACE_INDEX_FILE_NAME);
+
+  return {
+    scope: 'project',
+    path,
+    indexPath,
+    exists: await exists(path),
+    identity,
+  };
+}
+
+function createDocument(
+  scope: MemoryScope,
+  kind: MemoryDocumentKind,
+  path: string | null,
+  content: string,
+  fileExists: boolean,
+  workspacePath: string | null,
+  sourceType: 'global_index' | 'project_index' | 'topic_file'
+): MemoryDocument {
+  return {
+    scope,
+    kind,
+    path,
+    content: normalizeLineEndings(content),
+    exists: fileExists,
+    fileName: getFileName(path),
+    workspacePath,
+    sourceType,
+  };
+}
+
+class MemoryService {
+  async getGlobalWorkspace(): Promise<MemoryWorkspace> {
+    return await resolveGlobalWorkspace();
+  }
+
+  async getProjectWorkspace(workspaceRoot?: string): Promise<MemoryWorkspace> {
+    return await resolveProjectWorkspace(workspaceRoot);
+  }
+
+  async getGlobalDocument(): Promise<MemoryDocument> {
+    const workspace = await this.getGlobalWorkspace();
+    const { content, exists: fileExists } = await safeReadTextFile(workspace.indexPath ?? '');
+
+    return createDocument(
+      'global',
+      'index',
+      workspace.indexPath,
+      content ?? '',
+      fileExists,
+      workspace.path,
+      'global_index'
+    );
+  }
+
+  async getProjectMemoryDocument(workspaceRoot?: string): Promise<MemoryDocument> {
+    const workspace = await this.getProjectWorkspace(workspaceRoot);
+    if (!workspace.indexPath) {
+      return createDocument('project', 'index', null, '', false, null, 'project_index');
+    }
+
+    const { content, exists: fileExists } = await safeReadTextFile(workspace.indexPath);
+    return createDocument(
+      'project',
+      'index',
+      workspace.indexPath,
+      content ?? '',
+      fileExists,
+      workspace.path,
+      'project_index'
+    );
   }
 
   async getProjectDocument(workspaceRoot?: string): Promise<MemoryDocument> {
@@ -323,82 +487,264 @@ class MemoryService {
       return [snapshot.global, snapshot.project];
     }
 
-    if (scope === 'global') return [snapshot.global];
+    if (scope === 'global') {
+      return [snapshot.global];
+    }
+
     return [snapshot.project];
   }
 
-  async writeGlobal(content: string): Promise<MemoryDocument> {
-    const path = await resolveGlobalMemoryPath();
-    await ensureParentDirectory(path);
-    const normalized = trimTrailingWhitespace(normalizeLineEndings(content));
-    await writeTextFile(path, normalized ? `${normalized}\n` : '');
+  async getInjectedDocument(
+    scope: MemoryScope,
+    options: MemoryReadOptions = {},
+    maxLines = MEMORY_INDEX_INJECTION_LINE_LIMIT
+  ): Promise<MemoryDocument> {
+    const document =
+      scope === 'global'
+        ? await this.getGlobalDocument()
+        : await this.getProjectMemoryDocument(options.workspaceRoot);
+
     return {
-      scope: 'global',
-      path,
-      content: normalized,
-      exists: true,
+      ...document,
+      content: getInjectedLineSlice(document.content, maxLines),
     };
   }
 
-  async appendGlobal(content: string): Promise<MemoryDocument> {
-    const path = await resolveGlobalMemoryPath();
-    const currentContent = await readTextFileForMerge(path);
-    const appendContent = formatAppendContent(content);
-    const nextContent = currentContent
-      ? `${currentContent.trimEnd()}\n${appendContent}`.trim()
-      : appendContent;
-    return await this.writeGlobal(nextContent);
+  async listTopicDocuments(
+    scope: MemoryScope,
+    options: MemoryReadOptions = {}
+  ): Promise<MemoryDocument[]> {
+    const workspace =
+      scope === 'global'
+        ? await this.getGlobalWorkspace()
+        : await this.getProjectWorkspace(options.workspaceRoot);
+    if (!workspace.path || !(await exists(workspace.path))) {
+      return [];
+    }
+
+    const entries = await readDir(workspace.path);
+    const topicEntries = entries
+      .filter((entry) => Boolean(entry.name) && !entry.isDirectory)
+      .filter((entry) => entry.name !== MEMORY_WORKSPACE_INDEX_FILE_NAME)
+      .filter((entry) => entry.name?.toLowerCase().endsWith('.md'))
+      .sort((left, right) => left.name.localeCompare(right.name));
+
+    return await Promise.all(
+      topicEntries.map(async (entry) => {
+        const path = await join(workspace.path as string, entry.name);
+        const { content, exists: fileExists } = await safeReadTextFile(path);
+        return createDocument(
+          scope,
+          'topic',
+          path,
+          content ?? '',
+          fileExists,
+          workspace.path,
+          'topic_file'
+        );
+      })
+    );
   }
 
-  async writeProjectSection(workspaceRoot: string, content: string): Promise<MemoryDocument> {
-    return this.writeProjectMemoryDocument(workspaceRoot, content);
+  async getTopicDocument(
+    scope: MemoryScope,
+    fileName: string,
+    options: MemoryReadOptions = {}
+  ): Promise<MemoryDocument> {
+    const topicFileName = ensureTopicFileName(fileName);
+    const workspace =
+      scope === 'global'
+        ? await this.getGlobalWorkspace()
+        : await this.getProjectWorkspace(options.workspaceRoot);
+
+    if (!workspace.path) {
+      return createDocument(scope, 'topic', null, '', false, null, 'topic_file');
+    }
+
+    const path = await join(workspace.path, topicFileName);
+    const { content, exists: fileExists } = await safeReadTextFile(path);
+    return createDocument(scope, 'topic', path, content ?? '', fileExists, workspace.path, 'topic_file');
+  }
+
+  async writeGlobal(content: string): Promise<MemoryDocument> {
+    const workspace = await this.getGlobalWorkspace();
+    if (!workspace.indexPath || !workspace.path) {
+      throw new Error('Global memory workspace is unavailable');
+    }
+
+    await ensureDirectory(workspace.path);
+    const normalized = trimTrailingWhitespace(normalizeLineEndings(content));
+    await writeTextFile(workspace.indexPath, normalized ? `${normalized}\n` : '');
+    return createDocument(
+      'global',
+      'index',
+      workspace.indexPath,
+      normalized,
+      true,
+      workspace.path,
+      'global_index'
+    );
+  }
+
+  async appendGlobal(content: string): Promise<MemoryDocument> {
+    const document = await this.getGlobalDocument();
+    const appendContent = formatAppendContent(content);
+    const nextContent = document.content
+      ? `${document.content.trimEnd()}\n${appendContent}`.trim()
+      : appendContent;
+    return await this.writeGlobal(nextContent);
   }
 
   async writeProjectMemoryDocument(
     workspaceRoot: string,
     content: string
   ): Promise<MemoryDocument> {
-    const path = await resolveProjectMemoryPath(workspaceRoot);
-    if (!path) {
+    const workspace = await this.getProjectWorkspace(workspaceRoot);
+    if (!workspace.indexPath || !workspace.path) {
       throw new Error('Project memory is unavailable because the workspace root is missing');
     }
 
-    const existingContent = await readTextFileForMerge(path);
-    const nextFileContent = upsertLongTermMemorySection(existingContent, content);
-    await ensureParentDirectory(path);
-    await writeTextFile(path, nextFileContent);
-    return {
-      scope: 'project',
-      path,
-      content: trimTrailingWhitespace(normalizeLineEndings(content)),
-      exists: true,
-      sourceType: 'project_root_section',
-    };
-  }
-
-  async appendProjectSection(workspaceRoot: string, content: string): Promise<MemoryDocument> {
-    return this.appendProjectMemoryDocument(workspaceRoot, content);
+    await ensureDirectory(workspace.path);
+    const normalized = trimTrailingWhitespace(normalizeLineEndings(content));
+    await writeTextFile(workspace.indexPath, normalized ? `${normalized}\n` : '');
+    return createDocument(
+      'project',
+      'index',
+      workspace.indexPath,
+      normalized,
+      true,
+      workspace.path,
+      'project_index'
+    );
   }
 
   async appendProjectMemoryDocument(
     workspaceRoot: string,
     content: string
   ): Promise<MemoryDocument> {
-    const path = await resolveProjectMemoryPath(workspaceRoot);
-    if (!path) {
-      throw new Error('Project memory is unavailable because the workspace root is missing');
+    const document = await this.getProjectMemoryDocument(workspaceRoot);
+    const appendContent = formatAppendContent(content);
+    const nextContent = document.content
+      ? `${document.content.trimEnd()}\n${appendContent}`.trim()
+      : appendContent;
+    return await this.writeProjectMemoryDocument(workspaceRoot, nextContent);
+  }
+
+  async writeTopicDocument(
+    scope: MemoryScope,
+    fileName: string,
+    content: string,
+    options: MemoryTopicWriteOptions = {}
+  ): Promise<MemoryDocument> {
+    const topicFileName = ensureTopicFileName(fileName);
+    const workspace =
+      scope === 'global'
+        ? await this.getGlobalWorkspace()
+        : await this.getProjectWorkspace(options.workspaceRoot);
+
+    if (!workspace.path) {
+      throw new Error('Memory workspace is unavailable because the workspace root is missing');
     }
 
-    const existingContent = await readTextFileForMerge(path);
-    const nextFileContent = appendToLongTermMemorySection(existingContent, content);
-    await ensureParentDirectory(path);
-    await writeTextFile(path, nextFileContent);
+    const path = await join(workspace.path, topicFileName);
+    const normalized = trimTrailingWhitespace(normalizeLineEndings(content));
+    await ensureDirectory(workspace.path);
+    await writeTextFile(path, normalized ? `${normalized}\n` : '');
+    return createDocument(scope, 'topic', path, normalized, true, workspace.path, 'topic_file');
+  }
+
+  async appendTopicDocument(
+    scope: MemoryScope,
+    fileName: string,
+    content: string,
+    options: MemoryTopicWriteOptions = {}
+  ): Promise<MemoryDocument> {
+    const topicFileName = ensureTopicFileName(fileName);
+    const workspace =
+      scope === 'global'
+        ? await this.getGlobalWorkspace()
+        : await this.getProjectWorkspace(options.workspaceRoot);
+
+    if (!workspace.path) {
+      throw new Error('Memory workspace is unavailable because the workspace root is missing');
+    }
+
+    const path = await join(workspace.path, topicFileName);
+    const currentContent = await readTextFileForMerge(path);
+    const appendContent = formatAppendContent(content);
+    const nextContent = currentContent
+      ? `${currentContent.trimEnd()}\n${appendContent}`.trim()
+      : appendContent;
+
+    return await this.writeTopicDocument(scope, topicFileName, nextContent, options);
+  }
+
+  async renameTopicDocument(
+    scope: MemoryScope,
+    fileName: string,
+    nextFileName: string,
+    options: MemoryReadOptions = {}
+  ): Promise<MemoryDocument> {
+    const currentName = ensureTopicFileName(fileName);
+    const updatedName = ensureTopicFileName(nextFileName);
+    const workspace =
+      scope === 'global'
+        ? await this.getGlobalWorkspace()
+        : await this.getProjectWorkspace(options.workspaceRoot);
+
+    if (!workspace.path) {
+      throw new Error('Memory workspace is unavailable because the workspace root is missing');
+    }
+
+    const currentPath = await join(workspace.path, currentName);
+    const nextPath = await join(workspace.path, updatedName);
+    await rename(currentPath, nextPath);
+    return await this.getTopicDocument(scope, updatedName, options);
+  }
+
+  async deleteTopicDocument(
+    scope: MemoryScope,
+    fileName: string,
+    options: MemoryReadOptions = {}
+  ): Promise<void> {
+    const topicFileName = ensureTopicFileName(fileName);
+    const workspace =
+      scope === 'global'
+        ? await this.getGlobalWorkspace()
+        : await this.getProjectWorkspace(options.workspaceRoot);
+
+    if (!workspace.path) {
+      throw new Error('Memory workspace is unavailable because the workspace root is missing');
+    }
+
+    const path = await join(workspace.path, topicFileName);
+    if (await exists(path)) {
+      await remove(path);
+    }
+  }
+
+  async getWorkspaceAudit(
+    scope: MemoryScope,
+    options: MemoryReadOptions = {}
+  ): Promise<MemoryWorkspaceAudit> {
+    const indexDocument =
+      scope === 'global'
+        ? await this.getGlobalDocument()
+        : await this.getProjectMemoryDocument(options.workspaceRoot);
+    const topics = await this.listTopicDocuments(scope, options);
+    const indexedTopicFiles = extractIndexedTopicFiles(indexDocument.content);
+    const topicFiles = topics.map((document) => document.fileName ?? '').filter(Boolean).sort();
+    const indexedSet = new Set(indexedTopicFiles);
+    const topicSet = new Set(topicFiles);
+
     return {
-      scope: 'project',
-      path,
-      content: extractLongTermMemorySection(nextFileContent),
-      exists: true,
-      sourceType: 'project_root_section',
+      overInjectionLimit: countLines(indexDocument.content) > MEMORY_INDEX_INJECTION_LINE_LIMIT,
+      injectedLineCount: countLines(getInjectedLineSlice(indexDocument.content)),
+      totalLineCount: countLines(indexDocument.content),
+      topicFiles,
+      indexedTopicFiles,
+      unindexedTopicFiles: topicFiles.filter((fileName) => !indexedSet.has(fileName)),
+      missingTopicFiles: indexedTopicFiles.filter((fileName) => !topicSet.has(fileName)),
     };
   }
 
@@ -410,19 +756,21 @@ class MemoryService {
 
     const scopes: MemoryScope[] =
       options.scopes && options.scopes.length > 0 ? options.scopes : ['global', 'project'];
-    const documents = await Promise.all(
+    const resultSets = await Promise.all(
       scopes.map(async (scope) => {
-        const [document] = await this.read(scope, options);
-        return document;
+        const indexDocument =
+          scope === 'global'
+            ? await this.getGlobalDocument()
+            : await this.getProjectMemoryDocument(options.workspaceRoot);
+        const topics = await this.listTopicDocuments(scope, options);
+        return [indexDocument, ...topics];
       })
     );
 
+    const documents = resultSets.flat();
     const results: MemorySearchResult[] = [];
-    for (const document of documents) {
-      if (!document) {
-        continue;
-      }
 
+    for (const document of documents) {
       if (!document.content) {
         continue;
       }
@@ -439,6 +787,7 @@ class MemoryService {
         if (haystack.startsWith(trimmedQuery)) score += 2;
         if (/^#+\s+/.test(line.trim())) score += 2;
         if (/^[-*]\s+/.test(line.trim())) score += 1;
+        if (document.kind === 'index') score += 1;
 
         results.push({
           scope: document.scope,
@@ -447,6 +796,8 @@ class MemoryService {
           score,
           backend: 'text',
           lineNumber: index + 1,
+          kind: document.kind,
+          fileName: document.fileName,
         });
       });
     }

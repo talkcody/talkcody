@@ -179,10 +179,14 @@ export const TOOL_DEFINITIONS = {
       renderDoingUI: true,
       getTargetFile: (input) => {
         const scope = input?.scope;
+        const target = input?.target;
+        const fileName = typeof input?.file_name === 'string' ? input.file_name : undefined;
         if (scope === 'global') {
-          return 'appData://memory/memory.md';
+          return target === 'topic' && fileName
+            ? `appData://memory/global/${fileName}`
+            : 'appData://memory/global/MEMORY.md';
         }
-        return getProjectMemoryTargetCandidates(settingsManager.getCurrentRootPath());
+        return getProjectMemoryTargetCandidates(settingsManager.getCurrentRootPath(), fileName);
       },
     },
   },

@@ -1,16 +1,7 @@
 import { memoryService } from '@/services/memory/memory-service';
 import type { PromptContextProvider, ResolveContext } from '@/types/prompt';
 
-export type GlobalMemorySettings = {
-  maxChars?: number;
-};
-
-export function truncateMemoryValue(value: string, maxChars = 4000): string {
-  if (!value || value.length <= maxChars) {
-    return value;
-  }
-  return `${value.slice(0, maxChars).trimEnd()}\n\n...[truncated]`;
-}
+export type GlobalMemorySettings = Record<string, never>;
 
 export function GlobalMemoryProvider(settings?: GlobalMemorySettings): PromptContextProvider {
   const resolveGlobalMemory = async (token: string) => {
@@ -18,13 +9,15 @@ export function GlobalMemoryProvider(settings?: GlobalMemorySettings): PromptCon
       return;
     }
 
-    const document = await memoryService.getGlobalDocument();
+    void settings;
+
+    const document = await memoryService.getInjectedDocument('global');
     if (!document.content) {
       return;
     }
 
     return {
-      value: truncateMemoryValue(document.content, settings?.maxChars ?? 4000),
+      value: document.content,
       sources: [
         {
           sourcePath: document.path,
@@ -37,7 +30,7 @@ export function GlobalMemoryProvider(settings?: GlobalMemorySettings): PromptCon
   return {
     id: 'global_memory',
     label: 'Global Memory',
-    description: 'Injects user-level persistent memory from the app data directory',
+    description: 'Injects the first 200 lines of the global MEMORY.md index',
     badges: ['memory'],
     providedTokens() {
       return ['global_memory'];

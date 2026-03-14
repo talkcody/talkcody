@@ -5,18 +5,17 @@ import { createTool } from '@/lib/create-tool';
 import { resolveMemoryWorkspaceRoot } from '@/lib/tools/memory-workspace-root';
 import {
   type MemoryDocument,
-  type MemoryScope,
-  type MemorySearchResult,
   memoryService,
 } from '@/services/memory/memory-service';
 
 type MemoryReadSuccess = {
   success: true;
-  mode: 'read' | 'search';
+  mode: 'read' | 'topics' | 'audit';
   scope: 'global' | 'project' | 'all';
   message: string;
   documents?: MemoryDocument[];
-  results?: MemorySearchResult[];
+  audit?: Record<string, unknown>;
+  guidance?: string[];
 };
 
 type MemoryReadFailure = {
@@ -29,6 +28,29 @@ type MemoryReadFailure = {
 };
 
 type MemoryReadResult = MemoryReadSuccess | MemoryReadFailure;
+
+function buildReadGuidance(target: 'index' | 'topic' | 'topics' | 'audit'): string[] {
+  if (target === 'index') {
+    return [
+      'This reads the full MEMORY.md file for the selected scope, not just the first 200 injected lines.',
+      'MEMORY.md is only the routing index. Do not assume that referenced topic files have already been read.',
+      'If the injected index did not contain the route you need, inspect the full MEMORY.md contents here, then call memoryRead again with target="topic" and the exact file_name.',
+    ];
+  }
+
+  if (target === 'topics') {
+    return [
+      'This result shows which topic files exist right now.',
+      'If you need the full contents of one topic file, call memoryRead again with target="topic" and that file_name.',
+    ];
+  }
+
+  if (target === 'audit') {
+    return ['Audit results describe index-to-topic alignment only. They do not include actual topic-file contents.'];
+  }
+
+  return ['You have read a concrete topic file. You can now rely on that file\'s contents in your answer.'];
+}
 
 function renderDocument(document: MemoryDocument) {
   return (
@@ -44,44 +66,36 @@ function renderDocument(document: MemoryDocument) {
   );
 }
 
-function renderSearchResult(result: MemorySearchResult, index: number) {
-  const locationLabel = (() => {
-    if (!result.path) {
-      return 'Unavailable';
-    }
-
-    if (result.scope === 'project' && result.lineNumber) {
-      return `${result.path} (memory line ${result.lineNumber})`;
-    }
-
-    return `${result.path}${result.lineNumber ? `:${result.lineNumber}` : ''}`;
-  })();
-
-  return (
-    <div key={`${result.scope}-${result.lineNumber}-${index}`} className="rounded border p-3">
-      <div className="mb-2 flex items-center justify-between gap-3 text-xs text-muted-foreground">
-        <span className="font-medium uppercase tracking-wide">{result.scope}</span>
-        <span className="truncate font-mono">{locationLabel}</span>
-      </div>
-      <div className="text-sm">{result.snippet}</div>
-    </div>
-  );
-}
-
 export const memoryRead = createTool({
   name: 'memoryRead',
   description:
-    "Read or search TalkCody long-term memory. Supports global memory, project memory, or both. Use this tool to inspect what is already stored, or to search for persisted preferences, repository facts, commands, conventions, and prior notes. Project memory is read from the root instruction file's Long-Term Memory section.",
+    'Read, list, or audit TalkCody auto memory. Supports global memory, project memory, or both. Use target="index" to read the full MEMORY.md file for a scope, target="topics" to discover which topic files exist, target="topic" with file_name to read one specific topic file, and target="audit" to inspect index/topic alignment. Do not assume a topic file\'s contents from MEMORY.md alone.',
   inputSchema: z.object({
-    scope: z.enum(['global', 'project', 'all']).default('all'),
-    query: z
+    scope: z
+      .enum(['global', 'project', 'all'])
+      .default('all')
+      .describe('Which memory scope to inspect. Use "all" only when you intentionally want both global and project results.'),
+    target: z
+      .enum(['index', 'topic', 'topics', 'audit'])
+      .default('index')
+      .describe('Use "index" for MEMORY.md, "topics" to list topic files, "topic" to read one file by name, or "audit" for index/topic consistency checks.'),
+    file_name: z
       .string()
       .optional()
-      .describe('Optional text query. If provided, performs text search instead of full read.'),
-    max_results: z.number().min(1).max(20).optional(),
+      .describe('Required when target="topic". Must be a markdown file name such as user.md or architecture.md.'),
   }),
   canConcurrent: true,
-  execute: async ({ scope, query, max_results }, context): Promise<MemoryReadResult> => {
+  execute: async ({ scope, target, file_name }, context): Promise<MemoryReadResult> => {
+    if (target === 'topic' && !file_name?.trim()) {
+      return {
+        success: false,
+        message:
+          'Reading a topic file requires file_name. Read MEMORY.md or list topics first, then call memoryRead again with target="topic" and the exact markdown file name.',
+        error: 'file_name is required when target="topic".',
+        failureKind: 'read_failed',
+      };
+    }
+
     const workspaceRoot = await resolveMemoryWorkspaceRoot(context.taskId);
 
     if (scope === 'project' && !workspaceRoot) {
@@ -97,38 +111,69 @@ export const memoryRead = createTool({
     }
 
     try {
-      if (query?.trim()) {
-        const scopes: MemoryScope[] | undefined = scope === 'all' ? ['global', 'project'] : [scope];
-        const results = await memoryService.search(query, {
-          workspaceRoot,
-          taskId: context.taskId,
-          scopes,
-          maxResults: max_results,
-        });
+      if (target === 'topics') {
+        const documents =
+          scope === 'all'
+            ? [
+                ...(await memoryService.listTopicDocuments('global')),
+                ...(await memoryService.listTopicDocuments('project', { workspaceRoot })),
+              ]
+            : await memoryService.listTopicDocuments(scope, { workspaceRoot, taskId: context.taskId });
         return {
           success: true,
-          mode: 'search',
+          mode: 'topics',
           scope,
           message:
-            results.length > 0
-              ? `Found ${results.length} memory matches for "${query.trim()}".`
-              : `No memory matches found for "${query.trim()}".`,
-          results,
+            documents.length > 0
+              ? `Loaded ${documents.length} memory topic file${documents.length === 1 ? '' : 's'}.`
+              : 'No memory topic files exist for the requested scope.',
+          documents,
+          guidance: buildReadGuidance('topics'),
+        };
+      }
+
+      if (target === 'audit') {
+        const audit =
+          scope === 'all'
+            ? {
+                global: await memoryService.getWorkspaceAudit('global'),
+                project: await memoryService.getWorkspaceAudit('project', { workspaceRoot }),
+              }
+            : await memoryService.getWorkspaceAudit(scope, { workspaceRoot });
+        return {
+          success: true,
+          mode: 'audit',
+          scope,
+          message: 'Loaded memory workspace audit signals.',
+          audit: audit as Record<string, unknown>,
+          guidance: buildReadGuidance('audit'),
         };
       }
 
       const documents =
-        scope === 'all'
-          ? await Promise.all([
-              memoryService.getGlobalDocument(),
-              memoryService.getProjectMemoryDocument(workspaceRoot),
-            ])
-          : await memoryService.read(scope, {
-              workspaceRoot,
-              taskId: context.taskId,
-            });
+        target === 'topic'
+          ? scope === 'all'
+            ? await Promise.all([
+                memoryService.getTopicDocument('global', file_name || ''),
+                memoryService.getTopicDocument('project', file_name || '', { workspaceRoot }),
+              ])
+            : [
+                await memoryService.getTopicDocument(scope, file_name || '', {
+                  workspaceRoot,
+                  taskId: context.taskId,
+                }),
+              ]
+          : scope === 'all'
+            ? await Promise.all([
+                memoryService.getGlobalDocument(),
+                memoryService.getProjectMemoryDocument(workspaceRoot),
+              ])
+            : await memoryService.read(scope, {
+                workspaceRoot,
+                taskId: context.taskId,
+              });
       const nonEmptyCount = documents.filter(
-        (document) => document.content.trim().length > 0
+        (document: MemoryDocument) => document.content.trim().length > 0
       ).length;
       return {
         success: true,
@@ -139,6 +184,7 @@ export const memoryRead = createTool({
             ? `Loaded ${nonEmptyCount} memory document${nonEmptyCount === 1 ? '' : 's'}.`
             : 'All requested memory documents are currently empty.',
         documents,
+        guidance: buildReadGuidance(target),
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -159,11 +205,19 @@ export const memoryRead = createTool({
       };
     }
   },
-  renderToolDoing: ({ scope, query }) => (
+  renderToolDoing: ({ scope, target, file_name }) => (
     <GenericToolDoing
-      operation={query?.trim() ? 'search' : 'read'}
-      target={scope}
-      details={query?.trim() ? `Query: ${query.trim()}` : 'Reading memory scope'}
+      operation="read"
+      target={target === 'topic' ? `${scope}:${file_name || 'topic'}` : scope}
+      details={
+        target === 'topic'
+          ? `Reading topic file ${file_name || ''}`
+          : target === 'topics'
+            ? 'Listing topic files'
+            : target === 'audit'
+              ? 'Auditing memory workspace'
+              : 'Reading full MEMORY.md index'
+      }
       type="memory"
     />
   ),
@@ -175,16 +229,24 @@ export const memoryRead = createTool({
     return (
       <div className="space-y-3 rounded border bg-card p-4">
         <GenericToolResult success={true} message={result.message} />
-        {result.mode === 'search' && result.results && result.results.length > 0 && (
-          <div className="space-y-2">
-            {result.results.map((item: MemorySearchResult, index: number) =>
-              renderSearchResult(item, index)
-            )}
-          </div>
-        )}
-        {result.mode === 'read' && result.documents && (
+        {(result.mode === 'read' || result.mode === 'topics') && result.documents && (
           <div className="space-y-2">
             {result.documents.map((document: MemoryDocument) => renderDocument(document))}
+          </div>
+        )}
+        {result.mode === 'audit' && result.audit && (
+          <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded border p-3 text-sm">
+            {JSON.stringify(result.audit, null, 2)}
+          </pre>
+        )}
+        {result.guidance && result.guidance.length > 0 && (
+          <div className="rounded border border-dashed p-3 text-sm text-muted-foreground">
+            <div className="mb-2 font-medium text-foreground">Usage guidance</div>
+            <ul className="space-y-1">
+              {result.guidance.map((item: string) => (
+                <li key={item}>- {item}</li>
+              ))}
+            </ul>
           </div>
         )}
       </div>

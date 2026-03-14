@@ -1,10 +1,7 @@
 import { memoryService } from '@/services/memory/memory-service';
 import type { PromptContextProvider, ResolveContext } from '@/types/prompt';
-import { truncateMemoryValue } from './global-memory-provider';
 
-export type ProjectMemorySettings = {
-  maxChars?: number;
-};
+export type ProjectMemorySettings = Record<string, never>;
 
 export function ProjectMemoryProvider(settings?: ProjectMemorySettings): PromptContextProvider {
   const resolveProjectMemory = async (token: string, ctx: ResolveContext) => {
@@ -12,13 +9,18 @@ export function ProjectMemoryProvider(settings?: ProjectMemorySettings): PromptC
       return;
     }
 
-    const document = await memoryService.getProjectMemoryDocument(ctx.workspaceRoot);
+    void settings;
+
+    const document = await memoryService.getInjectedDocument('project', {
+      workspaceRoot: ctx.workspaceRoot,
+      taskId: ctx.taskId,
+    });
     if (!document.content) {
       return;
     }
 
     return {
-      value: truncateMemoryValue(document.content, settings?.maxChars ?? 4000),
+      value: document.content,
       sources: [
         {
           sourcePath: document.path,
@@ -31,8 +33,7 @@ export function ProjectMemoryProvider(settings?: ProjectMemorySettings): PromptC
   return {
     id: 'project_memory',
     label: 'Project Memory',
-    description:
-      'Injects the root Long-Term Memory section from the current workspace instruction file',
+    description: 'Injects the first 200 lines of the project MEMORY.md index',
     badges: ['memory', 'project'],
     providedTokens() {
       return ['project_memory'];

@@ -9,6 +9,8 @@ const {
   mockMemoryService: {
     writeGlobal: vi.fn(),
     appendGlobal: vi.fn(),
+    writeTopicDocument: vi.fn(),
+    appendTopicDocument: vi.fn(),
     writeProjectMemoryDocument: vi.fn(),
     appendProjectMemoryDocument: vi.fn(),
   },
@@ -55,25 +57,37 @@ describe('memoryWrite tool', () => {
     mockDatabaseService.getProject.mockResolvedValue(null);
     mockMemoryService.writeGlobal.mockResolvedValue({
       scope: 'global',
-      path: '/app/memory/memory.md',
+      path: '/app/memory/global/MEMORY.md',
       content: 'global memory',
       exists: true,
     });
     mockMemoryService.appendGlobal.mockResolvedValue({
       scope: 'global',
-      path: '/app/memory/memory.md',
+      path: '/app/memory/global/MEMORY.md',
       content: 'global memory',
+      exists: true,
+    });
+    mockMemoryService.writeTopicDocument.mockResolvedValue({
+      scope: 'global',
+      path: '/app/memory/global/user.md',
+      content: 'user memory',
+      exists: true,
+    });
+    mockMemoryService.appendTopicDocument.mockResolvedValue({
+      scope: 'global',
+      path: '/app/memory/global/user.md',
+      content: 'user memory',
       exists: true,
     });
     mockMemoryService.writeProjectMemoryDocument.mockResolvedValue({
       scope: 'project',
-      path: '/repo-from-task/AGENTS.md',
+      path: '/app/memory/projects/repo/MEMORY.md',
       content: 'project memory',
       exists: true,
     });
     mockMemoryService.appendProjectMemoryDocument.mockResolvedValue({
       scope: 'project',
-      path: '/repo-from-task/AGENTS.md',
+      path: '/app/memory/projects/repo/MEMORY.md',
       content: 'project memory',
       exists: true,
     });
@@ -83,7 +97,7 @@ describe('memoryWrite tool', () => {
     mockSettingsManager.getCurrentRootPath.mockReturnValue('/repo-from-settings');
     mockMemoryService.appendProjectMemoryDocument.mockResolvedValueOnce({
       scope: 'project',
-      path: '/repo-from-settings/AGENTS.md',
+      path: '/app/memory/projects/repo-from-settings/MEMORY.md',
       content: 'The stack is React and TypeScript.',
       exists: true,
     });
@@ -106,7 +120,7 @@ describe('memoryWrite tool', () => {
     expect(result).toMatchObject({
       success: true,
       scope: 'project',
-      path: '/repo-from-settings/AGENTS.md',
+      path: '/app/memory/projects/repo-from-settings/MEMORY.md',
     });
   });
 
@@ -119,7 +133,7 @@ describe('memoryWrite tool', () => {
     });
     mockMemoryService.appendProjectMemoryDocument.mockResolvedValueOnce({
       scope: 'project',
-      path: '/repo-from-project/AGENTS.md',
+      path: '/app/memory/projects/repo-from-project/MEMORY.md',
       content: 'The stack is React and TypeScript.',
       exists: true,
     });
@@ -144,7 +158,7 @@ describe('memoryWrite tool', () => {
     expect(result).toMatchObject({
       success: true,
       scope: 'project',
-      path: '/repo-from-project/AGENTS.md',
+      path: '/app/memory/projects/repo-from-project/MEMORY.md',
     });
   });
 
@@ -197,5 +211,75 @@ describe('memoryWrite tool', () => {
       suggestedAction: 'report_error_to_user',
     });
     expect(result.message).toContain('Do not retry this write as global memory');
+  });
+
+  it('returns an explicit guidance error when topic writes omit file_name', async () => {
+    const result = await memoryWrite.execute(
+      {
+        scope: 'global',
+        mode: 'append',
+        target: 'topic',
+        content: 'Remember this user preference.',
+      },
+      toolContext
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      error: 'file_name is required when target="topic".',
+      failureKind: 'write_failed',
+    });
+    expect(result.message).toContain('requires file_name');
+  });
+
+  it('returns follow-up guidance after writing a topic file', async () => {
+    const result = await memoryWrite.execute(
+      {
+        scope: 'global',
+        mode: 'replace',
+        target: 'topic',
+        file_name: 'user.md',
+        content: 'Remember this user preference.',
+      },
+      toolContext
+    );
+
+    expect(mockMemoryService.writeTopicDocument).toHaveBeenCalledWith(
+      'global',
+      'user.md',
+      'Remember this user preference.'
+    );
+    expect(result).toMatchObject({
+      success: true,
+      scope: 'global',
+      path: '/app/memory/global/user.md',
+    });
+    expect(result.guidance).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('updated a topic file'),
+        expect.stringContaining('one stable subject area'),
+        expect.stringContaining('ensure MEMORY.md mentions it'),
+      ])
+    );
+  });
+
+  it('returns stronger MEMORY.md guidance for append vs replace on index writes', async () => {
+    const result = await memoryWrite.execute(
+      {
+        scope: 'global',
+        mode: 'append',
+        target: 'index',
+        content: '- user.md: User profile',
+      },
+      toolContext
+    );
+
+    expect(mockMemoryService.appendGlobal).toHaveBeenCalledWith('- user.md: User profile');
+    expect(result.guidance).toEqual(
+      expect.arrayContaining([
+        expect.stringContaining('Prefer replace when updating MEMORY.md as a whole'),
+        expect.stringContaining('Do not add duplicate topic routes'),
+      ])
+    );
   });
 });

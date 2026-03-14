@@ -39,7 +39,7 @@ const PROVIDER_OPTIONS = [
   {
     id: 'project_memory',
     label: 'Project Memory',
-    desc: 'Injects the root Long-Term Memory section from the current workspace.',
+    desc: 'Injects the first 200 lines of the project MEMORY.md index from the current workspace memory workspace.',
     tokens: ['project_memory'],
   },
   {

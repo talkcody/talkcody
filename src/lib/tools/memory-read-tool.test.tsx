@@ -10,8 +10,10 @@ const {
   mockMemoryService: {
     getGlobalDocument: vi.fn(),
     getProjectMemoryDocument: vi.fn(),
+    getTopicDocument: vi.fn(),
+    listTopicDocuments: vi.fn(),
+    getWorkspaceAudit: vi.fn(),
     read: vi.fn(),
-    search: vi.fn(),
   },
   mockGetEffectiveWorkspaceRoot: vi.fn(),
   mockSettingsManager: {
@@ -51,18 +53,86 @@ describe('memoryRead tool', () => {
     mockDatabaseService.getProject.mockResolvedValue(null);
     mockMemoryService.getGlobalDocument.mockResolvedValue({
       scope: 'global',
-      path: '/app/memory/memory.md',
+      path: '/app/memory/global/MEMORY.md',
       content: 'Global memory',
       exists: true,
     });
     mockMemoryService.getProjectMemoryDocument.mockResolvedValue({
       scope: 'project',
-      path: '/repo/AGENTS.md',
+      path: '/app/memory/projects/repo/MEMORY.md',
       content: 'Project memory',
       exists: true,
     });
+    mockMemoryService.getTopicDocument.mockResolvedValue({
+      scope: 'global',
+      path: '/app/memory/global/user.md',
+      content: 'User topic',
+      exists: true,
+      kind: 'topic',
+      fileName: 'user.md',
+    });
+    mockMemoryService.listTopicDocuments.mockResolvedValue([]);
+    mockMemoryService.getWorkspaceAudit.mockResolvedValue({});
     mockMemoryService.read.mockResolvedValue([]);
-    mockMemoryService.search.mockResolvedValue([]);
+  });
+
+  it('returns an explicit guidance error when target topic is missing file_name', async () => {
+    const result = await memoryRead.execute(
+      {
+        scope: 'global',
+        target: 'topic',
+      },
+      {
+        taskId: '',
+        toolId: 'memory-read-test',
+      }
+    );
+
+    expect(result).toMatchObject({
+      success: false,
+      error: 'file_name is required when target="topic".',
+      failureKind: 'read_failed',
+    });
+    expect(result.message).toContain('Read MEMORY.md or list topics first');
+  });
+
+  it('returns index-specific guidance after reading MEMORY.md', async () => {
+    mockMemoryService.read.mockResolvedValueOnce([
+      {
+        scope: 'global',
+        path: '/app/memory/global/MEMORY.md',
+        content: '# Memory Index\n- user.md',
+        exists: true,
+        kind: 'index',
+        fileName: 'MEMORY.md',
+      },
+    ]);
+
+    const result = await memoryRead.execute(
+      {
+        scope: 'global',
+        target: 'index',
+      },
+      {
+        taskId: '',
+        toolId: 'memory-read-test',
+      }
+    );
+
+    expect(result).toMatchObject({
+      success: true,
+      mode: 'read',
+      scope: 'global',
+    });
+    if (result.success) {
+      expect(result.guidance).toEqual(
+        expect.arrayContaining([
+          expect.stringContaining('MEMORY.md is only the routing index'),
+          expect.stringContaining('full MEMORY.md file'),
+          expect.stringContaining('call memoryRead again with target="topic"'),
+        ])
+      );
+    }
   });
 
   it('uses the selected project root when taskId and current root path are missing', async () => {
@@ -74,7 +144,7 @@ describe('memoryRead tool', () => {
     });
     mockMemoryService.getProjectMemoryDocument.mockResolvedValueOnce({
       scope: 'project',
-      path: '/repo-from-project/AGENTS.md',
+      path: '/app/memory/projects/repo-from-project/MEMORY.md',
       content: 'Project memory',
       exists: true,
     });
@@ -101,28 +171,28 @@ describe('memoryRead tool', () => {
     });
   });
 
-  it('uses the selected project root for memory search when taskId and current root path are missing', async () => {
+  it('reads the full project MEMORY.md file when selected project root resolution is needed', async () => {
     mockSettingsManager.getProject.mockReturnValue('project-1');
     mockDatabaseService.getProject.mockResolvedValue({
       id: 'project-1',
       name: 'Project One',
       root_path: '/repo-from-project',
     });
-    mockMemoryService.search.mockResolvedValueOnce([
+    mockMemoryService.read.mockResolvedValueOnce([
       {
         scope: 'project',
-        path: '/repo-from-project/AGENTS.md',
-        snippet: 'Use React and TypeScript',
-        score: 3,
-        backend: 'text',
-        lineNumber: 1,
+        path: '/app/memory/projects/repo-from-project/MEMORY.md',
+        content: '# Memory Index\n- stack.md',
+        exists: true,
+        kind: 'index',
+        fileName: 'MEMORY.md',
       },
     ]);
 
     const result = await memoryRead.execute(
       {
         scope: 'project',
-        query: 'TypeScript',
+        target: 'index',
       },
       {
         taskId: '',
@@ -130,46 +200,46 @@ describe('memoryRead tool', () => {
       }
     );
 
-    expect(mockMemoryService.search).toHaveBeenCalledWith('TypeScript', {
+    expect(mockMemoryService.read).toHaveBeenCalledWith('project', {
       workspaceRoot: '/repo-from-project',
       taskId: '',
-      scopes: ['project'],
-      maxResults: undefined,
     });
     expect(result).toMatchObject({
       success: true,
-      mode: 'search',
+      mode: 'read',
       scope: 'project',
     });
   });
 
-  it('renders project search results with section-based memory line labels', () => {
+  it('renders full memory reads without a search-results block', () => {
     render(
       memoryRead.renderToolResult(
         {
           success: true,
-          mode: 'search',
+          mode: 'read',
           scope: 'project',
-          message: 'Found 1 memory matches for "TypeScript".',
-          results: [
+          message: 'Loaded 1 memory document.',
+          documents: [
             {
               scope: 'project',
-              path: '/repo/AGENTS.md',
-              snippet: 'Use React and TypeScript',
-              score: 3,
-              backend: 'text',
-              lineNumber: 4,
+              path: '/app/memory/projects/repo/MEMORY.md',
+              content: '# Memory Index\n- stack.md',
+              exists: true,
+              kind: 'index',
+              fileName: 'MEMORY.md',
             },
           ],
+          guidance: ['This reads the full MEMORY.md file for the selected scope, not just the first 200 injected lines.'],
         },
         {
           scope: 'project',
-          query: 'TypeScript',
+          target: 'index',
         }
       )
     );
 
-    expect(screen.getByText('/repo/AGENTS.md (memory line 4)')).toBeInTheDocument();
-    expect(screen.getByText('Use React and TypeScript')).toBeInTheDocument();
+    expect(screen.getByText('/app/memory/projects/repo/MEMORY.md')).toBeInTheDocument();
+    expect(screen.getByText((content) => content.includes('# Memory Index') && content.includes('- stack.md'))).toBeInTheDocument();
+    expect(screen.getByText('Usage guidance')).toBeInTheDocument();
   });
 });

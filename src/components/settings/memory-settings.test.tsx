@@ -15,8 +15,13 @@ const { mockSettingsState, mockMemoryService, mockDatabaseService } = vi.hoisted
   mockMemoryService: {
     getGlobalDocument: vi.fn(),
     getProjectMemoryDocument: vi.fn(),
+    listTopicDocuments: vi.fn(),
+    getWorkspaceAudit: vi.fn(),
     writeGlobal: vi.fn(),
     writeProjectMemoryDocument: vi.fn(),
+    writeTopicDocument: vi.fn(),
+    renameTopicDocument: vi.fn(),
+    deleteTopicDocument: vi.fn(),
   },
   mockDatabaseService: {
     getProject: vi.fn(),
@@ -37,6 +42,7 @@ vi.mock('@/services/database-service', () => ({
 }));
 
 vi.mock('@/services/memory/memory-service', () => ({
+  MEMORY_INDEX_INJECTION_LINE_LIMIT: 200,
   memoryService: mockMemoryService,
 }));
 
@@ -51,17 +57,51 @@ describe('MemorySettings', () => {
 
     mockMemoryService.getGlobalDocument.mockResolvedValue({
       scope: 'global',
-      path: '/app-data/memory/memory.md',
-      content: 'Global memory',
+      path: '/app-data/memory/global/MEMORY.md',
+      content: '# Global Index\n- preferences.md',
       exists: true,
-      sourceType: 'global_file',
+      sourceType: 'global_index',
     });
     mockMemoryService.getProjectMemoryDocument.mockImplementation(async (root?: string) => ({
       scope: 'project',
-      path: root ? `${root}/AGENTS.md` : null,
-      content: root ? 'Project memory' : '',
+      path: root ? '/app-data/memory/projects/repo/MEMORY.md' : null,
+      content: root ? '# Project Index\n- architecture.md' : '',
       exists: Boolean(root),
-      sourceType: 'project_root_section',
+      sourceType: 'project_index',
+    }));
+    mockMemoryService.listTopicDocuments.mockImplementation(async (scope: 'global' | 'project') => {
+      if (scope === 'global') {
+        return [
+          {
+            scope: 'global',
+            path: '/app-data/memory/global/preferences.md',
+            content: '## Preferences',
+            exists: true,
+            kind: 'topic',
+            fileName: 'preferences.md',
+          },
+        ];
+      }
+
+      return [
+        {
+          scope: 'project',
+          path: '/app-data/memory/projects/repo/architecture.md',
+          content: '## Architecture',
+          exists: true,
+          kind: 'topic',
+          fileName: 'architecture.md',
+        },
+      ];
+    });
+    mockMemoryService.getWorkspaceAudit.mockImplementation(async (scope: 'global' | 'project') => ({
+      overInjectionLimit: false,
+      injectedLineCount: 2,
+      totalLineCount: 2,
+      topicFiles: scope === 'global' ? ['preferences.md'] : ['architecture.md'],
+      indexedTopicFiles: scope === 'global' ? ['preferences.md'] : ['architecture.md'],
+      unindexedTopicFiles: [],
+      missingTopicFiles: [],
     }));
     mockDatabaseService.getProject.mockImplementation(async (projectId: string) => {
       if (projectId === 'project-1') {
@@ -75,14 +115,14 @@ describe('MemorySettings', () => {
     });
   });
 
-  it('reloads project memory from the selected project root when current root path is empty', async () => {
+  it('reloads project workspace from the selected project root when current root path is empty', async () => {
     const { rerender } = render(<MemorySettings />);
 
+    fireEvent.click(screen.getByRole('button', { name: 'Project Memory' }));
+
     await waitFor(() => {
-      expect(mockMemoryService.getProjectMemoryDocument).toHaveBeenCalledWith(undefined);
+      expect(screen.getByText('Open a project to view or edit project memory.')).toBeInTheDocument();
     });
-    expect(screen.getByText('Open a project to view or edit project memory.')).toBeInTheDocument();
-    expect(screen.queryByText('Instruction file')).toBeNull();
 
     mockSettingsState.project = 'project-1';
     rerender(<MemorySettings />);
@@ -94,48 +134,97 @@ describe('MemorySettings', () => {
       expect(mockMemoryService.getProjectMemoryDocument).toHaveBeenLastCalledWith('/repo-one');
     });
 
-    expect(screen.getAllByText('/repo-one/AGENTS.md').length).toBeGreaterThan(0);
-    expect(screen.getByDisplayValue('Project memory')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Project Memory' }));
+
+    await waitFor(() => {
+      expect(screen.getByText('/repo-one')).toBeInTheDocument();
+    });
+    expect(screen.getAllByText('/app-data/memory/projects/repo/MEMORY.md').length).toBeGreaterThan(0);
   });
 
-  it('renders readable Chinese copy for the memory settings page', async () => {
+  it('renders readable Chinese copy and topic workspace controls', async () => {
     mockSettingsState.language = 'zh';
 
     render(<MemorySettings />);
 
     await waitFor(() => {
-      expect(screen.getByText('长期记忆')).toBeInTheDocument();
+      expect(screen.getByText('自动记忆工作区')).toBeInTheDocument();
     });
 
     expect(screen.getByText('提示词注入')).toBeInTheDocument();
-    expect(screen.getAllByText('项目记忆').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('保存').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('刷新').length).toBeGreaterThan(0);
-    expect(screen.queryByText('项目指令')).toBeNull();
+    expect(screen.getByRole('button', { name: '索引' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Topic' })).toBeInTheDocument();
+    expect(screen.getByText('索引审计')).toBeInTheDocument();
+  });
+
+  it('shows topic files and audit signals in the topic workspace view', async () => {
+    render(<MemorySettings />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Injected lines: 2/200')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Topics' }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: 'preferences.md' })).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText('Topic file name')).toHaveValue('preferences.md');
+    expect(screen.getByDisplayValue('## Preferences')).toBeInTheDocument();
+  });
+
+  it('creates a real topic file immediately when clicking New Topic', async () => {
+    mockMemoryService.writeTopicDocument.mockResolvedValue({
+      scope: 'global',
+      path: '/app-data/memory/global/untitled-topic.md',
+      content: '',
+      exists: true,
+      kind: 'topic',
+      fileName: 'untitled-topic.md',
+    });
+
+    render(<MemorySettings />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Injected lines: 2/200')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Topics' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New Topic' }));
+
+    await waitFor(() => {
+      expect(mockMemoryService.writeTopicDocument).toHaveBeenCalledWith(
+        'global',
+        'untitled-topic.md',
+        '',
+        {}
+      );
+    });
+    expect(mockToast.toast.success).toHaveBeenCalledWith('Topic memory saved.');
   });
 
   it('does not show reload success when reloading memory fails', async () => {
     mockMemoryService.getGlobalDocument
       .mockResolvedValueOnce({
         scope: 'global',
-        path: '/app-data/memory/memory.md',
-        content: 'Global memory',
+        path: '/app-data/memory/global/MEMORY.md',
+        content: '# Global Index',
         exists: true,
-        sourceType: 'global_file',
+        sourceType: 'global_index',
       })
       .mockRejectedValueOnce(new Error('load failed'));
 
     render(<MemorySettings />);
 
     await waitFor(() => {
-      expect(screen.getByDisplayValue('Global memory')).toBeInTheDocument();
+      expect(screen.getByDisplayValue('# Global Index')).toBeInTheDocument();
     });
 
     fireEvent.click(screen.getAllByRole('button', { name: 'Refresh' })[0]);
 
     await waitFor(() => {
-      expect(mockToast.toast.error).toHaveBeenCalledWith('Failed to load memory.');
+      expect(mockToast.toast.error).toHaveBeenCalledWith('Failed to load memory workspace.');
     });
-    expect(mockToast.toast.success).not.toHaveBeenCalledWith('Memory reloaded.');
+    expect(mockToast.toast.success).not.toHaveBeenCalledWith('Memory workspace reloaded.');
   });
 });

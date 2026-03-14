@@ -2,15 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { getProjectMemoryTargetCandidates } from './memory-targets';
 
 describe('getProjectMemoryTargetCandidates', () => {
-  it('returns conservative project instruction file candidates for an absolute workspace root', () => {
+  it('returns project MEMORY.md candidates for an absolute workspace root', () => {
     expect(getProjectMemoryTargetCandidates('/repo')).toEqual(
       expect.arrayContaining([
-        'AGENTS.md',
-        'CLAUDE.md',
-        'GEMINI.md',
-        '/repo/AGENTS.md',
-        '/repo/CLAUDE.md',
-        '/repo/GEMINI.md',
+        'MEMORY.md',
+        '/repo/MEMORY.md',
       ])
     );
   });
@@ -18,20 +14,20 @@ describe('getProjectMemoryTargetCandidates', () => {
   it('returns both slash styles for windows workspace roots', () => {
     expect(getProjectMemoryTargetCandidates('C:\\repo')).toEqual(
       expect.arrayContaining([
-        'AGENTS.md',
-        'CLAUDE.md',
-        'GEMINI.md',
-        'C:\\repo\\AGENTS.md',
-        'C:\\repo\\CLAUDE.md',
-        'C:\\repo\\GEMINI.md',
-        'C:\\repo/AGENTS.md',
-        'C:\\repo/CLAUDE.md',
-        'C:\\repo/GEMINI.md',
+        'MEMORY.md',
+        'C:\\repo\\MEMORY.md',
+        'C:\\repo/MEMORY.md',
       ])
     );
   });
 
-  it('falls back to root file names when workspace root is unavailable', () => {
-    expect(getProjectMemoryTargetCandidates()).toEqual(['AGENTS.md', 'CLAUDE.md', 'GEMINI.md']);
+  it('falls back to MEMORY.md when workspace root is unavailable', () => {
+    expect(getProjectMemoryTargetCandidates()).toEqual(['MEMORY.md']);
+  });
+
+  it('can target a specific topic file inside the project memory workspace', () => {
+    expect(getProjectMemoryTargetCandidates('/repo', 'architecture.md')).toEqual(
+      expect.arrayContaining(['architecture.md', '/repo/architecture.md'])
+    );
   });
 });
