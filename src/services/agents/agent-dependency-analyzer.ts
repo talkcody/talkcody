@@ -10,7 +10,7 @@ import type { ToolCallInfo } from './tool-executor';
  * @deprecated Use getMaxParallelSubagents() from agent-execution-config.ts instead.
  * This export is kept for backward compatibility with existing tests.
  */
-export const MAX_PARALLEL_SUBAGENTS = 5;
+export const MAX_PARALLEL_SUBAGENTS = 20;
 
 /**
  * Agent role analysis result

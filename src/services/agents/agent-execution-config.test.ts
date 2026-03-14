@@ -19,7 +19,7 @@ describe('AgentExecutionConfig', () => {
     it('returns default configuration values', () => {
       const defaults = getDefaultAgentExecutionConfig();
 
-      expect(defaults.maxParallelSubagents).toBe(5);
+      expect(defaults.maxParallelSubagents).toBe(20);
       expect(defaults.nestedAgentTimeoutMs).toBe(5 * 60 * 1000);
       expect(defaults.enableParallelExecution).toBe(true);
     });
@@ -29,7 +29,7 @@ describe('AgentExecutionConfig', () => {
     it('returns current configuration', () => {
       const config = getAgentExecutionConfig();
 
-      expect(config.maxParallelSubagents).toBe(5);
+      expect(config.maxParallelSubagents).toBe(20);
       expect(config.nestedAgentTimeoutMs).toBe(300000);
       expect(config.enableParallelExecution).toBe(true);
     });
@@ -49,14 +49,14 @@ describe('AgentExecutionConfig', () => {
       updateAgentExecutionConfig({ nestedAgentTimeoutMs: 600000 });
 
       expect(getNestedAgentTimeoutMs()).toBe(600000);
-      expect(getMaxParallelSubagents()).toBe(5);
+      expect(getMaxParallelSubagents()).toBe(20);
     });
 
     it('updates enableParallelExecution', () => {
       updateAgentExecutionConfig({ enableParallelExecution: false });
 
       expect(isParallelExecutionEnabled()).toBe(false);
-      expect(getMaxParallelSubagents()).toBe(5);
+      expect(getMaxParallelSubagents()).toBe(20);
     });
 
     it('updates multiple values at once', () => {
@@ -91,7 +91,7 @@ describe('AgentExecutionConfig', () => {
       resetAgentExecutionConfig();
 
       // Verify defaults
-      expect(getMaxParallelSubagents()).toBe(5);
+      expect(getMaxParallelSubagents()).toBe(20);
       expect(getNestedAgentTimeoutMs()).toBe(300000);
       expect(isParallelExecutionEnabled()).toBe(true);
     });
@@ -100,13 +100,13 @@ describe('AgentExecutionConfig', () => {
       updateAgentExecutionConfig({ maxParallelSubagents: 10 });
       const reset = resetAgentExecutionConfig();
 
-      expect(reset.maxParallelSubagents).toBe(5);
+      expect(reset.maxParallelSubagents).toBe(20);
     });
   });
 
   describe('convenience getters', () => {
     it('getMaxParallelSubagents returns current value', () => {
-      expect(getMaxParallelSubagents()).toBe(5);
+      expect(getMaxParallelSubagents()).toBe(20);
 
       updateAgentExecutionConfig({ maxParallelSubagents: 8 });
       expect(getMaxParallelSubagents()).toBe(8);

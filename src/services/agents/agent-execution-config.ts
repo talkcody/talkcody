@@ -40,7 +40,7 @@ export interface AgentExecutionConfig {
  * Default configuration values
  */
 const DEFAULT_CONFIG: AgentExecutionConfig = {
-  maxParallelSubagents: 5,
+  maxParallelSubagents: 20,
   nestedAgentTimeoutMs: 5 * 60 * 1000, // 5 minutes
   enableParallelExecution: true,
 };
