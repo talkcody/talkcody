@@ -7,8 +7,8 @@ const { mockSettingsState, mockMemoryService, mockDatabaseService } = vi.hoisted
     language: 'en',
     current_root_path: '',
     project: 'default',
-    memory_global_enabled: true,
-    memory_project_enabled: true,
+    memory_global_enabled: false,
+    memory_project_enabled: false,
     setMemoryGlobalEnabled: vi.fn().mockResolvedValue(undefined),
     setMemoryProjectEnabled: vi.fn().mockResolvedValue(undefined),
   },
@@ -161,6 +161,19 @@ describe('MemorySettings', () => {
     expect(screen.getByRole('button', { name: '索引' })).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Topics' })).toBeInTheDocument();
     expect(screen.getByText('索引审计')).toBeInTheDocument();
+  });
+
+  it('renders memory injection switches as off by default', async () => {
+    render(<MemorySettings />);
+
+    await waitFor(() => {
+      expect(screen.getByText('Prompt Injection')).toBeInTheDocument();
+    });
+
+    const switches = screen.getAllByRole('switch');
+    expect(switches).toHaveLength(2);
+    expect(switches[0]).toHaveAttribute('aria-checked', 'false');
+    expect(switches[1]).toHaveAttribute('aria-checked', 'false');
   });
 
   it('shows topic files and audit signals in the topic workspace view', async () => {

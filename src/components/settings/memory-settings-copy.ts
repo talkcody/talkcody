@@ -45,18 +45,18 @@
 };
 
 export const EN_MEMORY_SETTINGS_COPY: MemorySettingsCopy = {
-  title: 'Auto Memory Workspace',
+  title: 'Long-Term Memory Workspace',
   description:
-    'Manage TalkCody auto memory as indexed markdown workspaces. MEMORY.md is the routing index, and topic files store detailed notes.',
+    'Manage TalkCody long-term memory as indexed markdown workspaces. MEMORY.md is the routing index, and topic files store detailed notes.',
   injectionTitle: 'Prompt Injection',
   injectionDescription:
-    'These switches affect only indexed auto-memory providers. Static project instruction providers remain separate.',
+    'These switches affect only indexed long-term memory providers. Static project instruction providers remain separate.',
   storageNote:
     'Turning a memory layer off only disables prompt injection. Existing MEMORY.md and topic files are preserved.',
   globalTitle: 'Global Memory',
-  globalDescription: 'User-level auto memory workspace shared across projects.',
+  globalDescription: 'User-level long-term memory workspace shared across projects.',
   projectTitle: 'Project Memory',
-  projectDescription: 'Repository-level auto memory workspace shared across related worktrees.',
+  projectDescription: 'Repository-level long-term memory workspace shared across related worktrees.',
   indexTab: 'Index',
   topicsTab: 'Topics',
   workspaceTitle: 'Memory Workspace',
@@ -95,17 +95,17 @@ export const EN_MEMORY_SETTINGS_COPY: MemorySettingsCopy = {
 };
 
 export const ZH_MEMORY_SETTINGS_COPY: MemorySettingsCopy = {
-  title: '自动记忆工作区',
+  title: '长期记忆工作区',
   description:
-    '以索引化 Markdown 工作区的方式管理 TalkCody 自动记忆。`MEMORY.md` 是路由索引，topic 文件保存详细笔记。',
+    '以索引化 Markdown 工作区的方式管理 TalkCody 长期记忆。`MEMORY.md` 是路由索引，topic 文件保存详细笔记。',
   injectionTitle: '提示词注入',
   injectionDescription:
-    '这些开关只影响索引型自动记忆 provider。静态项目指令 provider 仍然独立生效。',
+    '这些开关只影响索引型长期记忆 provider。静态项目指令 provider 仍然独立生效。',
   storageNote: '关闭某一层记忆只会停止提示词注入，不会删除已有的 `MEMORY.md` 和 topic 文件。',
   globalTitle: '全局记忆',
-  globalDescription: '跨项目共享的用户级自动记忆工作区。',
+  globalDescription: '跨项目共享的用户级长期记忆工作区。',
   projectTitle: '项目记忆',
-  projectDescription: '在关联 worktree 之间共享的仓库级自动记忆工作区。',
+  projectDescription: '在关联 worktree 之间共享的仓库级长期记忆工作区。',
   indexTab: '索引',
   topicsTab: 'Topics',
   workspaceTitle: '记忆工作区',

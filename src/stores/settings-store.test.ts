@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Mock the database service and other dependencies
 vi.mock('@/services/database-service', () => ({
@@ -22,6 +22,60 @@ vi.mock('@/stores/task-store', () => ({
     getState: vi.fn(() => ({ setCurrentTaskId: vi.fn() })),
   },
 }));
+
+const settingsRows = new Map<string, string>();
+const mockDb = {
+  execute: vi.fn(async (_sql: string, params: unknown[]) => {
+    for (let index = 0; index < params.length; index += 3) {
+      const key = params[index];
+      const value = params[index + 1];
+
+      if (typeof key !== 'string' || typeof value !== 'string') {
+        continue;
+      }
+
+      if (!settingsRows.has(key)) {
+        settingsRows.set(key, value);
+      }
+    }
+
+    return { rowsAffected: 0 };
+  }),
+  select: vi.fn(async (sql: string, params: unknown[]) => {
+    if (sql.includes('SELECT key, value FROM settings')) {
+      return params.flatMap((key) => {
+        if (typeof key !== 'string') {
+          return [];
+        }
+
+        const value = settingsRows.get(key);
+        return value === undefined ? [] : [{ key, value }];
+      });
+    }
+
+    if (sql.includes('SELECT value FROM settings WHERE key = $1')) {
+      const key = params[0];
+      if (typeof key !== 'string') {
+        return [];
+      }
+
+      const value = settingsRows.get(key);
+      return value === undefined ? [] : [{ value }];
+    }
+
+    return [];
+  }),
+  batch: vi.fn(async (statements: Array<{ params: unknown[] }>) => {
+    for (const statement of statements) {
+      const [key, value] = statement.params;
+      if (typeof key === 'string' && typeof value === 'string') {
+        settingsRows.set(key, value);
+      }
+    }
+
+    return [];
+  }),
+};
 
 describe('settingsManager.get', () => {
   // Create a mock state that mimics the actual SettingsState
@@ -145,6 +199,29 @@ describe('settingsManager.get', () => {
     };
 
     expect(getValue('null_key')).toBe('');
+  });
+});
+
+describe('useSettingsStore.initialize', () => {
+  beforeEach(() => {
+    settingsRows.clear();
+    vi.clearAllMocks();
+  });
+
+  it('defaults long-term memory injection to disabled', async () => {
+    vi.resetModules();
+    vi.unmock('@/stores/settings-store');
+
+    const { databaseService } = await import('@/services/database-service');
+    vi.mocked(databaseService.initialize).mockResolvedValue(undefined);
+    vi.mocked(databaseService.getDb).mockResolvedValue(mockDb);
+
+    const { useSettingsStore } = await import('./settings-store');
+
+    await useSettingsStore.getState().initialize();
+
+    expect(useSettingsStore.getState().memory_global_enabled).toBe(false);
+    expect(useSettingsStore.getState().memory_project_enabled).toBe(false);
   });
 });
 
