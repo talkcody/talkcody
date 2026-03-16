@@ -1,4 +1,4 @@
-const PROJECT_MEMORY_TARGET_FILES = ['AGENTS.md', 'CLAUDE.md', 'GEMINI.md'] as const;
+const PROJECT_MEMORY_TARGET_FILES = ['MEMORY.md'] as const;
 
 function normalizeRoot(rootPath: string): string {
   return rootPath.replace(/[\\/]+$/, '');
@@ -20,14 +20,18 @@ function buildAbsoluteCandidates(rootPath: string, fileName: string): string[] {
   return Array.from(candidates);
 }
 
-export function getProjectMemoryTargetCandidates(workspaceRoot?: string | null): string[] {
+export function getProjectMemoryTargetCandidates(
+  workspaceRoot?: string | null,
+  fileName = 'MEMORY.md'
+): string[] {
   const candidates = new Set<string>();
 
-  for (const fileName of PROJECT_MEMORY_TARGET_FILES) {
-    candidates.add(fileName);
+  for (const targetFileName of PROJECT_MEMORY_TARGET_FILES) {
+    const effectiveFileName = fileName || targetFileName;
+    candidates.add(effectiveFileName);
 
     if (workspaceRoot) {
-      for (const absoluteCandidate of buildAbsoluteCandidates(workspaceRoot, fileName)) {
+      for (const absoluteCandidate of buildAbsoluteCandidates(workspaceRoot, effectiveFileName)) {
         candidates.add(absoluteCandidate);
       }
     }

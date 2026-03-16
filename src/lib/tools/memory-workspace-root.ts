@@ -1,8 +1,9 @@
-import { databaseService } from '@/services/database-service';
+﻿import { databaseService } from '@/services/database-service';
+import type { MemoryContext } from '@/services/memory/memory-types';
 import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import { DEFAULT_PROJECT, settingsManager } from '@/stores/settings-store';
 
-export async function resolveMemoryWorkspaceRoot(taskId: string): Promise<string | undefined> {
+export async function resolveMemoryWorkspaceRoot(taskId?: string): Promise<string | undefined> {
   if (taskId) {
     return await getEffectiveWorkspaceRoot(taskId);
   }
@@ -23,4 +24,23 @@ export async function resolveMemoryWorkspaceRoot(taskId: string): Promise<string
   } catch {
     return undefined;
   }
+}
+
+export async function resolveMemoryContext(
+  scope: 'global' | 'project',
+  taskId?: string
+): Promise<MemoryContext | null> {
+  if (scope === 'global') {
+    return { scope: 'global' };
+  }
+
+  const workspaceRoot = await resolveMemoryWorkspaceRoot(taskId);
+  if (!workspaceRoot) {
+    return null;
+  }
+
+  return {
+    scope: 'project',
+    workspaceRoot,
+  };
 }

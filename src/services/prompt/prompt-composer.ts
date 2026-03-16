@@ -1,6 +1,7 @@
-// src/services/prompt/prompt-composer.ts
+﻿// src/services/prompt/prompt-composer.ts
 
 import { logger } from '@/lib/logger';
+import { buildAutoMemoryGuidance } from '@/services/memory/memory-guidance';
 import { repositoryService } from '@/services/repository-service';
 import { settingsManager } from '@/stores/settings-store';
 import type {
@@ -173,6 +174,12 @@ export class PromptComposer {
       sections.push(sharedOperationalGuidance);
     }
 
+    const enabledProviderIds = new Set(agent.dynamicPrompt?.providers || []);
+    const autoMemoryGuidance = buildAutoMemoryGuidance(enabledProviderIds);
+    if (autoMemoryGuidance) {
+      sections.push(autoMemoryGuidance);
+    }
+
     let raw = joinSections(sections);
 
     const ctx: ResolveContext = {
@@ -185,7 +192,6 @@ export class PromptComposer {
       readFile: (root, file) => repositoryService.readFile(root, file),
     };
 
-    const enabledProviderIds = new Set(agent.dynamicPrompt?.providers || []);
     const enabledProviders = this.providers.filter((p) => enabledProviderIds.has(p.id));
 
     const explicitTokens = collectPlaceholders(raw);

@@ -94,7 +94,7 @@ describe('globTool', () => {
       // path.join("/test/root", ".") => "/test/root"
       expect(mockInvoke).toHaveBeenCalledWith('search_files_by_glob', {
         pattern: '**/*.ts',
-        path: PROJECT_ROOT,
+        path: path.join(PROJECT_ROOT, '.'),
       });
     });
 

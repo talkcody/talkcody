@@ -150,9 +150,42 @@ describe('PromptComposer', () => {
     expect(result.finalSystemPrompt).toContain('## Tool Activation Guidance');
     expect(result.finalSystemPrompt).toContain('proactively consider using `memoryRead`');
     expect(result.finalSystemPrompt).toContain('proactively consider using `memoryWrite`');
+    expect(result.finalSystemPrompt).toContain('first 200 lines of MEMORY.md');
+    expect(result.finalSystemPrompt).toContain('Treat that content as an index');
+    expect(result.finalSystemPrompt).toContain('read the referenced topic file before answering');
+    expect(result.finalSystemPrompt).toContain('Avoid duplicate memory');
+    expect(result.finalSystemPrompt).toContain('organize topics by stable subject');
     expect(result.finalSystemPrompt).toContain(
       'Follow the memory tools\' own rules for scope selection, durability, and error handling.'
     );
+  });
+
+  it('injects auto-memory guidance that forbids inferring topic contents from MEMORY.md alone', async () => {
+    const composer = new PromptComposer([]);
+
+    const result = await composer.compose({
+      agent: {
+        ...createAgent(),
+        dynamicPrompt: {
+          enabled: true,
+          providers: ['global_memory'],
+          variables: {},
+        },
+      },
+      workspaceRoot: '/repo',
+    });
+
+    expect(result.finalSystemPrompt).toContain('Auto memory guidance:');
+    expect(result.finalSystemPrompt).toContain('Start with the injected MEMORY.md lines.');
+    expect(result.finalSystemPrompt).toContain('read the full MEMORY.md before concluding the memory is missing');
+    expect(result.finalSystemPrompt).toContain(
+      'Treat MEMORY.md as a routing index, not the detailed memory payload.'
+    );
+    expect(result.finalSystemPrompt).toContain(
+      'Never claim that you know a topic file\'s contents unless you have actually read that topic file.'
+    );
+    expect(result.finalSystemPrompt).toContain('keep each topic focused on one stable subject');
+    expect(result.finalSystemPrompt).toContain('avoid writing duplicate topic routes or duplicate memory facts');
   });
 
   it('does not inject shared memory guidance when memory tools are unavailable', async () => {

@@ -1,8 +1,9 @@
-import { z } from 'zod';
+﻿import { z } from 'zod';
 import { GenericToolDoing } from '@/components/tools/generic-tool-doing';
 import { GenericToolResult } from '@/components/tools/generic-tool-result';
 import { createTool } from '@/lib/create-tool';
-import { resolveMemoryWorkspaceRoot } from '@/lib/tools/memory-workspace-root';
+import { resolveMemoryContext } from '@/lib/tools/memory-workspace-root';
+import { buildMemoryWriteGuidance } from '@/services/memory/memory-guidance';
 import { memoryService } from '@/services/memory/memory-service';
 
 type MemoryWriteResult = {
@@ -11,6 +12,7 @@ type MemoryWriteResult = {
   scope?: 'global' | 'project';
   path?: string | null;
   content?: string;
+  guidance?: string[];
   error?: string;
   failureKind?: 'missing_project_context' | 'project_write_failed' | 'write_failed';
   allowScopeFallback?: boolean;
@@ -20,34 +22,76 @@ type MemoryWriteResult = {
 export const memoryWrite = createTool({
   name: 'memoryWrite',
   description:
-    'Write TalkCody long-term memory by appending or replacing stored content. Use scope="project" for repository-specific facts such as tech stack, architecture, commands, conventions, and workflows. Use scope="global" only for user-wide preferences that apply across projects. Keep entries concise and durable, and never retry a failed project write as global memory just because project context is missing.',
+    'Write TalkCody auto memory by appending or replacing either a scope MEMORY.md index or a markdown topic file. Use target="index" to edit MEMORY.md and target="topic" with file_name to edit one concrete topic file. Split topic files by stable subject and retrieval purpose: update an existing topic when the memory belongs to the same long-term subject, and create a new topic only when it represents a distinct long-term theme. Use scope="project" for repository-specific facts such as tech stack, architecture, commands, conventions, and workflows. Use scope="global" only for user-wide preferences that apply across projects. Keep entries concise and durable, keep MEMORY.md aligned with topic files, and never retry a failed project write as global memory just because project context is missing.',
   inputSchema: z.object({
-    scope: z.enum(['global', 'project']),
-    mode: z.enum(['append', 'replace']).default('append'),
+    scope: z
+      .enum(['global', 'project'])
+      .describe('Use project for repo-specific memory. Use global only for user-wide preferences.'),
+    mode: z
+      .enum(['append', 'replace'])
+      .default('append')
+      .describe(
+        'Use append for incremental notes. For MEMORY.md, prefer replace when rewriting or revising existing routes.'
+      ),
+    target: z
+      .enum(['index', 'topic'])
+      .default('index')
+      .describe(
+        'Use index for MEMORY.md or topic for one specific markdown topic file. Prefer updating an existing topic when the memory belongs to the same stable subject.'
+      ),
+    file_name: z
+      .string()
+      .optional()
+      .describe(
+        'Required when target="topic". Must be a markdown file name such as user.md or architecture.md. Reuse an existing topic file when the new memory belongs to the same long-term subject.'
+      ),
     content: z.string().min(1),
   }),
   canConcurrent: false,
-  execute: async ({ scope, mode, content }, context): Promise<MemoryWriteResult> => {
+  execute: async (
+    { scope, mode, target, file_name, content },
+    context
+  ): Promise<MemoryWriteResult> => {
+    if (target === 'topic' && !file_name?.trim()) {
+      return {
+        success: false,
+        message:
+          'Writing a topic file requires file_name. Choose the exact markdown topic file to update, then call memoryWrite again with target="topic" and that file_name.',
+        error: 'file_name is required when target="topic".',
+        failureKind: 'write_failed',
+      };
+    }
+
     try {
       if (scope === 'global') {
+        const globalContext = { scope: 'global' } as const;
         const document =
-          mode === 'replace'
-            ? await memoryService.writeGlobal(content)
-            : await memoryService.appendGlobal(content);
+          target === 'topic'
+            ? mode === 'replace'
+              ? await memoryService.saveTopic(globalContext, file_name || '', content)
+              : await memoryService.appendTopic(globalContext, file_name || '', content)
+            : mode === 'replace'
+              ? await memoryService.saveIndex(globalContext, content)
+              : await memoryService.appendIndex(globalContext, content);
         return {
           success: true,
           scope,
           path: document.path,
           content: document.content,
+          guidance: buildMemoryWriteGuidance(target),
           message:
-            mode === 'replace'
-              ? `Replaced global memory at ${document.path}.`
-              : `Appended to global memory at ${document.path}.`,
+            target === 'topic'
+              ? mode === 'replace'
+                ? `Replaced global topic memory at ${document.path}.`
+                : `Appended to global topic memory at ${document.path}.`
+              : mode === 'replace'
+                ? `Replaced global MEMORY.md at ${document.path}.`
+                : `Appended to global MEMORY.md at ${document.path}.`,
         };
       }
 
-      const workspaceRoot = await resolveMemoryWorkspaceRoot(context.taskId);
-      if (!workspaceRoot) {
+      const projectContext = await resolveMemoryContext('project', context.taskId);
+      if (!projectContext) {
         return {
           success: false,
           message:
@@ -60,18 +104,28 @@ export const memoryWrite = createTool({
       }
 
       const document =
-        mode === 'replace'
-          ? await memoryService.writeProjectMemoryDocument(workspaceRoot, content)
-          : await memoryService.appendProjectMemoryDocument(workspaceRoot, content);
+        target === 'topic'
+          ? mode === 'replace'
+            ? await memoryService.saveTopic(projectContext, file_name || '', content)
+            : await memoryService.appendTopic(projectContext, file_name || '', content)
+          : mode === 'replace'
+            ? await memoryService.saveIndex(projectContext, content)
+            : await memoryService.appendIndex(projectContext, content);
+
       return {
         success: true,
         scope,
         path: document.path,
         content: document.content,
+        guidance: buildMemoryWriteGuidance(target),
         message:
-          mode === 'replace'
-            ? `Updated the Long-Term Memory section in ${document.path}.`
-            : `Appended to the Long-Term Memory section in ${document.path}.`,
+          target === 'topic'
+            ? mode === 'replace'
+              ? `Updated the project topic memory at ${document.path}.`
+              : `Appended to the project topic memory at ${document.path}.`
+            : mode === 'replace'
+              ? `Updated the project MEMORY.md index at ${document.path}.`
+              : `Appended to the project MEMORY.md index at ${document.path}.`,
       };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -94,11 +148,19 @@ export const memoryWrite = createTool({
       };
     }
   },
-  renderToolDoing: ({ scope, mode }) => (
+  renderToolDoing: ({ scope, mode, target, file_name }) => (
     <GenericToolDoing
       operation={mode === 'replace' ? 'edit' : 'write'}
-      target={scope}
-      details={mode === 'replace' ? 'Replacing memory content' : 'Appending memory content'}
+      target={target === 'topic' ? `${scope}:${file_name || 'topic'}` : scope}
+      details={
+        target === 'topic'
+          ? mode === 'replace'
+            ? 'Replacing topic memory content'
+            : 'Appending topic memory content'
+          : mode === 'replace'
+            ? 'Replacing MEMORY.md content'
+            : 'Appending MEMORY.md content'
+      }
       type="memory"
     />
   ),
@@ -120,6 +182,16 @@ export const memoryWrite = createTool({
           <pre className="max-h-72 overflow-auto whitespace-pre-wrap break-words rounded border p-3 text-sm">
             {result.content}
           </pre>
+        )}
+        {result.guidance && result.guidance.length > 0 && (
+          <div className="rounded border border-dashed p-3 text-sm text-muted-foreground">
+            <div className="mb-2 font-medium text-foreground">Usage guidance</div>
+            <ul className="space-y-1">
+              {result.guidance.map((item: string) => (
+                <li key={item}>- {item}</li>
+              ))}
+            </ul>
+          </div>
         )}
       </div>
     );

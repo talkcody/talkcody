@@ -99,7 +99,7 @@ describe('AgentsMdProvider', () => {
     expect(content).not.toContain('APPS_CONTENT');
   });
 
-  it('strips the root Long-Term Memory section by default', async () => {
+  it('keeps instruction files intact now that memory is stored in separate workspaces', async () => {
     const provider = AgentsMdProvider();
     const ctx = createContext({
       currentWorkingDirectory: '/repo/apps',
@@ -116,8 +116,8 @@ describe('AgentsMdProvider', () => {
 
     const content = result || '';
     expect(content).toContain('# Root Instructions');
-    expect(content).not.toContain('## Long-Term Memory');
-    expect(content).not.toContain('- Secret memory');
+    expect(content).toContain('## Long-Term Memory');
+    expect(content).toContain('- Secret memory');
     expect(content).toContain('# App Instructions');
   });
 });

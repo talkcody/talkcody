@@ -1,96 +1,14 @@
-import { RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { toast } from 'sonner';
+﻿import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
-import { Textarea } from '@/components/ui/textarea';
-import { databaseService } from '@/services/database-service';
-import { memoryService } from '@/services/memory/memory-service';
-import { DEFAULT_PROJECT, useSettingsStore } from '@/stores/settings-store';
-
-type MemoryCopy = {
-  title: string;
-  description: string;
-  injectionTitle: string;
-  injectionDescription: string;
-  storageNote: string;
-  globalTitle: string;
-  globalDescription: string;
-  projectTitle: string;
-  projectDescription: string;
-  globalPath: string;
-  projectPath: string;
-  noProject: string;
-  projectUnavailable: string;
-  reloadSuccess: string;
-  loadFailed: string;
-  globalSaved: string;
-  projectSaved: string;
-  saveFailed: string;
-  toggleSaved: string;
-  toggleFailed: string;
-  saveAction: string;
-  savingAction: string;
-  refreshAction: string;
-};
-
-const EN_COPY: MemoryCopy = {
-  title: 'Long-Term Memory',
-  description:
-    'Manage TalkCody long-term memory and control whether global and project memory are injected into prompts.',
-  injectionTitle: 'Prompt Injection',
-  injectionDescription:
-    'These switches affect only long-term memory providers. Static project instruction providers remain separate.',
-  storageNote:
-    'Turning a memory layer off only disables prompt injection. Existing files are preserved.',
-  globalTitle: 'Global Memory',
-  globalDescription: 'User-level long-term memory shared across projects.',
-  projectTitle: 'Project Memory',
-  projectDescription:
-    'Project-level long-term memory stored in the current root instruction file Long-Term Memory section.',
-  globalPath: 'Global memory file',
-  projectPath: 'Project memory file',
-  noProject: 'No active project root is available.',
-  projectUnavailable: 'Open a project to view or edit project memory.',
-  reloadSuccess: 'Memory reloaded.',
-  loadFailed: 'Failed to load memory.',
-  globalSaved: 'Global memory saved.',
-  projectSaved: 'Project memory saved.',
-  saveFailed: 'Failed to save memory.',
-  toggleSaved: 'Memory setting updated.',
-  toggleFailed: 'Failed to update memory setting.',
-  saveAction: 'Save',
-  savingAction: 'Saving...',
-  refreshAction: 'Refresh',
-};
-
-const ZH_COPY: MemoryCopy = {
-  title: '长期记忆',
-  description: '管理 TalkCody 的长期记忆，并控制是否将全局记忆与项目记忆注入到提示词中。',
-  injectionTitle: '提示词注入',
-  injectionDescription: '这些开关只影响长期记忆 provider。静态项目指令 provider 仍独立存在。',
-  storageNote: '关闭某一层记忆只会停止注入，不会删除已有文件。',
-  globalTitle: '全局记忆',
-  globalDescription: '跨项目共享的用户级长期记忆。',
-  projectTitle: '项目记忆',
-  projectDescription: '项目级长期记忆，存储在当前根指令文件的 Long-Term Memory 段落中。',
-  globalPath: '全局记忆文件',
-  projectPath: '项目记忆文件',
-  noProject: '当前没有可用的项目根目录。',
-  projectUnavailable: '请先打开一个项目，再查看或编辑项目记忆。',
-  reloadSuccess: '记忆已重新加载。',
-  loadFailed: '加载记忆失败。',
-  globalSaved: '全局记忆已保存。',
-  projectSaved: '项目记忆已保存。',
-  saveFailed: '保存记忆失败。',
-  toggleSaved: '记忆设置已更新。',
-  toggleFailed: '更新记忆设置失败。',
-  saveAction: '保存',
-  savingAction: '保存中...',
-  refreshAction: '刷新',
-};
+import { useMemoryWorkspaceManager } from '@/hooks/use-memory-workspace-manager';
+import { useSettingsStore } from '@/stores/settings-store';
+import { MemoryAuditPanel } from './memory-audit-panel';
+import { MemoryIndexEditor } from './memory-index-editor';
+import { getMemorySettingsCopy } from './memory-settings-copy';
+import { MemoryTopicsEditor } from './memory-topics-editor';
 
 export function MemorySettings() {
   const language = useSettingsStore((state) => state.language);
@@ -101,79 +19,34 @@ export function MemorySettings() {
   const setGlobalEnabled = useSettingsStore((state) => state.setMemoryGlobalEnabled);
   const setProjectEnabled = useSettingsStore((state) => state.setMemoryProjectEnabled);
 
-  const copy = useMemo(() => (language === 'zh' ? ZH_COPY : EN_COPY), [language]);
+  const copy = getMemorySettingsCopy(language);
+  const {
+    selectedScope,
+    setSelectedScope,
+    selectedView,
+    setSelectedView,
+    activeWorkspace,
+    isLoading,
+    isSavingIndex,
+    isSavingTopic,
+    setIndexContent,
+    setTopicEditorState,
+    handleReload,
+    handleSaveIndex,
+    handleCreateTopic,
+    handleSelectTopic,
+    handleSaveTopic,
+    handleDeleteTopic,
+  } = useMemoryWorkspaceManager({
+    copy,
+    currentRootPath,
+    selectedProjectId,
+  });
 
-  const [globalPath, setGlobalPath] = useState<string | null>(null);
-  const [projectPath, setProjectPath] = useState<string | null>(null);
-  const [globalContent, setGlobalContent] = useState('');
-  const [projectContent, setProjectContent] = useState('');
-  const [isLoading, setIsLoading] = useState(true);
-  const [isSavingGlobal, setIsSavingGlobal] = useState(false);
-  const [isSavingProject, setIsSavingProject] = useState(false);
-  const [activeProjectRoot, setActiveProjectRoot] = useState<string | null>(null);
-  const loadRequestIdRef = useRef(0);
-
-  const resolveProjectRoot = useCallback(async () => {
-    if (currentRootPath) {
-      return currentRootPath;
-    }
-
-    if (!selectedProjectId || selectedProjectId === DEFAULT_PROJECT) {
-      return null;
-    }
-
-    try {
-      const project = await databaseService.getProject(selectedProjectId);
-      return project?.root_path || null;
-    } catch {
-      return null;
-    }
-  }, [currentRootPath, selectedProjectId]);
-
-  const loadMemory = useCallback(async (): Promise<boolean> => {
-    const requestId = loadRequestIdRef.current + 1;
-    loadRequestIdRef.current = requestId;
-    setIsLoading(true);
-
-    try {
-      const projectRoot = await resolveProjectRoot();
-      const [globalDocument, projectDocument] = await Promise.all([
-        memoryService.getGlobalDocument(),
-        memoryService.getProjectMemoryDocument(projectRoot || undefined),
-      ]);
-
-      if (loadRequestIdRef.current !== requestId) {
-        return false;
-      }
-
-      setActiveProjectRoot(projectRoot);
-      setGlobalPath(globalDocument.path);
-      setProjectPath(projectDocument.path);
-      setGlobalContent(globalDocument.content);
-      setProjectContent(projectDocument.content);
-      return true;
-    } catch {
-      if (loadRequestIdRef.current === requestId) {
-        toast.error(copy.loadFailed);
-      }
-      return false;
-    } finally {
-      if (loadRequestIdRef.current === requestId) {
-        setIsLoading(false);
-      }
-    }
-  }, [copy.loadFailed, resolveProjectRoot]);
-
-  useEffect(() => {
-    void loadMemory();
-  }, [loadMemory]);
-
-  const handleReload = async () => {
-    const loaded = await loadMemory();
-    if (loaded) {
-      toast.success(copy.reloadSuccess);
-    }
-  };
+  const activeScopeTitle = selectedScope === 'global' ? copy.globalTitle : copy.projectTitle;
+  const activeScopeDescription =
+    selectedScope === 'global' ? copy.globalDescription : copy.projectDescription;
+  const projectUnavailable = selectedScope === 'project' && !activeWorkspace.rootPath;
 
   const handleToggle = async (setter: (enabled: boolean) => Promise<void>, enabled: boolean) => {
     try {
@@ -181,41 +54,6 @@ export function MemorySettings() {
       toast.success(copy.toggleSaved);
     } catch {
       toast.error(copy.toggleFailed);
-    }
-  };
-
-  const handleSaveGlobal = async () => {
-    setIsSavingGlobal(true);
-    try {
-      const document = await memoryService.writeGlobal(globalContent);
-      setGlobalContent(document.content);
-      setGlobalPath(document.path);
-      toast.success(copy.globalSaved);
-    } catch {
-      toast.error(copy.saveFailed);
-    } finally {
-      setIsSavingGlobal(false);
-    }
-  };
-
-  const handleSaveProject = async () => {
-    const projectRoot = activeProjectRoot ?? (await resolveProjectRoot());
-    if (!projectRoot) {
-      toast.error(copy.projectUnavailable);
-      return;
-    }
-
-    setIsSavingProject(true);
-    try {
-      const document = await memoryService.writeProjectMemoryDocument(projectRoot, projectContent);
-      setActiveProjectRoot(projectRoot);
-      setProjectContent(document.content);
-      setProjectPath(document.path);
-      toast.success(copy.projectSaved);
-    } catch {
-      toast.error(copy.saveFailed);
-    } finally {
-      setIsSavingProject(false);
     }
   };
 
@@ -262,68 +100,117 @@ export function MemorySettings() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-lg">{copy.globalTitle}</CardTitle>
-          <CardDescription>{copy.globalDescription}</CardDescription>
+          <CardTitle className="text-lg">{copy.workspaceTitle}</CardTitle>
+          <CardDescription>{copy.workspaceDescription}</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="text-xs text-muted-foreground">
-            <span className="font-medium">{copy.globalPath}:</span>{' '}
-            <span className="font-mono">{globalPath ?? '-'}</span>
-          </div>
-          <Textarea
-            value={globalContent}
-            onChange={(event) => setGlobalContent(event.target.value)}
-            className="min-h-[220px] font-mono text-sm"
-            disabled={isLoading || isSavingGlobal}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={handleSaveGlobal} disabled={isLoading || isSavingGlobal}>
-              {isSavingGlobal ? copy.savingAction : copy.saveAction}
-            </Button>
-            <Button variant="outline" onClick={handleReload} disabled={isLoading || isSavingGlobal}>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              {copy.refreshAction}
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
+          <div className="space-y-4">
+            <div className="grid w-full grid-cols-2 gap-2">
+              <Button
+                variant={selectedScope === 'global' ? 'default' : 'outline'}
+                onClick={() => setSelectedScope('global')}
+              >
+                {copy.globalTitle}
+              </Button>
+              <Button
+                variant={selectedScope === 'project' ? 'default' : 'outline'}
+                onClick={() => setSelectedScope('project')}
+              >
+                {copy.projectTitle}
+              </Button>
+            </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">{copy.projectTitle}</CardTitle>
-          <CardDescription>{copy.projectDescription}</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="text-xs text-muted-foreground">
-            <span className="font-medium">{copy.projectPath}:</span>{' '}
-            <span className="font-mono">{projectPath ?? copy.noProject}</span>
+            {projectUnavailable && (
+              <div className="rounded-md border border-dashed p-4">
+                <div className="space-y-1">
+                  <h3 className="text-sm font-medium">{copy.projectTitle}</h3>
+                  <p className="text-sm text-muted-foreground">{copy.projectDescription}</p>
+                </div>
+              </div>
+            )}
           </div>
-          <Textarea
-            value={projectContent}
-            onChange={(event) => setProjectContent(event.target.value)}
-            className="min-h-[220px] font-mono text-sm"
-            disabled={!activeProjectRoot || isLoading || isSavingProject}
-            placeholder={copy.projectUnavailable}
-          />
-          <div className="flex flex-wrap gap-2">
-            <Button
-              onClick={handleSaveProject}
-              disabled={!activeProjectRoot || isLoading || isSavingProject}
-            >
-              {isSavingProject ? copy.savingAction : copy.saveAction}
-            </Button>
-            <Button
-              variant="outline"
-              onClick={handleReload}
-              disabled={isLoading || isSavingProject}
-            >
-              <RefreshCw className="mr-2 h-4 w-4" />
-              {copy.refreshAction}
-            </Button>
+
+          <div className="grid gap-2 text-xs text-muted-foreground sm:grid-cols-3">
+            <div>
+              <span className="font-medium">{copy.workspaceRoot}:</span>{' '}
+              <span className="font-mono">
+                {selectedScope === 'project'
+                  ? (activeWorkspace.rootPath ?? copy.noProject)
+                  : copy.globalTitle}
+              </span>
+            </div>
+            <div>
+              <span className="font-medium">{copy.indexPath}:</span>{' '}
+              <span className="font-mono">{activeWorkspace.indexPath ?? '-'}</span>
+            </div>
+            <div>
+              <span className="font-medium">{copy.topicCount}:</span>{' '}
+              {activeWorkspace.topics.length}
+            </div>
           </div>
-          {!activeProjectRoot && (
-            <p className="text-sm text-muted-foreground">{copy.projectUnavailable}</p>
-          )}
+
+          <MemoryAuditPanel audit={activeWorkspace.audit} copy={copy} />
+
+          <div className="space-y-4">
+            <div className="grid w-full grid-cols-2 gap-2">
+              <Button
+                variant={selectedView === 'index' ? 'default' : 'outline'}
+                onClick={() => setSelectedView('index')}
+              >
+                {copy.indexTab}
+              </Button>
+              <Button
+                variant={selectedView === 'topics' ? 'default' : 'outline'}
+                onClick={() => setSelectedView('topics')}
+              >
+                {copy.topicsTab}
+              </Button>
+            </div>
+
+            {selectedView === 'index' && (
+              <MemoryIndexEditor
+                title={activeScopeTitle}
+                description={activeScopeDescription}
+                value={activeWorkspace.indexContent}
+                onChange={(value) => setIndexContent(selectedScope, value)}
+                onSave={handleSaveIndex}
+                onRefresh={handleReload}
+                copy={copy}
+                disabled={isLoading || isSavingIndex || projectUnavailable}
+                isSaving={isSavingIndex}
+                showProjectUnavailable={projectUnavailable}
+              />
+            )}
+
+            {selectedView === 'topics' && (
+              <MemoryTopicsEditor
+                scope={selectedScope}
+                topics={activeWorkspace.topics}
+                selectedTopicOriginalName={activeWorkspace.selectedTopicOriginalName}
+                topicEditorName={activeWorkspace.topicEditorName}
+                topicEditorContent={activeWorkspace.topicEditorContent}
+                onCreateTopic={handleCreateTopic}
+                onSelectTopic={handleSelectTopic}
+                onTopicNameChange={(value) =>
+                  setTopicEditorState(selectedScope, {
+                    topicEditorName: value,
+                  })
+                }
+                onTopicContentChange={(value) =>
+                  setTopicEditorState(selectedScope, {
+                    topicEditorContent: value,
+                  })
+                }
+                onSaveTopic={handleSaveTopic}
+                onDeleteTopic={handleDeleteTopic}
+                onRefresh={handleReload}
+                copy={copy}
+                disabled={isLoading || isSavingTopic}
+                isSaving={isSavingTopic}
+                showProjectUnavailable={projectUnavailable}
+              />
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>

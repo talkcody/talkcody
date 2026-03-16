@@ -1,12 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+﻿import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getProjectMemoryDocumentMock } = vi.hoisted(() => ({
-  getProjectMemoryDocumentMock: vi.fn(),
+const { getInjectedIndexMock } = vi.hoisted(() => ({
+  getInjectedIndexMock: vi.fn(),
 }));
 
 vi.mock('@/services/memory/memory-service', () => ({
   memoryService: {
-    getProjectMemoryDocument: getProjectMemoryDocumentMock,
+    getInjectedIndex: getInjectedIndexMock,
   },
 }));
 
@@ -28,22 +28,26 @@ describe('ProjectMemoryProvider', () => {
     vi.clearAllMocks();
   });
 
-  it('reads the root Long-Term Memory section separately from instructions', async () => {
-    getProjectMemoryDocumentMock.mockResolvedValue({
+  it('reads the injected project MEMORY.md index slice', async () => {
+    getInjectedIndexMock.mockResolvedValue({
       scope: 'project',
-      path: '/repo/CLAUDE.md',
+      path: '/repo-memory/MEMORY.md',
       content: '- Important project memory',
       exists: true,
-      sourceType: 'project_root_section',
+      sourceType: 'project_index',
     });
 
     const provider = ProjectMemoryProvider();
     const result = await provider.resolveWithMetadata?.('project_memory', ctx);
 
     expect(result?.value).toContain('Important project memory');
+    expect(getInjectedIndexMock).toHaveBeenCalledWith({
+      scope: 'project',
+      workspaceRoot: '/repo',
+    });
     expect(result?.sources).toEqual([
       {
-        sourcePath: '/repo/CLAUDE.md',
+        sourcePath: '/repo-memory/MEMORY.md',
         sectionKind: 'project_memory',
       },
     ]);

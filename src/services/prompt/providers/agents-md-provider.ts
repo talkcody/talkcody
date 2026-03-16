@@ -1,5 +1,4 @@
 // src/services/prompt/providers/agents-md-provider.ts
-import { removeLongTermMemorySection } from '@/services/memory/memory-service';
 import type { PromptContextProvider, ResolveContext } from '@/types/prompt';
 
 /**
@@ -278,7 +277,7 @@ export const AgentsMdProvider = (settings?: AgentsMdSettings): PromptContextProv
   id: 'agents_md',
   label: 'Project Instructions (AGENTS.md/CLAUDE.md/GEMINI.md)',
   description:
-    'Injects hierarchical project instructions from AGENTS.md, CLAUDE.md, or GEMINI.md files in the workspace. Root Long-Term Memory is handled separately.',
+    'Injects hierarchical project instructions from AGENTS.md, CLAUDE.md, or GEMINI.md files in the workspace.',
   badges: ['Auto', 'Files', 'Local'],
 
   providedTokens() {
@@ -323,7 +322,7 @@ async function resolveAgentsMdContent(
     const result = await readMarkdownFiles(ctx);
     if (!result) return;
 
-    const content = removeLongTermMemorySection(result.content);
+    const content = result.content;
     if (!content.trim()) return;
 
     return {
@@ -345,9 +344,7 @@ async function resolveAgentsMdContent(
     const files: Array<{ relativePath: string; content: string; fileType: MarkdownFileType }> = [];
     for (const { relativePath, fileType } of foundFiles) {
       try {
-        const rawContent = await ctx.readFile(ctx.workspaceRoot, relativePath);
-        const content =
-          relativePath === fileType ? removeLongTermMemorySection(rawContent) : rawContent;
+        const content = await ctx.readFile(ctx.workspaceRoot, relativePath);
 
         if (!content.trim()) {
           continue;

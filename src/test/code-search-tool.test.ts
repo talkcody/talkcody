@@ -379,7 +379,7 @@ describe('codeSearch Tool', () => {
       // The search should use projectRoot, not "."
       expect(mockInvoke).toHaveBeenCalledWith('search_file_content', {
         query: 'console.log',
-        rootPath: PROJECT_ROOT,
+        rootPath: path.join(PROJECT_ROOT, '.'),
         fileTypes: null,
       });
     });
