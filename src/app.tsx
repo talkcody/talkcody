@@ -15,6 +15,7 @@ import { UiNavigationProvider, useUiNavigation } from '@/contexts/ui-navigation'
 import { useWindowContext, WindowProvider } from '@/contexts/window-context';
 import { useGlobalShortcuts } from '@/hooks/use-global-shortcuts';
 import { useTheme } from '@/hooks/use-theme';
+import { useWindowTitle } from '@/hooks/use-window-title';
 import { logger } from '@/lib/logger';
 import { initializationManager } from '@/services/initialization-manager';
 import { WindowManagerService } from '@/services/window-manager-service';
@@ -34,6 +35,9 @@ function AppContent() {
 
   // Initialize theme sync from database to localStorage
   useTheme();
+
+  // Reactively keep the window title in sync with the selected project
+  useWindowTitle();
 
   // Initialization state
   const [isInitializing, setIsInitializing] = useState(true);

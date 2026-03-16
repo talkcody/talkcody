@@ -167,8 +167,8 @@ fn has_header(headers: &HashMap<String, String>, name: &str) -> bool {
     headers.keys().any(|k| k.to_lowercase() == name_lower)
 }
 
-fn should_soft_end_on_decode_error(is_decode_error: bool, chunk_count: u32) -> bool {
-    is_decode_error && chunk_count > 0
+fn should_abort_on_decode_error(is_decode_error: bool) -> bool {
+    is_decode_error
 }
 
 fn truncate_for_log(value: &str, max_chars: usize) -> (String, bool) {
@@ -491,7 +491,7 @@ async fn stream_fetch_inner<R: tauri::Runtime>(
         .and_then(|v| v.to_str().ok())
         .unwrap_or("none");
 
-    log::info!(
+    log::debug!(
         "Stream fetch response headers: content-type={}, content-encoding={}, transfer-encoding={}, content-length={} (request_id: {})",
         content_type,
         content_encoding,
@@ -560,13 +560,17 @@ async fn stream_fetch_inner<R: tauri::Runtime>(
                     }
                 }
                 Ok(Some(Err(e))) => {
-                    if should_soft_end_on_decode_error(e.is_decode(), chunk_count) {
-                        log::warn!(
-                            "Decode error after {} chunks; treating as stream end (request_id: {}): {}",
+                    if should_abort_on_decode_error(e.is_decode()) {
+                        log::error!(
+                            "Decode error after {} chunks; aborting stream (request_id: {}): {}",
                             chunk_count,
                             request_id,
                             e
                         );
+                        error_msg = Some(format!(
+                            "Stream decode error after {} chunks: {}",
+                            chunk_count, e
+                        ));
                         stream_exhausted = true;
                         break;
                     }
@@ -1101,10 +1105,24 @@ mod tests {
     }
 
     #[test]
-    fn test_should_soft_end_on_decode_error() {
-        assert!(should_soft_end_on_decode_error(true, 1));
-        assert!(!should_soft_end_on_decode_error(true, 0));
-        assert!(!should_soft_end_on_decode_error(false, 5));
+    fn test_should_abort_on_decode_error() {
+        assert!(should_abort_on_decode_error(true));
+        assert!(!should_abort_on_decode_error(false));
+    }
+
+    #[test]
+    fn test_decode_error_message_is_preserved_in_end_payload() {
+        let error = "Stream decode error after 2 chunks: error decoding response body";
+        let payload = EndPayload {
+            request_id: 7,
+            status: 200,
+            error: Some(error.to_string()),
+        };
+
+        let json = serde_json::to_string(&payload).unwrap();
+        assert!(json.contains("\"request_id\":7"));
+        assert!(json.contains("\"status\":200"));
+        assert!(json.contains(error));
     }
 
     #[test]

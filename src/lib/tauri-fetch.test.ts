@@ -527,6 +527,62 @@ describe('tauri-fetch', () => {
       expect(response.body).toBeInstanceOf(ReadableStream);
     });
 
+    it('should stream chunk payloads and close cleanly on end event', async () => {
+      const streamResponse = {
+        request_id: 1,
+        status: 200,
+        headers: {},
+      };
+      let listener: ((event: { payload: { chunk?: number[]; status?: number; error?: string } }) => void) |
+        undefined;
+
+      mockInvoke.mockResolvedValue(streamResponse);
+      mockListen.mockImplementation((_eventName, callback) => {
+        listener = callback as typeof listener;
+        return Promise.resolve(mockUnlisten);
+      });
+
+      const { streamFetch } = await import('./tauri-fetch');
+
+      const response = await streamFetch('https://api.example.com/stream');
+      const reader = response.body?.getReader();
+
+      listener?.({ payload: { chunk: [72, 105] } });
+      const firstRead = await reader?.read();
+      expect(firstRead).toEqual({ done: false, value: new Uint8Array([72, 105]) });
+
+      listener?.({ payload: { status: 200 } });
+      const finalRead = await reader?.read();
+      expect(finalRead).toEqual({ done: true, value: undefined });
+      expect(mockUnlisten).toHaveBeenCalledTimes(1);
+    });
+
+    it('should error the stream when end payload contains an error', async () => {
+      const streamResponse = {
+        request_id: 1,
+        status: 200,
+        headers: {},
+      };
+      let listener: ((event: { payload: { chunk?: number[]; status?: number; error?: string } }) => void) |
+        undefined;
+
+      mockInvoke.mockResolvedValue(streamResponse);
+      mockListen.mockImplementation((_eventName, callback) => {
+        listener = callback as typeof listener;
+        return Promise.resolve(mockUnlisten);
+      });
+
+      const { streamFetch } = await import('./tauri-fetch');
+
+      const response = await streamFetch('https://api.example.com/stream');
+      const reader = response.body?.getReader();
+
+      listener?.({ payload: { error: 'stream decode failed', status: 200 } });
+
+      await expect(reader?.read()).rejects.toThrow('stream decode failed');
+      expect(mockUnlisten).toHaveBeenCalledTimes(1);
+    });
+
     it('should handle error status codes', async () => {
       const streamResponse = {
         request_id: 1,

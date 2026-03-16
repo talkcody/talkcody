@@ -51,7 +51,7 @@ use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 use talkcody_core::core::types::RuntimeEvent;
 use talkcody_server::{config::ServerConfig, state::ServerStateFactory};
-use tauri::{AppHandle, Emitter, Manager, State, WindowEvent};
+use tauri::{AppHandle, Emitter, Manager, Runtime, State, WindowEvent};
 use tokio::io::BufReader;
 use tokio::sync::Mutex as TokioMutex;
 use tokio::time::Duration as TokioDuration;
@@ -111,18 +111,16 @@ struct AppState {
     window_registry: WindowRegistry,
 }
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum CloseAction {
-    Allow,
-    ExitApp,
-}
-
-fn close_action_for_window(label: &str) -> CloseAction {
-    if label == "main" {
-        CloseAction::ExitApp
-    } else {
-        CloseAction::Allow
-    }
+/// Returns true when the app should fully exit because the last remaining
+/// window is being closed.
+///
+/// VSCode-style behaviour: closing the main window while other project windows
+/// are still open just closes the main window — it does NOT exit the process.
+/// The app exits only when the very last window is closed.
+fn should_exit_app<R: Runtime>(app_handle: &AppHandle<R>) -> bool {
+    // webview_windows() returns all currently-open WebviewWindow instances.
+    // If only one window is left (the one being closed), exit the process.
+    app_handle.webview_windows().len() <= 1
 }
 
 #[tauri::command]
@@ -1123,12 +1121,19 @@ pub fn run() {
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { .. } = event {
-                match close_action_for_window(window.label()) {
-                    CloseAction::ExitApp => {
+                if window.label() == "main" {
+                    if should_exit_app(window.app_handle()) {
+                        // This is the last window — exit the whole process.
+                        log::info!("Main window is the last window, exiting app");
                         window.app_handle().exit(0);
-                        return;
+                    } else {
+                        // Other project windows are still open — just close main.
+                        log::info!(
+                            "Main window closed while {} other window(s) remain open, not exiting",
+                            window.app_handle().webview_windows().len().saturating_sub(1)
+                        );
                     }
-                    CloseAction::Allow => {}
+                    return;
                 }
             }
             // Clean up resources when main window is destroyed
@@ -1183,25 +1188,68 @@ pub fn run() {
 
 #[cfg(test)]
 mod tests {
-    use super::close_action_for_window;
     use super::init_trace_writer_state;
+    use super::should_exit_app;
     use crate::database::Database;
     use crate::llm::tracing::writer::TraceWriter;
     use std::sync::Arc;
     use tauri::Manager;
     use tempfile::TempDir;
 
+    /// should_exit_app returns true when only one window is open (the one being closed).
+    /// We verify via mock_app which starts with zero webview windows.
     #[test]
-    fn close_action_for_main_window_exits_app() {
-        assert_eq!(close_action_for_window("main"), super::CloseAction::ExitApp);
+    #[cfg(not(target_os = "windows"))]
+    fn should_exit_when_no_other_windows_are_open() {
+        let app = tauri::test::mock_app();
+        // No windows created yet — count is 0, which is <= 1, so should exit.
+        assert!(should_exit_app(app.app_handle()));
     }
 
+    /// should_exit_app returns false when additional windows are still open.
     #[test]
-    fn close_action_for_non_main_window_allows_close() {
-        assert_eq!(
-            close_action_for_window("settings"),
-            super::CloseAction::Allow
-        );
+    #[cfg(not(target_os = "windows"))]
+    fn should_not_exit_when_other_windows_remain() {
+        let app = tauri::test::mock_app();
+
+        // Open a second window to simulate a project window still being open.
+        let _project_window = tauri::WebviewWindowBuilder::new(
+            &app,
+            "window-12345",
+            tauri::WebviewUrl::App("index.html".into()),
+        )
+        .build()
+        .unwrap();
+
+        // Also add the "main" window that is being closed.
+        let _main_window = tauri::WebviewWindowBuilder::new(
+            &app,
+            "main",
+            tauri::WebviewUrl::App("index.html".into()),
+        )
+        .build()
+        .unwrap();
+
+        // Two windows are open — should NOT exit when one of them closes.
+        assert!(!should_exit_app(app.app_handle()));
+    }
+
+    /// When the last window is the only one open, should_exit_app returns true.
+    #[test]
+    #[cfg(not(target_os = "windows"))]
+    fn should_exit_when_main_is_the_only_window() {
+        let app = tauri::test::mock_app();
+
+        let _main_window = tauri::WebviewWindowBuilder::new(
+            &app,
+            "main",
+            tauri::WebviewUrl::App("index.html".into()),
+        )
+        .build()
+        .unwrap();
+
+        // Exactly one window exists — should exit.
+        assert!(should_exit_app(app.app_handle()));
     }
 
     /// This test uses Tauri test infrastructure that may not work on Windows CI

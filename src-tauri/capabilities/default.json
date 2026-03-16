@@ -63,6 +63,7 @@
     "deep-link:allow-unregister",
     "core:window:allow-show",
     "core:window:allow-set-focus",
+    "core:window:allow-set-title",
     "updater:default",
     "updater:allow-check",
     "updater:allow-download",

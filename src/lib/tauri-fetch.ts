@@ -67,6 +67,7 @@ type StreamEvent = {
   request_id?: number;
   chunk?: number[];
   status?: number;
+  error?: string | null;
 };
 
 /**
@@ -284,6 +285,18 @@ function createStreamFetch(): TauriFetchFunction {
         });
       };
 
+      const fail = (message: string) => {
+        if (closed) return;
+        closed = true;
+        if (streamTimeoutId) {
+          clearTimeout(streamTimeoutId);
+        }
+        unlisten?.();
+        writer.abort(new Error(message)).catch((e) => {
+          logger.error('[Tauri Stream Fetch] Error aborting writer:', e);
+        });
+      };
+
       // Handle abort signal
       if (signal) {
         signal.addEventListener('abort', () => close());
@@ -291,9 +304,9 @@ function createStreamFetch(): TauriFetchFunction {
 
       // Process a single stream event
       const processEvent = (payload: StreamEvent) => {
-        const { chunk, status } = payload || {};
+        const { chunk, status, error } = payload || {};
 
-        if (chunk) {
+        if (chunk !== undefined) {
           resetStreamTimeout();
           writer.ready.then(() => {
             writer.write(new Uint8Array(chunk)).catch((e) => {
@@ -301,6 +314,10 @@ function createStreamFetch(): TauriFetchFunction {
             });
           });
         } else if (status !== undefined) {
+          if (error) {
+            fail(error);
+            return;
+          }
           // EndPayload received, close the stream
           close();
         }
