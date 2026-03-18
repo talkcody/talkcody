@@ -68,79 +68,82 @@ pub fn is_powershell(shell: &str) -> bool {
 mod tests {
     use super::*;
 
+    #[cfg(windows)]
+    use std::sync::{Mutex, OnceLock};
+
+    #[cfg(windows)]
+    static COMSPEC_TEST_MUTEX: OnceLock<Mutex<()>> = OnceLock::new();
+
+    #[cfg(windows)]
+    struct ComspecGuard {
+        original: Option<String>,
+    }
+
+    #[cfg(windows)]
+    impl Drop for ComspecGuard {
+        fn drop(&mut self) {
+            if let Some(value) = self.original.as_deref() {
+                std::env::set_var("COMSPEC", value);
+            } else {
+                std::env::remove_var("COMSPEC");
+            }
+        }
+    }
+
+    #[cfg(windows)]
+    fn with_comspec<T>(value: Option<&str>, test: impl FnOnce() -> T) -> T {
+        let _lock = COMSPEC_TEST_MUTEX
+            .get_or_init(|| Mutex::new(()))
+            .lock()
+            .unwrap_or_else(|poisoned| poisoned.into_inner());
+        let _guard = ComspecGuard {
+            original: std::env::var("COMSPEC").ok(),
+        };
+
+        if let Some(value) = value {
+            std::env::set_var("COMSPEC", value);
+        } else {
+            std::env::remove_var("COMSPEC");
+        }
+
+        test()
+    }
+
     #[test]
     #[cfg(windows)]
     fn test_get_windows_shell_default() {
-        // Save original COMSPEC
-        let original = std::env::var("COMSPEC").ok();
-
-        // Test with no COMSPEC set
-        std::env::remove_var("COMSPEC");
-        let shell = get_windows_shell();
-        assert_eq!(shell, "cmd.exe");
-
-        // Restore original
-        if let Some(val) = original {
-            std::env::set_var("COMSPEC", val);
-        }
+        with_comspec(None, || {
+            let shell = get_windows_shell();
+            assert_eq!(shell, "cmd.exe");
+        });
     }
 
     #[test]
     #[cfg(windows)]
     fn test_get_windows_shell_with_quotes() {
-        // Save original COMSPEC
-        let original = std::env::var("COMSPEC").ok();
-
-        // Test with quoted path (common Windows issue)
-        std::env::set_var("COMSPEC", "\"C:\\Windows\\System32\\cmd.exe\"");
-        let shell = get_windows_shell();
-        assert_eq!(shell, "C:\\Windows\\System32\\cmd.exe");
-        assert!(!shell.contains('"'));
-
-        // Restore original
-        if let Some(val) = original {
-            std::env::set_var("COMSPEC", val);
-        } else {
-            std::env::remove_var("COMSPEC");
-        }
+        with_comspec(Some("\"C:\\Windows\\System32\\cmd.exe\""), || {
+            let shell = get_windows_shell();
+            assert_eq!(shell, "C:\\Windows\\System32\\cmd.exe");
+            assert!(!shell.contains('"'));
+        });
     }
 
     #[test]
     #[cfg(windows)]
     fn test_get_windows_shell_without_quotes() {
-        // Save original COMSPEC
-        let original = std::env::var("COMSPEC").ok();
-
-        // Test with normal path
-        std::env::set_var("COMSPEC", "C:\\Windows\\System32\\cmd.exe");
-        let shell = get_windows_shell();
-        assert_eq!(shell, "C:\\Windows\\System32\\cmd.exe");
-
-        // Restore original
-        if let Some(val) = original {
-            std::env::set_var("COMSPEC", val);
-        } else {
-            std::env::remove_var("COMSPEC");
-        }
+        with_comspec(Some("C:\\Windows\\System32\\cmd.exe"), || {
+            let shell = get_windows_shell();
+            assert_eq!(shell, "C:\\Windows\\System32\\cmd.exe");
+        });
     }
 
     #[test]
     #[cfg(windows)]
     fn test_get_windows_shell_empty_after_trim() {
-        // Save original COMSPEC
-        let original = std::env::var("COMSPEC").ok();
-
-        // Test with just quotes (edge case)
-        std::env::set_var("COMSPEC", "\"\"");
-        let shell = get_windows_shell();
-        assert_eq!(shell, "cmd.exe");
-
-        // Restore original
-        if let Some(val) = original {
-            std::env::set_var("COMSPEC", val);
-        } else {
-            std::env::remove_var("COMSPEC");
-        }
+        with_comspec(Some("\"\""), || {
+            let shell = get_windows_shell();
+            assert_eq!(shell, "cmd.exe");
+        });
     }
 
     #[test]
@@ -163,22 +166,12 @@ mod tests {
     #[test]
     #[cfg(windows)]
     fn test_get_windows_shell_powershell() {
-        // Save original COMSPEC
-        let original = std::env::var("COMSPEC").ok();
-
-        // Test with PowerShell path
-        std::env::set_var(
-            "COMSPEC",
-            "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        with_comspec(
+            Some("C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"),
+            || {
+                let shell = get_windows_shell();
+                assert!(is_powershell(&shell));
+            },
         );
-        let shell = get_windows_shell();
-        assert!(is_powershell(&shell));
-
-        // Restore original
-        if let Some(val) = original {
-            std::env::set_var("COMSPEC", val);
-        } else {
-            std::env::remove_var("COMSPEC");
-        }
     }
 }

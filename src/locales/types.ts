@@ -1039,6 +1039,8 @@ export interface LocaleDefinition {
     mcpServersTooltip: string;
     toolsPlayground: string;
     toolsPlaygroundTooltip: string;
+    scheduledTasks: string;
+    scheduledTasksTooltip: string;
     usage: string;
     usageTooltip: string;
     tracing: string;
@@ -1049,6 +1051,114 @@ export interface LocaleDefinition {
     settingsTooltip: string;
     switchTheme: (theme: 'light' | 'dark') => string;
     githubTooltip: string;
+  };
+
+  ScheduledTasks: {
+    title: string;
+    newTask: string;
+    editTask: string;
+    deleteConfirm: string;
+    deleteDescription: (name: string) => string;
+    deleted: string;
+    created: string;
+    updated: string;
+    triggered: string;
+    noTasks: string;
+    noRuns: string;
+    noPreview: string;
+    nextRun: string;
+    lastRun: string;
+    runHistory: string;
+    offlineEnabled: string;
+    deliveryEnabled: string;
+    deliveryErrorPrefix: string;
+    attemptLabel: (attempt: number) => string;
+    jitterLabel: (ms: number) => string;
+    triggerSource: {
+      schedule: string;
+      manual: string;
+      catch_up: string;
+      retry: string;
+      offline_runner: string;
+    };
+    tabs: {
+      list: string;
+      dashboard: string;
+    };
+    dashboard: {
+      totalRuns: string;
+      successRate: string;
+      retriedRuns: string;
+      deliveryFailures: string;
+    };
+    fields: {
+      name: string;
+      namePlaceholder: string;
+      schedule: string;
+      prompt: string;
+      promptPlaceholder: string;
+      naturalLanguageSchedule: string;
+      naturalLanguageSchedulePlaceholder: string;
+      atTime: string;
+      intervalValue: string;
+      intervalUnit: string;
+      minutes: string;
+      hours: string;
+      days: string;
+      cronExpr: string;
+      timezone: string;
+      preview: string;
+      advanced: string;
+      autoApproveEdits: string;
+      autoApprovePlan: string;
+      retryPolicy: string;
+      maxAttempts: string;
+      backoffMs: string;
+      jitterPolicy: string;
+      jitterAuto: string;
+      jitterNone: string;
+      jitterCustom: string;
+      customJitterMs: string;
+      notifications: string;
+      notifyOnSuccess: string;
+      notifyOnFailure: string;
+      delivery: string;
+      deliveryEnabled: string;
+      deliveryTargetPlaceholder: string;
+      offline: string;
+      offlineEnabled: string;
+      offlineHint: string;
+    };
+    scheduleKind: {
+      at: string;
+      every: string;
+      cron: string;
+    };
+    status: {
+      enabled: string;
+      disabled: string;
+      completed: string;
+      error: string;
+    };
+    runStatus: {
+      queued: string;
+      running: string;
+      completed: string;
+      failed: string;
+      skipped: string;
+      cancelled: string;
+    };
+    actions: {
+      runNow: string;
+      enable: string;
+      disable: string;
+      viewTask: string;
+      parseNaturalLanguage: string;
+    };
+    validation: {
+      nameRequired: string;
+      promptRequired: string;
+    };
   };
 
   PptViewer: {

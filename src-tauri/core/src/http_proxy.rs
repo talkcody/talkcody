@@ -43,6 +43,16 @@ fn validate_url(url_str: &str, allow_private_ip: bool) -> Result<(), String> {
         return Ok(());
     }
 
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        if !allow_private_ip && is_private_ip(&ip) {
+            return Err(format!(
+                "Access to private/internal IP addresses is not allowed: {}",
+                ip
+            ));
+        }
+        return Ok(());
+    }
+
     // Try to resolve the host to IP addresses
     let port = url
         .port()
@@ -688,15 +698,15 @@ mod tests {
 
     #[test]
     fn test_validate_url_valid_https() {
-        assert!(validate_url("https://example.com", false).is_ok());
-        assert!(validate_url("https://api.example.com/path", false).is_ok());
-        assert!(validate_url("https://example.com:443/path?query=1", false).is_ok());
+        assert!(validate_url("https://1.1.1.1", false).is_ok());
+        assert!(validate_url("https://8.8.8.8/path", false).is_ok());
+        assert!(validate_url("https://93.184.216.34:443/path?query=1", false).is_ok());
     }
 
     #[test]
     fn test_validate_url_valid_http() {
-        assert!(validate_url("http://example.com", false).is_ok());
-        assert!(validate_url("http://api.example.com:8080/path", false).is_ok());
+        assert!(validate_url("http://1.1.1.1", false).is_ok());
+        assert!(validate_url("http://8.8.8.8:8080/path", false).is_ok());
     }
 
     #[test]

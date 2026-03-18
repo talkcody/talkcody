@@ -214,6 +214,93 @@ pub fn chat_history_migrations() -> MigrationRegistry {
         down_sql: Some("DROP INDEX IF EXISTS idx_attachments_message;"),
     });
 
+    // Migration 6: Scheduled tasks table
+    registry.register(Migration {
+        version: 6,
+        name: "create_scheduled_tasks_table",
+        up_sql: r#"
+            CREATE TABLE IF NOT EXISTS scheduled_tasks (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                project_id TEXT,
+                schedule_kind TEXT NOT NULL,
+                schedule_at TEXT,
+                schedule_every_ms INTEGER,
+                schedule_cron_expr TEXT,
+                schedule_tz TEXT,
+                payload_message TEXT NOT NULL,
+                payload_model TEXT,
+                payload_auto_approve_edits INTEGER NOT NULL DEFAULT 0,
+                payload_auto_approve_plan INTEGER NOT NULL DEFAULT 0,
+                exec_max_concurrent_runs INTEGER NOT NULL DEFAULT 1,
+                exec_catch_up INTEGER NOT NULL DEFAULT 0,
+                exec_stagger_ms INTEGER NOT NULL DEFAULT -1,
+                retry_max_attempts INTEGER NOT NULL DEFAULT 2,
+                retry_backoff_ms TEXT NOT NULL DEFAULT '[30000,60000]',
+                status TEXT NOT NULL DEFAULT 'enabled',
+                next_run_at INTEGER,
+                last_run_at INTEGER,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            );
+            CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_status ON scheduled_tasks(status);
+            CREATE INDEX IF NOT EXISTS idx_scheduled_tasks_next_run ON scheduled_tasks(next_run_at);
+        "#,
+        down_sql: Some("DROP TABLE IF EXISTS scheduled_tasks;"),
+    });
+
+    // Migration 7: Scheduled task runs table
+    registry.register(Migration {
+        version: 7,
+        name: "create_scheduled_task_runs_table",
+        up_sql: r#"
+            CREATE TABLE IF NOT EXISTS scheduled_task_runs (
+                id TEXT PRIMARY KEY,
+                scheduled_task_id TEXT NOT NULL,
+                task_id TEXT,
+                status TEXT NOT NULL DEFAULT 'running',
+                triggered_at INTEGER NOT NULL,
+                completed_at INTEGER,
+                error TEXT,
+                attempt INTEGER NOT NULL DEFAULT 1,
+                FOREIGN KEY (scheduled_task_id) REFERENCES scheduled_tasks(id) ON DELETE CASCADE
+            );
+            CREATE INDEX IF NOT EXISTS idx_task_runs_job ON scheduled_task_runs(scheduled_task_id);
+            CREATE INDEX IF NOT EXISTS idx_task_runs_triggered ON scheduled_task_runs(triggered_at);
+            CREATE INDEX IF NOT EXISTS idx_task_runs_status ON scheduled_task_runs(status);
+        "#,
+        down_sql: Some("DROP TABLE IF EXISTS scheduled_task_runs;"),
+    });
+
+    // Migration 8: Phase 2/3/4 scheduled task policy columns
+    registry.register(Migration {
+        version: 8,
+        name: "extend_scheduled_tasks_for_phase_2_3_4",
+        up_sql: r#"
+            ALTER TABLE scheduled_tasks ADD COLUMN schedule_nl_text TEXT;
+            ALTER TABLE scheduled_tasks ADD COLUMN notification_policy_json TEXT NOT NULL DEFAULT '{}';
+            ALTER TABLE scheduled_tasks ADD COLUMN delivery_policy_json TEXT NOT NULL DEFAULT '{}';
+            ALTER TABLE scheduled_tasks ADD COLUMN offline_policy_json TEXT NOT NULL DEFAULT '{}';
+        "#,
+        down_sql: None,
+    });
+
+    // Migration 9: Phase 2/3/4 scheduled run metadata columns
+    registry.register(Migration {
+        version: 9,
+        name: "extend_scheduled_task_runs_for_phase_2_3_4",
+        up_sql: r#"
+            ALTER TABLE scheduled_task_runs ADD COLUMN trigger_source TEXT NOT NULL DEFAULT 'schedule';
+            ALTER TABLE scheduled_task_runs ADD COLUMN scheduled_for_at INTEGER;
+            ALTER TABLE scheduled_task_runs ADD COLUMN payload_snapshot_json TEXT;
+            ALTER TABLE scheduled_task_runs ADD COLUMN project_id_snapshot TEXT;
+            ALTER TABLE scheduled_task_runs ADD COLUMN delivery_status TEXT;
+            ALTER TABLE scheduled_task_runs ADD COLUMN delivery_error TEXT;
+        "#,
+        down_sql: None,
+    });
+
     registry
 }
 
@@ -326,7 +413,7 @@ mod tests {
     #[test]
     fn test_chat_history_migrations_count() {
         let registry = chat_history_migrations();
-        assert_eq!(registry.migrations().len(), 5);
+        assert_eq!(registry.migrations().len(), 9);
     }
 
     #[test]

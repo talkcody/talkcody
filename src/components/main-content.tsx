@@ -4,6 +4,7 @@ import { LLMTracingPage } from '@/pages/llm-tracing-page';
 import { LogsPage } from '@/pages/logs-page';
 import { MCPServersPage } from '@/pages/mcp-servers-page';
 import { ProjectsPage } from '@/pages/projects-page';
+import { ScheduledTasksPage } from '@/pages/scheduled-tasks-page';
 import { SettingsPage } from '@/pages/settings-page';
 import { SkillsPage } from '@/pages/skills-page';
 import ToolPlayground from '@/pages/tool-playground-page';
@@ -30,6 +31,8 @@ export function MainContent({ activeView }: MainContentProps) {
       {activeView === NavigationView.SKILLS_MARKETPLACE && <SkillsPage />}
 
       {activeView === NavigationView.MCP_SERVERS && <MCPServersPage />}
+
+      {activeView === NavigationView.SCHEDULED_TASKS && <ScheduledTasksPage />}
 
       {activeView === NavigationView.TOOLS_PLAYGROUND && <ToolPlayground />}
 

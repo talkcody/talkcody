@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-shell';
 import {
   Activity,
   Bot,
+  Clock,
   Files,
   FileText,
   FolderOpen,
@@ -53,6 +54,11 @@ export function NavigationSidebar({ activeView, onViewChange }: NavigationSideba
       id: NavigationView.MCP_SERVERS,
       icon: Server,
       tooltip: `${t.Navigation.mcpServersTooltip}`,
+    },
+    {
+      id: NavigationView.SCHEDULED_TASKS,
+      icon: Clock,
+      tooltip: `${t.Navigation.scheduledTasksTooltip}`,
     },
 
     {

@@ -35,6 +35,8 @@ tauri.workspace = true
 
 uuid.workspace = true
 chrono.workspace = true
+cron.workspace = true
+chrono-tz.workspace = true
 regex.workspace = true
 dirs.workspace = true
 base64.workspace = true

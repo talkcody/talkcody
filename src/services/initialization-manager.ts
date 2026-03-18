@@ -10,6 +10,7 @@ import { useAuthStore } from '@/stores/auth-store';
 import { initializeLspSettings } from '@/stores/lsp-store';
 import { usePlanModeStore } from '@/stores/plan-mode-store';
 import { useRalphLoopStore } from '@/stores/ralph-loop-store';
+import { initScheduledTaskListener } from '@/stores/scheduled-task-store';
 import { useSettingsStore } from '@/stores/settings-store';
 import { useSkillsStore } from '@/stores/skills-store';
 
@@ -172,6 +173,11 @@ class InitializationManager {
           // Completion hooks (stop hook, ralph loop, auto code review)
           Promise.resolve(executionService.registerCompletionHooks()).then(() => {
             logger.info('[InitManager] ✓ Completion hooks registered (background)');
+          }),
+
+          // Scheduled task event listener
+          initScheduledTaskListener().then(() => {
+            logger.info('[InitManager] ✓ Scheduled task listener registered (background)');
           }),
         ]);
 

@@ -85,6 +85,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 # Utilities
 uuid = { version = "1.20", features = ["v4"] }
 chrono = { version = "0.4", features = ["serde"] }
+cron = "0.12"
+chrono-tz = { version = "0.9", features = ["serde"] }
 regex = "1.10"
 dirs = "5.0"
 base64 = "0.22"

@@ -19,12 +19,10 @@ class NotificationService {
 
     try {
       let granted = await isPermissionGranted();
-
       if (!granted) {
         const permission = await requestPermission();
         granted = permission === 'granted';
       }
-
       this.permissionGranted = granted;
       return granted;
     } catch (error) {
@@ -33,49 +31,26 @@ class NotificationService {
     }
   }
 
-  /**
-   * Check if the current window is focused
-   */
   private async isWindowFocused(): Promise<boolean> {
     try {
-      const window = getCurrentWindow();
-      const focused = await window.isFocused();
-      return focused;
+      return await getCurrentWindow().isFocused();
     } catch (error) {
       logger.error('Failed to check window focus:', error);
-      // If we can't check, assume focused to avoid spamming notifications
       return true;
     }
   }
 
-  /**
-   * Send a notification if the window is not focused
-   * @param title Notification title
-   * @param body Notification body
-   */
   async sendIfNotFocused(title: string, body: string): Promise<void> {
     try {
-      // Check if window is focused
-      const focused = await this.isWindowFocused();
-
-      if (focused) {
+      if (await this.isWindowFocused()) {
         return;
       }
-
-      // Check permission
       const hasPermission = await this.ensurePermission();
-
       if (!hasPermission) {
         logger.warn('Notification permission not granted');
         return;
       }
-
-      // Send notification
-      await sendNotification({
-        title,
-        body,
-        sound: 'Glass',
-      });
+      await sendNotification({ title, body, sound: 'Glass' });
     } catch (error) {
       logger.error('Failed to send notification:', error);
     }
@@ -92,6 +67,17 @@ class NotificationService {
     } catch (error) {
       logger.warn('[NotificationService] Remote refresh failed', error);
     }
+  }
+
+  async notifyScheduledTaskResult(params: {
+    taskName: string;
+    success: boolean;
+    body?: string;
+  }): Promise<void> {
+    const title = params.success ? 'Scheduled Task Complete' : 'Scheduled Task Failed';
+    const body =
+      params.body ?? `${params.taskName} ${params.success ? 'completed successfully' : 'failed'}`;
+    await this.sendIfNotFocused(title, body);
   }
 
   async notifyHooked(taskId: string, title: string, body: string, type: string): Promise<void> {

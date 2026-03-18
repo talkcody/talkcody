@@ -3,6 +3,7 @@
 pub mod dock_menu;
 pub mod file_watcher;
 pub mod keep_awake;
+pub mod scheduled_tasks;
 pub mod window_manager;
 
 pub mod llm_commands;
@@ -27,6 +28,7 @@ pub use talkcody_core::llm;
 pub use talkcody_core::lsp;
 pub use talkcody_core::oauth_callback_server;
 pub use talkcody_core::platform;
+pub use talkcody_core::scheduler;
 pub use talkcody_core::script_executor;
 pub use talkcody_core::search;
 pub use talkcody_core::security;
@@ -43,6 +45,7 @@ use code_navigation::{CodeNavState, CodeNavigationService};
 use database::Database;
 use file_watcher::FileWatcher;
 use llm::tracing::writer::TraceWriter;
+use scheduler::SchedulerService;
 use script_executor::{ScriptExecutionRequest, ScriptExecutionResult, ScriptExecutor};
 use serde::{Deserialize, Serialize};
 use std::process::Stdio;
@@ -945,6 +948,16 @@ pub fn run() {
                 dock_menu::setup_dock_menu();
             }
 
+            // Start scheduled task scheduler
+            let scheduler_db = Arc::clone(&database);
+            let scheduler_handle = app.handle().clone();
+            let scheduler_svc = Arc::new(SchedulerService::new(scheduler_db, scheduler_handle));
+            app.manage(Arc::clone(&scheduler_svc));
+            Arc::clone(&scheduler_svc).start();
+
+            // Ensure OS-level scheduled-task runner is synced at startup.
+            let _ = scheduled_tasks::sync_runner_for_current_platform(&app.handle().clone(), true);
+
             log::info!("Setup complete");
             Ok(())
         })
@@ -1118,6 +1131,21 @@ pub fn run() {
             feishu_gateway::feishu_is_running,
             feishu_gateway::feishu_send_message,
             feishu_gateway::feishu_edit_message,
+            scheduler::create_scheduled_task,
+            scheduler::update_scheduled_task,
+            scheduler::delete_scheduled_task,
+            scheduler::list_scheduled_tasks,
+            scheduler::list_scheduled_task_runs,
+            scheduler::trigger_scheduled_task_now,
+            scheduler::report_scheduled_task_run_complete,
+            scheduler::validate_scheduled_task_cron,
+            scheduler::validate_scheduled_task_timezone,
+            scheduler::preview_scheduled_task_cron,
+            scheduler::claim_scheduled_task_runs,
+            scheduler::get_scheduled_task_stats,
+            scheduled_tasks::scheduled_task_runner_status,
+            scheduled_tasks::scheduled_task_runner_sync,
+            scheduled_tasks::scheduled_task_runner_run_now,
         ])
         .on_window_event(|window, event| {
             if let WindowEvent::CloseRequested { .. } = event {

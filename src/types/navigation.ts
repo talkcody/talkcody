@@ -5,6 +5,7 @@ export enum NavigationView {
   SKILLS_MARKETPLACE = 'skills-marketplace',
   MCP_SERVERS = 'mcp-servers',
   TOOLS_PLAYGROUND = 'tools-playground',
+  SCHEDULED_TASKS = 'scheduled-tasks',
   USAGE = 'usage',
   LLM_TRACING = 'llm-tracing',
   LOGS = 'logs',
