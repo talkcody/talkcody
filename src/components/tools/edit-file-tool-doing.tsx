@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { FileEditReviewCard } from '@/components/tools/file-edit-review-card';
 import { GenericToolDoing } from '@/components/tools/generic-tool-doing';
+import { arePathsEqual } from '@/services/repository-utils';
 import { type PendingEditEntry, useEditReviewStore } from '@/stores/edit-review-store';
 
 interface EditBlock {
@@ -38,7 +39,8 @@ export function EditFileToolDoing({ file_path, edits, taskId }: EditFileToolDoin
   }, [pendingEdits, taskId]);
 
   // If there's a pending edit for this file and task, show the inline review card
-  if (entry && entry.pendingEdit.filePath === file_path) {
+  // Use arePathsEqual to handle Windows/Unix path separator differences
+  if (entry && arePathsEqual(entry.pendingEdit.filePath, file_path)) {
     return (
       <FileEditReviewCard taskId={taskId} editId={entry.editId} pendingEdit={entry.pendingEdit} />
     );

@@ -10,6 +10,43 @@ function normalizeSeparators(path: string): string {
 }
 
 /**
+ * Synchronously normalize a file path for comparison purposes.
+ * This converts backslashes to forward slashes and handles Windows drive letters.
+ * Note: This is for comparison only, not for actual file system operations.
+ * @param path - The file path to normalize
+ * @returns Normalized path string
+ */
+export function normalizePathForComparison(path: string): string {
+  if (!path) return path;
+
+  // Convert backslashes to forward slashes
+  let normalized = path.replace(/\\/g, '/');
+
+  // Handle Windows drive letter - convert to lowercase for case-insensitive comparison
+  // e.g., "F:/path" and "f:/path" should be considered equal
+  if (/^[a-zA-Z]:\//.test(normalized)) {
+    normalized = normalized.charAt(0).toLowerCase() + normalized.slice(1);
+  }
+
+  // Remove trailing slashes (except for root "/")
+  normalized = normalized.replace(/\/$/, '');
+
+  return normalized;
+}
+
+/**
+ * Compare two file paths for equality, handling platform differences.
+ * Works on both Windows and Unix-like systems.
+ * @param path1 - First file path
+ * @param path2 - Second file path
+ * @returns True if paths are equivalent
+ */
+export function arePathsEqual(path1: string, path2: string): boolean {
+  if (!path1 || !path2) return path1 === path2;
+  return normalizePathForComparison(path1) === normalizePathForComparison(path2);
+}
+
+/**
  * Normalize file path by handling relative paths and path normalization
  * @param rootPath - The root directory path
  * @param filePath - The file path (can be relative or absolute)

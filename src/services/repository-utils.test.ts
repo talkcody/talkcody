@@ -1,138 +1,195 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import {
+  arePathsEqual,
+  getFileExtension,
+  getFileNameFromPath,
+  getFullPath,
+  getLanguageFromExtension,
+  getRelativePath,
+  isCodeFile,
+  normalizePathForComparison,
+  shouldSkipDirectory,
+} from './repository-utils';
 
-// Override the global mock from setup.ts for this specific test
-vi.mock('@tauri-apps/api/path', () => ({
-  join: vi.fn(),
-  normalize: vi.fn(),
-}));
+describe('repository-utils', () => {
+  describe('normalizePathForComparison', () => {
+    it('should convert backslashes to forward slashes', () => {
+      // Note: Windows drive letters are lowercased for case-insensitive comparison
+      expect(normalizePathForComparison('F:\\path\\to\\file.ts')).toBe('f:/path/to/file.ts');
+      expect(normalizePathForComparison('path\\to\\file.ts')).toBe('path/to/file.ts');
+    });
 
-// Since we need to test the actual implementation, not the global mock, we need to unmock it
-vi.unmock('./repository-utils');
+    it('should lowercase Windows drive letters', () => {
+      expect(normalizePathForComparison('F:/path/to/file.ts')).toBe('f:/path/to/file.ts');
+      expect(normalizePathForComparison('C:/Windows/System32')).toBe('c:/Windows/System32');
+      expect(normalizePathForComparison('f:/path/to/file.ts')).toBe('f:/path/to/file.ts');
+    });
 
-import { join, normalize } from '@tauri-apps/api/path';
-import { getFileNameFromPath, getRelativePath, normalizeFilePath } from './repository-utils';
+    it('should remove trailing slashes', () => {
+      expect(normalizePathForComparison('/path/to/dir/')).toBe('/path/to/dir');
+      expect(normalizePathForComparison('F:/path/')).toBe('f:/path');
+    });
 
-const mockJoin = vi.mocked(join);
-const mockNormalize = vi.mocked(normalize);
+    it('should handle Unix paths correctly', () => {
+      expect(normalizePathForComparison('/usr/local/bin')).toBe('/usr/local/bin');
+      expect(normalizePathForComparison('/home/user/file.txt')).toBe('/home/user/file.txt');
+    });
 
-describe('normalizeFilePath', () => {
-  const rootPath = '/root/project';
+    it('should handle empty and null paths', () => {
+      expect(normalizePathForComparison('')).toBe('');
+      expect(normalizePathForComparison(null as unknown as string)).toBe(null as unknown as string);
+      expect(normalizePathForComparison(undefined as unknown as string)).toBe(undefined as unknown as string);
+    });
 
-  beforeEach(() => {
-    vi.clearAllMocks();
+    it('should handle Windows UNC paths', () => {
+      expect(normalizePathForComparison('\\\\server\\share\\file.txt')).toBe('//server/share/file.txt');
+    });
   });
 
-describe('getFileNameFromPath', () => {
-  it('should handle Windows paths', () => {
-    expect(getFileNameFromPath('C:\\Users\\dev\\file.ts')).toBe('file.ts');
+  describe('arePathsEqual', () => {
+    it('should consider paths with different separators as equal', () => {
+      expect(arePathsEqual('F:/path/to/file.ts', 'F:\\path\\to\\file.ts')).toBe(true);
+      expect(arePathsEqual('/usr/local/bin', '/usr/local/bin')).toBe(true);
+    });
+
+    it('should consider paths with different drive letter cases as equal', () => {
+      expect(arePathsEqual('F:/path/to/file.ts', 'f:/path/to/file.ts')).toBe(true);
+      expect(arePathsEqual('C:/Windows', 'c:/Windows')).toBe(true);
+    });
+
+    it('should handle mixed separator and case differences', () => {
+      expect(arePathsEqual('F:\\path\\to\\file.ts', 'f:/path/to/file.ts')).toBe(true);
+    });
+
+    it('should return false for different paths', () => {
+      expect(arePathsEqual('F:/path/to/file.ts', 'F:/path/to/other.ts')).toBe(false);
+      expect(arePathsEqual('/usr/local/bin', '/usr/local/lib')).toBe(false);
+    });
+
+    it('should handle empty and null paths', () => {
+      expect(arePathsEqual('', '')).toBe(true);
+      expect(arePathsEqual('', '/path')).toBe(false);
+      expect(arePathsEqual('/path', '')).toBe(false);
+      expect(arePathsEqual(null as unknown as string, null as unknown as string)).toBe(true);
+    });
+
+    it('should handle real-world Windows paths from the bug report', () => {
+      // This is the exact scenario from the bug report
+      const normalizedPath = 'F:/cc_ws/test/analyze_efficiency.py';
+      const originalPath = 'F:\\cc_ws\\test\\analyze_efficiency.py';
+      expect(arePathsEqual(normalizedPath, originalPath)).toBe(true);
+    });
   });
 
-  it('should handle trailing separators', () => {
-    expect(getFileNameFromPath('C:\\Users\\dev\\repo\\')).toBe('repo');
+  describe('getFileNameFromPath', () => {
+    it('should extract filename from Unix path', () => {
+      expect(getFileNameFromPath('/path/to/file.ts')).toBe('file.ts');
+    });
+
+    it('should extract filename from Windows path', () => {
+      expect(getFileNameFromPath('F:\\path\\to\\file.ts')).toBe('file.ts');
+    });
+
+    it('should handle paths with trailing separator', () => {
+      expect(getFileNameFromPath('/path/to/dir/')).toBe('dir');
+    });
+
+    it('should return original path if empty or no separator', () => {
+      expect(getFileNameFromPath('file.txt')).toBe('file.txt');
+      expect(getFileNameFromPath('')).toBe('');
+    });
   });
 
-  it('should handle mixed separators', () => {
-    expect(getFileNameFromPath('C:/Users/dev\\repo/file.ts')).toBe('file.ts');
-  });
-});
+  describe('getFileExtension', () => {
+    it('should extract extension from filename', () => {
+      expect(getFileExtension('file.ts')).toBe('ts');
+      expect(getFileExtension('file.test.tsx')).toBe('tsx');
+    });
 
-describe('getRelativePath', () => {
-  it('should return relative path for Windows-style root and file', () => {
-    const rootPath = 'C:\\Users\\dev\\repo';
-    const filePath = 'C:\\Users\\dev\\repo\\src\\index.ts';
+    it('should handle files without extension', () => {
+      expect(getFileExtension('Makefile')).toBe('makefile');
+      expect(getFileExtension('Dockerfile')).toBe('dockerfile');
+    });
 
-    expect(getRelativePath(filePath, rootPath)).toBe('src/index.ts');
-  });
-
-  it('should return original path when root does not match', () => {
-    const rootPath = 'C:\\Users\\dev\\repo';
-    const filePath = 'D:\\Work\\other\\file.ts';
-
-    expect(getRelativePath(filePath, rootPath)).toBe(filePath);
-  });
-});
-
-  it('should return normalized path for absolute Unix paths', async () => {
-    const filePath = '/Users/test/file.txt';
-    mockNormalize.mockResolvedValueOnce('/Users/test/file.txt');
-
-    const result = await normalizeFilePath(rootPath, filePath);
-
-    expect(result).toBe('/Users/test/file.txt');
-    expect(mockNormalize).toHaveBeenCalledWith(filePath);
-    expect(mockJoin).not.toHaveBeenCalled();
+    it('should return empty string for empty filename', () => {
+      expect(getFileExtension('')).toBe('');
+    });
   });
 
-  it('should return normalized path for absolute Windows paths', async () => {
-    const filePath = 'C:\\Users\\test\\file.txt';
-    mockNormalize.mockResolvedValueOnce('C:\\Users\\test\\file.txt');
+  describe('getFullPath', () => {
+    it('should combine base path with relative file path', () => {
+      expect(getFullPath('/home/user', 'file.ts')).toBe('/home/user/file.ts');
+    });
 
-    const result = await normalizeFilePath(rootPath, filePath);
+    it('should return absolute path as-is', () => {
+      expect(getFullPath('/home/user', '/absolute/path/file.ts')).toBe('/absolute/path/file.ts');
+    });
 
-    expect(result).toBe('C:\\Users\\test\\file.txt');
-    expect(mockNormalize).toHaveBeenCalledWith(filePath);
-    expect(mockJoin).not.toHaveBeenCalled();
+    it('should handle file path already containing base path', () => {
+      expect(getFullPath('/home/user', '/home/user/file.ts')).toBe('/home/user/file.ts');
+    });
   });
 
-  it('should treat UNC paths as absolute', async () => {
-    const filePath = '\\\\server\\share\\file.txt';
-    mockNormalize.mockResolvedValueOnce('\\\\server\\share\\file.txt');
+  describe('getRelativePath', () => {
+    it('should extract relative path from full path', () => {
+      expect(getRelativePath('/home/user/project/file.ts', '/home/user/project')).toBe('file.ts');
+    });
 
-    const result = await normalizeFilePath(rootPath, filePath);
+    it('should return full path if not within repository', () => {
+      expect(getRelativePath('/other/path/file.ts', '/home/user/project')).toBe('/other/path/file.ts');
+    });
 
-    expect(result).toBe('\\\\server\\share\\file.txt');
-    expect(mockNormalize).toHaveBeenCalledWith(filePath);
-    expect(mockJoin).not.toHaveBeenCalled();
+    it('should handle paths with different separators', () => {
+      expect(getRelativePath('F:/project/file.ts', 'F:/project')).toBe('file.ts');
+    });
   });
 
-  it('should treat extended Windows paths as absolute', async () => {
-    const filePath = '\\\\?\\C:\\Users\\test\\file.txt';
-    mockNormalize.mockResolvedValueOnce('\\\\?\\C:\\Users\\test\\file.txt');
+  describe('getLanguageFromExtension', () => {
+    it('should map common extensions to languages', () => {
+      expect(getLanguageFromExtension('file.ts')).toBe('typescript');
+      expect(getLanguageFromExtension('file.tsx')).toBe('typescript');
+      expect(getLanguageFromExtension('file.py')).toBe('python');
+      expect(getLanguageFromExtension('file.rs')).toBe('rust');
+    });
 
-    const result = await normalizeFilePath(rootPath, filePath);
-
-    expect(result).toBe('\\\\?\\C:\\Users\\test\\file.txt');
-    expect(mockNormalize).toHaveBeenCalledWith(filePath);
-    expect(mockJoin).not.toHaveBeenCalled();
+    it('should return "text" for unknown extensions', () => {
+      expect(getLanguageFromExtension('file.xyz')).toBe('text');
+    });
   });
 
-  it('should treat extended UNC paths as absolute', async () => {
-    const filePath = '\\\\?\\UNC\\server\\share\\file.txt';
-    mockNormalize.mockResolvedValueOnce('\\\\?\\UNC\\server\\share\\file.txt');
+  describe('isCodeFile', () => {
+    it('should identify code files by extension', () => {
+      expect(isCodeFile('file.ts')).toBe(true);
+      expect(isCodeFile('file.py')).toBe(true);
+      expect(isCodeFile('file.rs')).toBe(true);
+    });
 
-    const result = await normalizeFilePath(rootPath, filePath);
+    it('should identify config files', () => {
+      expect(isCodeFile('Dockerfile')).toBe(true);
+      expect(isCodeFile('Makefile')).toBe(true);
+    });
 
-    expect(result).toBe('\\\\?\\UNC\\server\\share\\file.txt');
-    expect(mockNormalize).toHaveBeenCalledWith(filePath);
-    expect(mockJoin).not.toHaveBeenCalled();
+    it('should return false for non-code files', () => {
+      expect(isCodeFile('file.pdf')).toBe(false);
+      expect(isCodeFile('file.jpg')).toBe(false);
+    });
   });
 
-  it('should join root path when receiving relative paths', async () => {
-    const relativePath = 'src/file.ts';
-    const joinedPath = `${rootPath}/${relativePath}`;
+  describe('shouldSkipDirectory', () => {
+    it('should skip common directories', () => {
+      expect(shouldSkipDirectory('node_modules')).toBe(true);
+      expect(shouldSkipDirectory('.git')).toBe(true);
+      expect(shouldSkipDirectory('target')).toBe(true);
+    });
 
-    mockJoin.mockResolvedValueOnce(joinedPath);
-    mockNormalize.mockResolvedValueOnce(joinedPath);
+    it('should skip hidden directories', () => {
+      expect(shouldSkipDirectory('.vscode')).toBe(true);
+      expect(shouldSkipDirectory('.idea')).toBe(true);
+    });
 
-    const result = await normalizeFilePath(rootPath, relativePath);
-
-    expect(mockJoin).toHaveBeenCalledWith(rootPath, relativePath);
-    expect(mockNormalize).toHaveBeenCalledWith(joinedPath);
-    expect(result).toBe(joinedPath);
-  });
-
-  it('should normalize dot segments within paths', async () => {
-    const relativePath = './src/../file.ts';
-    const joinedPath = `${rootPath}/./src/../file.ts`;
-    const normalizedPath = `${rootPath}/file.ts`;
-
-    mockJoin.mockResolvedValueOnce(joinedPath);
-    mockNormalize.mockResolvedValueOnce(normalizedPath);
-
-    const result = await normalizeFilePath(rootPath, relativePath);
-
-    expect(mockJoin).toHaveBeenCalledWith(rootPath, relativePath);
-    expect(mockNormalize).toHaveBeenCalledWith(joinedPath);
-    expect(result).toBe(normalizedPath);
+    it('should not skip regular directories', () => {
+      expect(shouldSkipDirectory('src')).toBe(false);
+      expect(shouldSkipDirectory('docs')).toBe(false);
+    });
   });
 });

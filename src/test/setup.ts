@@ -98,12 +98,16 @@ vi.mock('@/services/task-service', () => ({
 vi.mock('@/services/repository-service', () => ({ repositoryService: mockRepositoryService }));
 
 // Mock repository utils
-vi.mock('@/services/repository-utils', () => ({
-  normalizeFilePath: vi.fn().mockImplementation(async (root, path) => {
-    if (path.startsWith('/')) return path;
-    return `${root}/${path}`;
-  }),
-}));
+vi.mock('@/services/repository-utils', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/services/repository-utils')>();
+  return {
+    ...actual,
+    normalizeFilePath: vi.fn().mockImplementation(async (root: string, path: string) => {
+      if (path.startsWith('/')) return path;
+      return `${root}/${path}`;
+    }),
+  };
+});
 
 // Mock models config JSON import
 vi.mock('@talkcody/shared/data/models-config.json', () => ({
