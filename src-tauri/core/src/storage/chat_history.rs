@@ -46,9 +46,43 @@ impl ChatHistoryRepository {
         self.db.clone()
     }
 
+    async fn ensure_project_exists(&self, project_id: &str, timestamp: i64) -> Result<(), String> {
+        let project_name = if project_id == DEFAULT_PROJECT_ID {
+            "Default Project"
+        } else {
+            project_id
+        };
+
+        self.db
+            .execute(
+                r#"
+                INSERT OR IGNORE INTO projects (
+                    id, name, description, created_at, updated_at, context, rules, root_path
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                "#,
+                vec![
+                    serde_json::json!(project_id),
+                    serde_json::json!(project_name),
+                    serde_json::json!(""),
+                    serde_json::json!(timestamp),
+                    serde_json::json!(timestamp),
+                    serde_json::json!(""),
+                    serde_json::json!(""),
+                    Value::Null,
+                ],
+            )
+            .await?;
+
+        Ok(())
+    }
+
     // ============== Session Operations ==============
 
     pub async fn create_session(&self, session: &Session) -> Result<(), String> {
+        let project_id = session.project_id.as_deref().unwrap_or(DEFAULT_PROJECT_ID);
+        self.ensure_project_exists(project_id, to_db_timestamp(session.created_at))
+            .await?;
+
         let settings_json = settings_map_to_string(build_settings_map(None, session)?)?;
         self.db
             .execute(
@@ -60,10 +94,7 @@ impl ChatHistoryRepository {
                 vec![
                     serde_json::json!(session.id),
                     serde_json::json!(session.title.clone().unwrap_or_default()),
-                    serde_json::json!(session
-                        .project_id
-                        .clone()
-                        .unwrap_or_else(|| DEFAULT_PROJECT_ID.to_string())),
+                    serde_json::json!(project_id),
                     serde_json::json!(to_db_timestamp(session.created_at)),
                     serde_json::json!(to_db_timestamp(session.updated_at)),
                     serde_json::json!(settings_json),
@@ -538,6 +569,45 @@ mod tests {
         assert_eq!(retrieved.project_id, Some("project-1".to_string()));
         assert_eq!(retrieved.title, Some("Test Session".to_string()));
         assert_eq!(retrieved.status, SessionStatus::Created);
+    }
+
+    #[tokio::test]
+    async fn test_create_session_creates_missing_project_reference() {
+        let (db, _temp) = create_test_db().await;
+        let repo = ChatHistoryRepository::new(db.clone());
+
+        let session = Session {
+            id: "test-session-project".to_string(),
+            project_id: Some("project-42".to_string()),
+            title: Some("Project-backed Session".to_string()),
+            status: SessionStatus::Created,
+            created_at: chrono::Utc::now().timestamp(),
+            updated_at: chrono::Utc::now().timestamp(),
+            last_event_id: None,
+            metadata: None,
+        };
+
+        repo.create_session(&session)
+            .await
+            .expect("Failed to create session");
+
+        let project = db
+            .query(
+                "SELECT id, name FROM projects WHERE id = ?",
+                vec![serde_json::json!("project-42")],
+            )
+            .await
+            .expect("Failed to fetch project");
+
+        assert_eq!(project.rows.len(), 1);
+        assert_eq!(
+            project.rows[0].get("id").and_then(|value| value.as_str()),
+            Some("project-42")
+        );
+        assert_eq!(
+            project.rows[0].get("name").and_then(|value| value.as_str()),
+            Some("project-42")
+        );
     }
 
     #[tokio::test]
