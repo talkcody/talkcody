@@ -63,6 +63,19 @@ impl Database {
         self.execute_with_retry(sql, params, 3).await
     }
 
+    /// Execute a multi-statement SQL script without parameters.
+    ///
+    /// This is required for migrations because libsql `execute()` only runs a
+    /// single statement, while migration files often contain multiple DDL lines.
+    pub async fn execute_batch(&self, sql: &str) -> Result<(), String> {
+        let lock = self.conn.lock().await;
+        let conn = lock.as_ref().ok_or("Database not connected")?;
+        conn.execute_batch(sql)
+            .await
+            .map_err(|e| format!("Execute batch error: {}", e))?;
+        Ok(())
+    }
+
     async fn execute_with_retry(
         &self,
         sql: &str,

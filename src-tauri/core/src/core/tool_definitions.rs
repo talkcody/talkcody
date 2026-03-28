@@ -142,7 +142,7 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                     "properties": {
                         "pattern": {
                             "type": "string",
-                            "description": "The regular expression pattern to search for in file contents"
+                            "description": "The search text or regex pattern to find in file contents"
                         },
                         "path": {
                             "type": "string",

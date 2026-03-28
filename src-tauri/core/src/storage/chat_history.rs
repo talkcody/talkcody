@@ -1,11 +1,37 @@
 //! Chat History Repository
-//! Handles CRUD operations for sessions, messages, and events in chat_history.db
+//! Maps Rust session/message APIs onto the unified talkcody.db schema.
 
 use crate::database::Database;
 use crate::storage::models::*;
+use serde::{Deserialize, Serialize};
+use serde_json::{Map, Value};
 use std::sync::Arc;
 
-/// Repository for chat history operations
+const SERVER_COMPAT_KEY: &str = "_serverCompat";
+const DEFAULT_PROJECT_ID: &str = "default";
+
+#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ServerSessionCompat {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    status: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    last_event_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    metadata: Option<Value>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct MessageEnvelope {
+    content: MessageContent,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    parent_id: Option<String>,
+}
+
+/// Repository for chat history operations.
 #[derive(Clone)]
 pub struct ChatHistoryRepository {
     db: Arc<Database>,
@@ -16,101 +42,94 @@ impl ChatHistoryRepository {
         Self { db }
     }
 
+    pub fn get_db(&self) -> Arc<Database> {
+        self.db.clone()
+    }
+
     // ============== Session Operations ==============
 
-    /// Create a new session
     pub async fn create_session(&self, session: &Session) -> Result<(), String> {
-        let sql = r#"
-            INSERT INTO sessions (id, project_id, title, status, created_at, updated_at, last_event_id, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        "#;
-
+        let settings_json = settings_map_to_string(build_settings_map(None, session)?)?;
         self.db
             .execute(
-                sql,
+                r#"
+                INSERT INTO conversations (
+                    id, title, project_id, created_at, updated_at, settings
+                ) VALUES (?, ?, ?, ?, ?, ?)
+                "#,
                 vec![
                     serde_json::json!(session.id),
-                    serde_json::json!(session.project_id),
-                    serde_json::json!(session.title),
-                    serde_json::json!(session.status.as_str()),
-                    serde_json::json!(session.created_at),
-                    serde_json::json!(session.updated_at),
-                    serde_json::json!(session.last_event_id),
-                    serde_json::json!(session.metadata.as_ref().map(|m| m.to_string())),
+                    serde_json::json!(session.title.clone().unwrap_or_default()),
+                    serde_json::json!(session
+                        .project_id
+                        .clone()
+                        .unwrap_or_else(|| DEFAULT_PROJECT_ID.to_string())),
+                    serde_json::json!(to_db_timestamp(session.created_at)),
+                    serde_json::json!(to_db_timestamp(session.updated_at)),
+                    serde_json::json!(settings_json),
                 ],
             )
             .await?;
-
         Ok(())
     }
 
-    /// Get a session by ID
     pub async fn get_session(&self, session_id: &str) -> Result<Option<Session>, String> {
         let result = self
             .db
             .query(
-                "SELECT * FROM sessions WHERE id = ?",
+                "SELECT * FROM conversations WHERE id = ?",
                 vec![serde_json::json!(session_id)],
             )
             .await?;
-
-        Ok(result.rows.first().map(row_to_session))
+        result.rows.first().map(row_to_session).transpose()
     }
 
-    /// Update session status
     pub async fn update_session_status(
         &self,
         session_id: &str,
         status: SessionStatus,
         last_event_id: Option<&str>,
     ) -> Result<(), String> {
-        let updated_at = chrono::Utc::now().timestamp();
-
-        if let Some(event_id) = last_event_id {
-            self.db.execute(
-                "UPDATE sessions SET status = ?, updated_at = ?, last_event_id = ? WHERE id = ?",
-                vec![
-                    serde_json::json!(status.as_str()),
-                    serde_json::json!(updated_at),
-                    serde_json::json!(event_id),
-                    serde_json::json!(session_id),
-                ],
-            ).await?;
-        } else {
-            self.db
-                .execute(
-                    "UPDATE sessions SET status = ?, updated_at = ? WHERE id = ?",
-                    vec![
-                        serde_json::json!(status.as_str()),
-                        serde_json::json!(updated_at),
-                        serde_json::json!(session_id),
-                    ],
-                )
-                .await?;
-        }
-
-        Ok(())
-    }
-
-    /// Update session title
-    pub async fn update_session_title(&self, session_id: &str, title: &str) -> Result<(), String> {
-        let updated_at = chrono::Utc::now().timestamp();
+        let settings_map = self.get_conversation_settings(session_id).await?;
+        let compat = compat_from_settings_map(&settings_map)?;
+        let merged_settings = settings_map_to_string(set_compat_on_settings_map(
+            settings_map,
+            ServerSessionCompat {
+                status: Some(status.as_str().to_string()),
+                last_event_id: last_event_id
+                    .map(ToOwned::to_owned)
+                    .or(compat.last_event_id),
+                metadata: compat.metadata,
+            },
+        ))?;
 
         self.db
             .execute(
-                "UPDATE sessions SET title = ?, updated_at = ? WHERE id = ?",
+                "UPDATE conversations SET settings = ?, updated_at = ? WHERE id = ?",
                 vec![
-                    serde_json::json!(title),
-                    serde_json::json!(updated_at),
+                    serde_json::json!(merged_settings),
+                    serde_json::json!(to_db_timestamp(chrono::Utc::now().timestamp())),
                     serde_json::json!(session_id),
                 ],
             )
             .await?;
-
         Ok(())
     }
 
-    /// List sessions with optional filters
+    pub async fn update_session_title(&self, session_id: &str, title: &str) -> Result<(), String> {
+        self.db
+            .execute(
+                "UPDATE conversations SET title = ?, updated_at = ? WHERE id = ?",
+                vec![
+                    serde_json::json!(title),
+                    serde_json::json!(to_db_timestamp(chrono::Utc::now().timestamp())),
+                    serde_json::json!(session_id),
+                ],
+            )
+            .await?;
+        Ok(())
+    }
+
     pub async fn list_sessions(
         &self,
         project_id: Option<&str>,
@@ -118,39 +137,38 @@ impl ChatHistoryRepository {
         limit: Option<usize>,
         offset: Option<usize>,
     ) -> Result<Vec<Session>, String> {
-        let mut sql = "SELECT * FROM sessions WHERE 1=1".to_string();
-        let mut params: Vec<serde_json::Value> = vec![];
+        let mut sql = "SELECT * FROM conversations WHERE 1=1".to_string();
+        let mut params: Vec<Value> = vec![];
 
         if let Some(pid) = project_id {
             sql.push_str(" AND project_id = ?");
             params.push(serde_json::json!(pid));
         }
-
-        if let Some(s) = status {
-            sql.push_str(" AND status = ?");
-            params.push(serde_json::json!(s.as_str()));
-        }
-
         sql.push_str(" ORDER BY updated_at DESC");
 
-        if let Some(limit) = limit {
-            sql.push_str(&format!(" LIMIT {}", limit));
-        }
-
-        if let Some(offset) = offset {
-            sql.push_str(&format!(" OFFSET {}", offset));
-        }
-
         let result = self.db.query(&sql, params).await?;
+        let mut sessions = Vec::new();
+        for row in &result.rows {
+            let session = row_to_session(row)?;
+            if status.is_none_or(|wanted| session.status == wanted) {
+                sessions.push(session);
+            }
+        }
 
-        Ok(result.rows.iter().map(row_to_session).collect())
+        let start = offset.unwrap_or(0);
+        if start >= sessions.len() {
+            return Ok(vec![]);
+        }
+        let end = limit
+            .map(|lim| start.saturating_add(lim))
+            .unwrap_or(sessions.len());
+        Ok(sessions[start..sessions.len().min(end)].to_vec())
     }
 
-    /// Delete a session and all related data
     pub async fn delete_session(&self, session_id: &str) -> Result<(), String> {
         self.db
             .execute(
-                "DELETE FROM sessions WHERE id = ?",
+                "DELETE FROM conversations WHERE id = ?",
                 vec![serde_json::json!(session_id)],
             )
             .await?;
@@ -159,95 +177,87 @@ impl ChatHistoryRepository {
 
     // ============== Message Operations ==============
 
-    /// Create a new message
     pub async fn create_message(&self, message: &Message) -> Result<(), String> {
-        let sql = r#"
-            INSERT INTO messages (id, session_id, role, content, created_at, tool_call_id, parent_id)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        "#;
-
+        let position_index = self.next_message_position(&message.session_id).await?;
         self.db
             .execute(
-                sql,
+                r#"
+                INSERT INTO messages (
+                    id, conversation_id, role, content, timestamp, assistant_id, position_index
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                "#,
                 vec![
                     serde_json::json!(message.id),
                     serde_json::json!(message.session_id),
                     serde_json::json!(message.role.as_str()),
-                    serde_json::json!(serde_json::to_string(&message.content).unwrap()),
-                    serde_json::json!(message.created_at),
-                    serde_json::json!(message.tool_call_id),
-                    serde_json::json!(message.parent_id),
+                    serde_json::json!(message_to_db_content(message)?),
+                    serde_json::json!(to_db_timestamp(message.created_at)),
+                    serde_json::json!(None::<String>),
+                    serde_json::json!(position_index),
                 ],
             )
             .await?;
 
-        // Update session's updated_at timestamp
-        let updated_at = chrono::Utc::now().timestamp();
         self.db
             .execute(
-                "UPDATE sessions SET updated_at = ? WHERE id = ?",
+                r#"
+                UPDATE conversations
+                SET updated_at = ?, message_count = COALESCE(message_count, 0) + 1
+                WHERE id = ?
+                "#,
                 vec![
-                    serde_json::json!(updated_at),
+                    serde_json::json!(to_db_timestamp(chrono::Utc::now().timestamp())),
                     serde_json::json!(&message.session_id),
                 ],
             )
             .await?;
-
         Ok(())
     }
 
-    /// Get messages for a session
     pub async fn get_messages(
         &self,
         session_id: &str,
         limit: Option<usize>,
         before_id: Option<&str>,
     ) -> Result<Vec<Message>, String> {
-        let mut sql = "SELECT * FROM messages WHERE session_id = ?".to_string();
-        let mut params: Vec<serde_json::Value> = vec![serde_json::json!(session_id)];
+        let mut sql = "SELECT * FROM messages WHERE conversation_id = ?".to_string();
+        let mut params: Vec<Value> = vec![serde_json::json!(session_id)];
 
         if let Some(before) = before_id {
-            // Get created_at of the before message
             let before_result = self
                 .db
                 .query(
-                    "SELECT created_at FROM messages WHERE id = ?",
+                    "SELECT timestamp FROM messages WHERE id = ?",
                     vec![serde_json::json!(before)],
                 )
                 .await?;
-
             if let Some(row) = before_result.rows.first() {
-                if let Some(created_at) = row.get("created_at").and_then(|v| v.as_i64()) {
-                    sql.push_str(" AND created_at < ?");
-                    params.push(serde_json::json!(created_at));
+                if let Some(ts) = row.get("timestamp").and_then(|v| v.as_i64()) {
+                    sql.push_str(" AND timestamp < ?");
+                    params.push(serde_json::json!(ts));
                 }
             }
         }
 
-        sql.push_str(" ORDER BY created_at DESC");
-
+        sql.push_str(" ORDER BY timestamp DESC");
         if let Some(limit) = limit {
             sql.push_str(&format!(" LIMIT {}", limit));
         }
 
         let result = self.db.query(&sql, params).await?;
-
-        let mut messages: Vec<Message> = result
+        let mut messages = result
             .rows
             .iter()
             .map(row_to_message)
             .collect::<Result<Vec<_>, _>>()?;
-
-        // Reverse to get chronological order
         messages.reverse();
         Ok(messages)
     }
 
-    /// Delete all messages for a session
     pub async fn delete_messages(&self, session_id: &str) -> Result<(), String> {
         self.db
             .execute(
-                "DELETE FROM messages WHERE session_id = ?",
+                "DELETE FROM messages WHERE conversation_id = ?",
                 vec![serde_json::json!(session_id)],
             )
             .await?;
@@ -256,97 +266,135 @@ impl ChatHistoryRepository {
 
     // ============== Event Operations ==============
 
-    /// Create a new event
-    pub async fn create_event(&self, event: &SessionEvent) -> Result<(), String> {
-        let sql = r#"
-            INSERT INTO events (id, session_id, event_type, payload, created_at)
-            VALUES (?, ?, ?, ?, ?)
-        "#;
-
-        self.db
-            .execute(
-                sql,
-                vec![
-                    serde_json::json!(event.id),
-                    serde_json::json!(event.session_id),
-                    serde_json::json!(event.event_type.as_str()),
-                    serde_json::json!(event.payload.to_string()),
-                    serde_json::json!(event.created_at),
-                ],
-            )
-            .await?;
-
+    /// Unified schema does not persist events yet; keep server streaming in-memory only.
+    pub async fn create_event(&self, _event: &SessionEvent) -> Result<(), String> {
         Ok(())
     }
 
-    /// Get events for a session, optionally after a specific event ID (for resume)
     pub async fn get_events(
         &self,
-        session_id: &str,
-        after_event_id: Option<&str>,
-        limit: Option<usize>,
+        _session_id: &str,
+        _after_event_id: Option<&str>,
+        _limit: Option<usize>,
     ) -> Result<Vec<SessionEvent>, String> {
-        let mut sql = "SELECT * FROM events WHERE session_id = ?".to_string();
-        let mut params: Vec<serde_json::Value> = vec![serde_json::json!(session_id)];
-
-        if let Some(after_id) = after_event_id {
-            // Get created_at of the after event
-            let after_result = self
-                .db
-                .query(
-                    "SELECT created_at FROM events WHERE id = ?",
-                    vec![serde_json::json!(after_id)],
-                )
-                .await?;
-
-            if let Some(row) = after_result.rows.first() {
-                if let Some(created_at) = row.get("created_at").and_then(|v| v.as_i64()) {
-                    sql.push_str(" AND created_at > ?");
-                    params.push(serde_json::json!(created_at));
-                }
-            }
-        }
-
-        sql.push_str(" ORDER BY created_at ASC");
-
-        if let Some(limit) = limit {
-            sql.push_str(&format!(" LIMIT {}", limit));
-        }
-
-        let result = self.db.query(&sql, params).await?;
-
-        result
-            .rows
-            .iter()
-            .map(row_to_event)
-            .collect::<Result<Vec<_>, _>>()
+        Ok(vec![])
     }
 
-    /// Delete old events for a session (cleanup)
     pub async fn delete_events_before(
         &self,
-        session_id: &str,
-        before_timestamp: i64,
+        _session_id: &str,
+        _before_timestamp: i64,
     ) -> Result<u64, String> {
+        Ok(0)
+    }
+
+    async fn next_message_position(&self, session_id: &str) -> Result<i64, String> {
         let result = self
             .db
-            .execute(
-                "DELETE FROM events WHERE session_id = ? AND created_at < ?",
-                vec![
-                    serde_json::json!(session_id),
-                    serde_json::json!(before_timestamp),
-                ],
+            .query(
+                "SELECT COALESCE(MAX(position_index), -1) as max_position FROM messages WHERE conversation_id = ?",
+                vec![serde_json::json!(session_id)],
             )
             .await?;
+        Ok(result
+            .rows
+            .first()
+            .and_then(|row| row.get("max_position"))
+            .and_then(|v| v.as_i64())
+            .unwrap_or(-1)
+            + 1)
+    }
 
-        Ok(result.rows_affected)
+    async fn get_conversation_settings(
+        &self,
+        session_id: &str,
+    ) -> Result<Map<String, Value>, String> {
+        let result = self
+            .db
+            .query(
+                "SELECT settings FROM conversations WHERE id = ?",
+                vec![serde_json::json!(session_id)],
+            )
+            .await?;
+        let row = result
+            .rows
+            .first()
+            .ok_or_else(|| format!("Conversation not found: {}", session_id))?;
+        parse_settings_map(row.get("settings").and_then(|v| v.as_str()))
     }
 }
 
-// ============== Row Conversions ==============
+fn to_db_timestamp(value: i64) -> i64 {
+    if value.abs() >= 1_000_000_000_000 {
+        value
+    } else {
+        value.saturating_mul(1000)
+    }
+}
 
-fn row_to_session(row: &serde_json::Value) -> Session {
-    Session {
+fn from_db_timestamp(value: i64) -> i64 {
+    if value.abs() >= 1_000_000_000_000 {
+        value / 1000
+    } else {
+        value
+    }
+}
+
+fn parse_settings_map(raw: Option<&str>) -> Result<Map<String, Value>, String> {
+    match raw {
+        Some(raw) if !raw.trim().is_empty() => match serde_json::from_str::<Value>(raw) {
+            Ok(Value::Object(map)) => Ok(map),
+            Ok(_) => Ok(Map::new()),
+            Err(e) => Err(format!("Failed to parse conversation.settings: {}", e)),
+        },
+        _ => Ok(Map::new()),
+    }
+}
+
+fn settings_map_to_string(map: Map<String, Value>) -> Result<String, String> {
+    serde_json::to_string(&Value::Object(map))
+        .map_err(|e| format!("Failed to serialize settings: {}", e))
+}
+
+fn compat_from_settings_map(map: &Map<String, Value>) -> Result<ServerSessionCompat, String> {
+    match map.get(SERVER_COMPAT_KEY) {
+        Some(value) => serde_json::from_value(value.clone())
+            .map_err(|e| format!("Failed to parse server compat payload: {}", e)),
+        None => Ok(ServerSessionCompat::default()),
+    }
+}
+
+fn set_compat_on_settings_map(
+    mut map: Map<String, Value>,
+    compat: ServerSessionCompat,
+) -> Map<String, Value> {
+    map.insert(
+        SERVER_COMPAT_KEY.to_string(),
+        serde_json::to_value(compat).unwrap_or(Value::Object(Map::new())),
+    );
+    map
+}
+
+fn build_settings_map(
+    existing: Option<Map<String, Value>>,
+    session: &Session,
+) -> Result<Map<String, Value>, String> {
+    let mut map = existing.unwrap_or_default();
+    map = set_compat_on_settings_map(
+        map,
+        ServerSessionCompat {
+            status: Some(session.status.as_str().to_string()),
+            last_event_id: session.last_event_id.clone(),
+            metadata: session.metadata.clone(),
+        },
+    );
+    Ok(map)
+}
+
+fn row_to_session(row: &Value) -> Result<Session, String> {
+    let settings_map = parse_settings_map(row.get("settings").and_then(|v| v.as_str()))?;
+    let compat = compat_from_settings_map(&settings_map)?;
+    Ok(Session {
         id: row
             .get("id")
             .and_then(|v| v.as_str())
@@ -360,32 +408,58 @@ fn row_to_session(row: &serde_json::Value) -> Session {
             .get("title")
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
-        status: row
-            .get("status")
-            .and_then(|v| v.as_str())
+        status: compat
+            .status
+            .as_deref()
             .and_then(|s| s.parse().ok())
             .unwrap_or(SessionStatus::Created),
-        created_at: row.get("created_at").and_then(|v| v.as_i64()).unwrap_or(0),
-        updated_at: row.get("updated_at").and_then(|v| v.as_i64()).unwrap_or(0),
-        last_event_id: row
-            .get("last_event_id")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
-        metadata: row
-            .get("metadata")
-            .and_then(|v| v.as_str())
-            .and_then(|s| serde_json::from_str(s).ok()),
+        created_at: row
+            .get("created_at")
+            .and_then(|v| v.as_i64())
+            .map(from_db_timestamp)
+            .unwrap_or(0),
+        updated_at: row
+            .get("updated_at")
+            .and_then(|v| v.as_i64())
+            .map(from_db_timestamp)
+            .unwrap_or(0),
+        last_event_id: compat.last_event_id,
+        metadata: compat.metadata,
+    })
+}
+
+fn message_to_db_content(message: &Message) -> Result<String, String> {
+    match (&message.content, &message.tool_call_id, &message.parent_id) {
+        (MessageContent::Text { text }, None, None) => Ok(text.clone()),
+        _ => serde_json::to_string(&MessageEnvelope {
+            content: message.content.clone(),
+            tool_call_id: message.tool_call_id.clone(),
+            parent_id: message.parent_id.clone(),
+        })
+        .map_err(|e| format!("Failed to serialize message content: {}", e)),
     }
 }
 
-fn row_to_message(row: &serde_json::Value) -> Result<Message, String> {
-    let content_str = row
+fn row_to_message(row: &Value) -> Result<Message, String> {
+    let raw_content = row
         .get("content")
         .and_then(|v| v.as_str())
         .ok_or("Missing content field")?;
 
-    let content: MessageContent = serde_json::from_str(content_str)
-        .map_err(|e| format!("Failed to parse message content: {}", e))?;
+    let (content, tool_call_id, parent_id) =
+        if let Ok(envelope) = serde_json::from_str::<MessageEnvelope>(raw_content) {
+            (envelope.content, envelope.tool_call_id, envelope.parent_id)
+        } else if let Ok(content) = serde_json::from_str::<MessageContent>(raw_content) {
+            (content, None, None)
+        } else {
+            (
+                MessageContent::Text {
+                    text: raw_content.to_string(),
+                },
+                None,
+                None,
+            )
+        };
 
     Ok(Message {
         id: row
@@ -394,7 +468,7 @@ fn row_to_message(row: &serde_json::Value) -> Result<Message, String> {
             .unwrap_or("")
             .to_string(),
         session_id: row
-            .get("session_id")
+            .get("conversation_id")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
@@ -404,45 +478,13 @@ fn row_to_message(row: &serde_json::Value) -> Result<Message, String> {
             .and_then(|s| s.parse().ok())
             .unwrap_or(MessageRole::User),
         content,
-        created_at: row.get("created_at").and_then(|v| v.as_i64()).unwrap_or(0),
-        tool_call_id: row
-            .get("tool_call_id")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
-        parent_id: row
-            .get("parent_id")
-            .and_then(|v| v.as_str())
-            .map(|s| s.to_string()),
-    })
-}
-
-fn row_to_event(row: &serde_json::Value) -> Result<SessionEvent, String> {
-    let payload_str = row
-        .get("payload")
-        .and_then(|v| v.as_str())
-        .ok_or("Missing payload field")?;
-
-    let payload: serde_json::Value = serde_json::from_str(payload_str)
-        .map_err(|e| format!("Failed to parse event payload: {}", e))?;
-
-    Ok(SessionEvent {
-        id: row
-            .get("id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        session_id: row
-            .get("session_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        event_type: row
-            .get("event_type")
-            .and_then(|v| v.as_str())
-            .and_then(|s| s.parse().ok())
-            .unwrap_or(EventType::Status),
-        payload,
-        created_at: row.get("created_at").and_then(|v| v.as_i64()).unwrap_or(0),
+        created_at: row
+            .get("timestamp")
+            .and_then(|v| v.as_i64())
+            .map(from_db_timestamp)
+            .unwrap_or(0),
+        tool_call_id,
+        parent_id,
     })
 }
 
@@ -459,8 +501,7 @@ mod tests {
             .await
             .expect("Failed to connect to test database");
 
-        // Create tables manually for tests
-        let migrations = super::super::migrations::chat_history_migrations();
+        let migrations = super::super::migrations::talkcody_db::talkcody_migrations();
         let runner = super::super::migrations::MigrationRunner::new(&db, &migrations);
         runner.init().await.expect("Failed to init migrations");
         runner.migrate().await.expect("Failed to run migrations");
@@ -487,17 +528,16 @@ mod tests {
         repo.create_session(&session)
             .await
             .expect("Failed to create session");
-
         let retrieved = repo
             .get_session("test-session-1")
             .await
             .expect("Failed to get session");
         assert!(retrieved.is_some());
-
         let retrieved = retrieved.unwrap();
         assert_eq!(retrieved.id, "test-session-1");
         assert_eq!(retrieved.project_id, Some("project-1".to_string()));
         assert_eq!(retrieved.title, Some("Test Session".to_string()));
+        assert_eq!(retrieved.status, SessionStatus::Created);
     }
 
     #[tokio::test]
@@ -527,7 +567,9 @@ mod tests {
             .get_session("test-session-2")
             .await
             .expect("Failed to get session");
-        assert_eq!(retrieved.unwrap().status, SessionStatus::Running);
+        let retrieved = retrieved.unwrap();
+        assert_eq!(retrieved.status, SessionStatus::Running);
+        assert_eq!(retrieved.last_event_id, Some("event-1".to_string()));
     }
 
     #[tokio::test]
@@ -535,7 +577,6 @@ mod tests {
         let (db, _temp) = create_test_db().await;
         let repo = ChatHistoryRepository::new(db);
 
-        // Create session first
         let session = Session {
             id: "test-session-3".to_string(),
             project_id: None,
@@ -565,12 +606,15 @@ mod tests {
         repo.create_message(&message)
             .await
             .expect("Failed to create message");
-
         let messages = repo
             .get_messages("test-session-3", None, None)
             .await
             .expect("Failed to get messages");
         assert_eq!(messages.len(), 1);
         assert_eq!(messages[0].id, "msg-1");
+        match &messages[0].content {
+            MessageContent::Text { text } => assert_eq!(text, "Hello"),
+            _ => panic!("expected text message"),
+        }
     }
 }

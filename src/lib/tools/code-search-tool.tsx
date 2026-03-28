@@ -20,7 +20,7 @@ export const codeSearch = createTool({
 Use this to find code patterns, function definitions, variable usage, or any text in the codebase.`,
 
   inputSchema: z.object({
-    pattern: z.string().describe('The regular expression pattern to search for in file contents'),
+    pattern: z.string().describe('The search text or regex pattern to find in file contents'),
     path: z.string().describe('The absolute path to the directory to search in.'),
     file_types: z
       .array(z.string())

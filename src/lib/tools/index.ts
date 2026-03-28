@@ -99,7 +99,7 @@ export const TOOL_DEFINITIONS = {
     label: 'Image Generation',
     metadata: {
       category: 'other' as ToolCategory,
-      canConcurrent: false,
+      canConcurrent: true,
       fileOperation: false,
       renderDoingUI: true,
     },

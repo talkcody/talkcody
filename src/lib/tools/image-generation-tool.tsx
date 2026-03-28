@@ -50,7 +50,7 @@ Quality options:
       .optional()
       .describe('Optional: Number of images to generate (1-4). Default: 1'),
   }),
-  canConcurrent: false, // Image generation is resource-intensive, don't run concurrently
+  canConcurrent: true,
   execute: async ({ prompt, size, quality, n }, _context) => {
     try {
       logger.info('Image generation requested', { prompt: prompt.slice(0, 100), size, n });

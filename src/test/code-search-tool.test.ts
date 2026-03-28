@@ -183,6 +183,70 @@ describe('codeSearch Tool', () => {
     });
   });
 
+  it('should pass parentheses patterns through unchanged', async () => {
+    const mockResult = [
+      {
+        file_path: 'skills.ts',
+        matches: [
+          {
+            line_number: 12,
+            line_content: 'register(skill);',
+            byte_offset: 320,
+          },
+        ],
+      },
+    ];
+
+    mockInvoke.mockResolvedValue(mockResult);
+
+    const result = await codeSearch.execute?.({
+      pattern: 'register(skill)',
+      path: '/Users/test/project',
+    });
+
+    const actualResult = await normalizeResult(result);
+
+    expect(actualResult.success).toBe(true);
+    expect(actualResult.result).toContain('register(skill)');
+    expect(mockInvoke).toHaveBeenCalledWith('search_file_content', {
+      query: 'register(skill)',
+      rootPath: '/Users/test/project',
+      fileTypes: null,
+    });
+  });
+
+  it('should keep valid regex patterns unchanged', async () => {
+    const mockResult = [
+      {
+        file_path: 'skills.ts',
+        matches: [
+          {
+            line_number: 20,
+            line_content: 'registerAnySkill();',
+            byte_offset: 512,
+          },
+        ],
+      },
+    ];
+
+    mockInvoke.mockResolvedValue(mockResult);
+
+    const result = await codeSearch.execute?.({
+      pattern: 'register.*Skill',
+      path: '/Users/test/project',
+    });
+
+    const actualResult = await normalizeResult(result);
+
+    expect(actualResult.success).toBe(true);
+    expect(actualResult.result).toContain('registerAnySkill');
+    expect(mockInvoke).toHaveBeenCalledWith('search_file_content', {
+      query: 'register.*Skill',
+      rootPath: '/Users/test/project',
+      fileTypes: null,
+    });
+  });
+
   it('should handle no matches found', async () => {
     const mockResult: Array<{
       file_path: string;

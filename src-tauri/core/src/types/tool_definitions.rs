@@ -143,7 +143,7 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                     "properties": {
                         "query": {
                             "type": "string",
-                            "description": "The search query (regex supported)"
+                            "description": "The search text or regex pattern to find"
                         },
                         "path": {
                             "type": "string",

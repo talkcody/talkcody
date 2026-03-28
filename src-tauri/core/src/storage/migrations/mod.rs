@@ -1,8 +1,9 @@
 //! Database migration system for SQLite databases
 //! Each database has its own migration history tracked in a _migrations table
 
+pub mod talkcody_db;
+
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 /// A single migration definition
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -96,10 +97,10 @@ impl<'a> MigrationRunner<'a> {
     }
 
     async fn apply_migration(&self, migration: &Migration) -> Result<(), String> {
-        // Execute migration in transaction
-        self.db.execute(migration.up_sql, vec![]).await?;
+        // Migrations frequently contain multiple DDL statements; execute them as a script.
+        self.db.execute_batch(migration.up_sql).await?;
 
-        // Record migration
+        // Record migration only after the full script succeeds.
         let now = chrono::Utc::now().timestamp();
         self.db
             .execute(
@@ -304,127 +305,13 @@ pub fn chat_history_migrations() -> MigrationRegistry {
     registry
 }
 
-// ============== Agents Migrations ==============
-
-pub fn agents_migrations() -> MigrationRegistry {
-    let mut registry = MigrationRegistry::new("agents");
-
-    registry.register(Migration {
-        version: 1,
-        name: "create_agents_table",
-        up_sql: r#"
-            CREATE TABLE agents (
-                id TEXT PRIMARY KEY,
-                name TEXT NOT NULL,
-                model TEXT NOT NULL,
-                system_prompt TEXT,
-                tools TEXT NOT NULL DEFAULT '[]',
-                created_at INTEGER NOT NULL,
-                updated_at INTEGER NOT NULL
-            );
-            CREATE INDEX idx_agents_name ON agents(name);
-        "#,
-        down_sql: Some("DROP TABLE agents;"),
-    });
-
-    registry.register(Migration {
-        version: 2,
-        name: "create_agent_sessions_table",
-        up_sql: r#"
-            CREATE TABLE agent_sessions (
-                agent_id TEXT NOT NULL,
-                session_id TEXT NOT NULL PRIMARY KEY,
-                settings TEXT,
-                created_at INTEGER NOT NULL,
-                FOREIGN KEY (agent_id) REFERENCES agents(id) ON DELETE CASCADE
-            );
-            CREATE INDEX idx_agent_sessions_agent ON agent_sessions(agent_id);
-        "#,
-        down_sql: Some("DROP TABLE agent_sessions;"),
-    });
-
-    registry
-}
-
-// ============== Settings Migrations ==============
-
-pub fn settings_migrations() -> MigrationRegistry {
-    let mut registry = MigrationRegistry::new("settings");
-
-    registry.register(Migration {
-        version: 1,
-        name: "create_settings_table",
-        up_sql: r#"
-            CREATE TABLE settings (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL,
-                updated_at INTEGER NOT NULL
-            );
-        "#,
-        down_sql: Some("DROP TABLE settings;"),
-    });
-
-    registry.register(Migration {
-        version: 2,
-        name: "create_task_settings_table",
-        up_sql: r#"
-            CREATE TABLE task_settings (
-                task_id TEXT PRIMARY KEY,
-                settings TEXT NOT NULL,
-                updated_at INTEGER NOT NULL
-            );
-        "#,
-        down_sql: Some("DROP TABLE task_settings;"),
-    });
-
-    registry
-}
-
-/// Run migrations for all databases
-pub async fn run_all_migrations(
-    chat_history_db: &crate::database::Database,
-    agents_db: &crate::database::Database,
-    settings_db: &crate::database::Database,
-) -> Result<HashMap<&'static str, Vec<String>>, String> {
-    let mut results = HashMap::new();
-
-    // Chat history migrations
-    let chat_registry = chat_history_migrations();
-    let chat_runner = MigrationRunner::new(chat_history_db, &chat_registry);
-    results.insert("chat_history", chat_runner.migrate().await?);
-
-    // Agents migrations
-    let agents_registry = agents_migrations();
-    let agents_runner = MigrationRunner::new(agents_db, &agents_registry);
-    results.insert("agents", agents_runner.migrate().await?);
-
-    // Settings migrations
-    let settings_registry = settings_migrations();
-    let settings_runner = MigrationRunner::new(settings_db, &settings_registry);
-    results.insert("settings", settings_runner.migrate().await?);
-
-    Ok(results)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
-    fn test_chat_history_migrations_count() {
-        let registry = chat_history_migrations();
-        assert_eq!(registry.migrations().len(), 9);
-    }
-
-    #[test]
-    fn test_agents_migrations_count() {
-        let registry = agents_migrations();
-        assert_eq!(registry.migrations().len(), 2);
-    }
-
-    #[test]
-    fn test_settings_migrations_count() {
-        let registry = settings_migrations();
-        assert_eq!(registry.migrations().len(), 2);
+    fn test_talkcody_migrations_count() {
+        let registry = talkcody_db::talkcody_migrations();
+        assert_eq!(registry.migrations().len(), 8);
     }
 }

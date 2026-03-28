@@ -1,9 +1,13 @@
 //! Agents Repository
-//! Handles CRUD operations for agents and agent-session associations in agents.db
+//! Maps Rust agent APIs onto the unified talkcody.db schema.
 
 use crate::database::Database;
 use crate::storage::models::*;
+use serde_json::{Map, Value};
 use std::sync::Arc;
+
+const SERVER_COMPAT_KEY: &str = "_serverCompat";
+const AGENT_SESSION_KEY: &str = "agentSession";
 
 /// Repository for agent operations
 #[derive(Clone)]
@@ -16,29 +20,31 @@ impl AgentsRepository {
         Self { db }
     }
 
+    pub fn get_db(&self) -> Arc<Database> {
+        self.db.clone()
+    }
+
     // ============== Agent Operations ==============
 
-    /// Create a new agent
     pub async fn create_agent(&self, agent: &Agent) -> Result<(), String> {
-        let sql = r#"
-            INSERT INTO agents (id, name, model, system_prompt, tools, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-        "#;
-
         let tools_json = serde_json::to_string(&agent.tools)
             .map_err(|e| format!("Failed to serialize tools: {}", e))?;
 
         self.db
             .execute(
-                sql,
+                r#"
+                INSERT INTO agents (
+                    id, name, model_type, system_prompt, tools_config, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                "#,
                 vec![
                     serde_json::json!(agent.id),
                     serde_json::json!(agent.name),
                     serde_json::json!(agent.model),
-                    serde_json::json!(agent.system_prompt),
+                    serde_json::json!(agent.system_prompt.clone().unwrap_or_default()),
                     serde_json::json!(tools_json),
-                    serde_json::json!(agent.created_at),
-                    serde_json::json!(agent.updated_at),
+                    serde_json::json!(to_db_timestamp(agent.created_at)),
+                    serde_json::json!(to_db_timestamp(agent.updated_at)),
                 ],
             )
             .await?;
@@ -46,7 +52,6 @@ impl AgentsRepository {
         Ok(())
     }
 
-    /// Get an agent by ID
     pub async fn get_agent(&self, agent_id: &str) -> Result<Option<Agent>, String> {
         let result = self
             .db
@@ -56,10 +61,9 @@ impl AgentsRepository {
             )
             .await?;
 
-        Ok(result.rows.first().map(row_to_agent))
+        result.rows.first().map(row_to_agent).transpose()
     }
 
-    /// Get agent by name
     pub async fn get_agent_by_name(&self, name: &str) -> Result<Option<Agent>, String> {
         let result = self
             .db
@@ -69,46 +73,44 @@ impl AgentsRepository {
             )
             .await?;
 
-        Ok(result.rows.first().map(row_to_agent))
+        result.rows.first().map(row_to_agent).transpose()
     }
 
-    /// List all agents
     pub async fn list_agents(&self) -> Result<Vec<Agent>, String> {
         let result = self
             .db
             .query("SELECT * FROM agents ORDER BY name ASC", vec![])
             .await?;
 
-        Ok(result.rows.iter().map(row_to_agent).collect())
+        result
+            .rows
+            .iter()
+            .map(row_to_agent)
+            .collect::<Result<Vec<_>, _>>()
     }
 
-    /// Update an agent
     pub async fn update_agent(&self, agent_id: &str, updates: AgentUpdates) -> Result<(), String> {
-        let updated_at = chrono::Utc::now().timestamp();
+        let updated_at = to_db_timestamp(chrono::Utc::now().timestamp());
 
         let mut fields = Vec::new();
-        let mut params: Vec<serde_json::Value> = vec![];
+        let mut params: Vec<Value> = vec![];
 
         if let Some(name) = updates.name {
             fields.push("name = ?");
             params.push(serde_json::json!(name));
         }
-
         if let Some(model) = updates.model {
-            fields.push("model = ?");
+            fields.push("model_type = ?");
             params.push(serde_json::json!(model));
         }
-
         if let Some(system_prompt) = updates.system_prompt {
             fields.push("system_prompt = ?");
             params.push(serde_json::json!(system_prompt));
         }
-
         if let Some(tools) = updates.tools {
-            let tools_json = serde_json::to_string(&tools)
-                .map_err(|e| format!("Failed to serialize tools: {}", e))?;
-            fields.push("tools = ?");
-            params.push(serde_json::json!(tools_json));
+            fields.push("tools_config = ?");
+            params.push(serde_json::json!(serde_json::to_string(&tools)
+                .map_err(|e| format!("Failed to serialize tools: {}", e))?));
         }
 
         if fields.is_empty() {
@@ -120,12 +122,10 @@ impl AgentsRepository {
         params.push(serde_json::json!(agent_id));
 
         let sql = format!("UPDATE agents SET {} WHERE id = ?", fields.join(", "));
-
         self.db.execute(&sql, params).await?;
         Ok(())
     }
 
-    /// Delete an agent
     pub async fn delete_agent(&self, agent_id: &str) -> Result<(), String> {
         self.db
             .execute(
@@ -136,97 +136,148 @@ impl AgentsRepository {
         Ok(())
     }
 
-    // ============== Agent Session Operations ==============
+    // ============== Agent Session Compatibility Operations ==============
 
-    /// Associate an agent with a session
     pub async fn create_agent_session(&self, agent_session: &AgentSession) -> Result<(), String> {
-        let settings_json = serde_json::to_string(&agent_session.settings)
-            .map_err(|e| format!("Failed to serialize settings: {}", e))?;
-
-        let sql = r#"
-            INSERT OR REPLACE INTO agent_sessions (agent_id, session_id, settings, created_at)
-            VALUES (?, ?, ?, ?)
-        "#;
-
-        self.db
-            .execute(
-                sql,
-                vec![
-                    serde_json::json!(agent_session.agent_id),
-                    serde_json::json!(agent_session.session_id),
-                    serde_json::json!(settings_json),
-                    serde_json::json!(agent_session.created_at),
-                ],
-            )
-            .await?;
-
-        Ok(())
+        self.upsert_agent_session_payload(&agent_session.session_id, agent_session)
+            .await
     }
 
-    /// Get agent-session association
     pub async fn get_agent_session(
         &self,
         session_id: &str,
     ) -> Result<Option<AgentSession>, String> {
-        let result = self
-            .db
-            .query(
-                "SELECT * FROM agent_sessions WHERE session_id = ?",
-                vec![serde_json::json!(session_id)],
-            )
-            .await?;
+        let settings_map = self.get_conversation_settings(session_id).await?;
+        let payload = settings_map
+            .get(SERVER_COMPAT_KEY)
+            .and_then(|v| v.as_object())
+            .and_then(|obj| obj.get(AGENT_SESSION_KEY))
+            .cloned();
 
-        Ok(result.rows.first().map(row_to_agent_session))
+        match payload {
+            Some(value) => serde_json::from_value(value)
+                .map(Some)
+                .map_err(|e| format!("Failed to parse agent session payload: {}", e)),
+            None => Ok(None),
+        }
     }
 
-    /// Get all sessions for an agent
     pub async fn get_agent_sessions(&self, agent_id: &str) -> Result<Vec<AgentSession>, String> {
         let result = self
             .db
             .query(
-                "SELECT * FROM agent_sessions WHERE agent_id = ? ORDER BY created_at DESC",
-                vec![serde_json::json!(agent_id)],
+                "SELECT id, settings FROM conversations ORDER BY updated_at DESC",
+                vec![],
             )
             .await?;
-
-        Ok(result.rows.iter().map(row_to_agent_session).collect())
+        let mut sessions = Vec::new();
+        for row in &result.rows {
+            let Some(raw_settings) = row.get("settings").and_then(|v| v.as_str()) else {
+                continue;
+            };
+            let settings_map = parse_settings_map(Some(raw_settings))?;
+            let payload = settings_map
+                .get(SERVER_COMPAT_KEY)
+                .and_then(|v| v.as_object())
+                .and_then(|obj| obj.get(AGENT_SESSION_KEY))
+                .cloned();
+            if let Some(value) = payload {
+                let session: AgentSession = serde_json::from_value(value)
+                    .map_err(|e| format!("Failed to parse agent session payload: {}", e))?;
+                if session.agent_id == agent_id {
+                    sessions.push(session);
+                }
+            }
+        }
+        Ok(sessions)
     }
 
-    /// Update agent session settings
     pub async fn update_agent_session_settings(
         &self,
         session_id: &str,
         settings: &TaskSettings,
     ) -> Result<(), String> {
-        let settings_json = serde_json::to_string(settings)
-            .map_err(|e| format!("Failed to serialize settings: {}", e))?;
-
-        self.db
-            .execute(
-                "UPDATE agent_sessions SET settings = ? WHERE session_id = ?",
-                vec![
-                    serde_json::json!(settings_json),
-                    serde_json::json!(session_id),
-                ],
-            )
-            .await?;
-
+        if let Some(mut agent_session) = self.get_agent_session(session_id).await? {
+            agent_session.settings = settings.clone();
+            self.upsert_agent_session_payload(session_id, &agent_session)
+                .await?;
+        }
         Ok(())
     }
 
-    /// Delete agent session association
     pub async fn delete_agent_session(&self, session_id: &str) -> Result<(), String> {
+        let mut settings_map = self.get_conversation_settings(session_id).await?;
+        let mut compat = settings_map
+            .remove(SERVER_COMPAT_KEY)
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+        compat.remove(AGENT_SESSION_KEY);
+        if !compat.is_empty() {
+            settings_map.insert(SERVER_COMPAT_KEY.to_string(), Value::Object(compat));
+        }
+        self.update_conversation_settings(session_id, settings_map)
+            .await
+    }
+
+    async fn upsert_agent_session_payload(
+        &self,
+        session_id: &str,
+        agent_session: &AgentSession,
+    ) -> Result<(), String> {
+        let mut settings_map = self.get_conversation_settings(session_id).await?;
+        let mut compat = settings_map
+            .remove(SERVER_COMPAT_KEY)
+            .and_then(|v| v.as_object().cloned())
+            .unwrap_or_default();
+        compat.insert(
+            AGENT_SESSION_KEY.to_string(),
+            serde_json::to_value(agent_session)
+                .map_err(|e| format!("Failed to serialize agent session payload: {}", e))?,
+        );
+        settings_map.insert(SERVER_COMPAT_KEY.to_string(), Value::Object(compat));
+        self.update_conversation_settings(session_id, settings_map)
+            .await
+    }
+
+    async fn get_conversation_settings(
+        &self,
+        session_id: &str,
+    ) -> Result<Map<String, Value>, String> {
+        let result = self
+            .db
+            .query(
+                "SELECT settings FROM conversations WHERE id = ?",
+                vec![serde_json::json!(session_id)],
+            )
+            .await?;
+        let row = result
+            .rows
+            .first()
+            .ok_or_else(|| format!("Conversation not found: {}", session_id))?;
+        parse_settings_map(row.get("settings").and_then(|v| v.as_str()))
+    }
+
+    async fn update_conversation_settings(
+        &self,
+        session_id: &str,
+        settings: Map<String, Value>,
+    ) -> Result<(), String> {
         self.db
             .execute(
-                "DELETE FROM agent_sessions WHERE session_id = ?",
-                vec![serde_json::json!(session_id)],
+                "UPDATE conversations SET settings = ?, updated_at = ? WHERE id = ?",
+                vec![
+                    serde_json::json!(serde_json::to_string(&Value::Object(settings)).map_err(
+                        |e| format!("Failed to serialize conversation settings: {}", e)
+                    )?),
+                    serde_json::json!(chrono::Utc::now().timestamp_millis()),
+                    serde_json::json!(session_id),
+                ],
             )
             .await?;
         Ok(())
     }
 }
 
-/// Updates for an agent (all fields optional)
 #[derive(Debug, Default)]
 pub struct AgentUpdates {
     pub name: Option<String>,
@@ -235,16 +286,33 @@ pub struct AgentUpdates {
     pub tools: Option<Vec<String>>,
 }
 
-// ============== Row Conversions ==============
+fn to_db_timestamp(value: i64) -> i64 {
+    if value.abs() >= 1_000_000_000_000 {
+        value
+    } else {
+        value.saturating_mul(1000)
+    }
+}
 
-fn row_to_agent(row: &serde_json::Value) -> Agent {
+fn parse_settings_map(raw: Option<&str>) -> Result<Map<String, Value>, String> {
+    match raw {
+        Some(raw) if !raw.trim().is_empty() => match serde_json::from_str::<Value>(raw) {
+            Ok(Value::Object(map)) => Ok(map),
+            Ok(_) => Ok(Map::new()),
+            Err(e) => Err(format!("Failed to parse conversation settings: {}", e)),
+        },
+        _ => Ok(Map::new()),
+    }
+}
+
+fn row_to_agent(row: &Value) -> Result<Agent, String> {
     let tools: Vec<String> = row
-        .get("tools")
+        .get("tools_config")
         .and_then(|v| v.as_str())
         .and_then(|s| serde_json::from_str(s).ok())
         .unwrap_or_default();
 
-    Agent {
+    Ok(Agent {
         id: row
             .get("id")
             .and_then(|v| v.as_str())
@@ -256,7 +324,7 @@ fn row_to_agent(row: &serde_json::Value) -> Agent {
             .unwrap_or("")
             .to_string(),
         model: row
-            .get("model")
+            .get("model_type")
             .and_then(|v| v.as_str())
             .unwrap_or("")
             .to_string(),
@@ -265,171 +333,27 @@ fn row_to_agent(row: &serde_json::Value) -> Agent {
             .and_then(|v| v.as_str())
             .map(|s| s.to_string()),
         tools,
-        created_at: row.get("created_at").and_then(|v| v.as_i64()).unwrap_or(0),
-        updated_at: row.get("updated_at").and_then(|v| v.as_i64()).unwrap_or(0),
-    }
-}
-
-fn row_to_agent_session(row: &serde_json::Value) -> AgentSession {
-    let settings: TaskSettings = row
-        .get("settings")
-        .and_then(|v| v.as_str())
-        .and_then(|s| serde_json::from_str(s).ok())
-        .unwrap_or_default();
-
-    AgentSession {
-        agent_id: row
-            .get("agent_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        session_id: row
-            .get("session_id")
-            .and_then(|v| v.as_str())
-            .unwrap_or("")
-            .to_string(),
-        settings,
-        created_at: row.get("created_at").and_then(|v| v.as_i64()).unwrap_or(0),
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::database::Database;
-    use tempfile::TempDir;
-
-    async fn create_test_db() -> (Arc<Database>, TempDir) {
-        let temp_dir = TempDir::new().unwrap();
-        let db_path = temp_dir.path().join("test.db");
-        let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
-        db.connect()
-            .await
-            .expect("Failed to connect to test database");
-
-        // Run migrations
-        let migrations = super::super::migrations::agents_migrations();
-        let runner = super::super::migrations::MigrationRunner::new(&db, &migrations);
-        runner.init().await.expect("Failed to init migrations");
-        runner.migrate().await.expect("Failed to run migrations");
-
-        (db, temp_dir)
-    }
-
-    #[tokio::test]
-    async fn test_create_and_get_agent() {
-        let (db, _temp) = create_test_db().await;
-        let repo = AgentsRepository::new(db);
-
-        let agent = Agent {
-            id: "agent-1".to_string(),
-            name: "Test Agent".to_string(),
-            model: "gpt-4".to_string(),
-            system_prompt: Some("You are a helpful assistant".to_string()),
-            tools: vec!["read_file".to_string(), "write_file".to_string()],
-            created_at: chrono::Utc::now().timestamp(),
-            updated_at: chrono::Utc::now().timestamp(),
-        };
-
-        repo.create_agent(&agent)
-            .await
-            .expect("Failed to create agent");
-
-        let retrieved = repo
-            .get_agent("agent-1")
-            .await
-            .expect("Failed to get agent");
-        assert!(retrieved.is_some());
-
-        let retrieved = retrieved.unwrap();
-        assert_eq!(retrieved.id, "agent-1");
-        assert_eq!(retrieved.name, "Test Agent");
-        assert_eq!(retrieved.tools.len(), 2);
-    }
-
-    #[tokio::test]
-    async fn test_update_agent() {
-        let (db, _temp) = create_test_db().await;
-        let repo = AgentsRepository::new(db);
-
-        let agent = Agent {
-            id: "agent-2".to_string(),
-            name: "Original Name".to_string(),
-            model: "gpt-4".to_string(),
-            system_prompt: None,
-            tools: vec![],
-            created_at: chrono::Utc::now().timestamp(),
-            updated_at: chrono::Utc::now().timestamp(),
-        };
-
-        repo.create_agent(&agent)
-            .await
-            .expect("Failed to create agent");
-
-        let updates = AgentUpdates {
-            name: Some("Updated Name".to_string()),
-            model: None,
-            system_prompt: Some("New prompt".to_string()),
-            tools: None,
-        };
-
-        repo.update_agent("agent-2", updates)
-            .await
-            .expect("Failed to update agent");
-
-        let retrieved = repo
-            .get_agent("agent-2")
-            .await
-            .expect("Failed to get agent")
-            .unwrap();
-        assert_eq!(retrieved.name, "Updated Name");
-        assert_eq!(retrieved.system_prompt, Some("New prompt".to_string()));
-        assert_eq!(retrieved.model, "gpt-4"); // Unchanged
-    }
-
-    #[tokio::test]
-    async fn test_agent_session() {
-        let (db, _temp) = create_test_db().await;
-        let repo = AgentsRepository::new(db);
-
-        // Create agent first
-        let agent = Agent {
-            id: "agent-3".to_string(),
-            name: "Test Agent".to_string(),
-            model: "gpt-4".to_string(),
-            system_prompt: None,
-            tools: vec![],
-            created_at: chrono::Utc::now().timestamp(),
-            updated_at: chrono::Utc::now().timestamp(),
-        };
-        repo.create_agent(&agent)
-            .await
-            .expect("Failed to create agent");
-
-        let agent_session = AgentSession {
-            agent_id: "agent-3".to_string(),
-            session_id: "session-1".to_string(),
-            settings: TaskSettings {
-                auto_approve_edits: Some(true),
-                auto_approve_plan: Some(false),
-                auto_code_review: None,
-                extra: Default::default(),
-            },
-            created_at: chrono::Utc::now().timestamp(),
-        };
-
-        repo.create_agent_session(&agent_session)
-            .await
-            .expect("Failed to create agent session");
-
-        let retrieved = repo
-            .get_agent_session("session-1")
-            .await
-            .expect("Failed to get agent session");
-        assert!(retrieved.is_some());
-
-        let retrieved = retrieved.unwrap();
-        assert_eq!(retrieved.agent_id, "agent-3");
-        assert_eq!(retrieved.settings.auto_approve_edits, Some(true));
-    }
+        created_at: row
+            .get("created_at")
+            .and_then(|v| v.as_i64())
+            .map(|v| {
+                if v.abs() >= 1_000_000_000_000 {
+                    v / 1000
+                } else {
+                    v
+                }
+            })
+            .unwrap_or(0),
+        updated_at: row
+            .get("updated_at")
+            .and_then(|v| v.as_i64())
+            .map(|v| {
+                if v.abs() >= 1_000_000_000_000 {
+                    v / 1000
+                } else {
+                    v
+                }
+            })
+            .unwrap_or(0),
+    })
 }

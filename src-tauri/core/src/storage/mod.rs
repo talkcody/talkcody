@@ -1,11 +1,9 @@
-//! Storage Layer for Cloud Backend
+//! Storage Layer for TalkCody
 //!
-//! Provides SQLite repositories for:
-//! - chat_history.db: Sessions, messages, events, attachments
-//! - agents.db: Agent configurations and agent-session associations  
-//! - settings.db: Application settings and task-specific settings
+//! Provides unified SQLite repository access for talkcody.db
+//! This is shared between Desktop (TypeScript) and Server (Rust) modes.
 //!
-//! All repositories use the shared Database abstraction from database.rs
+//! Table schema is based on src/services/database/turso-schema.ts
 
 pub mod agents;
 pub mod attachments;
@@ -39,51 +37,33 @@ pub struct Storage {
 }
 
 impl Storage {
-    /// Create a new Storage instance with database connections
+    /// Create a new Storage instance with unified talkcody.db
     ///
     /// # Arguments
     /// * `data_root` - Root directory for database files
     /// * `attachments_root` - Root directory for attachment file storage
     pub async fn new(data_root: PathBuf, attachments_root: PathBuf) -> Result<Self, String> {
-        // Create database file paths
-        let chat_history_path = data_root.join("chat_history.db");
-        let agents_path = data_root.join("agents.db");
-        let settings_path = data_root.join("settings.db");
-
-        // Create and connect to each database
-        let chat_history_db = Arc::new(Database::new(
-            chat_history_path.to_string_lossy().to_string(),
-        ));
-        chat_history_db
-            .connect()
+        // Use unified talkcody.db (shared with TypeScript frontend)
+        let db_path = data_root.join("talkcody.db");
+        let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
+        db.connect()
             .await
-            .map_err(|e| format!("Failed to connect to chat_history.db: {}", e))?;
+            .map_err(|e| format!("Failed to connect to talkcody.db: {}", e))?;
 
-        let agents_db = Arc::new(Database::new(agents_path.to_string_lossy().to_string()));
-        agents_db
-            .connect()
+        // Run unified migrations
+        let registry = migrations::talkcody_db::talkcody_migrations();
+        let runner = migrations::MigrationRunner::new(&db, &registry);
+        runner
+            .migrate()
             .await
-            .map_err(|e| format!("Failed to connect to agents.db: {}", e))?;
+            .map_err(|e| format!("Failed to run talkcody.db migrations: {}", e))?;
 
-        let settings_db = Arc::new(Database::new(settings_path.to_string_lossy().to_string()));
-        settings_db
-            .connect()
-            .await
-            .map_err(|e| format!("Failed to connect to settings.db: {}", e))?;
-
-        // Run migrations for all databases
-        migrations::run_all_migrations(&chat_history_db, &agents_db, &settings_db)
-            .await
-            .map_err(|e| format!("Failed to run database migrations: {}", e))?;
-
-        // Create repositories
-        // Clone chat_history_db for attachments (both use the same DB)
-        let chat_history_db_for_attachments = chat_history_db.clone();
-        let chat_history = ChatHistoryRepository::new(chat_history_db);
-        let agents = AgentsRepository::new(agents_db);
-        let settings = SettingsRepository::new(settings_db);
-        let attachments =
-            AttachmentsRepository::new(chat_history_db_for_attachments, attachments_root);
+        // Create repositories (all using the same db)
+        let db_for_attachments = db.clone();
+        let chat_history = ChatHistoryRepository::new(db.clone());
+        let agents = AgentsRepository::new(db.clone());
+        let settings = SettingsRepository::new(db.clone());
+        let attachments = AttachmentsRepository::new(db_for_attachments, attachments_root);
 
         Ok(Self {
             chat_history,
@@ -142,10 +122,8 @@ mod tests {
 
         let _storage = storage.unwrap();
 
-        // Verify databases were created
-        assert!(temp_dir.path().join("chat_history.db").exists());
-        assert!(temp_dir.path().join("agents.db").exists());
-        assert!(temp_dir.path().join("settings.db").exists());
+        // Verify unified database was created
+        assert!(temp_dir.path().join("talkcody.db").exists());
     }
 
     #[tokio::test]

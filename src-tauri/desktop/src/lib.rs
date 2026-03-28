@@ -53,7 +53,9 @@ use std::sync::OnceLock;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime};
 use talkcody_core::core::types::RuntimeEvent;
-use talkcody_server::{config::ServerConfig, state::ServerStateFactory};
+use talkcody_core::storage::Storage;
+use talkcody_server::config::ServerConfig;
+use talkcody_server::state::ServerStateFactory;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State, WindowEvent};
 use tokio::io::BufReader;
 use tokio::sync::Mutex as TokioMutex;
@@ -802,9 +804,16 @@ pub fn run() {
                 cleanup_old_logs(&log_dir, 3);
             }
             let app_data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
-            let db_path = app_data_dir.join("talkcody.db");
-            let db_path_str = db_path.to_string_lossy().to_string();
-            let database = Arc::new(Database::new(db_path_str));
+
+            // Create unified Storage with talkcody.db (shared with TypeScript frontend)
+            let storage = tauri::async_runtime::block_on(async {
+                Storage::new(app_data_dir.clone(), app_data_dir.join("attachments")).await
+            }).map_err(|e| format!("Failed to create Storage: {}", e))?;
+
+            app.manage(storage.clone());
+
+            // Get database reference for other components
+            let database = storage.chat_history.get_db();
             app.manage(database.clone());
 
             // Start Cloud Backend Server with full runtime
@@ -815,7 +824,10 @@ pub fn run() {
             let server_config_clone = server_config.clone();
             tauri::async_runtime::spawn(async move {
                 match ServerStateFactory::create(server_config_clone, event_tx).await {
-                    Ok(_server_state) => {
+                    Ok(server_state) => {
+                        // Save server state so Storage is not dropped
+                        server_handle.manage(server_state);
+
                         // Start server with the configured state
                         let bind_addr = std::net::SocketAddr::from(([127, 0, 0, 1], 0));
                         match tokio::net::TcpListener::bind(bind_addr).await {
@@ -955,8 +967,12 @@ pub fn run() {
             app.manage(Arc::clone(&scheduler_svc));
             Arc::clone(&scheduler_svc).start();
 
-            // Ensure OS-level scheduled-task runner is synced at startup.
-            let _ = scheduled_tasks::sync_runner_for_current_platform(&app.handle().clone(), true);
+            // NOTE: The OS-level scheduled-task runner (LaunchAgent/systemd/Task Scheduler)
+            // is installed on-demand by the TS layer (syncOfflineRunner) when tasks with
+            // offlinePolicy.enabled=true are created or updated.  We must NOT call
+            // sync_runner_for_current_platform(true) unconditionally here because that would
+            // install the LaunchAgent even when no offline tasks exist, causing launchd to
+            // periodically spawn the app binary and create spurious Dock icons.
 
             log::info!("Setup complete");
             Ok(())

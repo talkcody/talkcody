@@ -31,8 +31,6 @@ fn plist_content(executable: &str, args: &[String]) -> String {
     {program_args}    </array>
     <key>StartInterval</key>
     <integer>{interval}</integer>
-    <key>RunAtLoad</key>
-    <true/>
   </dict>
 </plist>
 "#,

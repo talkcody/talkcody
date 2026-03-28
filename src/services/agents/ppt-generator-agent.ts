@@ -449,7 +449,7 @@ export class PPTGeneratorAgent {
       canBeSubagent: true,
       dynamicPrompt: {
         enabled: true,
-        providers: ['env', 'global_memory', 'project_memory', 'agents_md'],
+        providers: ['env', 'agents_md'],
         variables: {},
       },
     };

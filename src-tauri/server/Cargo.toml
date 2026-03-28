@@ -36,6 +36,7 @@ tokio-stream = "0.1"
 # HTTP client
 reqwest.workspace = true
 url.workspace = true
+bytes.workspace = true
 
 # WebSocket
 tokio-tungstenite.workspace = true
@@ -55,6 +56,9 @@ dirs.workspace = true
 # Errors
 thiserror.workspace = true
 anyhow.workspace = true
+
+# Random
+rand.workspace = true
 
 [dev-dependencies]
 tokio-test.workspace = true

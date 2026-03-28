@@ -58,6 +58,8 @@ struct GeminiPart {
 struct GeminiGenerationConfig {
     #[serde(rename = "responseModalities")]
     response_modalities: Vec<String>,
+    #[serde(rename = "candidateCount")]
+    candidate_count: u32,
 }
 
 /// Response format from Gemini generateContent
@@ -244,6 +246,8 @@ impl GoogleImageClient {
         model: &str,
         request: ImageGenerationRequest,
     ) -> Result<Vec<GeneratedImage>, String> {
+        let n = request.n.unwrap_or(1);
+
         let payload = GeminiGenerateContentRequest {
             contents: vec![GeminiContent {
                 role: "user".to_string(),
@@ -253,6 +257,7 @@ impl GoogleImageClient {
             }],
             generation_config: GeminiGenerationConfig {
                 response_modalities: vec!["TEXT".to_string(), "IMAGE".to_string()],
+                candidate_count: n,
             },
         };
 
@@ -313,6 +318,9 @@ impl GoogleImageClient {
         if images.is_empty() {
             return Err("No images generated / 未生成图片".to_string());
         }
+
+        // Truncate to the requested number of images
+        images.truncate(n as usize);
 
         Ok(images)
     }

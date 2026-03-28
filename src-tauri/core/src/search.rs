@@ -4,6 +4,7 @@ use grep::regex::{RegexMatcher, RegexMatcherBuilder};
 use grep::searcher::sinks::UTF8;
 use grep::searcher::{BinaryDetection, SearcherBuilder};
 use rayon::prelude::*;
+use regex::escape;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 use std::ffi::OsStr;
@@ -167,6 +168,34 @@ impl RipgrepSearch {
         }
     }
 
+    fn looks_like_regex(query: &str) -> bool {
+        query.contains("\\")
+            || query.contains(".*")
+            || query.contains(".+")
+            || query.contains(".?")
+            || query.contains('[')
+            || query.contains(']')
+            || query.contains('{')
+            || query.contains('}')
+            || query.contains('|')
+            || query.starts_with('^')
+            || query.ends_with('$')
+    }
+
+    fn build_matcher(query: &str) -> Result<RegexMatcher, String> {
+        let pattern = if Self::looks_like_regex(query) {
+            query.to_string()
+        } else {
+            escape(query)
+        };
+
+        RegexMatcherBuilder::new()
+            .case_insensitive(true)
+            .line_terminator(Some(b'\n'))
+            .build(&pattern)
+            .map_err(|e| format!("Failed to create regex matcher: {}", e))
+    }
+
     pub fn search_content(
         &self,
         query: &str,
@@ -176,14 +205,8 @@ impl RipgrepSearch {
             return Ok(vec![]);
         }
 
-        // Create regex matcher once with proper builder pattern
-        let matcher = Arc::new(
-            RegexMatcherBuilder::new()
-                .case_insensitive(true)
-                .line_terminator(Some(b'\n'))
-                .build(query)
-                .map_err(|e| format!("Failed to create regex matcher: {}", e))?,
-        );
+        // Treat valid regex queries as regex, but fall back to literal search when parsing fails.
+        let matcher = Arc::new(Self::build_matcher(query)?);
 
         // Build walker with unified WorkspaceWalker for content search
         let additional_excludes: Vec<String> = self
@@ -435,6 +458,53 @@ mod tests {
 
         assert!(!results_lower.is_empty());
         assert!(!results_upper.is_empty());
+    }
+
+    #[test]
+    fn test_search_treats_invalid_regex_as_literal_text() {
+        let temp_dir = create_test_search_directory();
+        fs::write(
+            temp_dir.path().join("src/skills.ts"),
+            "export const action = register(skill);\n",
+        )
+        .unwrap();
+        let search = RipgrepSearch::new();
+
+        let results = search
+            .search_content("register(skill)", temp_dir.path().to_str().unwrap())
+            .unwrap();
+
+        assert!(
+            !results.is_empty(),
+            "Should find literal text with parentheses"
+        );
+        assert!(results.iter().any(|result| {
+            result.file_path.ends_with("skills.ts")
+                && result
+                    .matches
+                    .iter()
+                    .any(|match_item| match_item.line_content.contains("register(skill)"))
+        }));
+    }
+
+    #[test]
+    fn test_search_preserves_valid_regex_queries() {
+        let temp_dir = create_test_search_directory();
+        fs::write(
+            temp_dir.path().join("src/patterns.ts"),
+            "const value = registerAnySkill();\n",
+        )
+        .unwrap();
+        let search = RipgrepSearch::new();
+
+        let results = search
+            .search_content("register.*Skill", temp_dir.path().to_str().unwrap())
+            .unwrap();
+
+        assert!(!results.is_empty(), "Should keep regex matching semantics");
+        assert!(results
+            .iter()
+            .any(|result| result.file_path.ends_with("patterns.ts")));
     }
 
     #[test]

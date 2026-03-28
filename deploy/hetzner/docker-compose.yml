@@ -1,0 +1,64 @@
+# TalkCody Server Deployment on Hetzner
+# 
+# Usage:
+#   1. Copy .env.example to .env and fill in your values
+#   2. docker compose up -d
+#   3. docker compose logs -f
+
+version: "3.8"
+
+services:
+  talkcody:
+    build:
+      context: ../..
+      dockerfile: Dockerfile
+    container_name: talkcody-server
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8080
+      - DATA_ROOT=/data/talkcody
+      - WORKSPACE_ROOT=/data/workspace
+    volumes:
+      - talkcody-data:/data/talkcody
+      - talkcody-workspace:/data/workspace
+    networks:
+      - talkcody-net
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: talkcody-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks:
+      - talkcody-net
+    depends_on:
+      - talkcody
+
+volumes:
+  talkcody-data:
+    driver: local
+  talkcody-workspace:
+    driver: local
+  caddy-data:
+    driver: local
+  caddy-config:
+    driver: local
+
+networks:
+  talkcody-net:
+    driver: bridge
