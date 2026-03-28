@@ -8,6 +8,25 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 TalkCody 的所有重要更新都记录在这里。
 
+## [0.5.0] - 2026-03-28
+
+### 新增
+
+- **新增全局 Memory 系统**：支持全局和项目级别的 Memory 管理，支持基于 Topic 的存储机制
+- **Orchestrator Agent**：新增编排 Agent，负责任务调度和 Agent 协调
+- **ZenMux Provider**：新增 ZenMux 模型提供商支持
+- **并行 Agent 数量提升**：将最大并行子 Agent 数量提升至 20 个，支持更复杂的并行工作流
+
+### 修复
+
+- 修复 Windows 平台路径检查问题
+- 修复 http_proxy 解码错误
+- 修复 code-search tool bug
+
+### 致谢
+
+- 感谢 @bigboss2063 贡献了 Memory 功能
+
 ## [0.4.4] - 2026-02-26
 
 ### 新增

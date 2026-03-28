@@ -1,6 +1,6 @@
 export const CONFIG = {
-  version: '0.4.4',
-  releaseDate: '2026-02-26',
+  version: '0.5.0',
+  releaseDate: '2026-03-28',
 
   x:'https://x.com/TalkCody',
 
@@ -12,9 +12,9 @@ export const CONFIG = {
   },
 
   downloads: {
-    'darwin-aarch64': 'https://cdn.talkcody.com/releases/v0.4.4/TalkCody_0.4.4_aarch64.dmg',
-    'darwin-x86_64': 'https://cdn.talkcody.com/releases/v0.4.4/TalkCody_0.4.4_x64.dmg',
-    'windows-x86_64': 'https://cdn.talkcody.com/releases/v0.4.4/TalkCody_0.4.4_x64_en-US.msi',
-    'linux-x86_64': 'https://cdn.talkcody.com/releases/v0.4.4/TalkCody_0.4.4_amd64.AppImage',
+    'darwin-aarch64': 'https://cdn.talkcody.com/releases/v0.5.0/TalkCody_0.5.0_aarch64.dmg',
+    'darwin-x86_64': 'https://cdn.talkcody.com/releases/v0.5.0/TalkCody_0.5.0_x64.dmg',
+    'windows-x86_64': 'https://cdn.talkcody.com/releases/v0.5.0/TalkCody_0.5.0_x64_en-US.msi',
+    'linux-x86_64': 'https://cdn.talkcody.com/releases/v0.5.0/TalkCody_0.5.0_amd64.AppImage',
   },
 };

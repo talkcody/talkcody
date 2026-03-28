@@ -26,23 +26,33 @@ export interface ChangelogEntry {
 // Only include the most recent versions that users care about
 export const CHANGELOG_DATA: ChangelogEntry[] = [
   {
-    version: '0.4.4',
-    date: '2026-02-26',
+    version: '0.5.0',
+    date: '2026-03-28',
     en: {
       added: [
-        'Aliyun Coding Plan Support: Aliyun Coding Plan supports Qwen 3.5 Plus, GLM-5, Kimi K2.5, and Minimax 2.5 models.',
-        'New Nano Banana 2 Model: Added Nano Banana 2 model support.',
-        'New GPT-5.3-Codex API Model: Added GPT-5.3-Codex API model support.',
+        'New Global Memory System: Support for global and project-level Memory management, with Topic-based storage mechanism.',
+        'Orchestrator Agent: New orchestration Agent for task scheduling and Agent coordination.',
+        'ZenMux Provider: New ZenMux model provider support.',
+        'Increased Parallel Agent Limit: Maximum parallel sub-agent count increased to 20, supporting more complex parallel workflows.',
       ],
-      changed: ['Major web-fetch tool optimization.'],
+      fixed: [
+        'Fixed Windows platform path check issues.',
+        'Fixed http_proxy decoding errors.',
+        'Fixed code-search tool bug.',
+      ],
     },
     zh: {
       added: [
-        '阿里云 Coding Plan 支持：阿里云 Coding Plan 支持 Qwen 3.5 Plus，GLM-5, Kimi K2.5, Minimax 2.5 模型。',
-        '新增 Nano Banana 2 模型。',
-        '新增 GPT-5.3-Codex API 模型。',
+        '新增全局 Memory 系统：支持全局和项目级别的 Memory 管理，支持基于 Topic 的存储机制。',
+        'Orchestrator Agent：新增编排 Agent，负责任务调度和 Agent 协调。',
+        'ZenMux Provider：新增 ZenMux 模型提供商支持。',
+        '并行 Agent 数量提升：将最大并行子 Agent 数量提升至 20 个，支持更复杂的并行工作流。',
       ],
-      changed: ['大幅优化 web-fetch tool。'],
+      fixed: [
+        '修复 Windows 平台路径检查问题。',
+        '修复 http_proxy 解码错误。',
+        '修复 code-search tool bug。',
+      ],
     },
   },
 ];
