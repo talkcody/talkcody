@@ -922,25 +922,22 @@ describe('ChatService.runManualAgentLoop', () => {
       );
     });
 
-    it('should call onError callback exactly once for stream errors', async () => {
-      const mockError = new Error('TimeoutError');
-      Object.defineProperty(mockError, 'name', { value: 'TimeoutError' });
-
-      const mockFullStream = [{ type: 'error', error: mockError }];
-
-      mockStreamText.mockReturnValue(
+    it('should call onError callback exactly once for stream errors after retries are exhausted', async () => {
+      mockStreamText.mockImplementation(() =>
         createLlmEventStream([{ type: 'error', message: 'TimeoutError', name: 'TimeoutError' }])
       );
 
       const options = createBasicOptions();
 
-      await expect(chatService.runAgentLoop(options, mockCallbacks)).rejects.toThrow();
+      await expect(chatService.runAgentLoop(options, mockCallbacks)).rejects.toThrow(
+        /after 3 retries/i
+      );
 
       // Verify onError is called exactly once (not duplicated)
       expect(mockCallbacks.onError).toHaveBeenCalledTimes(1);
       expect(mockCallbacks.onError).toHaveBeenCalledWith(
         expect.objectContaining({
-          message: expect.stringContaining('Unexpected error in agent loop (TimeoutError)'),
+          message: expect.stringContaining('after 3 retries'),
         })
       );
     });
