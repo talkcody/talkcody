@@ -248,3 +248,135 @@ describe('LLMService image generation tool orchestration', () => {
     expect(imageExecute.mock.calls[0]?.[1]).toMatchObject({ taskId: 'task-1' });
   });
 });
+
+describe('LLMService stream retry behavior', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    vi.spyOn(globalThis, 'setTimeout').mockImplementation((handler: TimerHandler) => {
+      if (typeof handler === 'function') {
+        handler();
+      }
+      return 0 as ReturnType<typeof setTimeout>;
+    });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  const buildCallbacks = () => ({
+    onChunk: vi.fn(),
+    onComplete: vi.fn(),
+    onError: vi.fn(),
+    onStatus: vi.fn(),
+  });
+
+  it('retries server failures up to 3 times and succeeds on the 4th attempt', async () => {
+    const { llmClient } = await import('@/services/llm/llm-client');
+    const streamTextMock = vi.mocked(llmClient.streamText);
+
+    let attempts = 0;
+    streamTextMock.mockImplementation(async () => {
+      attempts++;
+      if (attempts <= 3) {
+        throw new Error('HTTP 520: error code: 520');
+      }
+
+      return {
+        requestId: `retry-success-${attempts}`,
+        events: createEventStream([
+          { type: 'text-start' },
+          { type: 'text-delta', text: 'retry recovered' },
+          { type: 'done', finish_reason: 'stop' },
+        ]),
+      };
+    });
+
+    const callbacks = buildCallbacks();
+    const service = new LLMService('task-retry-success');
+
+    await service.runAgentLoop(
+      {
+        messages: [
+          {
+            id: 'msg-1',
+            role: 'user',
+            content: 'hello',
+            timestamp: new Date(),
+          },
+        ],
+        model: 'gemini-3-pro-image@aiGateway',
+        tools: {},
+      },
+      callbacks
+    );
+
+    expect(streamTextMock).toHaveBeenCalledTimes(4);
+    expect(callbacks.onComplete).toHaveBeenCalledWith('retry recovered');
+    expect(callbacks.onError).not.toHaveBeenCalled();
+  });
+
+  it('fails with clear reason after retries are exhausted', async () => {
+    const { llmClient } = await import('@/services/llm/llm-client');
+    const streamTextMock = vi.mocked(llmClient.streamText);
+
+    streamTextMock.mockRejectedValue(
+      new Error('HTTP 503: upstream connect error or disconnect/reset before headers')
+    );
+
+    const callbacks = buildCallbacks();
+    const service = new LLMService('task-retry-exhausted');
+
+    await expect(
+      service.runAgentLoop(
+        {
+          messages: [
+            {
+              id: 'msg-1',
+              role: 'user',
+              content: 'hello',
+              timestamp: new Date(),
+            },
+          ],
+          model: 'gemini-3-pro-image@aiGateway',
+          tools: {},
+        },
+        callbacks
+      )
+    ).rejects.toThrow(/after 3 retries/i);
+
+    expect(streamTextMock).toHaveBeenCalledTimes(4);
+    expect(callbacks.onError).toHaveBeenCalledTimes(1);
+    expect(callbacks.onError.mock.calls[0]?.[0]?.message).toContain('after 3 retries');
+  });
+
+  it('does not retry non-retryable 4xx failures', async () => {
+    const { llmClient } = await import('@/services/llm/llm-client');
+    const streamTextMock = vi.mocked(llmClient.streamText);
+
+    streamTextMock.mockRejectedValue(new Error('HTTP error 401: invalid api key'));
+
+    const callbacks = buildCallbacks();
+    const service = new LLMService('task-no-retry-4xx');
+
+    await expect(
+      service.runAgentLoop(
+        {
+          messages: [
+            {
+              id: 'msg-1',
+              role: 'user',
+              content: 'hello',
+              timestamp: new Date(),
+            },
+          ],
+          model: 'gemini-3-pro-image@aiGateway',
+          tools: {},
+        },
+        callbacks
+      )
+    ).rejects.toThrow(/401/);
+
+    expect(streamTextMock).toHaveBeenCalledTimes(1);
+  });
+});

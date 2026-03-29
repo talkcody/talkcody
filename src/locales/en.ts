@@ -1475,6 +1475,10 @@ const en: LocaleDefinition = {
       unknownFinishReason: 'LLM finished with unknown reason and no tool calls',
       contextTooLongCompactionFailed:
         'Automatic compaction failed; please run /compact or reduce context.',
+      retryCategoryNetwork: 'network error',
+      retryCategoryServer: 'server error',
+      streamRetryExhausted: (retries, category, reason) =>
+        `Agent loop failed after ${retries} retries due to ${category}: ${reason}`,
     },
   },
 

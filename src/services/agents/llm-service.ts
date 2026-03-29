@@ -19,10 +19,7 @@ import { getContextLength } from '@/providers/config/model-config';
 import { parseModelIdentifier } from '@/providers/core/provider-utils';
 import { modelTypeService } from '@/providers/models/model-type-service';
 import { LLMStreamParams } from '@/services/agents/llm-stream-params';
-import {
-  autoCodeReviewService,
-  lastReviewedChangeTimestamp,
-} from '@/services/auto-code-review-service';
+import { lastReviewedChangeTimestamp } from '@/services/auto-code-review-service';
 import { databaseService } from '@/services/database-service';
 import { hookService } from '@/services/hooks/hook-service';
 import { hookStateService } from '@/services/hooks/hook-state-service';
@@ -73,8 +70,47 @@ import { useProviderStore } from '@/providers/stores/provider-store';
 import { ContextCompactor } from '../context/context-compactor';
 import { taskFileService } from '../task-file-service';
 import { ErrorHandler } from './error-handler';
-import { StreamProcessor } from './stream-processor';
+import { StreamProcessor, type StreamProcessorState } from './stream-processor';
 import { ToolExecutor } from './tool-executor';
+
+const MAX_STREAM_RETRIES = 3;
+const STREAM_RETRY_BACKOFF_MS = [1000, 2000, 3000] as const;
+const RETRYABLE_NETWORK_HINTS = [
+  'load failed',
+  'network',
+  'timeout',
+  'timed out',
+  'connection reset',
+  'connection refused',
+  'upstream connect error',
+  'disconnect/reset',
+  'reset before headers',
+  'fetch failed',
+  'econnreset',
+  'econnrefused',
+  'enotfound',
+  'eai_again',
+] as const;
+
+type StreamRetryCategory = 'openrouter-stream' | 'network' | 'server';
+
+type StreamRetryDecision = {
+  retryable: boolean;
+  category?: StreamRetryCategory;
+  reason: string;
+  status?: number;
+  hasVisibleOutput: boolean;
+};
+
+class RetryableStreamError extends Error {
+  readonly decision: StreamRetryDecision;
+
+  constructor(decision: StreamRetryDecision) {
+    super(decision.reason);
+    this.name = 'RetryableStreamError';
+    this.decision = decision;
+  }
+}
 
 function getTranslations() {
   const language = (useSettingsStore.getState().language || 'en') as SupportedLocale;
@@ -101,19 +137,124 @@ export class LLMService {
     };
   }
 
-  /**
-   * Check if an error is a retryable streaming error from OpenRouter
-   * OpenRouter sometimes loses the 'id' field in tool call streaming deltas
-   */
-  private isRetryableStreamingError(error: unknown): boolean {
-    if (error && typeof error === 'object') {
-      const err = error as { name?: string; message?: string };
-      return (
-        err.name === 'AI_InvalidResponseDataError' &&
-        (err.message?.includes("Expected 'id' to be a string") ?? false)
-      );
+  private hasVisibleStreamOutput(state: StreamProcessorState): boolean {
+    return (
+      state.hasReceivedText || state.reasoningBlocks.some((block) => block.text.trim().length > 0)
+    );
+  }
+
+  private isAbortError(error: unknown): boolean {
+    if (
+      typeof DOMException !== 'undefined' &&
+      error instanceof DOMException &&
+      error.name === 'AbortError'
+    ) {
+      return true;
     }
+
+    if (error instanceof Error && error.name === 'AbortError') {
+      return true;
+    }
+
     return false;
+  }
+
+  private extractHttpStatusFromMessage(message: string): number | undefined {
+    const match = message.match(/http(?:\s+error)?\s+(\d{3})/i);
+    if (!match) {
+      return undefined;
+    }
+
+    const parsed = Number.parseInt(match[1] ?? '', 10);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+
+  private classifyStreamRetry(
+    error: unknown,
+    model: string,
+    iteration: number,
+    hasVisibleOutput: boolean
+  ): StreamRetryDecision {
+    const errorContext = createErrorContext(model, {
+      iteration,
+      phase: 'stream-retry',
+    });
+    const { errorDetails } = extractAndFormatError(error, errorContext);
+    const message = errorDetails.message.toLowerCase();
+
+    if (this.isAbortError(error)) {
+      return {
+        retryable: false,
+        reason: errorDetails.message,
+        hasVisibleOutput,
+      };
+    }
+
+    if (
+      errorDetails.name === 'AI_InvalidResponseDataError' &&
+      errorDetails.message.includes("Expected 'id' to be a string")
+    ) {
+      return {
+        retryable: !hasVisibleOutput,
+        category: 'openrouter-stream',
+        reason: errorDetails.message,
+        hasVisibleOutput,
+      };
+    }
+
+    const status =
+      typeof errorDetails.status === 'number'
+        ? errorDetails.status
+        : this.extractHttpStatusFromMessage(errorDetails.message);
+
+    if (typeof status === 'number') {
+      if (status >= 500) {
+        return {
+          retryable: !hasVisibleOutput,
+          category: 'server',
+          reason: `HTTP ${status}: ${errorDetails.message}`,
+          status,
+          hasVisibleOutput,
+        };
+      }
+
+      return {
+        retryable: false,
+        reason: `HTTP ${status}: ${errorDetails.message}`,
+        status,
+        hasVisibleOutput,
+      };
+    }
+
+    const isNetworkError = RETRYABLE_NETWORK_HINTS.some((hint) => message.includes(hint));
+    if (isNetworkError) {
+      return {
+        retryable: !hasVisibleOutput,
+        category: 'network',
+        reason: errorDetails.message,
+        hasVisibleOutput,
+      };
+    }
+
+    return {
+      retryable: false,
+      reason: errorDetails.message,
+      hasVisibleOutput,
+    };
+  }
+
+  private buildRetryExhaustedError(
+    decision: StreamRetryDecision,
+    t: ReturnType<typeof getTranslations>
+  ): Error {
+    const category =
+      decision.category === 'server'
+        ? t.LLMService.errors.retryCategoryServer
+        : t.LLMService.errors.retryCategoryNetwork;
+
+    return new Error(
+      t.LLMService.errors.streamRetryExhausted(MAX_STREAM_RETRIES, category, decision.reason)
+    );
   }
 
   /**
@@ -668,8 +809,8 @@ export class LLMService {
             })
           );
 
-          // Retry loop for handling intermittent OpenRouter streaming errors
-          const MAX_STREAM_RETRIES = 3;
+          // Retry loop for transient network/provider failures.
+          // 3 retries means 1 initial attempt + up to 3 additional attempts.
           let streamRetryCount = 0;
           let streamResult: StreamTextResult | null = null;
           let shouldAutoCompact = false;
@@ -922,6 +1063,7 @@ export class LLMService {
                     if (delta.name) {
                       errorObj.name = delta.name;
                     }
+
                     if (isContextLengthExceededError(errorObj)) {
                       const MAX_AUTO_COMPACTIONS = 1;
                       if (autoCompactionAttempts < MAX_AUTO_COMPACTIONS) {
@@ -935,6 +1077,18 @@ export class LLMService {
                       onError?.(error);
                       reject(error);
                       return;
+                    }
+
+                    const visibleOutput = this.hasVisibleStreamOutput(streamProcessor.getState());
+                    const retryDecision = this.classifyStreamRetry(
+                      errorObj,
+                      model,
+                      loopState.currentIteration,
+                      visibleOutput
+                    );
+
+                    if (retryDecision.retryable) {
+                      throw new RetryableStreamError(retryDecision);
                     }
 
                     const errorHandlerOptions = {
@@ -987,23 +1141,40 @@ export class LLMService {
                 throw new Error(t.LLMService.errors.contextTooLongCompactionFailed);
               }
 
-              // Check if this is a retryable OpenRouter streaming error
-              if (
-                this.isRetryableStreamingError(streamError) &&
-                streamRetryCount < MAX_STREAM_RETRIES
-              ) {
+              const visibleOutput = this.hasVisibleStreamOutput(streamProcessor.getState());
+              const retryDecision =
+                streamError instanceof RetryableStreamError
+                  ? streamError.decision
+                  : this.classifyStreamRetry(
+                      streamError,
+                      model,
+                      loopState.currentIteration,
+                      visibleOutput
+                    );
+
+              if (retryDecision.retryable && streamRetryCount < MAX_STREAM_RETRIES) {
                 streamRetryCount++;
+                const sleepMs = STREAM_RETRY_BACKOFF_MS[streamRetryCount - 1] ?? 3000;
+
                 logger.warn(
-                  `Retryable streaming error detected, will retry (${streamRetryCount}/${MAX_STREAM_RETRIES})`,
+                  `[LLMService] Retryable stream failure (${retryDecision.category || 'unknown'}) ` +
+                    `retry ${streamRetryCount}/${MAX_STREAM_RETRIES}`,
                   {
-                    errorName: (streamError as Error)?.name,
-                    errorMessage: (streamError as Error)?.message,
                     iteration: loopState.currentIteration,
+                    reason: retryDecision.reason,
+                    status: retryDecision.status,
+                    hasVisibleOutput: retryDecision.hasVisibleOutput,
                   }
                 );
-                continue; // Retry the stream
+
+                await new Promise((resolve) => setTimeout(resolve, sleepMs));
+                continue;
               }
-              // Non-retryable error or max retries exceeded, re-throw
+
+              if (retryDecision.retryable) {
+                throw this.buildRetryExhaustedError(retryDecision, t);
+              }
+
               throw streamError;
             }
           } // End of streamRetryLoop

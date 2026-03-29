@@ -1416,6 +1416,9 @@ export interface LocaleDefinition {
       streamResultNull: string;
       unknownFinishReason: string;
       contextTooLongCompactionFailed: string;
+      retryCategoryNetwork: string;
+      retryCategoryServer: string;
+      streamRetryExhausted: (retries: number, category: string, reason: string) => string;
     };
   };
 

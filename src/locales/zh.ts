@@ -1432,6 +1432,10 @@ const zh: LocaleDefinition = {
       streamResultNull: '重试循环后流结果意外为空',
       unknownFinishReason: 'LLM 以未知原因完成且没有工具调用',
       contextTooLongCompactionFailed: '自动压缩失败，请运行 /compact 或减少上下文。',
+      retryCategoryNetwork: '网络错误',
+      retryCategoryServer: '服务端错误',
+      streamRetryExhausted: (retries, category, reason) =>
+        `Agent 循环在重试 ${retries} 次后仍失败（${category}）：${reason}`,
     },
   },
 

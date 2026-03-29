@@ -72,6 +72,71 @@ struct StreamProcessorState {
     error_message: Option<String>,
 }
 
+const DEFAULT_RETRY_COUNT: u32 = 3;
+const RETRY_BACKOFF_MS: [u64; 3] = [500, 1000, 2000];
+
+fn extract_http_status_code(message: &str) -> Option<u16> {
+    ["HTTP error ", "HTTP "].iter().find_map(|prefix| {
+        message.find(prefix).and_then(|idx| {
+            let status_digits: String = message[idx + prefix.len()..]
+                .chars()
+                .take_while(|ch| ch.is_ascii_digit())
+                .collect();
+
+            if status_digits.len() == 3 {
+                status_digits.parse::<u16>().ok()
+            } else {
+                None
+            }
+        })
+    })
+}
+
+fn should_retry_http_status(status: u16) -> bool {
+    status >= 500 || status == 429 || status == 408
+}
+
+fn should_retry_network_error(message: &str) -> bool {
+    let lowered = message.to_ascii_lowercase();
+    [
+        "request failed",
+        "stream error",
+        "stream timeout",
+        "connection timeout",
+        "timed out",
+        "connection reset",
+        "connection refused",
+        "upstream connect error",
+        "reset before headers",
+        "dns",
+        "network",
+    ]
+    .iter()
+    .any(|token| lowered.contains(token))
+}
+
+fn should_retry_stream_error(message: &str) -> bool {
+    if let Some(status) = extract_http_status_code(message) {
+        return should_retry_http_status(status);
+    }
+
+    should_retry_network_error(message)
+}
+
+fn retry_backoff_ms(retry_index: u32) -> u64 {
+    RETRY_BACKOFF_MS
+        .get(retry_index as usize)
+        .copied()
+        .unwrap_or(*RETRY_BACKOFF_MS.last().unwrap_or(&2000))
+}
+
+fn format_retry_exhausted_error(last_error: &str) -> String {
+    format!(
+        "LLM request failed after {} retries: {}",
+        DEFAULT_RETRY_COUNT, last_error
+    )
+}
+
 impl AgentLoop {
     pub fn new(
         config: AgentLoopConfig,
@@ -148,47 +213,80 @@ impl AgentLoop {
 
         // Run stream
         let runner = StreamRunner::new(self.registry.clone(), self.api_keys.clone());
-        let mut state = StreamProcessorState::default();
         let timeout = Duration::from_secs(300);
 
-        let result = runner
-            .stream(request, timeout, |event| {
-                self.process_stream_event(&mut state, event, ctx);
-            })
-            .await;
+        let mut retry_count = 0u32;
+        loop {
+            let mut state = StreamProcessorState::default();
 
-        if let Err(e) = result {
-            return Ok(AgentLoopResult::Error { message: e });
+            let stream_result = runner
+                .stream(request.clone(), timeout, |event| {
+                    self.process_stream_event(&mut state, event, ctx);
+                })
+                .await;
+
+            let stream_error = match stream_result {
+                Ok(()) if state.has_error => Some(
+                    state
+                        .error_message
+                        .unwrap_or_else(|| "Unknown error".to_string()),
+                ),
+                Ok(()) => {
+                    // Handle tool calls
+                    if !state.tool_calls.is_empty() {
+                        return Ok(AgentLoopResult::ToolCalls {
+                            accumulated_text: state.accumulated_text,
+                            tool_calls: state.tool_calls,
+                            finish_reason: state.finish_reason,
+                        });
+                    }
+
+                    if state.finish_reason.is_some() {
+                        let _ = self.event_sender.send(RuntimeEvent::Done {
+                            session_id: ctx.session_id.clone(),
+                            finish_reason: state.finish_reason.clone(),
+                        });
+                    }
+
+                    return Ok(AgentLoopResult::Completed {
+                        message: state.accumulated_text,
+                    });
+                }
+                Err(err) => Some(err),
+            };
+
+            let error_message = match stream_error {
+                Some(message) => message,
+                None => {
+                    return Ok(AgentLoopResult::Error {
+                        message: "Unknown stream failure".to_string(),
+                    });
+                }
+            };
+
+            if !should_retry_stream_error(&error_message) {
+                return Ok(AgentLoopResult::Error {
+                    message: error_message,
+                });
+            }
+
+            if retry_count >= DEFAULT_RETRY_COUNT {
+                return Ok(AgentLoopResult::Error {
+                    message: format_retry_exhausted_error(&error_message),
+                });
+            }
+
+            retry_count += 1;
+            let backoff_ms = retry_backoff_ms(retry_count.saturating_sub(1));
+            log::warn!(
+                "[AgentLoop] Retryable stream error on task {} (retry {}/{}): {}",
+                ctx.task_id,
+                retry_count,
+                DEFAULT_RETRY_COUNT,
+                error_message
+            );
+            tokio::time::sleep(Duration::from_millis(backoff_ms)).await;
         }
-
-        // Check for errors
-        if state.has_error {
-            return Ok(AgentLoopResult::Error {
-                message: state
-                    .error_message
-                    .unwrap_or_else(|| "Unknown error".to_string()),
-            });
-        }
-
-        // Handle tool calls
-        if !state.tool_calls.is_empty() {
-            return Ok(AgentLoopResult::ToolCalls {
-                accumulated_text: state.accumulated_text,
-                tool_calls: state.tool_calls,
-                finish_reason: state.finish_reason,
-            });
-        }
-
-        if state.finish_reason.is_some() {
-            let _ = self.event_sender.send(RuntimeEvent::Done {
-                session_id: ctx.session_id.clone(),
-                finish_reason: state.finish_reason.clone(),
-            });
-        }
-
-        Ok(AgentLoopResult::Completed {
-            message: state.accumulated_text,
-        })
     }
 
     /// Process a stream event from the LLM
@@ -639,5 +737,45 @@ mod tests {
 
         assert!(prompt.contains("User: Hello"));
         assert!(prompt.contains("Assistant: Hi there!"));
+    }
+
+    #[test]
+    fn test_extract_http_status_code_from_error_messages() {
+        assert_eq!(
+            extract_http_status_code("HTTP error 503: upstream connect timeout"),
+            Some(503)
+        );
+        assert_eq!(
+            extract_http_status_code("HTTP 520: error code: 520"),
+            Some(520)
+        );
+        assert_eq!(extract_http_status_code("Request failed: timeout"), None);
+    }
+
+    #[test]
+    fn test_should_retry_stream_error_classification() {
+        assert!(should_retry_stream_error("HTTP error 500: server error"));
+        assert!(should_retry_stream_error(
+            "HTTP error 503: upstream unavailable"
+        ));
+        assert!(should_retry_stream_error("HTTP 429: engine is overloaded"));
+        assert!(should_retry_stream_error(
+            "Stream timeout after 300s waiting for response"
+        ));
+        assert!(should_retry_stream_error(
+            "Request failed: connection reset before headers"
+        ));
+
+        assert!(!should_retry_stream_error("HTTP error 400: bad request"));
+        assert!(!should_retry_stream_error(
+            "HTTP error 401: invalid api key"
+        ));
+    }
+
+    #[test]
+    fn test_format_retry_exhausted_error_contains_reason() {
+        let message = format_retry_exhausted_error("HTTP error 503: connection timeout");
+        assert!(message.contains("after 3 retries"));
+        assert!(message.contains("HTTP error 503"));
     }
 }

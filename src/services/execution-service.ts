@@ -23,7 +23,6 @@ import { messageService } from '@/services/message-service';
 import { notificationService } from '@/services/notification-service';
 import { taskService } from '@/services/task-service';
 import { useExecutionStore } from '@/stores/execution-store';
-import { useSettingsStore } from '@/stores/settings-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useWorktreeStore } from '@/stores/worktree-store';
 import type { AgentToolSet, UIMessage } from '@/types/agent';
