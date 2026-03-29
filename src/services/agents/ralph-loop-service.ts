@@ -282,6 +282,7 @@ export class RalphLoopService implements CompletionHook {
 
     return {
       action: 'continue',
+      continuationMode: 'replace',
       nextMessages,
     };
   }

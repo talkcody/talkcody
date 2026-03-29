@@ -1285,41 +1285,103 @@ export class LLMService {
             // Run completion hook pipeline
             const result = await completionHookPipeline.run(completionContext);
 
-            if (result.action === 'continue' && result.nextMessages) {
-              // Hook wants to continue with fresh context (e.g., Ralph Loop)
+            if (result.action === 'continue') {
+              const continuationMode = result.continuationMode || 'replace';
+              let shouldContinueLoop = false;
+              let continuationSource: 'replace' | 'task-store' | 'next-messages' | 'none' = 'none';
+
               logger.info('[LLMService] Completion hook requested continuation', {
                 taskId: this.taskId,
                 iteration: loopState.currentIteration,
+                continuationMode,
+                nextMessageCount: result.nextMessages?.length || 0,
               });
 
-              // 1. Convert next messages to model format
-              const newModelMessages = await convertMessages(result.nextMessages, {
-                rootPath,
-                systemPrompt,
-                model,
-                providerId: providerId ?? undefined,
-              });
+              if (continuationMode === 'append') {
+                if (this.taskId && this.taskId !== 'nested') {
+                  const latestTaskMessages = useTaskStore.getState().getMessages(this.taskId);
+                  if (latestTaskMessages.length > 0) {
+                    const rebuiltMessages = await convertMessages(latestTaskMessages, {
+                      rootPath,
+                      systemPrompt,
+                      model,
+                      providerId: providerId ?? undefined,
+                    });
 
-              // 2. Reset loopState.messages with fresh context
-              loopState.messages = convertToAnthropicFormat(newModelMessages, {
-                autoFix: true,
-                trimAssistantWhitespace: true,
-              });
+                    loopState.messages = convertToAnthropicFormat(rebuiltMessages, {
+                      autoFix: true,
+                      trimAssistantWhitespace: true,
+                    });
+                    shouldContinueLoop = true;
+                    continuationSource = 'task-store';
+                  }
+                }
 
-              // 3. Reset other loopState fields for fresh iteration
-              loopState.lastRequestTokens = 0;
-              loopState.unknownFinishReasonCount = 0;
-              loopState.lastFinishReason = undefined;
-              loopState.isComplete = false;
+                if (!shouldContinueLoop && result.nextMessages && result.nextMessages.length > 0) {
+                  const appendedMessages = await convertMessages(result.nextMessages, {
+                    rootPath,
+                    systemPrompt: undefined,
+                    model,
+                    providerId: providerId ?? undefined,
+                  });
 
-              // 4. Reset tool summaries for next iteration
-              this.toolSummaries = [];
+                  loopState.messages = convertToAnthropicFormat(
+                    [...loopState.messages, ...appendedMessages],
+                    {
+                      autoFix: true,
+                      trimAssistantWhitespace: true,
+                    }
+                  );
+                  shouldContinueLoop = true;
+                  continuationSource = 'next-messages';
+                }
+              } else if (result.nextMessages) {
+                const newModelMessages = await convertMessages(result.nextMessages, {
+                  rootPath,
+                  systemPrompt,
+                  model,
+                  providerId: providerId ?? undefined,
+                });
 
-              // 5. Reset stream processor for fresh iteration
-              streamProcessor.fullReset();
+                loopState.messages = convertToAnthropicFormat(newModelMessages, {
+                  autoFix: true,
+                  trimAssistantWhitespace: true,
+                });
+                shouldContinueLoop = true;
+                continuationSource = 'replace';
+              }
 
-              // 6. Continue the loop
-              continue;
+              if (!shouldContinueLoop) {
+                logger.warn(
+                  '[LLMService] Completion continue request ignored due to empty context',
+                  {
+                    taskId: this.taskId,
+                    continuationMode,
+                  }
+                );
+              } else {
+                logger.info('[LLMService] Applying completion continuation context', {
+                  taskId: this.taskId,
+                  continuationMode,
+                  continuationSource,
+                  messageCount: loopState.messages.length,
+                });
+
+                // Reset loop state for next iteration
+                loopState.lastRequestTokens = 0;
+                loopState.unknownFinishReasonCount = 0;
+                loopState.lastFinishReason = undefined;
+                loopState.isComplete = false;
+
+                // Reset tool summaries for next iteration
+                this.toolSummaries = [];
+
+                // Reset stream processor for fresh iteration
+                streamProcessor.fullReset();
+
+                // Continue the loop with updated context
+                continue;
+              }
             }
 
             if (result.action === 'stop') {

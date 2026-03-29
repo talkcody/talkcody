@@ -59,6 +59,11 @@ export interface CompletionHookContext {
 }
 
 /**
+ * How continuation messages should be applied by LLMService
+ */
+export type CompletionHookContinuationMode = 'replace' | 'append';
+
+/**
  * Result returned by a completion hook
  */
 export interface CompletionHookResult {
@@ -68,6 +73,12 @@ export interface CompletionHookResult {
   stopReason?: RalphLoopStopReason;
   /** Human-readable stop message */
   stopMessage?: string;
+  /**
+   * How nextMessages should be applied when action is 'continue'.
+   * - 'replace': reset model context from nextMessages (default)
+   * - 'append': append nextMessages to existing model context
+   */
+  continuationMode?: CompletionHookContinuationMode;
   /** Messages to use for next iteration if action is 'continue' */
   nextMessages?: UIMessage[];
 }

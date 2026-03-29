@@ -65,6 +65,7 @@ export class AutoCodeReviewHookService implements CompletionHook {
 
         return {
           action: 'continue',
+          continuationMode: 'append',
           nextMessages: [
             {
               id: `auto-review-${Date.now()}`,

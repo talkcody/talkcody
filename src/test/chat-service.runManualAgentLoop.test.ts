@@ -5,6 +5,7 @@ import { hookService } from '../services/hooks/hook-service';
 import { hookStateService } from '../services/hooks/hook-state-service';
 import { messageService } from '../services/message-service';
 import { completionHookPipeline } from '../services/agents/llm-completion-hooks';
+import type { CompletionHook } from '../types/completion-hooks';
 import { createLLMService, LLMService } from '../services/agents/llm-service';
 import { stopHookService } from '../services/agents/stop-hook-service';
 import type { AgentLoopOptions, UIMessage } from '../types/agent';
@@ -359,6 +360,152 @@ describe('ChatService.runManualAgentLoop', () => {
 
       // Should have called streamText at most maxIterations times
       expect(mockStreamText).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('Completion hook continuation', () => {
+    it('should continue with append mode and keep auto review input in next iteration', async () => {
+      const appendHook: CompletionHook = {
+        name: 'append-hook',
+        priority: 20,
+        shouldRun: () => true,
+        run: vi
+          .fn()
+          .mockResolvedValueOnce({
+            action: 'continue',
+            continuationMode: 'append',
+            nextMessages: [
+              {
+                id: 'append-msg-1',
+                role: 'user',
+                content: 'Please fix auto review issues',
+                timestamp: new Date(),
+              },
+            ],
+          })
+          .mockResolvedValueOnce({ action: 'stop' }),
+      };
+
+      completionHookPipeline.register(appendHook);
+
+      const { useTaskStore } = await import('@/stores/task-store');
+      const getMessagesMock = vi.fn().mockReturnValue([
+        {
+          id: 'store-msg-1',
+          role: 'user',
+          content: 'initial request',
+          timestamp: new Date(),
+        },
+        {
+          id: 'store-msg-2',
+          role: 'assistant',
+          content: 'auto review found issues',
+          timestamp: new Date(),
+        },
+        {
+          id: 'store-msg-3',
+          role: 'user',
+          content: 'Please fix auto review issues',
+          timestamp: new Date(),
+        },
+      ]);
+      vi.mocked(useTaskStore.getState).mockReturnValue({
+        getMessages: getMessagesMock,
+        getTask: vi.fn(() => undefined),
+        updateTask: vi.fn(),
+        updateTaskUsage: vi.fn(),
+      });
+
+      mockStreamText
+        .mockReturnValueOnce(
+          createLlmEventStream([
+            { type: 'text-delta', text: 'first iteration output' },
+            { type: 'done', finish_reason: 'stop' },
+          ])
+        )
+        .mockReturnValueOnce(
+          createLlmEventStream([
+            { type: 'text-delta', text: 'second iteration handles review' },
+            { type: 'done', finish_reason: 'stop' },
+          ])
+        );
+
+      const options = createBasicOptions({ maxIterations: 5 });
+      await chatService.runAgentLoop(options, mockCallbacks);
+
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      expect(getMessagesMock).toHaveBeenCalled();
+      expect(mockCallbacks.onComplete).toHaveBeenCalledWith('second iteration handles review');
+
+      const secondCallPayload = mockStreamText.mock.calls[1]?.[0] as {
+        messages?: Array<{ role?: string; content?: unknown }>;
+      };
+      const secondCallMessages = secondCallPayload.messages || [];
+      expect(
+        secondCallMessages.some(
+          (msg) => msg.role === 'user' && msg.content === 'Please fix auto review issues'
+        )
+      ).toBe(true);
+    });
+
+    it('should continue with replace mode using nextMessages only', async () => {
+      const replaceHook: CompletionHook = {
+        name: 'replace-hook',
+        priority: 20,
+        shouldRun: () => true,
+        run: vi
+          .fn()
+          .mockResolvedValueOnce({
+            action: 'continue',
+            continuationMode: 'replace',
+            nextMessages: [
+              {
+                id: 'replace-msg-1',
+                role: 'user',
+                content: 'fresh context message',
+                timestamp: new Date(),
+              },
+            ],
+          })
+          .mockResolvedValueOnce({ action: 'stop' }),
+      };
+
+      completionHookPipeline.register(replaceHook);
+
+      mockStreamText
+        .mockReturnValueOnce(
+          createLlmEventStream([
+            { type: 'text-delta', text: 'replace first' },
+            { type: 'done', finish_reason: 'stop' },
+          ])
+        )
+        .mockReturnValueOnce(
+          createLlmEventStream([
+            { type: 'text-delta', text: 'replace second' },
+            { type: 'done', finish_reason: 'stop' },
+          ])
+        );
+
+      const options = createBasicOptions({ maxIterations: 5 });
+      await chatService.runAgentLoop(options, mockCallbacks);
+
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+
+      const secondCallPayload = mockStreamText.mock.calls[1]?.[0] as {
+        messages?: Array<{ role?: string; content?: unknown }>;
+      };
+      const secondCallMessages = secondCallPayload.messages || [];
+
+      expect(
+        secondCallMessages.some(
+          (msg) => msg.role === 'user' && msg.content === 'fresh context message'
+        )
+      ).toBe(true);
+      expect(
+        secondCallMessages.some(
+          (msg) => msg.role === 'user' && msg.content === 'Hello, please help me'
+        )
+      ).toBe(false);
     });
   });
 

@@ -86,6 +86,7 @@ describe('CompletionHookPipeline', () => {
       const hook1 = createMockHook('hook-1', 10, true, { action: 'skip' });
       const hook2 = createMockHook('hook-2', 20, true, {
         action: 'continue',
+        continuationMode: 'append',
         nextMessages: [{ id: 'test', role: 'user', content: 'Continue', timestamp: new Date() }],
       });
       const hook3 = createMockHook('hook-3', 30, true, { action: 'stop' });
@@ -111,6 +112,7 @@ describe('CompletionHookPipeline', () => {
       const result = await pipeline.run(context);
 
       expect(result.action).toBe('continue');
+      expect(result.continuationMode).toBe('append');
       expect(hook3.run).not.toHaveBeenCalled();
     });
 

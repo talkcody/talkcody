@@ -69,6 +69,7 @@ export class StopHookService implements CompletionHook {
 
           return {
             action: 'continue',
+            continuationMode: 'replace',
             nextMessages: [
               {
                 id: `stop-hook-${Date.now()}`,
@@ -82,6 +83,7 @@ export class StopHookService implements CompletionHook {
 
         return {
           action: 'continue',
+          continuationMode: 'replace',
           nextMessages: [],
         };
       }
