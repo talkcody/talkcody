@@ -23,7 +23,7 @@
       },
       "context_length": 400000
     },
-    "gpt-54": {
+    "gpt-5.4": {
       "name": "GPT 5.4",
       "imageInput": true,
       "providers": [
@@ -422,7 +422,7 @@
       },
       "context_length": 80000
     },
-    "minimax-m27": {
+    "MiniMax-M2.7": {
       "name": "MiniMax M2.7",
       "imageInput": true,
       "interleaved": true,

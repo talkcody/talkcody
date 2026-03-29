@@ -58,7 +58,7 @@ export function ModelSelectorButton() {
       'gpt-5.4@openai',
       'gpt-5.3-codex@openai',
       'kimi-k2.5@kimi_coding',
-      'minimax-m25@talkcody',
+      'MiniMax-M2.7@talkcody',
     ],
     []
   );
