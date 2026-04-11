@@ -217,6 +217,24 @@ export interface LocaleDefinition {
       disabledTooltip: string;
       toggleFailed: string;
     };
+    autoGitCommit: {
+      title: string;
+      description: string;
+      enabled: string;
+      disabled: string;
+      enabledTooltip: string;
+      disabledTooltip: string;
+      toggleFailed: string;
+    };
+    autoCheckFinish: {
+      title: string;
+      description: string;
+      enabled: string;
+      disabled: string;
+      enabledTooltip: string;
+      disabledTooltip: string;
+      toggleFailed: string;
+    };
     outputFormat: {
       title: string;
       description: string;
@@ -582,6 +600,33 @@ export interface LocaleDefinition {
           appSecretMissing: string;
         };
       };
+      wechat: {
+        title: string;
+        description: string;
+        enabled: string;
+        baseUrlLabel: string;
+        baseUrlPlaceholder: string;
+        allowedUserIdsLabel: string;
+        allowedUserIdsPlaceholder: string;
+        pollTimeoutLabel: string;
+        pollTimeoutPlaceholder: string;
+        pollTimeoutHint: string;
+        connect: string;
+        reconnect: string;
+        disconnect: string;
+        statusIdle: string;
+        statusWaiting: string;
+        statusScanned: string;
+        statusConnected: string;
+        statusExpired: string;
+        qrHint: string;
+        personalOnlyHint: string;
+        contextHint: string;
+        errors: {
+          baseUrlMissing: string;
+          pollTimeoutRange: string;
+        };
+      };
     };
     shortcuts: {
       title: string;
@@ -798,6 +843,7 @@ export interface LocaleDefinition {
       updateFailed: string;
       published: string;
       importFromGitHub: string;
+      importFromLocal: string;
       tooltipTitle: string;
       tooltipDescription: string;
     };
@@ -815,6 +861,22 @@ export interface LocaleDefinition {
       failed: string;
       import: string;
       close: string;
+    };
+    localImport: {
+      title: string;
+      description: string;
+      urlLabel: string;
+      urlPlaceholder: string;
+      urlHint: string;
+      urlRequired: string;
+      scanning: string;
+      invalidUrl: string;
+      networkError: string;
+      imported: string;
+      failed: string;
+      import: string;
+      close: string;
+      chooseFolder: string;
     };
   };
 
@@ -927,6 +989,7 @@ export interface LocaleDefinition {
       description: string;
       createNew: string;
       importFromGitHub: string;
+      importFromLocal: string;
       refresh: string;
       searchPlaceholder: string;
       allCategories: string;
@@ -1021,6 +1084,34 @@ export interface LocaleDefinition {
       back: string;
       close: string;
       importMore: string;
+    };
+    localImport: {
+      title: string;
+      description: string;
+      urlLabel: string;
+      urlPlaceholder: string;
+      urlHint: string;
+      urlRequired: string;
+      scanning: string;
+      foundSkills: (count: number) => string;
+      noSkillsFound: string;
+      invalidUrl: string;
+      networkError: string;
+      importing: string;
+      importSuccess: (count: number) => string;
+      importFailed: (count: number) => string;
+      imported: string;
+      failed: string;
+      alreadyExists: (name: string) => string;
+      selectAll: string;
+      deselectAll: string;
+      scan: string;
+      import: string;
+      cancel: string;
+      back: string;
+      close: string;
+      importMore: string;
+      chooseFolder: string;
     };
   };
 

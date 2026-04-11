@@ -629,8 +629,13 @@ export class BashExecutor {
     return { allowed: true };
   }
 
-  async execute(command: string, taskId?: string, toolId?: string): Promise<BashResult> {
-    return this.executeWithTimeout(command, taskId, toolId, 300000, 60000);
+  async execute(
+    command: string,
+    taskId?: string,
+    toolId?: string,
+    contextRootPath?: string
+  ): Promise<BashResult> {
+    return this.executeWithTimeout(command, taskId, toolId, 300000, 60000, contextRootPath);
   }
 
   /**
@@ -641,7 +646,8 @@ export class BashExecutor {
     taskId: string | undefined,
     toolId: string | undefined,
     timeoutMs: number,
-    idleTimeoutMs: number
+    idleTimeoutMs: number,
+    contextRootPath?: string
   ): Promise<BashResult> {
     try {
       // Safety check
@@ -657,7 +663,7 @@ export class BashExecutor {
       }
 
       this.logger.info('Executing bash command:', command);
-      const rootPath = await getEffectiveWorkspaceRoot(taskId ?? '');
+      const rootPath = contextRootPath ?? (await getEffectiveWorkspaceRoot(taskId ?? ''));
 
       // Validate rm command paths
       const rmValidation = await this.validateRmCommand(command, rootPath || null);
@@ -906,7 +912,8 @@ export class BashExecutor {
     command: string,
     taskId: string,
     toolId: string,
-    maxTimeoutMs?: number
+    maxTimeoutMs?: number,
+    contextRootPath?: string
   ): Promise<BashResult> {
     try {
       // Safety check
@@ -922,7 +929,7 @@ export class BashExecutor {
       }
 
       this.logger.info('Executing background bash command:', command);
-      const rootPath = await getEffectiveWorkspaceRoot(taskId);
+      const rootPath = contextRootPath ?? (await getEffectiveWorkspaceRoot(taskId));
 
       // Validate rm command paths
       const rmValidation = await this.validateRmCommand(command, rootPath || null);

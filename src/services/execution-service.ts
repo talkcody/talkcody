@@ -15,6 +15,8 @@
 
 import { logger } from '@/lib/logger';
 import { autoCodeReviewHookService } from '@/services/agents/auto-code-review-hook-service';
+import { autoGitCommitHookService } from '@/services/agents/auto-git-commit-hook-service';
+import { checkFinishHookService } from '@/services/agents/check-finish-hook-service';
 import { completionHookPipeline } from '@/services/agents/llm-completion-hooks';
 import { createLLMService, type LLMService } from '@/services/agents/llm-service';
 import { ralphLoopService } from '@/services/agents/ralph-loop-service';
@@ -22,6 +24,7 @@ import { stopHookService } from '@/services/agents/stop-hook-service';
 import { messageService } from '@/services/message-service';
 import { notificationService } from '@/services/notification-service';
 import { taskService } from '@/services/task-service';
+import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useTaskStore } from '@/stores/task-store';
 import { useWorktreeStore } from '@/stores/worktree-store';
@@ -64,9 +67,13 @@ class ExecutionService {
     // Register hooks in priority order:
     // 10: Stop Hook (first)
     // 20: Ralph Loop (second)
+    // 25: Auto Git Commit (third)
+    // 26: Check Finish (fourth, after git commit, before code review)
     // 30: Auto Code Review (last)
     completionHookPipeline.register(stopHookService);
     completionHookPipeline.register(ralphLoopService);
+    completionHookPipeline.register(autoGitCommitHookService);
+    completionHookPipeline.register(checkFinishHookService);
     completionHookPipeline.register(autoCodeReviewHookService);
 
     logger.info('[ExecutionService] Registered completion hooks', {
@@ -83,6 +90,7 @@ class ExecutionService {
     const { taskId, messages, model, systemPrompt, tools, agentId } = config;
 
     const executionStore = useExecutionStore.getState();
+    const executionRootPath = await getEffectiveWorkspaceRoot(taskId);
 
     // 1. Check concurrency limit and start execution tracking
     const { success, abortController, error } = executionStore.startExecution(taskId);
@@ -178,6 +186,7 @@ class ExecutionService {
           systemPrompt,
           tools,
           agentId,
+          rootPath: executionRootPath,
         },
         {
           onAssistantMessageStart: () => {

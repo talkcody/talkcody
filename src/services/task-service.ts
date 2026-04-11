@@ -43,12 +43,14 @@ class TaskService {
     const autoApproveEditsGlobal = await settingsManager.getAutoApproveEditsGlobal();
     const autoApprovePlanGlobal = await settingsManager.getAutoApprovePlanGlobal();
     const autoCodeReviewGlobal = await settingsManager.getAutoCodeReviewGlobal();
+    const autoGitCommitGlobal = await settingsManager.getAutoGitCommitGlobal();
     const initialTaskSettings: TaskSettings | undefined =
-      autoApproveEditsGlobal || autoApprovePlanGlobal || autoCodeReviewGlobal
+      autoApproveEditsGlobal || autoApprovePlanGlobal || autoCodeReviewGlobal || autoGitCommitGlobal
         ? {
             ...(autoApproveEditsGlobal ? { autoApproveEdits: true } : {}),
             ...(autoApprovePlanGlobal ? { autoApprovePlan: true } : {}),
             ...(autoCodeReviewGlobal ? { autoCodeReview: true } : {}),
+            ...(autoGitCommitGlobal ? { autoGitCommit: true } : {}),
           }
         : undefined;
     const task: Task = {

@@ -66,8 +66,10 @@ export interface GitHubSkillInfo {
   directoryName: string;
   skillName: string;
   description: string;
-  author: string; // Repository owner
-  repoUrl: string; // Repository URL
+  author: string; // Repository owner or local source label
+  repoUrl: string; // Repository URL or local directory path
+  importSource: 'github' | 'local';
+  importedFrom: string;
   hasSkillMd: boolean;
   hasReferencesDir: boolean;
   hasScriptsDir: boolean;
@@ -396,6 +398,8 @@ export class GitHubImporter {
       description: '',
       author: repoInfo.owner,
       repoUrl: `https://github.com/${repoInfo.owner}/${repoInfo.repo}`,
+      importSource: 'github',
+      importedFrom: `https://github.com/${repoInfo.owner}/${repoInfo.repo}`,
       hasSkillMd: false,
       hasReferencesDir: false,
       hasScriptsDir: false,
@@ -479,6 +483,89 @@ export class GitHubImporter {
     return files;
   }
 
+  private static buildSkillMetadata(skillInfo: GitHubSkillInfo): Record<string, string> {
+    return {
+      author: skillInfo.author,
+      source: skillInfo.importSource,
+      importedFrom: skillInfo.importedFrom,
+      importedAt: new Date().toISOString(),
+    };
+  }
+
+  private static buildEnhancedSkillMdContent(skillInfo: GitHubSkillInfo, content: string): string {
+    const parsed = SkillMdParser.parse(content);
+    const enhancedFrontmatter = {
+      ...parsed.frontmatter,
+      metadata: {
+        ...parsed.frontmatter.metadata,
+        ...GitHubImporter.buildSkillMetadata(skillInfo),
+      },
+    };
+    return SkillMdParser.generate(enhancedFrontmatter, parsed.content);
+  }
+
+  static async scanLocalDirectory(localPath: string): Promise<{ skills: GitHubSkillInfo[] }> {
+    const skills: GitHubSkillInfo[] = [];
+
+    if (!(await exists(localPath))) {
+      throw new Error(`Directory not found: ${localPath}`);
+    }
+
+    const syntheticRepoInfo: GitHubRepoInfo = {
+      owner: 'local',
+      repo: 'local',
+      branch: '',
+      path: '',
+    };
+
+    const skillMdPath = await join(localPath, 'SKILL.md');
+    const hasSkillMd = await exists(skillMdPath);
+
+    if (hasSkillMd) {
+      const directoryName = localPath.split(/[/]/).filter(Boolean).pop() || 'skill';
+      const skillInfo = await GitHubImporter.inspectLocalSkillDirectory(
+        syntheticRepoInfo,
+        directoryName,
+        localPath
+      );
+      if (skillInfo.isValid) {
+        skillInfo.author = 'local';
+        skillInfo.repoUrl = localPath;
+        skillInfo.importSource = 'local';
+        skillInfo.importedFrom = localPath;
+        skillInfo._clonedPath = localPath;
+        skills.push(skillInfo);
+      }
+      return { skills };
+    }
+
+    const entries = await readDir(localPath);
+    const directories = entries.filter((entry) => entry.isDirectory);
+
+    for (const directory of directories) {
+      try {
+        const skillDirPath = await join(localPath, directory.name);
+        const skillInfo = await GitHubImporter.inspectLocalSkillDirectory(
+          syntheticRepoInfo,
+          directory.name,
+          skillDirPath
+        );
+        if (skillInfo.isValid) {
+          skillInfo.author = 'local';
+          skillInfo.repoUrl = localPath;
+          skillInfo.importSource = 'local';
+          skillInfo.importedFrom = skillDirPath;
+          skillInfo._clonedPath = skillDirPath;
+          skills.push(skillInfo);
+        }
+      } catch (error) {
+        logger.warn(`Failed to inspect local directory ${directory.name}:`, error);
+      }
+    }
+
+    return { skills };
+  }
+
   /**
    * Scan a GitHub directory for skills
    * Automatically falls back to git clone if API rate limit is hit
@@ -524,6 +611,8 @@ export class GitHubImporter {
           description: parsed.frontmatter.description,
           author: repoInfo.owner,
           repoUrl: `https://github.com/${repoInfo.owner}/${repoInfo.repo}`,
+          importSource: 'github',
+          importedFrom: `https://github.com/${repoInfo.owner}/${repoInfo.repo}`,
           hasSkillMd: true,
           hasReferencesDir: contents.some(
             (item) => item.name === 'references' && item.type === 'dir'
@@ -597,6 +686,8 @@ export class GitHubImporter {
       description: '',
       author: repoInfo.owner,
       repoUrl: `https://github.com/${repoInfo.owner}/${repoInfo.repo}`,
+      importSource: 'github',
+      importedFrom: `https://github.com/${repoInfo.owner}/${repoInfo.repo}`,
       hasSkillMd: false,
       hasReferencesDir: false,
       hasScriptsDir: false,
@@ -737,18 +828,7 @@ export class GitHubImporter {
         // Special handling for SKILL.md - add author metadata
         if (file.path === 'SKILL.md') {
           const content = await readTextFile(sourceFilePath);
-          const parsed = SkillMdParser.parse(content);
-          const enhancedFrontmatter = {
-            ...parsed.frontmatter,
-            metadata: {
-              ...parsed.frontmatter.metadata,
-              author: skillInfo.author,
-              source: 'github',
-              importedFrom: skillInfo.repoUrl,
-              importedAt: new Date().toISOString(),
-            },
-          };
-          const enhancedContent = SkillMdParser.generate(enhancedFrontmatter, parsed.content);
+          const enhancedContent = GitHubImporter.buildEnhancedSkillMdContent(skillInfo, content);
           await writeTextFile(targetFilePath, enhancedContent);
         } else {
           // For other files, use binary copy to preserve binary assets
@@ -801,18 +881,7 @@ export class GitHubImporter {
         // Special handling for SKILL.md - add author metadata
         if (file.path === 'SKILL.md') {
           const content = await GitHubImporter.fetchFileContent(file.downloadUrl);
-          const parsed = SkillMdParser.parse(content);
-          const enhancedFrontmatter = {
-            ...parsed.frontmatter,
-            metadata: {
-              ...parsed.frontmatter.metadata,
-              author: skillInfo.author,
-              source: 'github',
-              importedFrom: skillInfo.repoUrl,
-              importedAt: new Date().toISOString(),
-            },
-          };
-          const enhancedContent = SkillMdParser.generate(enhancedFrontmatter, parsed.content);
+          const enhancedContent = GitHubImporter.buildEnhancedSkillMdContent(skillInfo, content);
           await writeTextFile(filePath, enhancedContent);
         } else {
           // For other files, download as binary to preserve binary assets (images, etc.)

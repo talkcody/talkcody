@@ -4,9 +4,11 @@
  */
 
 import type { RemoteAgentConfig } from '@talkcody/shared/types/remote-agents';
+import { join } from '@tauri-apps/api/path';
+import { readDir, readTextFile } from '@tauri-apps/plugin-fs';
 import { logger } from '@/lib/logger';
 import { simpleFetch } from '@/lib/tauri-fetch';
-import type { AgentToolSet } from '@/types/agent';
+import type { AgentDefinition, AgentToolSet } from '@/types/agent';
 import { isValidModelType, ModelType } from '@/types/model-types';
 
 export interface ImportAgentFromGitHubOptions {
@@ -66,6 +68,63 @@ function slugify(value: string): string {
 function uniqueBranches(branch?: string): string[] {
   const candidates = [branch, 'main', 'master'].filter(Boolean) as string[];
   return Array.from(new Set(candidates));
+}
+
+type DirEntryKey = 'isDirectory' | 'isFile';
+type DirEntryFlag = boolean | (() => boolean);
+
+function getEntryBoolean(entry: unknown, key: DirEntryKey): boolean | undefined {
+  const value = (entry as Record<string, unknown>)[key] as DirEntryFlag | undefined;
+  if (typeof value === 'function') {
+    return value();
+  }
+  if (typeof value === 'boolean') {
+    return value;
+  }
+  return undefined;
+}
+
+function isFileEntry(entry: unknown): boolean {
+  const entryType = (entry as Record<string, unknown>).type;
+  if (entryType === 'file') return true;
+  if (entryType === 'directory') return false;
+
+  const isFile = getEntryBoolean(entry, 'isFile');
+  if (isFile !== undefined) return isFile;
+
+  const isDirectory = getEntryBoolean(entry, 'isDirectory');
+  if (isDirectory !== undefined) return !isDirectory;
+
+  return false;
+}
+
+function normalizeImportedAgentId(value: string, fallbackId: string): string {
+  return slugify(value) || fallbackId;
+}
+
+function buildImportedAgentDefinition(
+  agentConfig: RemoteAgentConfig,
+  localId: string,
+  tools: AgentToolSet
+): AgentDefinition {
+  return {
+    id: localId,
+    name: agentConfig.name,
+    description: agentConfig.description,
+    modelType: (agentConfig.modelType as AgentDefinition['modelType']) || 'main_model',
+    systemPrompt: agentConfig.systemPrompt,
+    tools,
+    hidden: agentConfig.hidden,
+    rules: agentConfig.rules,
+    outputFormat: agentConfig.outputFormat,
+    isDefault: false,
+    dynamicPrompt: agentConfig.dynamicPrompt,
+    defaultSkills: agentConfig.defaultSkills,
+    isBeta: agentConfig.isBeta,
+    role: agentConfig.role,
+    canBeSubagent: agentConfig.canBeSubagent,
+    version: agentConfig.version,
+  };
 }
 
 function normalizeTools(value: unknown): string[] {
@@ -362,6 +421,95 @@ async function fetchMarkdownFile(rawUrl: string): Promise<string | null> {
     return null;
   }
   return await response.text();
+}
+
+export async function importAgentsFromLocalDirectory(
+  directoryPath: string
+): Promise<RemoteAgentConfig[]> {
+  const entries = await readDir(directoryPath);
+  const markdownFiles = entries.filter(
+    (entry) => isFileEntry(entry) && entry.name.toLowerCase().endsWith('.md')
+  );
+
+  if (markdownFiles.length === 0) {
+    throw new Error('No markdown agent files found in the selected directory');
+  }
+
+  const agents: RemoteAgentConfig[] = [];
+  const parseErrors: Array<{ path: string; error: unknown }> = [];
+
+  for (const entry of markdownFiles) {
+    const filePath = await join(directoryPath, entry.name);
+    const content = await readTextFile(filePath);
+
+    try {
+      const parsed = parseAgentMarkdown(content);
+      const fallbackId = entry.name.replace(/\.md$/i, '') || 'local-agent';
+      const agentConfig = buildRemoteAgentConfig({
+        parsed,
+        repository: 'local-import',
+        githubPath: filePath,
+        fallbackId,
+        defaultCategory: 'local',
+      });
+      agents.push(agentConfig);
+    } catch (parseError) {
+      logger.warn('Skipping invalid local agent markdown file:', {
+        filePath,
+        error: parseError,
+      });
+      parseErrors.push({ path: filePath, error: parseError });
+    }
+  }
+
+  if (agents.length > 0) {
+    logger.info('Successfully imported agents from local directory:', {
+      count: agents.length,
+      directoryPath,
+    });
+    return agents;
+  }
+
+  const errorDetails = parseErrors.map((item) => item.path).join(', ');
+  throw new Error(
+    `No valid agent markdown files found in the selected directory${errorDetails ? `: ${errorDetails}` : ''}`
+  );
+}
+
+export async function registerImportedAgents(
+  agentConfigs: RemoteAgentConfig[],
+  fallbackId = 'imported-agent'
+): Promise<{ succeeded: string[]; failed: Array<{ name: string; error: string }> }> {
+  const { agentRegistry } = await import('@/services/agents/agent-registry');
+
+  const succeeded: string[] = [];
+  const failed: Array<{ name: string; error: string }> = [];
+
+  for (const agentConfig of agentConfigs) {
+    try {
+      const baseId = normalizeImportedAgentId(
+        agentConfig.id || agentConfig.name || fallbackId,
+        fallbackId
+      );
+
+      let localId = baseId;
+      let counter = 1;
+      while (await agentRegistry.get(localId)) {
+        localId = `${baseId}-${counter++}`;
+      }
+
+      const tools = await resolveAgentTools(agentConfig);
+      await agentRegistry.forceRegister(buildImportedAgentDefinition(agentConfig, localId, tools));
+      succeeded.push(agentConfig.name);
+    } catch (error) {
+      failed.push({
+        name: agentConfig.name,
+        error: error instanceof Error ? error.message : 'Register failed',
+      });
+    }
+  }
+
+  return { succeeded, failed };
 }
 
 /**

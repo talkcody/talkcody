@@ -42,6 +42,8 @@ interface SettingsState {
   auto_approve_edits_global: boolean;
   auto_approve_plan_global: boolean;
   auto_code_review_global: boolean;
+  auto_git_commit_global: boolean;
+  auto_check_finish_global: boolean;
   hooks_enabled: boolean;
   trace_enabled: boolean;
 
@@ -56,6 +58,13 @@ interface SettingsState {
   feishu_remote_encrypt_key: string;
   feishu_remote_verification_token: string;
   feishu_remote_allowed_open_ids: string;
+  wechat_remote_enabled: boolean;
+  wechat_remote_base_url: string;
+  wechat_remote_bot_token: string;
+  wechat_remote_bot_id: string;
+  wechat_remote_ilink_user_id: string;
+  wechat_remote_allowed_user_ids: string;
+  wechat_remote_poll_timeout_ms: string;
   remote_control_keep_awake: boolean;
 
   // Project Settings
@@ -147,6 +156,8 @@ interface SettingsActions {
   setAutoApproveEditsGlobal: (enabled: boolean) => Promise<void>;
   setAutoApprovePlanGlobal: (enabled: boolean) => Promise<void>;
   setAutoCodeReviewGlobal: (enabled: boolean) => Promise<void>;
+  setAutoGitCommitGlobal: (enabled: boolean) => Promise<void>;
+  setAutoCheckFinishGlobal: (enabled: boolean) => Promise<void>;
   setHooksEnabled: (enabled: boolean) => Promise<void>;
   setTraceEnabled: (enabled: boolean) => Promise<void>;
   setTelegramRemoteEnabled: (enabled: boolean) => Promise<boolean>;
@@ -156,6 +167,13 @@ interface SettingsActions {
   setFeishuRemoteEncryptKey: (value: string) => Promise<void>;
   setFeishuRemoteVerificationToken: (value: string) => Promise<void>;
   setFeishuRemoteAllowedOpenIds: (value: string) => Promise<void>;
+  setWechatRemoteEnabled: (enabled: boolean) => Promise<boolean>;
+  setWechatRemoteBaseUrl: (value: string) => Promise<void>;
+  setWechatRemoteBotToken: (value: string) => Promise<void>;
+  setWechatRemoteBotId: (value: string) => Promise<void>;
+  setWechatRemoteIlinkUserId: (value: string) => Promise<void>;
+  setWechatRemoteAllowedUserIds: (value: string) => Promise<void>;
+  setWechatRemotePollTimeoutMs: (value: string) => Promise<void>;
   getFeishuRemoteAppId: () => string;
   getFeishuRemoteAppSecret: () => string;
   getFeishuRemoteEncryptKey: () => string;
@@ -165,6 +183,8 @@ interface SettingsActions {
   getAutoApproveEditsGlobal: () => boolean;
   getAutoApprovePlanGlobal: () => boolean;
   getAutoCodeReviewGlobal: () => boolean;
+  getAutoGitCommitGlobal: () => boolean;
+  getAutoCheckFinishGlobal: () => boolean;
   getTraceEnabled: () => boolean;
 
   // Project Settings
@@ -295,6 +315,8 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
   auto_approve_edits_global: false,
   auto_approve_plan_global: false,
   auto_code_review_global: false,
+  auto_git_commit_global: false,
+  auto_check_finish_global: false,
   hooks_enabled: false,
   trace_enabled: true,
   telegram_remote_enabled: false,
@@ -307,6 +329,13 @@ const DEFAULT_SETTINGS: Omit<SettingsState, 'loading' | 'error' | 'isInitialized
   feishu_remote_encrypt_key: '',
   feishu_remote_verification_token: '',
   feishu_remote_allowed_open_ids: '',
+  wechat_remote_enabled: false,
+  wechat_remote_base_url: 'https://ilinkai.weixin.qq.com',
+  wechat_remote_bot_token: '',
+  wechat_remote_bot_id: '',
+  wechat_remote_ilink_user_id: '',
+  wechat_remote_allowed_user_ids: '',
+  wechat_remote_poll_timeout_ms: '35000',
   remote_control_keep_awake: true,
   project: DEFAULT_PROJECT,
   current_root_path: '',
@@ -389,6 +418,7 @@ class SettingsDatabase {
       auto_approve_edits_global: 'false',
       auto_approve_plan_global: 'false',
       auto_code_review_global: 'false',
+      auto_git_commit_global: 'false',
       hooks_enabled: 'false',
       trace_enabled: 'true',
       telegram_remote_enabled: 'false',
@@ -401,6 +431,13 @@ class SettingsDatabase {
       feishu_remote_encrypt_key: '',
       feishu_remote_verification_token: '',
       feishu_remote_allowed_open_ids: '',
+      wechat_remote_enabled: 'false',
+      wechat_remote_base_url: 'https://ilinkai.weixin.qq.com',
+      wechat_remote_bot_token: '',
+      wechat_remote_bot_id: '',
+      wechat_remote_ilink_user_id: '',
+      wechat_remote_allowed_user_ids: '',
+      wechat_remote_poll_timeout_ms: '35000',
       remote_control_keep_awake: 'true',
       model_type_main: '',
       model_type_small: '',
@@ -540,6 +577,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         'auto_approve_edits_global',
         'auto_approve_plan_global',
         'auto_code_review_global',
+        'auto_git_commit_global',
+        'auto_check_finish_global',
         'hooks_enabled',
         'trace_enabled',
         'telegram_remote_enabled',
@@ -552,6 +591,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         'feishu_remote_encrypt_key',
         'feishu_remote_verification_token',
         'feishu_remote_allowed_open_ids',
+        'wechat_remote_enabled',
+        'wechat_remote_base_url',
+        'wechat_remote_bot_token',
+        'wechat_remote_bot_id',
+        'wechat_remote_ilink_user_id',
+        'wechat_remote_allowed_user_ids',
+        'wechat_remote_poll_timeout_ms',
         'remote_control_keep_awake',
         'reasoning_effort',
         'project',
@@ -641,6 +687,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         auto_approve_edits_global: rawSettings.auto_approve_edits_global === 'true',
         auto_approve_plan_global: rawSettings.auto_approve_plan_global === 'true',
         auto_code_review_global: rawSettings.auto_code_review_global === 'true',
+        auto_git_commit_global: rawSettings.auto_git_commit_global === 'true',
+        auto_check_finish_global: rawSettings.auto_check_finish_global === 'true',
         hooks_enabled: rawSettings.hooks_enabled === 'true',
         trace_enabled: rawSettings.trace_enabled !== 'false',
         telegram_remote_enabled: rawSettings.telegram_remote_enabled === 'true',
@@ -653,6 +701,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         feishu_remote_encrypt_key: rawSettings.feishu_remote_encrypt_key || '',
         feishu_remote_verification_token: rawSettings.feishu_remote_verification_token || '',
         feishu_remote_allowed_open_ids: rawSettings.feishu_remote_allowed_open_ids || '',
+        wechat_remote_enabled: rawSettings.wechat_remote_enabled === 'true',
+        wechat_remote_base_url:
+          rawSettings.wechat_remote_base_url || 'https://ilinkai.weixin.qq.com',
+        wechat_remote_bot_token: rawSettings.wechat_remote_bot_token || '',
+        wechat_remote_bot_id: rawSettings.wechat_remote_bot_id || '',
+        wechat_remote_ilink_user_id: rawSettings.wechat_remote_ilink_user_id || '',
+        wechat_remote_allowed_user_ids: rawSettings.wechat_remote_allowed_user_ids || '',
+        wechat_remote_poll_timeout_ms: rawSettings.wechat_remote_poll_timeout_ms || '35000',
         remote_control_keep_awake: rawSettings.remote_control_keep_awake !== 'false',
         project: rawSettings.project || DEFAULT_PROJECT,
         current_root_path: rawSettings.current_root_path || '',
@@ -816,6 +872,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     set({ auto_code_review_global: enabled });
   },
 
+  setAutoGitCommitGlobal: async (enabled: boolean) => {
+    await settingsDb.set('auto_git_commit_global', enabled.toString());
+    set({ auto_git_commit_global: enabled });
+  },
+
+  setAutoCheckFinishGlobal: async (enabled: boolean) => {
+    await settingsDb.set('auto_check_finish_global', enabled.toString());
+    set({ auto_check_finish_global: enabled });
+  },
+
   setHooksEnabled: async (enabled: boolean) => {
     await settingsDb.set('hooks_enabled', enabled.toString());
     set({ hooks_enabled: enabled });
@@ -829,14 +895,22 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     await settingsDb.set('telegram_remote_enabled', enabled.toString());
     const updated = { ...get(), telegram_remote_enabled: enabled };
     set({ telegram_remote_enabled: enabled });
-    return updated.telegram_remote_enabled || updated.feishu_remote_enabled;
+    return (
+      updated.telegram_remote_enabled ||
+      updated.feishu_remote_enabled ||
+      updated.wechat_remote_enabled
+    );
   },
 
   setFeishuRemoteEnabled: async (enabled: boolean) => {
     await settingsDb.set('feishu_remote_enabled', enabled.toString());
     const updated = { ...get(), feishu_remote_enabled: enabled };
     set({ feishu_remote_enabled: enabled });
-    return updated.telegram_remote_enabled || updated.feishu_remote_enabled;
+    return (
+      updated.telegram_remote_enabled ||
+      updated.feishu_remote_enabled ||
+      updated.wechat_remote_enabled
+    );
   },
 
   setFeishuRemoteAppId: async (value: string) => {
@@ -864,6 +938,47 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     set({ feishu_remote_allowed_open_ids: value });
   },
 
+  setWechatRemoteEnabled: async (enabled: boolean) => {
+    await settingsDb.set('wechat_remote_enabled', enabled.toString());
+    const updated = { ...get(), wechat_remote_enabled: enabled };
+    set({ wechat_remote_enabled: enabled });
+    return (
+      updated.telegram_remote_enabled ||
+      updated.feishu_remote_enabled ||
+      updated.wechat_remote_enabled
+    );
+  },
+
+  setWechatRemoteBaseUrl: async (value: string) => {
+    await settingsDb.set('wechat_remote_base_url', value);
+    set({ wechat_remote_base_url: value });
+  },
+
+  setWechatRemoteBotToken: async (value: string) => {
+    await settingsDb.set('wechat_remote_bot_token', value);
+    set({ wechat_remote_bot_token: value });
+  },
+
+  setWechatRemoteBotId: async (value: string) => {
+    await settingsDb.set('wechat_remote_bot_id', value);
+    set({ wechat_remote_bot_id: value });
+  },
+
+  setWechatRemoteIlinkUserId: async (value: string) => {
+    await settingsDb.set('wechat_remote_ilink_user_id', value);
+    set({ wechat_remote_ilink_user_id: value });
+  },
+
+  setWechatRemoteAllowedUserIds: async (value: string) => {
+    await settingsDb.set('wechat_remote_allowed_user_ids', value);
+    set({ wechat_remote_allowed_user_ids: value });
+  },
+
+  setWechatRemotePollTimeoutMs: async (value: string) => {
+    await settingsDb.set('wechat_remote_poll_timeout_ms', value);
+    set({ wechat_remote_poll_timeout_ms: value });
+  },
+
   getFeishuRemoteAppId: () => {
     return get().feishu_remote_app_id;
   },
@@ -886,7 +1001,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   getRemoteControlEnabled: () => {
     const state = get();
-    return state.telegram_remote_enabled || state.feishu_remote_enabled;
+    return (
+      state.telegram_remote_enabled || state.feishu_remote_enabled || state.wechat_remote_enabled
+    );
   },
 
   // Project Settings
@@ -1348,6 +1465,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     return get().auto_code_review_global;
   },
 
+  getAutoGitCommitGlobal: () => {
+    return get().auto_git_commit_global;
+  },
+
+  getAutoCheckFinishGlobal: () => {
+    return get().auto_check_finish_global;
+  },
+
   getHooksEnabled: () => {
     return get().hooks_enabled;
   },
@@ -1398,6 +1523,8 @@ export const settingsManager = {
     useSettingsStore.getState().setAutoApprovePlanGlobal(enabled),
   setAutoCodeReviewGlobal: (enabled: boolean) =>
     useSettingsStore.getState().setAutoCodeReviewGlobal(enabled),
+  setAutoGitCommitGlobal: (enabled: boolean) =>
+    useSettingsStore.getState().setAutoGitCommitGlobal(enabled),
   setHooksEnabled: (enabled: boolean) => useSettingsStore.getState().setHooksEnabled(enabled),
   setTraceEnabled: (enabled: boolean) => useSettingsStore.getState().setTraceEnabled(enabled),
   setTelegramRemoteEnabled: (enabled: boolean) =>
@@ -1413,6 +1540,19 @@ export const settingsManager = {
     useSettingsStore.getState().setFeishuRemoteVerificationToken(value),
   setFeishuRemoteAllowedOpenIds: (value: string) =>
     useSettingsStore.getState().setFeishuRemoteAllowedOpenIds(value),
+  setWechatRemoteEnabled: (enabled: boolean) =>
+    useSettingsStore.getState().setWechatRemoteEnabled(enabled),
+  setWechatRemoteBaseUrl: (value: string) =>
+    useSettingsStore.getState().setWechatRemoteBaseUrl(value),
+  setWechatRemoteBotToken: (value: string) =>
+    useSettingsStore.getState().setWechatRemoteBotToken(value),
+  setWechatRemoteBotId: (value: string) => useSettingsStore.getState().setWechatRemoteBotId(value),
+  setWechatRemoteIlinkUserId: (value: string) =>
+    useSettingsStore.getState().setWechatRemoteIlinkUserId(value),
+  setWechatRemoteAllowedUserIds: (value: string) =>
+    useSettingsStore.getState().setWechatRemoteAllowedUserIds(value),
+  setWechatRemotePollTimeoutMs: (value: string) =>
+    useSettingsStore.getState().setWechatRemotePollTimeoutMs(value),
   getFeishuRemoteAppId: () => useSettingsStore.getState().getFeishuRemoteAppId(),
   getFeishuRemoteAppSecret: () => useSettingsStore.getState().getFeishuRemoteAppSecret(),
   getFeishuRemoteEncryptKey: () => useSettingsStore.getState().getFeishuRemoteEncryptKey(),
@@ -1437,6 +1577,7 @@ export const settingsManager = {
   getAutoApproveEditsGlobal: () => useSettingsStore.getState().getAutoApproveEditsGlobal(),
   getAutoApprovePlanGlobal: () => useSettingsStore.getState().getAutoApprovePlanGlobal(),
   getAutoCodeReviewGlobal: () => useSettingsStore.getState().getAutoCodeReviewGlobal(),
+  getAutoGitCommitGlobal: () => useSettingsStore.getState().getAutoGitCommitGlobal(),
   getHooksEnabled: () => useSettingsStore.getState().getHooksEnabled(),
   getTraceEnabled: () => useSettingsStore.getState().getTraceEnabled(),
 

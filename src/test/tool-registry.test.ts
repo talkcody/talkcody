@@ -33,7 +33,6 @@ describe('Tool Registry', () => {
         'webFetch',
         'askUserQuestions',
         'exitPlanMode',
-        'githubPR',
       ];
 
       for (const toolName of requiredTools) {
@@ -150,7 +149,6 @@ describe('Tool Registry', () => {
         webFetch: 'Web Fetch',
         askUserQuestions: 'Ask User Questions',
         exitPlanMode: 'Exit Plan Mode',
-        githubPR: 'GitHub PR',
       };
 
       for (const [toolName, expectedLabel] of Object.entries(expectedLabels)) {
@@ -206,7 +204,7 @@ describe('Tool Registry', () => {
 
   describe('Tool Categories', () => {
     it('should categorize read tools correctly', () => {
-      const readTools = ['readFile', 'glob', 'codeSearch', 'listFiles', 'lsp', 'memoryRead', 'githubPR'];
+      const readTools = ['readFile', 'glob', 'codeSearch', 'listFiles', 'lsp', 'memoryRead'];
 
       for (const toolName of readTools) {
         const metadata = getToolMetadata(toolName);
@@ -253,7 +251,7 @@ describe('Tool Registry', () => {
     it('should have exactly 7 read tools', () => {
       const allNames = getAllToolNames();
       const readTools = allNames.filter(name => getToolMetadata(name).category === 'read');
-      expect(readTools.length).toBe(7);
+      expect(readTools.length).toBe(6);
     });
 
     it('should have exactly 2 write tools', () => {
@@ -271,7 +269,7 @@ describe('Tool Registry', () => {
 
   describe('Concurrent Execution Metadata', () => {
     it('should mark read tools as concurrent', () => {
-      const readTools = ['readFile', 'glob', 'codeSearch', 'listFiles', 'githubPR'];
+      const readTools = ['readFile', 'glob', 'codeSearch', 'listFiles'];
 
       for (const toolName of readTools) {
         const metadata = getToolMetadata(toolName);
@@ -320,7 +318,6 @@ describe('Tool Registry', () => {
         'webFetch',
         'askUserQuestions',
         'exitPlanMode',
-        'githubPR',
         'imageGeneration',
       ];
 

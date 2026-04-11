@@ -29,7 +29,7 @@ export interface ScheduledTaskNotificationPolicy {
 
 export interface ScheduledTaskDeliveryPolicy {
   enabled: boolean;
-  channelId?: 'telegram' | 'feishu';
+  channelId?: 'telegram' | 'feishu' | 'wechat';
   target?: string;
 }
 

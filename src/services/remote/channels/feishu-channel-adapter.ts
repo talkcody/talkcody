@@ -1,10 +1,15 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { logger } from '@/lib/logger';
-import type { RemoteChannelAdapter } from '@/services/remote/remote-channel-types';
+import type {
+  RemoteChannelAdapter,
+  RemoteChannelCapabilities,
+  RemoteChannelStatus,
+} from '@/services/remote/remote-channel-types';
 import { useSettingsStore } from '@/stores/settings-store';
 import type {
   FeishuEditMessageRequest,
+  FeishuGatewayStatus,
   FeishuInboundMessage,
   FeishuRemoteAttachment,
   FeishuRemoteConfig,
@@ -62,6 +67,15 @@ function toFeishuEditMessageRequest(request: RemoteEditMessageRequest): FeishuEd
 
 export class FeishuChannelAdapter implements RemoteChannelAdapter {
   readonly channelId = 'feishu' as const;
+  readonly capabilities: RemoteChannelCapabilities = {
+    supportsEdit: false,
+    supportsReply: true,
+    supportsMediaSend: false,
+    supportsVoiceInput: true,
+    supportsProactiveMessage: true,
+    maxMessageLength: 4000,
+    streamMode: 'append',
+  };
   private inboundUnlisten: UnlistenFn | null = null;
 
   async start(): Promise<void> {
@@ -123,6 +137,19 @@ export class FeishuChannelAdapter implements RemoteChannelAdapter {
     await invoke('feishu_edit_message', {
       request: toFeishuEditMessageRequest(request),
     });
+  }
+
+  async getStatus(): Promise<RemoteChannelStatus> {
+    const status = await invoke<FeishuGatewayStatus>('feishu_get_status');
+    return {
+      running: status.running,
+      lastPollAtMs: status.lastEventAtMs ?? null,
+      lastError: status.lastError ?? null,
+      lastErrorAtMs: status.lastErrorAtMs ?? null,
+      details: {
+        backoffMs: status.backoffMs ?? null,
+      },
+    };
   }
 
   async getConfig(): Promise<FeishuRemoteConfig> {

@@ -231,7 +231,7 @@ Best practice workflow:
   canConcurrent: false,
   execute: async ({ file_path, edits, review_mode = true }, context) => {
     try {
-      const rootPath = await getEffectiveWorkspaceRoot(context?.taskId);
+      const rootPath = context.rootPath ?? (await getEffectiveWorkspaceRoot(context?.taskId));
       if (!rootPath) {
         return {
           success: false,

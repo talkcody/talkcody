@@ -528,11 +528,13 @@ export class LLMService {
           tools = {},
           isThink = true,
           isSubagent = false,
+          subagentId,
           suppressReasoning = false,
           maxIterations = 500,
           compression,
           agentId,
           freshContext = false,
+          rootPath: providedRootPath,
         } = options;
 
         // Merge compression config with defaults
@@ -576,7 +578,7 @@ export class LLMService {
         }
         providerStore.getProviderModel(model);
 
-        const rootPath = await getEffectiveWorkspaceRoot(this.taskId);
+        const rootPath = providedRootPath ?? (await getEffectiveWorkspaceRoot(this.taskId));
 
         // Initialize agent loop state
         const loopState: AgentLoopState = {
@@ -1262,6 +1264,15 @@ export class LLMService {
             !isSubagent &&
             (!agentId || agentId === 'planner');
 
+          logger.info('[LLMService] Completion hook eligibility evaluated', {
+            taskId: this.taskId,
+            iteration: loopState.currentIteration,
+            toolCallCount: toolCalls.length,
+            isSubagent,
+            agentId: agentId ?? 'default',
+            shouldRunCompletionHooks,
+          });
+
           if (shouldRunCompletionHooks) {
             const fullText = streamProcessor.getFullText();
 
@@ -1300,6 +1311,16 @@ export class LLMService {
               if (continuationMode === 'append') {
                 if (this.taskId && this.taskId !== 'nested') {
                   const latestTaskMessages = useTaskStore.getState().getMessages(this.taskId);
+
+                  logger.info(
+                    '[LLMService] Inspecting task-store messages for append continuation',
+                    {
+                      taskId: this.taskId,
+                      latestTaskMessageCount: latestTaskMessages.length,
+                      latestTaskMessageRoles: latestTaskMessages.map((message) => message.role),
+                    }
+                  );
+
                   if (latestTaskMessages.length > 0) {
                     const rebuiltMessages = await convertMessages(latestTaskMessages, {
                       rootPath,
@@ -1318,6 +1339,12 @@ export class LLMService {
                 }
 
                 if (!shouldContinueLoop && result.nextMessages && result.nextMessages.length > 0) {
+                  logger.info('[LLMService] Falling back to nextMessages for append continuation', {
+                    taskId: this.taskId,
+                    nextMessageCount: result.nextMessages.length,
+                    nextMessageRoles: result.nextMessages.map((message) => message.role),
+                  });
+
                   const appendedMessages = await convertMessages(result.nextMessages, {
                     rootPath,
                     systemPrompt: undefined,
@@ -1336,6 +1363,12 @@ export class LLMService {
                   continuationSource = 'next-messages';
                 }
               } else if (result.nextMessages) {
+                logger.info('[LLMService] Replacing loop context from nextMessages', {
+                  taskId: this.taskId,
+                  nextMessageCount: result.nextMessages.length,
+                  nextMessageRoles: result.nextMessages.map((message) => message.role),
+                });
+
                 const newModelMessages = await convertMessages(result.nextMessages, {
                   rootPath,
                   systemPrompt,
@@ -1357,6 +1390,8 @@ export class LLMService {
                   {
                     taskId: this.taskId,
                     continuationMode,
+                    taskStoreAvailable: !!this.taskId && this.taskId !== 'nested',
+                    nextMessageCount: result.nextMessages?.length || 0,
                   }
                 );
               } else {
@@ -1410,6 +1445,8 @@ export class LLMService {
               abortController,
               onToolMessage,
               taskId: this.taskId,
+              rootPath,
+              subagentId,
             };
 
             // Execute tools with result capture callback

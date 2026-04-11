@@ -1,5 +1,5 @@
 [workspace]
-members = ["core", "server", "desktop"]
+members = ["core", "desktop"]
 resolver = "2"
 
 [package]
@@ -18,7 +18,6 @@ path = "desktop/src/main.rs"
 [dependencies]
 talkcody_desktop_lib = { package = "talkcody-desktop", path = "desktop" }
 talkcody_core = { package = "talkcody-core", path = "core" }
-talkcody_server = { package = "talkcody-server", path = "server" }
 fix-path-env.workspace = true
 tauri.workspace = true
 tauri-plugin-opener.workspace = true
@@ -34,12 +33,9 @@ tauri-plugin-single-instance.workspace = true
 tauri-plugin-updater.workspace = true
 tauri-plugin-log.workspace = true
 
-# API service (bin)
+# Shared dependencies
 tokio.workspace = true
-axum.workspace = true
-tower-http.workspace = true
 log.workspace = true
-env_logger.workspace = true
 dirs.workspace = true
 
 [build-dependencies]

@@ -36,7 +36,7 @@ export const globTool = createTool({
   execute: async ({ pattern, path }, context) => {
     try {
       let searchPath = path;
-      let cachedProjectRoot: string | null = null;
+      let cachedProjectRoot = context?.rootPath ?? null;
       const resolveProjectRoot = async () => {
         if (cachedProjectRoot === null) {
           cachedProjectRoot = await getEffectiveWorkspaceRoot(context?.taskId);

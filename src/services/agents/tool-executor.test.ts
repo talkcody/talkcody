@@ -429,7 +429,7 @@ describe('tool-executor - taskId context passing for worktree', () => {
         renderToolDoing: () => null,
         renderToolResult: () => null,
       };
-      const context = { taskId: 'task-123', toolId: 'test-tool-call' };
+      const context = { taskId: 'task-123', toolId: 'test-tool-call', rootPath: '/worktree/root' };
 
       await (toolExecutor as any).executeTool(toolWithUI, { path: '/test' }, context);
 
@@ -442,7 +442,7 @@ describe('tool-executor - taskId context passing for worktree', () => {
         name: 'testTool',
         execute: mockExecute,
       };
-      const context = { taskId: 'task-123', toolId: 'test-tool-call' };
+      const context = { taskId: 'task-123', toolId: 'test-tool-call', rootPath: '/worktree/root' };
 
       await (toolExecutor as any).executeTool(plainTool, { path: '/test' }, context);
 
@@ -475,13 +475,19 @@ describe('tool-executor - taskId context passing for worktree', () => {
         model: 'test-model',
         onToolMessage: mockOnToolMessage,
         taskId: 'task-456',
+        rootPath: '/worktree/task-456',
+        subagentId: 'call_subagent_123',
       });
 
       expect(mockExecute).toHaveBeenCalledTimes(1);
       // Verify context with taskId was passed as second argument
       expect(mockExecute).toHaveBeenCalledWith(
         expect.objectContaining({ path: '/test/path' }),
-        expect.objectContaining({ taskId: 'task-456' })
+        expect.objectContaining({
+          taskId: 'task-456',
+          rootPath: '/worktree/task-456',
+          subagentId: 'call_subagent_123',
+        })
       );
     });
 
@@ -508,13 +514,14 @@ describe('tool-executor - taskId context passing for worktree', () => {
         model: 'test-model',
         onToolMessage: mockOnToolMessage,
         // no taskId provided
+        rootPath: '/worktree/root-only',
       });
 
       expect(mockExecute).toHaveBeenCalledTimes(1);
       // Verify context with undefined taskId was passed
       expect(mockExecute).toHaveBeenCalledWith(
         expect.objectContaining({ path: '/test/path' }),
-        expect.objectContaining({ taskId: undefined })
+        expect.objectContaining({ taskId: undefined, rootPath: '/worktree/root-only' })
       );
     });
 
@@ -569,6 +576,7 @@ describe('tool-executor - taskId context passing for worktree', () => {
           model: 'test-model',
           onToolMessage: mockOnToolMessage,
           taskId: 'task-A',
+          rootPath: '/worktree/A',
         }
       );
 
@@ -581,16 +589,27 @@ describe('tool-executor - taskId context passing for worktree', () => {
           model: 'test-model',
           onToolMessage: mockOnToolMessage,
           taskId: 'task-B',
+          rootPath: '/worktree/B',
         }
       );
 
       expect(mockExecute).toHaveBeenCalledTimes(2);
 
       // Verify first call received task-A with toolId
-      expect(mockExecute.mock.calls[0][1]).toEqual({ taskId: 'task-A', toolId: 'call_1' });
+      expect(mockExecute.mock.calls[0][1]).toEqual({
+        taskId: 'task-A',
+        toolId: 'call_1',
+        rootPath: '/worktree/A',
+        subagentId: undefined,
+      });
 
       // Verify second call received task-B with toolId
-      expect(mockExecute.mock.calls[1][1]).toEqual({ taskId: 'task-B', toolId: 'call_2' });
+      expect(mockExecute.mock.calls[1][1]).toEqual({
+        taskId: 'task-B',
+        toolId: 'call_2',
+        rootPath: '/worktree/B',
+        subagentId: undefined,
+      });
     });
   });
 });

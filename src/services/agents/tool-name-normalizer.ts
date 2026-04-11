@@ -166,13 +166,6 @@ export function normalizeToolName(toolName: string): string | null {
     GetSkill: 'getSkill',
     getskill: 'getSkill',
 
-    // GitHub PR variations
-    githubPR: 'githubPR',
-    githubPRTool: 'githubPR',
-    GithubPRTool: 'githubPR',
-    GithubPR: 'githubPR',
-    githubpr: 'githubPR',
-
     // Test custom tool variations
     test_custom_tool: 'test_custom_tool',
     testCustomTool: 'test_custom_tool',

@@ -83,7 +83,10 @@ function validateTodos(todos: TodoItem[]): { isValid: boolean; error?: string } 
 }
 
 // Execute function that will handle the todo updates
-async function executeTodoWrite(params: z.infer<typeof inputSchema>, context: { taskId?: string }) {
+async function executeTodoWrite(
+  params: z.infer<typeof inputSchema>,
+  context: { taskId?: string; subagentId?: string }
+) {
   const { todos } = params;
 
   // Validate todos
@@ -98,8 +101,11 @@ async function executeTodoWrite(params: z.infer<typeof inputSchema>, context: { 
     throw new Error('No current task ID found');
   }
 
+  // Subagents share the parent taskId, so they need a stable per-subagent storage key.
+  const persistenceKey = context.subagentId ?? taskId;
+
   // Store the todos
-  await setTodos(taskId, todos as TodoItem[]);
+  await setTodos(persistenceKey, todos as TodoItem[]);
 
   return todos;
 }

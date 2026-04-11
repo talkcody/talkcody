@@ -27,9 +27,11 @@ const mockSettingsManager = {
   getAutoApproveEditsGlobal: vi.fn(),
   getAutoApprovePlanGlobal: vi.fn(),
   getAutoCodeReviewGlobal: vi.fn(),
+  getAutoGitCommitGlobal: vi.fn(),
   setAutoApproveEditsGlobal: vi.fn(),
   setAutoApprovePlanGlobal: vi.fn(),
   setAutoCodeReviewGlobal: vi.fn(),
+  setAutoGitCommitGlobal: vi.fn(),
 };
 
 const mockDatabaseService = {
@@ -64,9 +66,11 @@ vi.mock('@/stores/settings-store', () => ({
       getAutoApproveEditsGlobal: vi.fn(() => false),
       getAutoApprovePlanGlobal: vi.fn(() => false),
       getAutoCodeReviewGlobal: vi.fn(() => false),
+      getAutoGitCommitGlobal: vi.fn(() => false),
       setAutoApproveEditsGlobal: vi.fn(),
       setAutoApprovePlanGlobal: vi.fn(),
       setAutoCodeReviewGlobal: vi.fn(),
+      setAutoGitCommitGlobal: vi.fn(),
     })),
   },
 }));
@@ -113,6 +117,7 @@ describe('TaskService.createTask', () => {
     mockSettingsManager.getAutoApproveEditsGlobal.mockResolvedValue(false);
     mockSettingsManager.getAutoApprovePlanGlobal.mockResolvedValue(false);
     mockSettingsManager.getAutoCodeReviewGlobal.mockResolvedValue(false);
+    mockSettingsManager.getAutoGitCommitGlobal.mockResolvedValue(false);
     mockDatabaseService.createTask.mockResolvedValue('task-123');
   });
 

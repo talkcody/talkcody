@@ -60,11 +60,13 @@ export interface AgentLoopOptions {
   tools?: AgentToolSet;
   isThink?: boolean;
   isSubagent?: boolean;
+  subagentId?: string;
   suppressReasoning?: boolean;
   maxIterations?: number;
   compression?: Partial<CompressionConfig>;
   agentId?: string; // Agent identifier for special handling (e.g., image-generator)
   freshContext?: boolean; // Skip cached compaction and compression for fresh-context loops
+  rootPath?: string; // Frozen execution root so tools keep using the assigned worktree during the loop
 }
 
 export interface AgentLoopState {

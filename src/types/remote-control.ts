@@ -1,4 +1,4 @@
-export type RemoteChannelId = 'telegram' | 'discord' | 'slack' | 'feishu' | 'whatsapp';
+export type RemoteChannelId = 'telegram' | 'discord' | 'slack' | 'feishu' | 'whatsapp' | 'wechat';
 
 export type RemoteAttachmentType = 'image' | 'audio' | 'voice' | 'file';
 
@@ -156,4 +156,24 @@ export interface TelegramEditMessageRequest {
   text: string;
   disableWebPagePreview?: boolean;
   parseMode?: 'HTML' | 'MarkdownV2' | 'plain';
+}
+
+export interface WechatRemoteConfig {
+  enabled: boolean;
+  baseUrl: string;
+  botToken: string;
+  botId: string;
+  ilinkUserId: string;
+  allowedUserIds: string[];
+  pollTimeoutMs: number;
+}
+
+export interface WechatRemoteStatus {
+  running: boolean;
+  sessionExpired: boolean;
+  lastPollAtMs?: number | null;
+  lastError?: string | null;
+  lastErrorAtMs?: number | null;
+  syncBufPresent: boolean;
+  activeContextCount: number;
 }

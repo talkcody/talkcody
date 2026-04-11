@@ -30,6 +30,8 @@ export interface ToolExecutionOptions {
   loopState: AgentLoopState;
   model: string;
   taskId: string;
+  rootPath?: string;
+  subagentId?: string;
   abortController?: AbortController;
   onToolMessage?: (message: UIMessage) => void;
   tracer?: Tracer;
@@ -475,6 +477,8 @@ export class ToolExecutor {
         const toolResult = await this.executeTool(tool, toolArgs, {
           taskId: options.taskId,
           toolId: toolCall.toolCallId,
+          rootPath: options.rootPath,
+          subagentId: options.subagentId,
         });
 
         const postToolSummary = await hookService.runPostToolUse(

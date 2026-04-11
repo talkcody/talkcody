@@ -144,7 +144,7 @@ You can optionally specify a starting line and number of lines to read a specifi
         };
       }
 
-      const rootPath = await getEffectiveWorkspaceRoot(context.taskId);
+      const rootPath = context.rootPath ?? (await getEffectiveWorkspaceRoot(context.taskId));
       if (!rootPath) {
         return {
           success: false,

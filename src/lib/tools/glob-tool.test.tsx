@@ -66,6 +66,20 @@ describe('globTool', () => {
   });
 
   describe('path handling - the isAbsolute async bug fix', () => {
+    it('should use execution rootPath when provided and skip workspace lookup', async () => {
+      await globTool.execute(
+        { pattern: '**/*.ts', path: 'src' },
+        { taskId: 'task-1', toolId: 'tool-1', rootPath: '/worktree/root' }
+      );
+
+      expect(mockJoin).toHaveBeenCalledWith('/worktree/root', 'src');
+      expect(mockGetEffectiveWorkspaceRoot).not.toHaveBeenCalled();
+      expect(mockInvoke).toHaveBeenCalledWith('search_files_by_glob', {
+        pattern: '**/*.ts',
+        path: path.join('/worktree/root', 'src'),
+      });
+    });
+
     it('should use projectRoot when path is undefined', async () => {
       await globTool.execute({ pattern: '**/*.ts' });
 

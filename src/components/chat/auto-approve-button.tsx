@@ -22,13 +22,19 @@ export function AutoApproveButton() {
   const autoApproveEditsGlobal = useSettingsStore((state) => state.auto_approve_edits_global);
   const autoApprovePlanGlobal = useSettingsStore((state) => state.auto_approve_plan_global);
   const autoCodeReviewGlobal = useSettingsStore((state) => state.auto_code_review_global);
+  const autoGitCommitGlobal = useSettingsStore((state) => state.auto_git_commit_global);
+  const autoCheckFinishGlobal = useSettingsStore((state) => state.auto_check_finish_global);
   const setAutoApproveEditsGlobal = useSettingsStore((state) => state.setAutoApproveEditsGlobal);
   const setAutoApprovePlanGlobal = useSettingsStore((state) => state.setAutoApprovePlanGlobal);
   const setAutoCodeReviewGlobal = useSettingsStore((state) => state.setAutoCodeReviewGlobal);
+  const setAutoGitCommitGlobal = useSettingsStore((state) => state.setAutoGitCommitGlobal);
+  const setAutoCheckFinishGlobal = useSettingsStore((state) => state.setAutoCheckFinishGlobal);
 
   const [editsEnabled, setEditsEnabled] = useState(autoApproveEditsGlobal);
   const [planEnabled, setPlanEnabled] = useState(autoApprovePlanGlobal);
   const [codeReviewEnabled, setCodeReviewEnabled] = useState(autoCodeReviewGlobal);
+  const [gitCommitEnabled, setGitCommitEnabled] = useState(autoGitCommitGlobal);
+  const [checkFinishEnabled, setCheckFinishEnabled] = useState(autoCheckFinishGlobal);
 
   useEffect(() => {
     setEditsEnabled(autoApproveEditsGlobal);
@@ -42,7 +48,17 @@ export function AutoApproveButton() {
     setCodeReviewEnabled(autoCodeReviewGlobal);
   }, [autoCodeReviewGlobal]);
 
-  const handleToggle = async (kind: 'edits' | 'plan' | 'codeReview') => {
+  useEffect(() => {
+    setGitCommitEnabled(autoGitCommitGlobal);
+  }, [autoGitCommitGlobal]);
+
+  useEffect(() => {
+    setCheckFinishEnabled(autoCheckFinishGlobal);
+  }, [autoCheckFinishGlobal]);
+
+  const handleToggle = async (
+    kind: 'edits' | 'plan' | 'codeReview' | 'gitCommit' | 'checkFinish'
+  ) => {
     if (isLoading) return;
 
     setIsLoading(true);
@@ -85,19 +101,53 @@ export function AutoApproveButton() {
         return;
       }
 
-      const newEnabled = !codeReviewEnabled;
-      await setAutoCodeReviewGlobal(newEnabled);
+      if (kind === 'codeReview') {
+        const newEnabled = !codeReviewEnabled;
+        await setAutoCodeReviewGlobal(newEnabled);
+
+        if (currentTaskId) {
+          const settings: TaskSettings = { autoCodeReview: newEnabled };
+          await taskService.updateTaskSettings(currentTaskId, settings);
+          logger.info(
+            `Auto code review ${newEnabled ? 'enabled' : 'disabled'} for task ${currentTaskId}`
+          );
+        }
+
+        setCodeReviewEnabled(newEnabled);
+        toast.success(newEnabled ? t.Chat.autoCodeReview.enabled : t.Chat.autoCodeReview.disabled);
+        return;
+      }
+
+      if (kind === 'gitCommit') {
+        const newEnabled = !gitCommitEnabled;
+        await setAutoGitCommitGlobal(newEnabled);
+
+        if (currentTaskId) {
+          const settings: TaskSettings = { autoGitCommit: newEnabled };
+          await taskService.updateTaskSettings(currentTaskId, settings);
+          logger.info(
+            `Auto git commit ${newEnabled ? 'enabled' : 'disabled'} for task ${currentTaskId}`
+          );
+        }
+
+        setGitCommitEnabled(newEnabled);
+        toast.success(newEnabled ? t.Chat.autoGitCommit.enabled : t.Chat.autoGitCommit.disabled);
+        return;
+      }
+
+      const newEnabled = !checkFinishEnabled;
+      await setAutoCheckFinishGlobal(newEnabled);
 
       if (currentTaskId) {
-        const settings: TaskSettings = { autoCodeReview: newEnabled };
+        const settings: TaskSettings = { autoCheckFinish: newEnabled };
         await taskService.updateTaskSettings(currentTaskId, settings);
         logger.info(
-          `Auto code review ${newEnabled ? 'enabled' : 'disabled'} for task ${currentTaskId}`
+          `Auto check finish ${newEnabled ? 'enabled' : 'disabled'} for task ${currentTaskId}`
         );
       }
 
-      setCodeReviewEnabled(newEnabled);
-      toast.success(newEnabled ? t.Chat.autoCodeReview.enabled : t.Chat.autoCodeReview.disabled);
+      setCheckFinishEnabled(newEnabled);
+      toast.success(newEnabled ? t.Chat.autoCheckFinish.enabled : t.Chat.autoCheckFinish.disabled);
     } catch (error) {
       logger.error('Failed to update auto-approve setting:', error);
       toast.error(
@@ -105,14 +155,19 @@ export function AutoApproveButton() {
           ? t.Chat.autoApproveEdits.toggleFailed
           : kind === 'plan'
             ? t.Chat.autoApprovePlan.toggleFailed
-            : t.Chat.autoCodeReview.toggleFailed
+            : kind === 'codeReview'
+              ? t.Chat.autoCodeReview.toggleFailed
+              : kind === 'gitCommit'
+                ? t.Chat.autoGitCommit.toggleFailed
+                : t.Chat.autoCheckFinish.toggleFailed
       );
     } finally {
       setIsLoading(false);
     }
   };
 
-  const anyEnabled = editsEnabled || planEnabled || codeReviewEnabled;
+  const anyEnabled =
+    editsEnabled || planEnabled || codeReviewEnabled || gitCommitEnabled || checkFinishEnabled;
 
   return (
     <HoverCard>
@@ -170,6 +225,28 @@ export function AutoApproveButton() {
                   {codeReviewEnabled
                     ? t.Chat.autoCodeReview.enabled
                     : t.Chat.autoCodeReview.disabled}
+                </span>
+              </p>
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-medium text-sm">{t.Chat.autoGitCommit.title}</h4>
+              <p className="text-xs text-muted-foreground">{t.Chat.autoGitCommit.description}</p>
+              <p className="text-xs">
+                <span className="text-muted-foreground">{t.Chat.autoGitCommit.title}: </span>
+                <span className={gitCommitEnabled ? 'text-green-600 dark:text-green-400' : ''}>
+                  {gitCommitEnabled ? t.Chat.autoGitCommit.enabled : t.Chat.autoGitCommit.disabled}
+                </span>
+              </p>
+            </div>
+            <div className="space-y-1">
+              <h4 className="font-medium text-sm">{t.Chat.autoCheckFinish.title}</h4>
+              <p className="text-xs text-muted-foreground">{t.Chat.autoCheckFinish.description}</p>
+              <p className="text-xs">
+                <span className="text-muted-foreground">{t.Chat.autoCheckFinish.title}: </span>
+                <span className={checkFinishEnabled ? 'text-green-600 dark:text-green-400' : ''}>
+                  {checkFinishEnabled
+                    ? t.Chat.autoCheckFinish.enabled
+                    : t.Chat.autoCheckFinish.disabled}
                 </span>
               </p>
             </div>
@@ -241,6 +318,52 @@ export function AutoApproveButton() {
                 {codeReviewEnabled
                   ? t.Chat.autoCodeReview.enabledTooltip
                   : t.Chat.autoCodeReview.disabledTooltip}
+              </p>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">{t.Chat.autoGitCommit.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t.Chat.autoGitCommit.description}
+                  </p>
+                </div>
+                <Switch
+                  checked={gitCommitEnabled}
+                  onCheckedChange={() => handleToggle('gitCommit')}
+                  disabled={isLoading}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {gitCommitEnabled
+                  ? t.Chat.autoGitCommit.enabledTooltip
+                  : t.Chat.autoGitCommit.disabledTooltip}
+              </p>
+            </div>
+
+            <Separator />
+
+            <div className="space-y-2">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-medium">{t.Chat.autoCheckFinish.title}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t.Chat.autoCheckFinish.description}
+                  </p>
+                </div>
+                <Switch
+                  checked={checkFinishEnabled}
+                  onCheckedChange={() => handleToggle('checkFinish')}
+                  disabled={isLoading}
+                />
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {checkFinishEnabled
+                  ? t.Chat.autoCheckFinish.enabledTooltip
+                  : t.Chat.autoCheckFinish.disabledTooltip}
               </p>
             </div>
           </div>

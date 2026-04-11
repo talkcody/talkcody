@@ -24,7 +24,7 @@ The directory path must be absolute.`,
       logger.info('listFiles: Executing with parameters:', { directory_path, max_depth });
       let absolutePath = directory_path;
       if (!(await isAbsolute(directory_path))) {
-        const projectRoot = await getEffectiveWorkspaceRoot(context?.taskId);
+        const projectRoot = context?.rootPath ?? (await getEffectiveWorkspaceRoot(context?.taskId));
         if (!projectRoot) {
           return 'Error: Project root path not set. Please set a project root path first.';
         }

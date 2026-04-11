@@ -10,6 +10,13 @@ const mocks = vi.hoisted(() => {
   const onInbound = vi.fn().mockReturnValue(inboundUnsubscribe);
   const sendMessage = vi.fn().mockResolvedValue({ messageId: '1' });
   const editMessage = vi.fn().mockResolvedValue(undefined);
+  const getStatus = vi.fn().mockResolvedValue(null);
+  const getCapabilities = vi.fn().mockImplementation((channelId: string) => {
+    if (channelId === 'feishu' || channelId === 'wechat') {
+      return { streamMode: 'append' };
+    }
+    return { streamMode: 'edit' };
+  });
   const executionListener = vi.fn();
 
   const executionSubscribe = vi.fn().mockImplementation((listener) => {
@@ -96,6 +103,8 @@ const mocks = vi.hoisted(() => {
     onInbound,
     sendMessage,
     editMessage,
+    getStatus,
+    getCapabilities,
     executionSubscribe,
     executionListener,
     editReviewSubscribe,
@@ -119,6 +128,8 @@ vi.mock('@/services/remote/remote-channel-manager', () => ({
     onInbound: mocks.onInbound,
     sendMessage: mocks.sendMessage,
     editMessage: mocks.editMessage,
+    getStatus: mocks.getStatus,
+    getCapabilities: mocks.getCapabilities,
   },
 }));
 

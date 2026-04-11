@@ -110,6 +110,8 @@ export async function importSkillFromGitHub(options: ImportFromGitHubOptions): P
                 description: parsed.frontmatter.description,
                 author: owner,
                 repoUrl: `https://github.com/${owner}/${repo}`,
+                importSource: 'github',
+                importedFrom: `https://github.com/${owner}/${repo}`,
                 hasSkillMd: true,
                 hasReferencesDir: contents.some(
                   (item) => item.name === 'references' && item.type === 'dir'

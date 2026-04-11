@@ -5,6 +5,7 @@ const DEFAULT_DEDUP_TTL_MS = 5 * 60 * 1000;
 
 const FEISHU_MESSAGE_LIMIT = 4000;
 const TELEGRAM_MESSAGE_LIMIT = 4096;
+const WECHAT_MESSAGE_LIMIT = 2000;
 
 const TELEGRAM_COMMAND_PREFIX_RE = /^\/(\w+)(?:@\w+)?/i;
 
@@ -72,6 +73,9 @@ function splitByPreference(text: string, limit: number): string[] {
 export function getRemoteMessageLimit(channelId: RemoteChannelId): number {
   if (channelId === 'feishu') {
     return FEISHU_MESSAGE_LIMIT;
+  }
+  if (channelId === 'wechat') {
+    return WECHAT_MESSAGE_LIMIT;
   }
   return TELEGRAM_MESSAGE_LIMIT;
 }

@@ -2,8 +2,9 @@
  * Import GitHub Skills Dialog
  */
 
-import { AlertCircle, CheckCircle2, Circle, Download, Loader2 } from 'lucide-react';
-import { useCallback, useEffect, useId, useState } from 'react';
+import { open as openDialog } from '@tauri-apps/plugin-dialog';
+import { AlertCircle, CheckCircle2, Circle, Download, FolderOpen, Loader2 } from 'lucide-react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -24,10 +25,40 @@ import {
   type GitHubSkillInfo,
 } from '@/services/skills/github-importer';
 
+interface ImportDialogCopy {
+  title: string;
+  description: string;
+  urlLabel: string;
+  urlPlaceholder: string;
+  urlHint: string;
+  urlRequired: string;
+  scanning: string;
+  foundSkills: (count: number) => string;
+  noSkillsFound: string;
+  invalidUrl: string;
+  networkError: string;
+  importing: string;
+  importSuccess: (count: number) => string;
+  importFailed: (count: number) => string;
+  imported: string;
+  failed: string;
+  alreadyExists: (name: string) => string;
+  selectAll: string;
+  deselectAll: string;
+  scan: string;
+  import: string;
+  cancel: string;
+  back: string;
+  close: string;
+  importMore: string;
+  chooseFolder?: string;
+}
+
 interface ImportGitHubDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onImportComplete?: () => void;
+  mode?: 'github' | 'local';
 }
 
 type DialogStep = 'input' | 'scanning' | 'selection' | 'importing' | 'result';
@@ -36,9 +67,13 @@ export function ImportGitHubDialog({
   open,
   onOpenChange,
   onImportComplete,
+  mode = 'github',
 }: ImportGitHubDialogProps) {
   const t = useTranslation();
   const urlInputId = useId();
+  const localPickerOpenedRef = useRef(false);
+  const isLocalMode = mode === 'local';
+  const importCopy: ImportDialogCopy = isLocalMode ? t.Skills.localImport : t.Skills.githubImport;
 
   const [step, setStep] = useState<DialogStep>('input');
   const [githubUrl, setGithubUrl] = useState('');
@@ -69,22 +104,80 @@ export function ImportGitHubDialog({
   // Reset state when dialog opens/closes
   useEffect(() => {
     if (open) {
-      setStep('input');
+      setStep(isLocalMode ? 'scanning' : 'input');
       setGithubUrl('');
       setRepoInfo(null);
       setSkills([]);
       setSelectedSkills(new Set());
       setError(null);
       setImportResult(null);
+      localPickerOpenedRef.current = false;
     } else {
+      localPickerOpenedRef.current = false;
       // Clean up when dialog closes
       cleanupTempClone();
     }
-  }, [open, cleanupTempClone]);
+  }, [open, cleanupTempClone, isLocalMode]);
+
+  const handleLocalScan = useCallback(
+    async (localPath: string) => {
+      setError(null);
+      setStep('scanning');
+
+      try {
+        const { skills: foundSkills } = await GitHubImporter.scanLocalDirectory(localPath);
+
+        if (foundSkills.length === 0) {
+          setError(importCopy.noSkillsFound);
+          setStep('input');
+          return;
+        }
+
+        setSkills(foundSkills);
+
+        const validSkillNames = new Set(
+          foundSkills.filter((skill) => skill.isValid).map((skill) => skill.skillName)
+        );
+        setSelectedSkills(validSkillNames);
+
+        setStep('selection');
+        logger.info(`Found ${foundSkills.length} local skills`);
+      } catch (error) {
+        logger.error('Failed to scan local directory:', error);
+        setError(error instanceof Error ? error.message : importCopy.noSkillsFound);
+        setStep('input');
+      }
+    },
+    [importCopy.noSkillsFound]
+  );
+
+  const handlePickLocalFolder = useCallback(async () => {
+    const selected = await openDialog({
+      directory: true,
+      multiple: false,
+      title: importCopy.chooseFolder,
+    });
+
+    if (!selected || typeof selected !== 'string') {
+      onOpenChange(false);
+      return;
+    }
+
+    await handleLocalScan(selected);
+  }, [handleLocalScan, importCopy.chooseFolder, onOpenChange]);
+
+  useEffect(() => {
+    if (!open || !isLocalMode || localPickerOpenedRef.current) {
+      return;
+    }
+
+    localPickerOpenedRef.current = true;
+    void handlePickLocalFolder();
+  }, [open, isLocalMode, handlePickLocalFolder]);
 
   const handleScan = useCallback(async () => {
     if (!githubUrl.trim()) {
-      setError(t.Skills.githubImport.urlRequired);
+      setError(importCopy.urlRequired);
       return;
     }
 
@@ -95,7 +188,7 @@ export function ImportGitHubDialog({
       // Parse GitHub URL
       const parsedInfo = GitHubImporter.parseGitHubUrl(githubUrl);
       if (!parsedInfo) {
-        setError(t.Skills.githubImport.invalidUrl);
+        setError(importCopy.invalidUrl);
         setStep('input');
         return;
       }
@@ -108,7 +201,7 @@ export function ImportGitHubDialog({
         await GitHubImporter.scanGitHubDirectory(parsedInfo);
 
       if (foundSkills.length === 0) {
-        setError(t.Skills.githubImport.noSkillsFound);
+        setError(importCopy.noSkillsFound);
         setStep('input');
         return;
       }
@@ -127,11 +220,11 @@ export function ImportGitHubDialog({
       if (error instanceof Error) {
         setError(error.message);
       } else {
-        setError(t.Skills.githubImport.networkError);
+        setError(importCopy.networkError);
       }
       setStep('input');
     }
-  }, [githubUrl, t]);
+  }, [githubUrl, importCopy]);
 
   const toggleSkill = (skillName: string) => {
     const newSelected = new Set(selectedSkills);
@@ -171,7 +264,7 @@ export function ImportGitHubDialog({
       }
     } catch (error) {
       logger.error('Import failed:', error);
-      setError(error instanceof Error ? error.message : t.Skills.githubImport.networkError);
+      setError(error instanceof Error ? error.message : importCopy.networkError);
       setStep('selection');
     }
   };
@@ -195,21 +288,35 @@ export function ImportGitHubDialog({
       case 'input':
         return (
           <div className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor={urlInputId}>{t.Skills.githubImport.urlLabel}</Label>
-              <Input
-                id={urlInputId}
-                placeholder={t.Skills.githubImport.urlPlaceholder}
-                value={githubUrl}
-                onChange={(e) => setGithubUrl(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter') {
-                    handleScan();
-                  }
-                }}
-              />
-              <p className="text-xs text-muted-foreground">{t.Skills.githubImport.urlHint}</p>
-            </div>
+            {isLocalMode ? (
+              <div className="space-y-3">
+                <p className="text-sm text-muted-foreground">{importCopy.description}</p>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => void handlePickLocalFolder()}
+                >
+                  <FolderOpen className="h-4 w-4 mr-2" />
+                  {importCopy.chooseFolder}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <Label htmlFor={urlInputId}>{importCopy.urlLabel}</Label>
+                <Input
+                  id={urlInputId}
+                  placeholder={importCopy.urlPlaceholder}
+                  value={githubUrl}
+                  onChange={(e) => setGithubUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      void handleScan();
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground">{importCopy.urlHint}</p>
+              </div>
+            )}
 
             {error && (
               <Alert variant="destructive">
@@ -224,7 +331,7 @@ export function ImportGitHubDialog({
         return (
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">{t.Skills.githubImport.scanning}</p>
+            <p className="text-sm text-muted-foreground">{importCopy.scanning}</p>
           </div>
         );
 
@@ -233,14 +340,14 @@ export function ImportGitHubDialog({
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <p className="text-sm font-medium">
-                {typeof t.Skills.githubImport.foundSkills === 'function'
-                  ? t.Skills.githubImport.foundSkills(skills.length)
+                {typeof importCopy.foundSkills === 'function'
+                  ? importCopy.foundSkills(skills.length)
                   : `Found ${skills.length} skills`}
               </p>
               <Button variant="ghost" size="sm" onClick={toggleAll}>
                 {selectedSkills.size === skills.length
-                  ? t.Skills.githubImport.deselectAll
-                  : t.Skills.githubImport.selectAll}
+                  ? importCopy.deselectAll
+                  : importCopy.selectAll}
               </Button>
             </div>
 
@@ -281,7 +388,7 @@ export function ImportGitHubDialog({
           <div className="flex flex-col items-center justify-center py-12 space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">
-              {t.Skills.githubImport.importing || 'Importing skills...'}
+              {importCopy.importing || 'Importing skills...'}
             </p>
           </div>
         );
@@ -293,8 +400,8 @@ export function ImportGitHubDialog({
               <Alert>
                 <CheckCircle2 className="h-4 w-4" />
                 <AlertDescription>
-                  {typeof t.Skills.githubImport.importSuccess === 'function'
-                    ? t.Skills.githubImport.importSuccess(importResult.succeeded.length)
+                  {typeof importCopy.importSuccess === 'function'
+                    ? importCopy.importSuccess(importResult.succeeded.length)
                     : `Successfully imported ${importResult.succeeded.length} skill(s)`}
                 </AlertDescription>
               </Alert>
@@ -305,8 +412,8 @@ export function ImportGitHubDialog({
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>
                   <div>
-                    {typeof t.Skills.githubImport.importFailed === 'function'
-                      ? t.Skills.githubImport.importFailed(importResult.failed.length)
+                    {typeof importCopy.importFailed === 'function'
+                      ? importCopy.importFailed(importResult.failed.length)
                       : `Failed to import ${importResult.failed.length} skill(s)`}
                   </div>
                   <ul className="list-disc list-inside mt-2 text-xs space-y-1">
@@ -333,19 +440,26 @@ export function ImportGitHubDialog({
         return (
           <>
             <Button variant="outline" onClick={handleClose}>
-              {t.Skills.githubImport.cancel || 'Cancel'}
+              {importCopy.cancel || 'Cancel'}
             </Button>
-            <Button onClick={handleScan} disabled={!githubUrl.trim()}>
-              <Download className="h-4 w-4 mr-2" />
-              {t.Skills.githubImport.scan || 'Scan'}
-            </Button>
+            {isLocalMode ? (
+              <Button onClick={() => void handlePickLocalFolder()}>
+                <FolderOpen className="h-4 w-4 mr-2" />
+                {importCopy.chooseFolder}
+              </Button>
+            ) : (
+              <Button onClick={() => void handleScan()} disabled={!githubUrl.trim()}>
+                <Download className="h-4 w-4 mr-2" />
+                {importCopy.scan || 'Scan'}
+              </Button>
+            )}
           </>
         );
 
       case 'scanning':
         return (
           <Button variant="outline" onClick={handleClose} disabled>
-            {t.Skills.githubImport.cancel || 'Cancel'}
+            {importCopy.cancel || 'Cancel'}
           </Button>
         );
 
@@ -353,10 +467,10 @@ export function ImportGitHubDialog({
         return (
           <>
             <Button variant="outline" onClick={handleTryAgain}>
-              {t.Skills.githubImport.back || 'Back'}
+              {importCopy.back || 'Back'}
             </Button>
             <Button onClick={handleImport} disabled={selectedSkills.size === 0}>
-              {t.Skills.githubImport.import || 'Import'} ({selectedSkills.size})
+              {importCopy.import || 'Import'} ({selectedSkills.size})
             </Button>
           </>
         );
@@ -364,7 +478,7 @@ export function ImportGitHubDialog({
       case 'importing':
         return (
           <Button variant="outline" onClick={handleClose} disabled>
-            {t.Skills.githubImport.close || 'Close'}
+            {importCopy.close || 'Close'}
           </Button>
         );
 
@@ -372,9 +486,9 @@ export function ImportGitHubDialog({
         return (
           <>
             <Button variant="outline" onClick={handleTryAgain}>
-              {t.Skills.githubImport.importMore || 'Import More'}
+              {importCopy.importMore || 'Import More'}
             </Button>
-            <Button onClick={handleClose}>{t.Skills.githubImport.close || 'Close'}</Button>
+            <Button onClick={handleClose}>{importCopy.close || 'Close'}</Button>
           </>
         );
 
@@ -387,8 +501,8 @@ export function ImportGitHubDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-hidden flex flex-col">
         <DialogHeader>
-          <DialogTitle>{t.Skills.githubImport.title}</DialogTitle>
-          <DialogDescription>{t.Skills.githubImport.description}</DialogDescription>
+          <DialogTitle>{importCopy.title}</DialogTitle>
+          <DialogDescription>{importCopy.description}</DialogDescription>
         </DialogHeader>
 
         <div className="flex-1 overflow-y-auto py-4">{renderStepContent()}</div>

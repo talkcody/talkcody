@@ -17,7 +17,7 @@ import type {
   MemoryScope,
   MemoryWorkspace,
 } from './memory-types';
-import { MemoryWorkspaceResolver, memoryWorkspaceResolver } from './memory-workspace-resolver';
+import { type MemoryWorkspaceResolver, memoryWorkspaceResolver } from './memory-workspace-resolver';
 
 function normalizeLineEndings(value: string): string {
   return value.replace(/\r\n/g, '\n');

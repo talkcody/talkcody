@@ -1,6 +1,6 @@
 // Skills Marketplace page for discovering and installing skills
 
-import { Download, Plus, RefreshCw, Search, Zap } from 'lucide-react';
+import { Download, FolderOpen, Plus, RefreshCw, Search, Zap } from 'lucide-react';
 import React, { useState } from 'react';
 import { toast } from 'sonner';
 import { ImportGitHubDialog } from '@/components/skills/import-github-dialog';
@@ -84,6 +84,7 @@ export function SkillsPage() {
   const [editingSkill, setEditingSkill] = useState<Skill | null>(null);
   const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isGitHubImportOpen, setIsGitHubImportOpen] = useState(false);
+  const [isLocalImportOpen, setIsLocalImportOpen] = useState(false);
   const [deletingSkill, setDeletingSkill] = useState<Skill | null>(null);
 
   const t = useTranslation();
@@ -356,6 +357,10 @@ export function SkillsPage() {
               <Download className="h-4 w-4 mr-2" />
               {t.Skills.page.importFromGitHub}
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsLocalImportOpen(true)}>
+              <FolderOpen className="h-4 w-4 mr-2" />
+              {t.Skills.page.importFromLocal}
+            </Button>
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={loading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
               {t.Skills.page.refresh}
@@ -489,6 +494,12 @@ export function SkillsPage() {
       <ImportGitHubDialog
         open={isGitHubImportOpen}
         onOpenChange={setIsGitHubImportOpen}
+        onImportComplete={refreshLocal}
+      />
+      <ImportGitHubDialog
+        mode="local"
+        open={isLocalImportOpen}
+        onOpenChange={setIsLocalImportOpen}
         onImportComplete={refreshLocal}
       />
     </div>

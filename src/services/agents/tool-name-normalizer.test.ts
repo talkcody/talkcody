@@ -21,7 +21,6 @@ vi.mock('@/lib/tools', () => ({
     'exitPlanMode',
     'getSkill',
     'executeSkillScript',
-    'githubPR',
     'test_custom_tool',
   ]),
   getAllToolNamesWithCustom: vi.fn(() => [
@@ -40,7 +39,6 @@ vi.mock('@/lib/tools', () => ({
     'exitPlanMode',
     'getSkill',
     'executeSkillScript',
-    'githubPR',
     'test_custom_tool',
   ]),
 }));
@@ -184,12 +182,6 @@ describe('ToolNameNormalizer', () => {
       expect(normalizeToolName('getSkill')).toBe('getSkill');
       expect(normalizeToolName('getSkillTool')).toBe('getSkill');
       expect(normalizeToolName('GetSkill')).toBe('getSkill');
-    });
-
-    it('should normalize githubPR variations', () => {
-      expect(normalizeToolName('githubPR')).toBe('githubPR');
-      expect(normalizeToolName('githubPRTool')).toBe('githubPR');
-      expect(normalizeToolName('GithubPR')).toBe('githubPR');
     });
 
     it('should normalize test custom tool variations', () => {

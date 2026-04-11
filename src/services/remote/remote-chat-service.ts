@@ -1,4 +1,3 @@
-import { invoke } from '@tauri-apps/api/core';
 import { logger } from '@/lib/logger';
 import { throttle } from '@/lib/utils/throttle';
 import { getLocale, type SupportedLocale } from '@/locales';
@@ -25,11 +24,10 @@ import { settingsManager, useSettingsStore } from '@/stores/settings-store';
 import { useTaskStore } from '@/stores/task-store';
 import type { CommandContext } from '@/types/command';
 import type {
-  FeishuGatewayStatus,
   MessageParseMode,
+  RemoteChannelId,
   RemoteInboundMessage,
   RemoteSendMessageRequest,
-  TelegramGatewayStatus,
 } from '@/types/remote-control';
 import type { TaskSettings } from '@/types/task';
 
@@ -120,6 +118,15 @@ class RemoteChatService {
   async refresh(): Promise<void> {
     await this.stop();
     await this.start();
+  }
+
+  async startChannel(channelId: RemoteChannelId): Promise<void> {
+    await remoteChannelManager.startChannel(channelId);
+  }
+
+  async stopChannel(channelId: RemoteChannelId): Promise<void> {
+    this.clearChannelState(channelId);
+    await remoteChannelManager.stopChannel(channelId);
   }
 
   async handleInboundMessage(message: RemoteInboundMessage): Promise<void> {
@@ -662,6 +669,23 @@ class RemoteChatService {
     return session;
   }
 
+  private clearChannelState(channelId: RemoteChannelId): void {
+    for (const [key, session] of this.sessions.entries()) {
+      if (session.channelId !== channelId) {
+        continue;
+      }
+
+      this.sessions.delete(key);
+      this.lastStreamContent.delete(session.taskId);
+    }
+
+    for (const [key, approval] of this.approvals.entries()) {
+      if (approval.channelId === channelId) {
+        this.approvals.delete(key);
+      }
+    }
+  }
+
   private async resetSession(
     channelId: RemoteInboundMessage['channelId'],
     chatId: string,
@@ -760,8 +784,7 @@ class RemoteChatService {
       return;
     }
 
-    // For Feishu, always use append mode to avoid duplication issues
-    if (session.channelId === 'feishu') {
+    if (this.getStreamMode(session.channelId) === 'append') {
       session.appendQueue = (session.appendQueue ?? Promise.resolve()).then(() =>
         this.flushAppendFinal(session, content, execution.status)
       );
@@ -923,9 +946,7 @@ class RemoteChatService {
 
     session.lastSentAt = now;
 
-    // For Feishu, always use append mode to avoid duplication issues
-    // Feishu doesn't handle message editing well in streaming scenarios
-    if (session.channelId === 'feishu') {
+    if (this.getStreamMode(session.channelId) === 'append') {
       session.appendQueue = (session.appendQueue ?? Promise.resolve()).then(() =>
         this.sendAppendDelta(session, content)
       );
@@ -933,7 +954,6 @@ class RemoteChatService {
       return;
     }
 
-    // For other channels (Telegram), use edit mode
     const chunks = splitRemoteText(content, session.channelId);
     if (chunks.length === 0) {
       return;
@@ -1108,7 +1128,7 @@ class RemoteChatService {
       });
     } catch (error) {
       logger.warn('[RemoteChatService] Failed to edit message', error);
-      if (session.channelId !== 'feishu') {
+      if (this.getStreamMode(session.channelId) !== 'append') {
         return;
       }
       const fallback = await this.sendMessage(
@@ -1123,26 +1143,12 @@ class RemoteChatService {
 
   private async getGatewayStatus(
     channelId: RemoteInboundMessage['channelId']
-  ): Promise<TelegramGatewayStatus | FeishuGatewayStatus | null> {
-    if (channelId === 'telegram') {
-      try {
-        return await invoke('telegram_get_status');
-      } catch (error) {
-        logger.warn('[RemoteChatService] Failed to fetch telegram status', error);
-        return null;
-      }
-    }
+  ): Promise<{ lastError?: string | null } | null> {
+    return remoteChannelManager.getStatus(channelId);
+  }
 
-    if (channelId === 'feishu') {
-      try {
-        return await invoke('feishu_get_status');
-      } catch (error) {
-        logger.warn('[RemoteChatService] Failed to fetch feishu status', error);
-        return null;
-      }
-    }
-
-    return null;
+  private getStreamMode(channelId: RemoteInboundMessage['channelId']): 'edit' | 'append' {
+    return remoteChannelManager.getCapabilities(channelId)?.streamMode ?? 'edit';
   }
 
   private getLocaleText() {

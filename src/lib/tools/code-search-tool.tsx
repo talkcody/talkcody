@@ -43,7 +43,7 @@ Use this to find code patterns, function definitions, variable usage, or any tex
       // Resolve relative paths to absolute paths
       let searchPath = path;
       if (!(await isAbsolute(searchPath))) {
-        const projectRoot = await getEffectiveWorkspaceRoot(context?.taskId);
+        const projectRoot = context?.rootPath ?? (await getEffectiveWorkspaceRoot(context?.taskId));
         if (!projectRoot) {
           return {
             success: false,

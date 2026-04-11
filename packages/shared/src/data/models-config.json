@@ -1,5 +1,5 @@
 {
-  "version": "2026-03-20T04:13:59.093Z",
+  "version": "2026-04-08T11:28:11.041Z",
   "models": {
     "gpt-5.4-nano": {
       "name": "GPT-5.4 Nano",
@@ -324,6 +324,23 @@
       },
       "context_length": 1000000
     },
+    "qwen3.6-plus": {
+      "name": "Qwen 3.6 Plus",
+      "imageInput": true,
+      "providers": [
+        "openRouter"
+      ],
+      "providerMappings": {
+        "openRouter": "qwen/qwen3.6-plus-preview:free"
+      },
+      "pricing": {
+        "input": "0.0000004",
+        "output": "0.0000024",
+        "cachedInput": "0.00000004",
+        "cacheCreation": "0.0000005"
+      },
+      "context_length": 1000000
+    },
     "grok-code-fast-1": {
       "name": "Grok Code Fast",
       "providers": [
@@ -345,82 +362,34 @@
       },
       "context_length": 256000
     },
-    "grok-4.1-fast": {
-      "name": "Grok 4.1 Fast",
-      "imageInput": true,
-      "providers": [
-        "aiGateway",
-        "openRouter",
-        "zenmux"
-      ],
-      "providerMappings": {
-        "aiGateway": "xai/grok-4.1-fast-reasoning",
-        "openRouter": "x-ai/grok-4.1-fast",
-        "zenmux": "x-ai/grok-4.1-fast"
-      },
-      "pricing": {
-        "input": "0.0000002",
-        "output": "0.0000005",
-        "cachedInput": "0.00000005"
-      },
-      "context_length": 2000000
-    },
-    "glm-4.7": {
-      "name": "GLM 4.7",
+    "glm-51": {
+      "name": "GLM 5.1",
       "imageInput": true,
       "interleaved": true,
       "providers": [
         "zhipu",
         "openRouter",
         "aiGateway",
-        "alibaba",
         "zai",
+        "alibaba",
         "ollama",
         "zenmux"
       ],
       "providerMappings": {
-        "zhipu": "glm-4.7",
-        "alibaba": "glm-4.7",
-        "zai": "glm-4.7",
-        "aiGateway": "zai/glm-4.7",
-        "openRouter": "z-ai/glm-4.7",
-        "ollama": "glm-4.7:cloud",
-        "zenmux": "z-ai/glm-4.7"
+        "zhipu": "glm-5.1",
+        "zai": "glm-5.1",
+        "alibaba": "glm-5.1",
+        "aiGateway": "zai/glm-5.1",
+        "openRouter": "z-ai/glm-5.1",
+        "ollama": "glm-5.1:cloud",
+        "zenmux": "z-ai/glm-5.1"
       },
       "pricing": {
-        "input": "0.0000006",
-        "output": "0.0000022"
+        "input": "0.0000014",
+        "output": "0.0000044",
+        "cachedInput": "0.00000026"
       },
       "context_length": 202752
-    },
-    "glm-5": {
-      "name": "GLM 5",
-      "imageInput": true,
-      "interleaved": true,
-      "providers": [
-        "zhipu",
-        "openRouter",
-        "aiGateway",
-        "zai",
-        "alibaba",
-        "ollama",
-        "zenmux"
-      ],
-      "providerMappings": {
-        "zhipu": "glm-5",
-        "zai": "glm-5",
-        "alibaba": "glm-5",
-        "aiGateway": "zai/glm-5",
-        "openRouter": "z-ai/glm-5",
-        "ollama": "glm-5:cloud",
-        "zenmux": "z-ai/glm-5"
-      },
-      "pricing": {
-        "input": "0.000001",
-        "output": "0.0000032",
-        "cachedInput": "0.0000002"
-      },
-      "context_length": 80000
     },
     "MiniMax-M2.7": {
       "name": "MiniMax M2.7",

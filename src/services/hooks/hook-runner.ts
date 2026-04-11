@@ -229,7 +229,13 @@ export class HookRunner {
     for (const result of results) {
       if (result.exitCode === HOOK_BLOCK_EXIT_CODE) {
         summary.blocked = true;
-        summary.blockReason = result.rawStderr || 'Hook blocked execution.';
+        // Many CLI tools (e.g. linters) write errors to stdout, not stderr.
+        // Combine both so the AI receives the full error output.
+        const combinedOutput = [result.rawStdout, result.rawStderr]
+          .filter((s) => s && s.trim())
+          .join('\n')
+          .trim();
+        summary.blockReason = combinedOutput || 'Hook blocked execution.';
         summary.continue = false;
       } else if (result.exitCode === 0) {
         applyHookOutput(summary, result.output ?? undefined);

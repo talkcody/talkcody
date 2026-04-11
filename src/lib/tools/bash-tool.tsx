@@ -59,9 +59,15 @@ Output can be read using \`cat\` or \`tail -f\` on the output file path returned
     });
 
     if (runInBackground) {
-      return await bashExecutor.executeInBackground(command, context.taskId, context.toolId);
+      return await bashExecutor.executeInBackground(
+        command,
+        context.taskId,
+        context.toolId,
+        undefined,
+        context.rootPath
+      );
     }
-    return await bashExecutor.execute(command, context.taskId, context.toolId);
+    return await bashExecutor.execute(command, context.taskId, context.toolId, context.rootPath);
   },
   renderToolDoing: ({ command }) => <BashToolDoing command={command} />,
   renderToolResult: (result) => (

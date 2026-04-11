@@ -96,7 +96,9 @@ export function ScheduledTaskFormModal({ open, onClose, task }: Props) {
   const [notifyOnFailure, setNotifyOnFailure] = useState(true);
   const [offlineEnabled, setOfflineEnabled] = useState(false);
   const [deliveryEnabled, setDeliveryEnabled] = useState(false);
-  const [deliveryChannel, setDeliveryChannel] = useState<'telegram' | 'feishu'>('telegram');
+  const [deliveryChannel, setDeliveryChannel] = useState<'telegram' | 'feishu' | 'wechat'>(
+    'telegram'
+  );
   const [deliveryTarget, setDeliveryTarget] = useState('');
 
   useEffect(() => {
@@ -513,7 +515,9 @@ export function ScheduledTaskFormModal({ open, onClose, task }: Props) {
               <>
                 <Select
                   value={deliveryChannel}
-                  onValueChange={(value) => setDeliveryChannel(value as 'telegram' | 'feishu')}
+                  onValueChange={(value) =>
+                    setDeliveryChannel(value as 'telegram' | 'feishu' | 'wechat')
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -521,6 +525,7 @@ export function ScheduledTaskFormModal({ open, onClose, task }: Props) {
                   <SelectContent>
                     <SelectItem value="telegram">Telegram</SelectItem>
                     <SelectItem value="feishu">Feishu</SelectItem>
+                    <SelectItem value="wechat">WeChat</SelectItem>
                   </SelectContent>
                 </Select>
                 <Input

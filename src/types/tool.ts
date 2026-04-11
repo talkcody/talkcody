@@ -7,6 +7,8 @@ export type ToolOutput = unknown;
 export interface ToolExecuteContext {
   taskId: string;
   toolId: string;
+  rootPath?: string;
+  subagentId?: string;
 }
 
 export interface ToolRenderContext {

@@ -78,6 +78,29 @@ describe('bashTool', () => {
     mockSaveOutput.mockClear();
   });
 
+  it('should use execution rootPath from tool context for cwd', async () => {
+    mockInvoke.mockResolvedValue(createMockShellResult({
+      code: 0,
+      stdout: 'test output',
+    }));
+
+    if (!bashTool.execute) {
+      throw new Error('bashTool.execute is not defined');
+    }
+    const result = (await bashTool.execute(
+      { command: 'pwd' },
+      { taskId: 'test-task-id', toolId: 'tool-call-123', rootPath: '/worktree/root' }
+    )) as BashResult;
+
+    expect(result.success).toBe(true);
+    expect(mockInvoke).toHaveBeenCalledWith('execute_user_shell', {
+      command: 'pwd',
+      cwd: '/worktree/root',
+      timeoutMs: 300000,
+      idleTimeoutMs: 60000,
+    });
+  });
+
   it('should execute a safe command successfully', async () => {
     mockInvoke.mockResolvedValue(createMockShellResult({
       code: 0,

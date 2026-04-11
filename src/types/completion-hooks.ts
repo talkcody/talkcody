@@ -12,6 +12,7 @@
  * Default priorities:
  *   - Stop Hook: 10
  *   - Ralph Loop: 20
+ *   - Auto Git Commit: 25
  *   - Auto Code Review: 30
  */
 

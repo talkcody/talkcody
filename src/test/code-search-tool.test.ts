@@ -86,40 +86,28 @@ describe('codeSearch Tool', () => {
     });
   });
 
-  it('should handle search with file type filters', async () => {
-    const mockResult = [
+  it('should prefer execution rootPath over workspace-root lookup for relative paths', async () => {
+    const result = await codeSearch.execute?.(
       {
-        file_path: 'utils.ts',
-        matches: [
-          {
-            line_number: 5,
-            line_content: 'function getName() {',
-            byte_offset: 100,
-          },
-        ],
+        pattern: 'console.log',
+        path: 'src',
       },
-    ];
-
-    mockInvoke.mockResolvedValue(mockResult);
-
-    const result = await codeSearch.execute?.({
-      pattern: 'function',
-      path: '/Users/test/project',
-      file_types: ['ts', 'tsx'],
-    });
+      { taskId: 'task-1', toolId: 'tool-1', rootPath: '/worktree/root' }
+    );
 
     const actualResult = await normalizeResult(result);
 
     expect(actualResult.success).toBe(true);
-    expect(actualResult.result).toContain('function');
+    expect(mockJoin).toHaveBeenCalledWith('/worktree/root', 'src');
+    expect(mockGetEffectiveWorkspaceRoot).not.toHaveBeenCalled();
     expect(mockInvoke).toHaveBeenCalledWith('search_file_content', {
-      query: 'function',
-      rootPath: '/Users/test/project',
-      fileTypes: ['ts', 'tsx'],
+      query: 'console.log',
+      rootPath: path.join('/worktree/root', 'src'),
+      fileTypes: null,
     });
   });
 
-  it('should handle search with exclude directories', async () => {
+  it('should fall back to workspace-root lookup when execution rootPath is missing', async () => {
     const mockResult = [
       {
         file_path: 'src/components/Button.tsx',

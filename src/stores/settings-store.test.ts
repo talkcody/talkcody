@@ -83,10 +83,12 @@ describe('settingsManager.get', () => {
     // Boolean values
     telegram_remote_enabled: true,
     feishu_remote_enabled: false,
+    wechat_remote_enabled: false,
     is_think: false,
     // String values
     telegram_remote_token: 'test-token-123',
     feishu_remote_app_id: 'app-id',
+    wechat_remote_base_url: 'https://ilinkai.weixin.qq.com',
     language: 'en',
     // Empty string
     telegram_remote_allowed_chats: '',
@@ -110,6 +112,7 @@ describe('settingsManager.get', () => {
     };
 
     expect(getValue('telegram_remote_enabled')).toBe('true');
+    expect(getValue('wechat_remote_enabled')).toBe('false');
   });
 
   it('should convert boolean false to string "false" (not empty string)', () => {

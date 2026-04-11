@@ -33,7 +33,7 @@ The file path should be an absolute path.`,
   canConcurrent: false,
   execute: async ({ file_path, content, review_mode = true }, context) => {
     try {
-      const rootPath = await getEffectiveWorkspaceRoot(context.taskId);
+      const rootPath = context.rootPath ?? (await getEffectiveWorkspaceRoot(context.taskId));
       if (!rootPath) {
         return {
           success: false,

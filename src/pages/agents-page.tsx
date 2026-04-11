@@ -1,7 +1,7 @@
 // Marketplace page for discovering and installing agents
 
 import type { RemoteAgentConfig } from '@talkcody/shared/types/remote-agents';
-import { Bot, Download, Plus, RefreshCw, Search } from 'lucide-react';
+import { Bot, Download, FolderOpen, Plus, RefreshCw, Search } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { AgentEditorDialog } from '@/components/agents/agent-editor-dialog';
@@ -57,6 +57,7 @@ export function AgentsPage() {
   const [isCreating, setIsCreating] = useState(false);
   const [deletingAgentId, setDeletingAgentId] = useState<string | null>(null);
   const [isGitHubImportOpen, setIsGitHubImportOpen] = useState(false);
+  const [isLocalImportOpen, setIsLocalImportOpen] = useState(false);
 
   // Tab-specific loading state
   const [isMarketplaceDataLoaded, setIsMarketplaceDataLoaded] = useState(false);
@@ -420,6 +421,10 @@ export function AgentsPage() {
               <Download className="h-4 w-4 mr-2" />
               {t.Agents.page.importFromGitHub}
             </Button>
+            <Button variant="outline" size="sm" onClick={() => setIsLocalImportOpen(true)}>
+              <FolderOpen className="h-4 w-4 mr-2" />
+              {t.Agents.page.importFromLocal}
+            </Button>
             <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? 'animate-spin' : ''}`} />
               {t.Agents.page.refresh}
@@ -627,6 +632,12 @@ export function AgentsPage() {
       <ImportGitHubAgentDialog
         open={isGitHubImportOpen}
         onOpenChange={setIsGitHubImportOpen}
+        onImportComplete={handlePublishSuccess}
+      />
+      <ImportGitHubAgentDialog
+        mode="local"
+        open={isLocalImportOpen}
+        onOpenChange={setIsLocalImportOpen}
         onImportComplete={handlePublishSuccess}
       />
 

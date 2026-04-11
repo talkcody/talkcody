@@ -2,14 +2,19 @@ import { logger } from '@/lib/logger';
 import { acquireSleepPrevention, releaseSleepPrevention } from '@/services/keep-awake-service';
 import { remoteChatService } from '@/services/remote/remote-chat-service';
 import { settingsManager, useSettingsStore } from '@/stores/settings-store';
+import type { RemoteChannelId } from '@/types/remote-control';
+
+type ManagedRemoteChannelId = Extract<RemoteChannelId, 'telegram' | 'feishu' | 'wechat'>;
+const MANAGED_REMOTE_CHANNELS = ['telegram', 'feishu', 'wechat'] as const;
 
 class RemoteControlLifecycleService {
   private static instance: RemoteControlLifecycleService | null = null;
   private isEnabled = false;
   private keepAwakeActive = false;
-  private lastEnabledChannels = {
+  private lastEnabledChannels: Record<ManagedRemoteChannelId, boolean> = {
     telegram: false,
     feishu: false,
+    wechat: false,
   };
 
   private constructor() {}
@@ -42,17 +47,16 @@ class RemoteControlLifecycleService {
     const state = useSettingsStore.getState();
     const enabledChannels = this.getEnabledChannels(state);
     const shouldRun = enabledChannels.any;
+    const wasRunning = this.isEnabled;
 
     await this.applyKeepAwake(shouldRun && state.remote_control_keep_awake);
 
-    if (shouldRun) {
-      if (!this.isEnabled || this.hasChannelChange(enabledChannels.state)) {
-        await remoteChatService.refresh();
-      } else {
-        await remoteChatService.start();
-      }
-    } else {
+    if (shouldRun && !wasRunning) {
+      await remoteChatService.start();
+    } else if (!shouldRun && wasRunning) {
       await remoteChatService.stop();
+    } else if (shouldRun) {
+      await this.syncChannelState(enabledChannels.state);
     }
 
     this.isEnabled = shouldRun;
@@ -69,20 +73,29 @@ class RemoteControlLifecycleService {
 
   private getEnabledChannels(state: ReturnType<typeof useSettingsStore.getState>): {
     any: boolean;
-    state: { telegram: boolean; feishu: boolean };
+    state: Record<ManagedRemoteChannelId, boolean>;
   } {
     const enabled = {
       telegram: state.telegram_remote_enabled,
       feishu: state.feishu_remote_enabled,
+      wechat: state.wechat_remote_enabled,
     };
-    return { any: enabled.telegram || enabled.feishu, state: enabled };
+    return { any: enabled.telegram || enabled.feishu || enabled.wechat, state: enabled };
   }
 
-  private hasChannelChange(next: { telegram: boolean; feishu: boolean }): boolean {
-    return (
-      this.lastEnabledChannels.telegram !== next.telegram ||
-      this.lastEnabledChannels.feishu !== next.feishu
+  private async syncChannelState(next: Record<ManagedRemoteChannelId, boolean>): Promise<void> {
+    const changedChannels = MANAGED_REMOTE_CHANNELS.filter(
+      (channelId) => this.lastEnabledChannels[channelId] !== next[channelId]
     );
+
+    for (const channelId of changedChannels) {
+      if (next[channelId]) {
+        await remoteChatService.startChannel(channelId);
+        continue;
+      }
+
+      await remoteChatService.stopChannel(channelId);
+    }
   }
 
   private async applyKeepAwake(enabled: boolean): Promise<void> {

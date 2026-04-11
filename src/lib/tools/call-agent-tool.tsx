@@ -163,7 +163,8 @@ export const callAgent = createTool({
 
       if (agent?.dynamicPrompt?.enabled) {
         try {
-          const root = await getEffectiveWorkspaceRoot(toolContext?.taskId);
+          const root =
+            toolContext.rootPath ?? (await getEffectiveWorkspaceRoot(toolContext?.taskId));
           const { finalSystemPrompt } = await previewSystemPrompt({
             agent: agent,
             workspaceRoot: root,
@@ -230,7 +231,9 @@ export const callAgent = createTool({
               systemPrompt,
               tools: agent.tools,
               isSubagent: true,
+              subagentId: executionId,
               suppressReasoning: true,
+              rootPath: toolContext.rootPath,
             },
             {
               onChunk: (chunk) => {

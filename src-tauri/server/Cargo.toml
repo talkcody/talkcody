@@ -3,63 +3,28 @@ name = "talkcody-server"
 version.workspace = true
 edition.workspace = true
 authors.workspace = true
-description = "TalkCody API Server"
+description = "TalkCody Server State and Config (for Desktop)"
 license = "MIT"
-
-[[bin]]
-name = "api_service"
-path = "src/main.rs"
 
 [dependencies]
 # Core library
- talkcody-core = { path = "../core" }
+talkcody-core = { path = "../core" }
 
 # Async runtime
 tokio.workspace = true
-futures.workspace = true
-futures-util.workspace = true
-async-trait.workspace = true
-async-stream.workspace = true
 
 # Serialization
 serde.workspace = true
 serde_json.workspace = true
 
-# Web framework
-axum.workspace = true
-tower.workspace = true
-tower-http.workspace = true
-
-# Streams
-tokio-stream = "0.1"
-
-# HTTP client
-reqwest.workspace = true
-url.workspace = true
-bytes.workspace = true
-
-# WebSocket
-tokio-tungstenite.workspace = true
-
 # Logging
 log.workspace = true
-env_logger.workspace = true
-tracing.workspace = true
-tracing-subscriber.workspace = true
 
 # Utilities
 uuid.workspace = true
 chrono.workspace = true
-regex.workspace = true
 dirs.workspace = true
 
 # Errors
 thiserror.workspace = true
 anyhow.workspace = true
-
-# Random
-rand.workspace = true
-
-[dev-dependencies]
-tokio-test.workspace = true
-reqwest = { workspace = true, features = ["json"] }

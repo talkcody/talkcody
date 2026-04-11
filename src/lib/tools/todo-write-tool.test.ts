@@ -186,7 +186,10 @@ describe('todoWriteTool', () => {
         ],
       };
 
-      const result = await todoWriteTool.execute?.(input, { taskId: 'test-task-id' });
+      const result = await todoWriteTool.execute?.(input, {
+        taskId: 'test-task-id',
+        toolId: 'tool-call-1',
+      });
 
       expect(mockFileTodoService.saveTodos).toHaveBeenCalledWith('test-task-id', [
         {
@@ -202,6 +205,34 @@ describe('todoWriteTool', () => {
       ]);
 
       expect(result).toEqual(input.todos);
+    });
+
+    it('should isolate todos by subagentId when provided', async () => {
+      mockFileTodoService.saveTodos.mockResolvedValue(undefined);
+
+      const input = {
+        todos: [
+          {
+            content: 'Subagent todo',
+            status: 'pending' as const,
+            id: 'subagent-id-1',
+          },
+        ],
+      };
+
+      await todoWriteTool.execute?.(input, {
+        taskId: 'parent-task-id',
+        toolId: 'tool-call-2',
+        subagentId: 'call_subagent_123',
+      });
+
+      expect(mockFileTodoService.saveTodos).toHaveBeenCalledWith('call_subagent_123', [
+        {
+          content: 'Subagent todo',
+          status: 'pending',
+          id: 'subagent-id-1',
+        },
+      ]);
     });
 
     it('should handle empty todos list', async () => {

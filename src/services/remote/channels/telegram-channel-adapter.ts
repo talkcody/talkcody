@@ -1,7 +1,11 @@
 import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { logger } from '@/lib/logger';
-import type { RemoteChannelAdapter } from '@/services/remote/remote-channel-types';
+import type {
+  RemoteChannelAdapter,
+  RemoteChannelCapabilities,
+  RemoteChannelStatus,
+} from '@/services/remote/remote-channel-types';
 import { parseAllowedChatIds } from '@/services/remote/telegram-remote-utils';
 import { useSettingsStore } from '@/stores/settings-store';
 import type {
@@ -11,6 +15,7 @@ import type {
   RemoteSendMessageRequest,
   RemoteSendMessageResponse,
   TelegramEditMessageRequest,
+  TelegramGatewayStatus,
   TelegramInboundMessage,
   TelegramRemoteAttachment,
   TelegramRemoteConfig,
@@ -73,17 +78,31 @@ function toTelegramEditMessageRequest(
 
 export class TelegramChannelAdapter implements RemoteChannelAdapter {
   readonly channelId = 'telegram' as const;
+  readonly capabilities: RemoteChannelCapabilities = {
+    supportsEdit: true,
+    supportsReply: true,
+    supportsMediaSend: false,
+    supportsVoiceInput: true,
+    supportsProactiveMessage: true,
+    maxMessageLength: 4096,
+    streamMode: 'edit',
+  };
   private inboundUnlisten: UnlistenFn | null = null;
 
   async start(): Promise<void> {
     const settings = useSettingsStore.getState();
-    if (!settings.telegram_remote_enabled || !settings.telegram_remote_token) {
+    const config = this.toRustConfig(settings);
+
+    // Always sync the latest UI state so Rust cannot keep polling with stale config.
+    await invoke('telegram_set_config', { config });
+
+    if (!config.enabled || !config.token) {
       logger.info('[TelegramChannelAdapter] Remote control disabled or missing token');
+      await invoke('telegram_stop');
       return;
     }
 
     logger.info('[TelegramChannelAdapter] Starting gateway');
-    await invoke('telegram_set_config', { config: this.toRustConfig(settings) });
     await invoke('telegram_start');
   }
 
@@ -137,6 +156,20 @@ export class TelegramChannelAdapter implements RemoteChannelAdapter {
     });
   }
 
+  async getStatus(): Promise<RemoteChannelStatus> {
+    const status = await invoke<TelegramGatewayStatus>('telegram_get_status');
+    return {
+      running: status.running,
+      lastPollAtMs: status.lastPollAtMs ?? null,
+      lastError: status.lastError ?? null,
+      lastErrorAtMs: status.lastErrorAtMs ?? null,
+      details: {
+        lastUpdateId: status.lastUpdateId ?? null,
+        backoffMs: status.backoffMs ?? null,
+      },
+    };
+  }
+
   async getConfig(): Promise<TelegramRemoteConfig> {
     return invoke('telegram_get_config');
   }
@@ -146,7 +179,7 @@ export class TelegramChannelAdapter implements RemoteChannelAdapter {
   ): TelegramRemoteConfig {
     return {
       enabled: settings.telegram_remote_enabled,
-      token: settings.telegram_remote_token,
+      token: settings.telegram_remote_token.trim(),
       allowedChatIds: parseAllowedChatIds(settings.telegram_remote_allowed_chats),
       pollTimeoutSecs: Number(settings.telegram_remote_poll_timeout || '25'),
     };
