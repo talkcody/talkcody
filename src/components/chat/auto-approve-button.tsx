@@ -268,11 +268,6 @@ export function AutoApproveButton() {
                   disabled={isLoading}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                {editsEnabled
-                  ? t.Chat.autoApproveEdits.enabledTooltip
-                  : t.Chat.autoApproveEdits.disabledTooltip}
-              </p>
             </div>
 
             <Separator />
@@ -291,11 +286,6 @@ export function AutoApproveButton() {
                   disabled={isLoading}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                {planEnabled
-                  ? t.Chat.autoApprovePlan.enabledTooltip
-                  : t.Chat.autoApprovePlan.disabledTooltip}
-              </p>
             </div>
 
             <Separator />
@@ -314,11 +304,6 @@ export function AutoApproveButton() {
                   disabled={isLoading}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                {codeReviewEnabled
-                  ? t.Chat.autoCodeReview.enabledTooltip
-                  : t.Chat.autoCodeReview.disabledTooltip}
-              </p>
             </div>
 
             <Separator />
@@ -337,11 +322,6 @@ export function AutoApproveButton() {
                   disabled={isLoading}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                {gitCommitEnabled
-                  ? t.Chat.autoGitCommit.enabledTooltip
-                  : t.Chat.autoGitCommit.disabledTooltip}
-              </p>
             </div>
 
             <Separator />
@@ -360,11 +340,6 @@ export function AutoApproveButton() {
                   disabled={isLoading}
                 />
               </div>
-              <p className="text-xs text-muted-foreground">
-                {checkFinishEnabled
-                  ? t.Chat.autoCheckFinish.enabledTooltip
-                  : t.Chat.autoCheckFinish.disabledTooltip}
-              </p>
             </div>
           </div>
         </PopoverContent>

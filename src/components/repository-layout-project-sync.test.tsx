@@ -258,6 +258,17 @@ const mockTranslations = {
       disabledTooltip: 'Manual commit: use git commit when you are ready',
       toggleFailed: 'Failed to update auto git commit setting',
     },
+    autoCheckFinish: {
+      title: 'Auto check finish',
+      description:
+        'When enabled, AI will verify if the task is truly complete and suggest next steps if not',
+      enabled: 'Enabled',
+      disabled: 'Disabled',
+      enabledTooltip:
+        'Auto-check: AI will verify task completion and continue if needed after git commit',
+      disabledTooltip: 'Manual verification: you decide when the task is complete',
+      toggleFailed: 'Failed to update auto check finish setting',
+    },
     reasoningEffort: {
       title: 'Reasoning Effort',
       description: 'Control how much reasoning the model performs before responding. Higher effort uses more tokens for thinking.',
