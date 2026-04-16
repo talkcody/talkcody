@@ -94,6 +94,8 @@ export interface CompletionHook {
   name: string;
   /** Execution priority (lower = earlier). Recommended: 10, 20, 30... */
   priority: number;
+  /** Optional timeout override for long-running hooks */
+  timeoutMs?: number;
   /** Whether this hook should run for the given context */
   shouldRun: (context: CompletionHookContext) => boolean;
   /** Execute the hook and return result */

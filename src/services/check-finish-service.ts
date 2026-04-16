@@ -28,9 +28,6 @@ const BASE_CHECK_FINISH_PROMPT = [
   '1. Are all user requirements from the original task fully implemented?',
   '2. Is the code functional and ready for use?',
   '3. Are there any TODO comments or unfinished parts in the code?',
-  '4. Are tests or verification steps needed but missing?',
-  '5. Are there obvious bugs, syntax errors, or incomplete logic?',
-  '6. Does the implementation follow the intended architecture and patterns?',
   '',
   'Output format:',
   '## Task Completion Check',
@@ -83,11 +80,6 @@ function isAutoCheckFinishEnabled(taskId: string): boolean {
     enabled: globalEnabled,
   });
   return globalEnabled;
-}
-
-function getLatestChangeTimestamp(taskId: string): number {
-  const changes = useFileChangesStore.getState().getChanges(taskId);
-  return changes.reduce((latest, change) => Math.max(latest, change.timestamp), 0);
 }
 
 function buildCheckFinishPrompt(taskId: string, userMessage?: string): string {
@@ -150,6 +142,7 @@ function hasMeaningfulSectionContent(content: string): boolean {
 }
 
 export function parseCheckFinishResult(text: string): {
+  status: 'COMPLETE' | 'INCOMPLETE' | 'UNKNOWN';
   isComplete: boolean;
   resultText: string;
   hasActionableItems: boolean;
@@ -164,6 +157,11 @@ export function parseCheckFinishResult(text: string): {
     upperText.includes('## TASK COMPLETION CHECK\n- STATUS: COMPLETE') ||
     /^COMPLETE\b/m.test(trimmedText);
   const hasExplicitIncompleteStatus = upperText.includes('STATUS: INCOMPLETE');
+  const status = hasExplicitIncompleteStatus
+    ? 'INCOMPLETE'
+    : hasExplicitCompleteStatus
+      ? 'COMPLETE'
+      : 'UNKNOWN';
 
   const hasUncheckedTodoItems = /- \[ \]/.test(trimmedText);
   const hasMeaningfulMissingItems = hasMeaningfulSectionContent(missingItemsContent);
@@ -172,10 +170,10 @@ export function parseCheckFinishResult(text: string): {
     hasMeaningfulSectionContent(todoContent.replace(/- \[[^\]]*\]/g, '').trim());
   const hasActionableItems = hasMeaningfulMissingItems || hasMeaningfulTodoContent;
 
-  const isComplete =
-    hasExplicitCompleteStatus && !hasExplicitIncompleteStatus && !hasActionableItems;
+  const isComplete = status === 'COMPLETE';
 
   return {
+    status,
     isComplete,
     resultText: trimmedText,
     hasActionableItems,
@@ -212,25 +210,11 @@ export class CheckFinishService {
       return null;
     }
 
-    const latestChange = getLatestChangeTimestamp(taskId);
-    const lastChecked = lastCheckFinishTimestamp.get(taskId) || 0;
-
-    // Avoid running too frequently - only run if there are new changes
-    if (latestChange <= lastChecked) {
-      logger.info('[CheckFinish] No new changes since last check, skipping', {
-        taskId,
-        latestChange,
-        lastChecked,
-        changedFiles,
-      });
-      return null;
-    }
-
     try {
       // Use a simple agent or direct LLM call for the check
-      const agent = await agentRegistry.getWithResolvedTools('coding');
+      const agent = await agentRegistry.getWithResolvedTools('explore');
       if (!agent) {
-        logger.warn('[CheckFinish] Coding agent not found', { taskId });
+        logger.warn('[CheckFinish] Explore agent not found', { taskId });
         return null;
       }
 
@@ -277,12 +261,6 @@ export class CheckFinishService {
           logger.warn('[CheckFinish] Dynamic prompt preview failed', { taskId, error });
         }
       }
-
-      logger.info('[CheckFinish] Running task completion check', {
-        taskId,
-        latestChange,
-        lastChecked,
-      });
 
       const messages: UIMessage[] = [
         {
@@ -333,30 +311,39 @@ export class CheckFinishService {
       });
 
       const result = parseCheckFinishResult(fullText);
-      lastCheckFinishTimestamp.set(taskId, latestChange);
 
       logger.info('[CheckFinish] Parsed completion check result', {
         taskId,
+        status: result.status,
         isComplete: result.isComplete,
         hasActionableItems: result.hasActionableItems,
         resultLength: result.resultText.length,
-        latestChange,
       });
 
-      if (result.isComplete) {
-        logger.info('[CheckFinish] Task appears complete', { taskId });
-        return null;
-      }
-
-      if (!result.hasActionableItems) {
-        logger.info('[CheckFinish] No actionable items found', {
+      if (result.status === 'COMPLETE') {
+        logger.info('[CheckFinish] Task marked complete, skipping continuation message', {
           taskId,
-          resultLength: result.resultText.length,
         });
         return null;
       }
 
-      // Format the result as a user message for continuation
+      if (result.status !== 'INCOMPLETE') {
+        logger.info('[CheckFinish] Completion status not explicit, skipping continuation message', {
+          taskId,
+          status: result.status,
+          hasActionableItems: result.hasActionableItems,
+        });
+        return null;
+      }
+
+      if (!result.resultText) {
+        logger.info('[CheckFinish] Incomplete result was empty, skipping continuation message', {
+          taskId,
+        });
+        return null;
+      }
+
+      // Only explicit INCOMPLETE results should be surfaced back to the user.
       const formattedResult = [
         '🔍 **Task Completion Check**',
         '',
@@ -377,14 +364,6 @@ export class CheckFinishService {
       logger.error('[CheckFinish] Unexpected error', { taskId, error });
       return null;
     }
-  }
-
-  /**
-   * Reset the check timestamp for a task
-   * Useful when user manually requests a re-check
-   */
-  resetCheckTimestamp(taskId: string): void {
-    lastCheckFinishTimestamp.delete(taskId);
   }
 }
 

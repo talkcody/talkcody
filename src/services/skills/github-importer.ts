@@ -18,6 +18,7 @@ import {
 import { Command } from '@tauri-apps/plugin-shell';
 import { logger } from '@/lib/logger';
 import { getAgentSkillService } from './agent-skill-service';
+import { AgentSkillValidator } from './agent-skill-validator';
 import { SkillMdParser } from './skill-md-parser';
 
 const SHELL_SCOPE_BLOCKED = 'program not allowed on the configured shell scope';
@@ -483,6 +484,10 @@ export class GitHubImporter {
     return files;
   }
 
+  private static getInstalledDirectoryName(skillInfo: GitHubSkillInfo): string {
+    return AgentSkillValidator.normalizeName(skillInfo.skillName) || skillInfo.directoryName;
+  }
+
   private static buildSkillMetadata(skillInfo: GitHubSkillInfo): Record<string, string> {
     return {
       author: skillInfo.author,
@@ -801,7 +806,8 @@ export class GitHubImporter {
   ): Promise<void> {
     const agentSkillService = await getAgentSkillService();
     const skillsDir = targetSkillsDir ?? (await agentSkillService.getSkillsDirPath());
-    const skillPath = await join(skillsDir, skillInfo.directoryName);
+    const installedDirectoryName = GitHubImporter.getInstalledDirectoryName(skillInfo);
+    const skillPath = await join(skillsDir, installedDirectoryName);
 
     // Check if skill already exists
     if (await exists(skillPath)) {
@@ -811,7 +817,9 @@ export class GitHubImporter {
     // Create skill directory
     await mkdir(skillPath, { recursive: true });
 
-    logger.info(`Importing skill ${skillInfo.skillName} from local directory ${sourcePath}`);
+    logger.info(
+      `Importing skill ${skillInfo.skillName} from local directory ${sourcePath} to ${skillPath}`
+    );
 
     // Copy all files
     for (const file of skillInfo.files) {
@@ -855,7 +863,8 @@ export class GitHubImporter {
   ): Promise<void> {
     const agentSkillService = await getAgentSkillService();
     const skillsDir = targetSkillsDir ?? (await agentSkillService.getSkillsDirPath());
-    const skillPath = await join(skillsDir, skillInfo.directoryName);
+    const installedDirectoryName = GitHubImporter.getInstalledDirectoryName(skillInfo);
+    const skillPath = await join(skillsDir, installedDirectoryName);
 
     // Check if skill already exists
     if (await exists(skillPath)) {

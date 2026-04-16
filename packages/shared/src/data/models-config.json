@@ -1,5 +1,5 @@
 {
-  "version": "2026-04-08T11:28:11.041Z",
+  "version": "2026-04-15T11:28:11.041Z",
   "models": {
     "gpt-5.4-nano": {
       "name": "GPT-5.4 Nano",
@@ -279,6 +279,24 @@
         "kimi_coding": "kimi-k2.5",
         "alibaba": "kimi-k2.5",
         "zenmux": "moonshotai/kimi-k2.5"
+      },
+      "pricing": {
+        "input": "0.0000006",
+        "output": "0.000003",
+        "cachedInput": "0.0000001"
+      },
+      "context_length": 262144
+    },
+    "kimi-k2.6": {
+      "name": "Kimi K2.6",
+      "imageInput": true,
+      "videoInput": true,
+      "interleaved": true,
+      "providers": [
+        "kimi_coding"
+      ],
+      "providerMappings": {
+        "kimi_coding": "K2.6-code-preview"
       },
       "pricing": {
         "input": "0.0000006",

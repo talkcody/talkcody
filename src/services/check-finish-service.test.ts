@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import type { UIMessage } from '@/types/agent';
 
 const {
   getWithResolvedToolsMock,
@@ -97,21 +96,25 @@ None
 ## Suggested TODO List
 None`);
 
+    expect(result.status).toBe('COMPLETE');
     expect(result.isComplete).toBe(true);
     expect(result.hasActionableItems).toBe(false);
   });
 
-  it('treats section headings alone as non-actionable', () => {
+  it('keeps COMPLETE status even when summary prose appears in later sections', () => {
     const result = parseCheckFinishResult(`## Task Completion Check
 - Status: COMPLETE
 - Confidence: MEDIUM
 
 ## Missing Items
+None for the stated MVP scope.
 
-## Suggested TODO List`);
+## Suggested TODO List
+No required follow-up items for this task.`);
 
+    expect(result.status).toBe('COMPLETE');
     expect(result.isComplete).toBe(true);
-    expect(result.hasActionableItems).toBe(false);
+    expect(result.hasActionableItems).toBe(true);
   });
 
   it('detects actionable incomplete results', () => {
@@ -126,6 +129,7 @@ Need to add validation for empty inputs.
 - [ ] Add input validation
 - [ ] Add tests`);
 
+    expect(result.status).toBe('INCOMPLETE');
     expect(result.isComplete).toBe(false);
     expect(result.hasActionableItems).toBe(true);
   });
@@ -196,7 +200,7 @@ None`);
     );
   });
 
-  it('returns a continuation message when the check finds actionable items', async () => {
+  it('does not return a continuation message when status is COMPLETE', async () => {
     getWithResolvedToolsMock.mockResolvedValue({
       id: 'coding',
       model: 'test-model',
@@ -206,7 +210,36 @@ None`);
     runAgentLoopMock.mockImplementation(
       async (
         _options: unknown,
-        callbacks: { onComplete?: (finalText?: string) => void; onChunk?: (chunk: string) => void }
+        callbacks: { onComplete?: (finalText?: string) => void }
+      ) => {
+        callbacks.onComplete?.(`## Task Completion Check
+- Status: COMPLETE
+- Confidence: MEDIUM
+
+## Missing Items
+None for the stated MVP scope.
+
+## Suggested TODO List
+No required follow-up items for this task.`);
+      }
+    );
+
+    const result = await checkFinishService.run('task-1');
+
+    expect(result).toBeNull();
+  });
+
+  it('returns a continuation message when status is INCOMPLETE', async () => {
+    getWithResolvedToolsMock.mockResolvedValue({
+      id: 'coding',
+      model: 'test-model',
+      systemPrompt: 'base system prompt',
+      tools: {},
+    });
+    runAgentLoopMock.mockImplementation(
+      async (
+        _options: unknown,
+        callbacks: { onComplete?: (finalText?: string) => void }
       ) => {
         callbacks.onComplete?.(`## Task Completion Check
 - Status: INCOMPLETE
@@ -223,17 +256,46 @@ Need tests.
     const result = await checkFinishService.run('task-1');
 
     expect(result).toContain('Task Completion Check');
+    expect(result).toContain('- Status: INCOMPLETE');
     expect(result).toContain('Please continue working on the above items to complete the task.');
   });
 
-  it('skips rerunning when no new file changes are present', async () => {
+  it('does not return a continuation message when status is UNKNOWN', async () => {
     getWithResolvedToolsMock.mockResolvedValue({
       id: 'coding',
       model: 'test-model',
       systemPrompt: 'base system prompt',
       tools: {},
     });
-    lastCheckFinishTimestamp.set('task-1', 10);
+    runAgentLoopMock.mockImplementation(
+      async (
+        _options: unknown,
+        callbacks: { onComplete?: (finalText?: string) => void }
+      ) => {
+        callbacks.onComplete?.(`## Task Completion Check
+- Confidence: LOW
+
+## Missing Items
+Need tests.
+
+## Suggested TODO List
+- [ ] Add regression tests`);
+      }
+    );
+
+    const result = await checkFinishService.run('task-1');
+
+    expect(result).toBeNull();
+  });
+
+  it('skips when there are no file changes', async () => {
+    getWithResolvedToolsMock.mockResolvedValue({
+      id: 'coding',
+      model: 'test-model',
+      systemPrompt: 'base system prompt',
+      tools: {},
+    });
+    getChangesMock.mockReturnValue([]);
 
     const result = await checkFinishService.run('task-1');
 

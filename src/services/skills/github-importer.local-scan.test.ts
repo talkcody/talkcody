@@ -50,6 +50,78 @@ describe('GitHubImporter local directory scan', () => {
     vi.clearAllMocks();
   });
 
+  it('imports local skills into the normalized skill-name directory', async () => {
+    const { exists, readTextFile, readFile, mkdir, writeTextFile, writeFile } = await import(
+      '@tauri-apps/plugin-fs'
+    );
+
+    vi.mocked(exists).mockResolvedValue(false);
+    vi.mocked(readTextFile).mockResolvedValueOnce(
+      '---\nname: remotion-best-practices\ndescription: Remotion\n---\nBody'
+    );
+    vi.mocked(readFile).mockResolvedValueOnce(new Uint8Array([1, 2, 3]));
+
+    await GitHubImporter.importSkillFromLocalDirectory(
+      {
+        directoryName: 'remotion',
+        skillName: 'remotion-best-practices',
+        description: 'Remotion',
+        author: 'remotion-dev',
+        repoUrl: 'https://github.com/remotion-dev/skills',
+        importSource: 'github',
+        importedFrom: 'https://github.com/remotion-dev/skills',
+        hasSkillMd: true,
+        hasReferencesDir: false,
+        hasScriptsDir: false,
+        hasAssetsDir: false,
+        files: [
+          { path: 'SKILL.md', downloadUrl: '', type: 'file' },
+          { path: 'rules/example.md', downloadUrl: '', type: 'file' },
+        ],
+        isValid: true,
+      },
+      '/tmp/remotion'
+    );
+
+    expect(mkdir).toHaveBeenCalledWith('/mock/skills/remotion-best-practices', {
+      recursive: true,
+    });
+    expect(writeTextFile).toHaveBeenCalledWith(
+      '/mock/skills/remotion-best-practices/SKILL.md',
+      expect.any(String)
+    );
+    expect(writeFile).toHaveBeenCalledWith(
+      '/mock/skills/remotion-best-practices/rules/example.md',
+      expect.any(Uint8Array)
+    );
+  });
+
+  it('detects duplicates using the normalized skill-name directory', async () => {
+    const { exists } = await import('@tauri-apps/plugin-fs');
+
+    vi.mocked(exists).mockImplementation(async (path: string) =>
+      path === '/mock/skills/remotion-best-practices'
+    );
+
+    await expect(
+      GitHubImporter.importSkillFromGitHub({
+        directoryName: 'remotion',
+        skillName: 'remotion-best-practices',
+        description: 'Remotion',
+        author: 'remotion-dev',
+        repoUrl: 'https://github.com/remotion-dev/skills',
+        importSource: 'github',
+        importedFrom: 'https://github.com/remotion-dev/skills',
+        hasSkillMd: true,
+        hasReferencesDir: false,
+        hasScriptsDir: false,
+        hasAssetsDir: false,
+        files: [],
+        isValid: true,
+      })
+    ).rejects.toThrow('Skill "remotion-best-practices" already exists');
+  });
+
   it('treats a selected skill directory as a single local skill', async () => {
     const { exists } = await import('@tauri-apps/plugin-fs');
     const inspectSpy = vi

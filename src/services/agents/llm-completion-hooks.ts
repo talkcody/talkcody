@@ -147,16 +147,23 @@ export class CompletionHookPipeline {
     hook: CompletionHook,
     context: CompletionHookContext
   ): Promise<CompletionHookResult> {
-    const timeoutMs = this.config.timeoutMs || 30000;
+    const timeoutMs = hook.timeoutMs ?? this.config.timeoutMs ?? 30000;
+    let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
-    return Promise.race([
-      hook.run(context),
-      new Promise<never>((_, reject) => {
-        setTimeout(() => {
-          reject(new Error(`Hook ${hook.name} timed out after ${timeoutMs}ms`));
-        }, timeoutMs);
-      }),
-    ]);
+    try {
+      return await Promise.race([
+        hook.run(context),
+        new Promise<never>((_, reject) => {
+          timeoutHandle = setTimeout(() => {
+            reject(new Error(`Hook ${hook.name} timed out after ${timeoutMs}ms`));
+          }, timeoutMs);
+        }),
+      ]);
+    } finally {
+      if (timeoutHandle) {
+        clearTimeout(timeoutHandle);
+      }
+    }
   }
 }
 

@@ -236,6 +236,52 @@ describe('CompletionHookPipeline', () => {
       expect(result.action).toBe('stop');
       expect(hook2.run).toHaveBeenCalled();
     });
+
+    it('uses hook-specific timeout overrides for long-running hooks', async () => {
+      vi.useFakeTimers();
+
+      try {
+        const pipeline = new CompletionHookPipeline({ timeoutMs: 20 });
+        const slowHook: CompletionHook = {
+          name: 'slow-hook',
+          priority: 10,
+          timeoutMs: 100,
+          shouldRun: () => true,
+          run: vi.fn().mockImplementation(
+            () =>
+              new Promise((resolve) => {
+                setTimeout(() => {
+                  resolve({ action: 'stop' satisfies CompletionHookResult['action'] });
+                }, 50);
+              })
+          ),
+        };
+
+        pipeline.register(slowHook);
+
+        const context = {
+          taskId: 'task-1',
+          fullText: '',
+          toolSummaries: [],
+          loopState: {
+            messages: [],
+            currentIteration: 1,
+            isComplete: false,
+            lastRequestTokens: 0,
+          },
+          iteration: 1,
+          startTime: Date.now(),
+        } as CompletionHookContext;
+
+        const runPromise = pipeline.run(context);
+        await vi.advanceTimersByTimeAsync(50);
+
+        await expect(runPromise).resolves.toEqual({ action: 'stop' });
+      } finally {
+        await vi.runOnlyPendingTimersAsync();
+        vi.useRealTimers();
+      }
+    });
   });
 
   describe('unregister', () => {

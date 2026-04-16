@@ -95,6 +95,7 @@ Creating 5 new components. Making all write calls at once:
 2. **Batch reads**: Make all readFile/glob calls in one response
 3. **Batch writes**: Make all writeFile/editFile calls in one response (for different files)
 4. **Don't overthink**: The system handles dependencies automatically
+5. **Always** git commit your changes with a meaningful message
 
 ---
 
@@ -122,6 +123,7 @@ After you have completed your coding task, you MUST provide a summary of your wo
 5. **Never** ignore error handling
 6. **Always** validate inputs and handle edge cases
 7. **Always** complete the task
+8. **Always** git commit your change with a meaningful message
 
 # Remember
 
@@ -134,20 +136,13 @@ You are the execution specialist. The Planner has done the analysis and context 
 Focus on writing code that you would be proud to ship to production.
 `;
 
-/**
- * CodingAgent - Expert programming assistant for code reviews, debugging, and development.
- * This is a primary user-selectable agent for coding tasks.
- */
 export class CodingAgent {
   private constructor() {}
 
   static readonly VERSION = '2.1.0';
 
   static getDefinition(): AgentDefinition {
-    // Get tools from the centralized registry
     const selectedTools = {
-      memoryRead: getToolSync('memoryRead'),
-      memoryWrite: getToolSync('memoryWrite'),
       readFile: getToolSync('readFile'),
       writeFile: getToolSync('writeFile'),
       editFile: getToolSync('editFile'),
@@ -171,14 +166,7 @@ export class CodingAgent {
       role: 'write',
       dynamicPrompt: {
         enabled: true,
-        providers: [
-          'env',
-          'global_memory',
-          'project_memory',
-          'agents_md',
-          'output_format',
-          'skills',
-        ],
+        providers: ['env', 'agents_md', 'output_format', 'skills'],
         variables: {},
       },
     };

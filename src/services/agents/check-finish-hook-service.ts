@@ -11,7 +11,11 @@
  */
 
 import { logger } from '@/lib/logger';
-import { checkFinishService, lastCheckFinishTimestamp } from '@/services/check-finish-service';
+import {
+  checkFinishService,
+  lastCheckFinishTimestamp,
+  parseCheckFinishResult,
+} from '@/services/check-finish-service';
 import { messageService } from '@/services/message-service';
 import type {
   CompletionHook,
@@ -31,6 +35,12 @@ export class CheckFinishHookService implements CompletionHook {
    * 3. Finally, code review runs (which may find issues even if task appears complete)
    */
   readonly priority = 26;
+
+  /**
+   * Check-finish runs a nested LLM verification pass and can exceed the default
+   * completion-hook timeout on larger tasks.
+   */
+  readonly timeoutMs = 3 * 60 * 1000;
 
   /**
    * Check if this hook should run
@@ -80,6 +90,20 @@ export class CheckFinishHookService implements CompletionHook {
       const checkResult = await checkFinishService.run(taskId, userMessage);
 
       if (checkResult) {
+        const parsedResult = parseCheckFinishResult(checkResult);
+        if (parsedResult.status !== 'INCOMPLETE') {
+          lastCheckFinishTimestamp.delete(taskId);
+          logger.info(
+            '[CheckFinishHook] Ignoring non-INCOMPLETE check result from continuation path',
+            {
+              taskId,
+              status: parsedResult.status,
+              checkResultLength: checkResult.length,
+            }
+          );
+          return { action: 'skip' };
+        }
+
         logger.info('[CheckFinishHook] Task incomplete, requesting continuation with todo list', {
           taskId,
           continuationMode: 'append',
