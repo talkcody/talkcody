@@ -5,6 +5,9 @@ use std::time::UNIX_EPOCH;
 
 /// Default maximum number of results to return from glob search
 const DEFAULT_MAX_GLOB_RESULTS: usize = 100;
+/// Prevent combinatorial blow-ups when expanding brace patterns.
+const MAX_BRACE_EXPANSIONS: usize = 256;
+type BraceGroup<'a> = (usize, usize, Vec<&'a str>);
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GlobResult {
@@ -136,8 +139,19 @@ impl HighPerformanceGlob {
     }
 
     /// Simple glob pattern matching implementation
-    /// Supports: *, **, ?, [abc], [a-z], {a,b,c}
+    /// Supports: *, **, ?, [abc], [a-z], and brace expansion like {a,b,c}
     fn glob_match(&self, path: &str, pattern: &str) -> bool {
+        if let Some(expanded_patterns) = self.expand_brace_patterns(pattern) {
+            return expanded_patterns
+                .iter()
+                .any(|expanded_pattern| self.glob_match_without_braces(path, expanded_pattern));
+        }
+
+        // Malformed brace patterns fall back to literal matching behavior.
+        self.glob_match_without_braces(path, pattern)
+    }
+
+    fn glob_match_without_braces(&self, path: &str, pattern: &str) -> bool {
         // Handle ** patterns specially
         if pattern.contains("**") {
             return self.glob_match_with_recursive(path, pattern);
@@ -145,6 +159,91 @@ impl HighPerformanceGlob {
 
         // Simple glob matching without **
         self.simple_glob_match(path, pattern)
+    }
+
+    fn expand_brace_patterns(&self, pattern: &str) -> Option<Vec<String>> {
+        let mut expanded_patterns = Vec::new();
+
+        self.expand_brace_patterns_recursive(pattern, &mut expanded_patterns)
+            .then_some(expanded_patterns)
+    }
+
+    fn expand_brace_patterns_recursive(
+        &self,
+        pattern: &str,
+        expanded_patterns: &mut Vec<String>,
+    ) -> bool {
+        match self.find_brace_group(pattern) {
+            Ok(Some((start, end, options))) => {
+                for option in options {
+                    if expanded_patterns.len() >= MAX_BRACE_EXPANSIONS {
+                        return false;
+                    }
+
+                    let expanded_pattern =
+                        format!("{}{}{}", &pattern[..start], option, &pattern[end + 1..]);
+
+                    if !self.expand_brace_patterns_recursive(&expanded_pattern, expanded_patterns) {
+                        return false;
+                    }
+                }
+
+                true
+            }
+            Ok(None) => {
+                expanded_patterns.push(pattern.to_string());
+                expanded_patterns.len() <= MAX_BRACE_EXPANSIONS
+            }
+            Err(()) => false,
+        }
+    }
+
+    fn find_brace_group<'a>(&self, pattern: &'a str) -> Result<Option<BraceGroup<'a>>, ()> {
+        let mut in_character_class = false;
+        let mut brace_start = None;
+        let mut nested_brace_depth = 0;
+        let mut option_start = 0;
+        let mut options = Vec::new();
+
+        for (idx, ch) in pattern.char_indices() {
+            match ch {
+                '[' if brace_start.is_none() => in_character_class = true,
+                ']' if brace_start.is_none() => in_character_class = false,
+                '{' if !in_character_class => {
+                    if brace_start.is_none() {
+                        brace_start = Some(idx);
+                        option_start = idx + ch.len_utf8();
+                        options.clear();
+                    } else {
+                        nested_brace_depth += 1;
+                    }
+                }
+                ',' if brace_start.is_some() && nested_brace_depth == 0 => {
+                    options.push(&pattern[option_start..idx]);
+                    option_start = idx + ch.len_utf8();
+                }
+                '}' if brace_start.is_some() => {
+                    if nested_brace_depth == 0 {
+                        options.push(&pattern[option_start..idx]);
+
+                        return if options.len() > 1 {
+                            Ok(Some((brace_start.unwrap_or(0), idx, options)))
+                        } else {
+                            Ok(None)
+                        };
+                    }
+
+                    nested_brace_depth -= 1;
+                }
+                _ => {}
+            }
+        }
+
+        if brace_start.is_some() {
+            Err(())
+        } else {
+            Ok(None)
+        }
     }
 
     /// Handle ** recursive patterns
@@ -321,18 +420,25 @@ mod tests {
 
         // Create directory structure
         fs::create_dir_all(temp_dir.path().join("src/components")).unwrap();
+        fs::create_dir_all(temp_dir.path().join("src/config")).unwrap();
         fs::create_dir_all(temp_dir.path().join("src/utils")).unwrap();
         fs::create_dir_all(temp_dir.path().join("tests")).unwrap();
+        fs::create_dir_all(temp_dir.path().join("db")).unwrap();
+        fs::create_dir_all(temp_dir.path().join("assets")).unwrap();
 
         // Create files
         fs::write(temp_dir.path().join("src/main.ts"), "main").unwrap();
         fs::write(temp_dir.path().join("src/index.ts"), "index").unwrap();
         fs::write(temp_dir.path().join("src/components/Button.tsx"), "button").unwrap();
         fs::write(temp_dir.path().join("src/components/Input.tsx"), "input").unwrap();
+        fs::write(temp_dir.path().join("src/config/app.js"), "app").unwrap();
         fs::write(temp_dir.path().join("src/utils/helper.ts"), "helper").unwrap();
         fs::write(temp_dir.path().join("tests/test.spec.ts"), "test").unwrap();
+        fs::write(temp_dir.path().join("db/schema.sql"), "select 1;").unwrap();
         fs::write(temp_dir.path().join("README.md"), "readme").unwrap();
         fs::write(temp_dir.path().join("package.json"), "{}").unwrap();
+        fs::write(temp_dir.path().join(".env"), "ENV=test").unwrap();
+        fs::write(temp_dir.path().join("assets/logo.png"), "png").unwrap();
 
         temp_dir
     }
@@ -400,6 +506,46 @@ mod tests {
         assert!(glob.glob_match("src/main.ts", "src/**/*.ts"));
         assert!(glob.glob_match("src/components/Button.ts", "src/**/*.ts"));
         assert!(!glob.glob_match("tests/test.ts", "src/**/*.ts"));
+    }
+
+    #[test]
+    fn test_brace_expansion_matches_multiple_extensions() {
+        let glob = HighPerformanceGlob::new();
+
+        assert!(glob.glob_match("main.ts", "*.{ts,tsx}"));
+        assert!(glob.glob_match("main.tsx", "*.{ts,tsx}"));
+        assert!(!glob.glob_match("main.js", "*.{ts,tsx}"));
+    }
+
+    #[test]
+    fn test_brace_expansion_with_recursive_glob() {
+        let glob = HighPerformanceGlob::new();
+        let pattern = "**/*.{ts,tsx,js,json,env,md,sql}";
+
+        assert!(glob.glob_match("src/components/Button.tsx", pattern));
+        assert!(glob.glob_match("src/config/app.js", pattern));
+        assert!(glob.glob_match("db/schema.sql", pattern));
+        assert!(glob.glob_match("README.md", pattern));
+        assert!(glob.glob_match("package.json", pattern));
+        assert!(glob.glob_match(".env", pattern));
+        assert!(!glob.glob_match("assets/logo.png", pattern));
+    }
+
+    #[test]
+    fn test_brace_expansion_with_multiple_groups() {
+        let glob = HighPerformanceGlob::new();
+
+        assert!(glob.glob_match("src/main.test.ts", "src/*.{test,spec}.{ts,tsx}"));
+        assert!(glob.glob_match("src/main.spec.tsx", "src/*.{test,spec}.{ts,tsx}"));
+        assert!(!glob.glob_match("src/main.unit.ts", "src/*.{test,spec}.{ts,tsx}"));
+    }
+
+    #[test]
+    fn test_malformed_brace_pattern_falls_back_to_literal_matching() {
+        let glob = HighPerformanceGlob::new();
+
+        assert!(glob.glob_match("file.{ts,tsx", "file.{ts,tsx"));
+        assert!(!glob.glob_match("file.ts", "file.{ts,tsx"));
     }
 
     #[test]
@@ -634,5 +780,31 @@ mod tests {
             "Should find the plan file. Found: {}",
             results[0].path
         );
+    }
+
+    #[test]
+    fn test_search_files_by_glob_with_brace_expansion() {
+        let temp_dir = create_test_directory();
+        let glob = HighPerformanceGlob::new();
+        let results = glob
+            .search_files_by_glob(
+                "**/*.{ts,tsx,js,json,env,md,sql}",
+                temp_dir.path().to_str().unwrap(),
+                1000,
+            )
+            .unwrap();
+
+        let paths: Vec<String> = results.iter().map(|result| result.path.clone()).collect();
+
+        assert!(paths.iter().any(|path| path.ends_with("src/main.ts")));
+        assert!(paths
+            .iter()
+            .any(|path| path.ends_with("src/components/Button.tsx")));
+        assert!(paths.iter().any(|path| path.ends_with("src/config/app.js")));
+        assert!(paths.iter().any(|path| path.ends_with("db/schema.sql")));
+        assert!(paths.iter().any(|path| path.ends_with("README.md")));
+        assert!(paths.iter().any(|path| path.ends_with("package.json")));
+        assert!(paths.iter().any(|path| path.ends_with(".env")));
+        assert!(!paths.iter().any(|path| path.ends_with("assets/logo.png")));
     }
 }
