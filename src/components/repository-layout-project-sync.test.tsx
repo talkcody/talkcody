@@ -28,6 +28,16 @@ vi.mock('@/stores/terminal-store');
 vi.mock('@/stores/execution-store');
 vi.mock('@/stores/worktree-store');
 vi.mock('@/stores/lint-store');
+vi.mock('@/stores/task-queue-store');
+vi.mock('@/hooks/use-task-queue', () => ({
+  useTaskQueue: vi.fn(() => ({
+    queueCount: 0,
+    queueHead: null,
+    clearQueue: vi.fn(),
+    hasQueuedItems: false,
+    isBlocked: false,
+  })),
+}));
 vi.mock('@/components/ui/resizable', () => ({
   ResizablePanelGroup: ({ children }: { children: React.ReactNode }) => (
     <div data-testid="resizable-panel-group">{children}</div>
