@@ -46,6 +46,14 @@ describe('task-queue-store', () => {
     expect(store.getQueue('project-b')).toHaveLength(1);
   });
 
+  it('returns the same empty array reference for missing projects to avoid React infinite loops', () => {
+    const store = useTaskQueueStore.getState();
+    const first = store.getQueue('nonexistent-project');
+    const second = store.getQueue('another-nonexistent-project');
+    expect(first).toBe(second);
+    expect(first).toHaveLength(0);
+  });
+
   it('marks drafts blocked and removes started drafts', () => {
     const store = useTaskQueueStore.getState();
 

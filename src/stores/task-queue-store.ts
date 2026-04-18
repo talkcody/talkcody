@@ -22,6 +22,8 @@ interface TaskQueueState {
   hasQueuedItems: (projectId: string) => boolean;
 }
 
+const EMPTY_QUEUE_ARRAY: QueuedTaskDraft[] = [];
+
 function normalizeQueue(items: QueuedTaskDraft[]): QueuedTaskDraft[] {
   return items.map((item, index) => ({
     ...item,
@@ -202,7 +204,7 @@ export const useTaskQueueStore = create<TaskQueueState>()((set, get) => ({
   },
 
   getQueue: (projectId) => {
-    return get().queuesByProjectId.get(projectId)?.items ?? [];
+    return get().queuesByProjectId.get(projectId)?.items ?? EMPTY_QUEUE_ARRAY;
   },
 
   getHead: (projectId) => {
