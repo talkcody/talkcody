@@ -289,6 +289,15 @@ const en: LocaleDefinition = {
       modelPlaceholder: 'Select enhancement model',
       followCurrentModel: 'Follow current model',
     },
+    queue: {
+      tooltip: 'Queue as next task',
+      nextUp: 'Next up',
+      blocked: 'Blocked',
+      started: 'Queued task started',
+      added: 'Task added to queue',
+      plusMore: (count) => `+${count} more`,
+      reasonPreviousFailed: 'Previous task did not complete successfully.',
+    },
     toolbar: {
       model: 'Model',
       planMode: 'Plan Mode',

@@ -23,6 +23,7 @@ import { ralphLoopService } from '@/services/agents/ralph-loop-service';
 import { stopHookService } from '@/services/agents/stop-hook-service';
 import { messageService } from '@/services/message-service';
 import { notificationService } from '@/services/notification-service';
+import { taskQueueService } from '@/services/task-queue-service';
 import { taskService } from '@/services/task-service';
 import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import { useExecutionStore } from '@/stores/execution-store';
@@ -55,6 +56,11 @@ export interface ExecutionCallbacks {
 class ExecutionService {
   private llmServiceInstances = new Map<string, LLMService>();
   private hooksRegistered = false;
+
+  private async getTaskProjectId(taskId: string): Promise<string | null> {
+    const task = await taskService.getTaskDetails(taskId);
+    return task?.project_id ?? null;
+  }
 
   /**
    * Register completion hooks (called once during app initialization)
@@ -175,6 +181,15 @@ class ExecutionService {
         }
 
         callbacks?.onComplete?.({ success, fullText });
+
+        const projectId = await this.getTaskProjectId(taskId);
+        if (projectId) {
+          await taskQueueService.handleExecutionTerminalState({
+            taskId,
+            projectId,
+            status: success ? 'completed' : 'error',
+          });
+        }
       };
 
       // Run agent loop with callbacks that route through services
@@ -224,7 +239,7 @@ class ExecutionService {
             await handleCompletion(fullText);
           },
 
-          onError: (error: Error) => {
+          onError: async (error: Error) => {
             if (abortController.signal.aborted) return;
 
             logger.error('[ExecutionService] Agent loop error', error);
@@ -232,6 +247,15 @@ class ExecutionService {
 
             // Clear running usage on error to avoid stale data
             useTaskStore.getState().clearRunningTaskUsage(taskId);
+
+            const projectId = await this.getTaskProjectId(taskId);
+            if (projectId) {
+              await taskQueueService.handleExecutionTerminalState({
+                taskId,
+                projectId,
+                status: 'error',
+              });
+            }
 
             callbacks?.onError?.(error);
           },
@@ -290,7 +314,7 @@ class ExecutionService {
   /**
    * Stop execution for a task
    */
-  stopExecution(taskId: string): void {
+  async stopExecution(taskId: string): Promise<void> {
     const executionStore = useExecutionStore.getState();
     executionStore.stopExecution(taskId);
     this.llmServiceInstances.delete(taskId);
@@ -300,6 +324,15 @@ class ExecutionService {
 
     // Clear running usage to avoid stale metrics
     useTaskStore.getState().clearRunningTaskUsage(taskId);
+
+    const projectId = await this.getTaskProjectId(taskId);
+    if (projectId) {
+      await taskQueueService.handleExecutionTerminalState({
+        taskId,
+        projectId,
+        status: 'stopped',
+      });
+    }
 
     logger.info('[ExecutionService] Execution stopped', { taskId });
   }

@@ -6,6 +6,7 @@ import { EmptyRepositoryState } from '@/components/empty-repository-state';
 import { FileTree } from '@/components/file-tree';
 import { FileTreeHeader } from '@/components/file-tree-header';
 import { TaskList } from '@/components/task-list';
+import { TaskQueueCard } from '@/components/task-queue/task-queue-card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ResizableHandle, ResizablePanel } from '@/components/ui/resizable';
@@ -13,6 +14,7 @@ import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/use-locale';
 import { useStableRunningIds } from '@/hooks/use-stable-running-ids';
+import { useTaskQueue } from '@/hooks/use-task-queue';
 import { useTasks } from '@/hooks/use-tasks';
 import { useExecutionStore } from '@/stores/execution-store';
 import { useWorktreeStore } from '@/stores/worktree-store';
@@ -114,6 +116,7 @@ export const RepositorySidebar = memo(function RepositorySidebar({
   const { getWorktreeForTask } = useWorktreeStore(
     useShallow((state) => ({ getWorktreeForTask: state.getWorktreeForTask }))
   );
+  const { queueCount, queueHead, clearQueue } = useTaskQueue(currentProjectId || null);
 
   const normalizedTaskSearch = useMemo(() => debouncedTaskSearch.trim(), [debouncedTaskSearch]);
 
@@ -263,6 +266,11 @@ export const RepositorySidebar = memo(function RepositorySidebar({
               </div>
 
               <div ref={taskScrollContainerRef} className="flex-1 overflow-auto">
+                <TaskQueueCard
+                  queueCount={queueCount}
+                  queueHead={queueHead}
+                  onClearQueue={clearQueue}
+                />
                 <TaskList
                   tasks={tasks}
                   currentTaskId={currentTaskId ?? undefined}

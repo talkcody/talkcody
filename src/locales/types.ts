@@ -272,6 +272,15 @@ export interface LocaleDefinition {
       modelPlaceholder: string;
       followCurrentModel: string;
     };
+    queue: {
+      tooltip: string;
+      nextUp: string;
+      blocked: string;
+      started: string;
+      added: string;
+      plusMore: (count: number) => string;
+      reasonPreviousFailed: string;
+    };
     toolbar: {
       model: string;
       planMode: string;

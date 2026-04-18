@@ -276,6 +276,15 @@ const zh: LocaleDefinition = {
       modelPlaceholder: '选择增强模型',
       followCurrentModel: '跟随当前模型',
     },
+    queue: {
+      tooltip: '加入下一个任务队列',
+      nextUp: '下一个',
+      blocked: '已阻塞',
+      started: '排队任务已启动',
+      added: '任务已加入队列',
+      plusMore: (count) => `另有 ${count} 个`,
+      reasonPreviousFailed: '前一个任务未成功完成。',
+    },
     toolbar: {
       model: '模型',
       planMode: '计划模式',

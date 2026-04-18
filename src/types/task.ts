@@ -32,7 +32,9 @@ export interface TaskSettings {
   autoCodeReview?: boolean; // When true, auto-run code review for this task
   autoGitCommit?: boolean; // When true, auto-commit changes with AI message after task completes
   autoCheckFinish?: boolean; // When true, auto-check if task is truly complete after git commit
+  planModeEnabled?: boolean; // Task-scoped plan mode override for prompt/environment generation
   ralphLoopEnabled?: boolean; // When true, run Ralph Loop for this task
+  worktreeEnabled?: boolean; // Task-scoped worktree preference for execution startup
 }
 
 export interface CreateProjectData {

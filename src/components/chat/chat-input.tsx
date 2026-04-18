@@ -36,9 +36,11 @@ import { repositoryService } from '@/services/repository-service';
 import { usePlanModeStore } from '@/stores/plan-mode-store';
 import { useRalphLoopStore } from '@/stores/ralph-loop-store';
 import { useSettingsStore } from '@/stores/settings-store';
+import { useTaskQueueStore } from '@/stores/task-queue-store';
 import { useWorktreeStore } from '@/stores/worktree-store';
 import type { MessageAttachment } from '@/types/agent';
 import type { Command } from '@/types/command';
+import type { QueuedTaskDraft } from '@/types/task-queue';
 import {
   PromptInput,
   PromptInputButton,
@@ -52,6 +54,8 @@ import { CommandPicker } from './command-picker';
 import { FilePicker } from './file-picker';
 import { FilePreview } from './file-preview';
 import { ImageSupportAlert } from './image-support-alert';
+import { QueueTaskButton } from './queue-task-button';
+import { QueuedTaskBanner } from './queued-task-banner';
 import { VideoSupportAlert } from './video-support-alert';
 import { VoiceInputButton } from './voice-input-button';
 import { VoiceRecordingModal } from './voice-recording-modal';
@@ -60,12 +64,16 @@ interface ChatInputProps {
   input: string;
   onInputChange: ChangeEventHandler<HTMLTextAreaElement>;
   onSubmit: (e: React.FormEvent, attachments?: MessageAttachment[]) => void;
+  onQueueSubmit?: (attachments?: MessageAttachment[]) => void;
   isLoading: boolean;
   status: ChatStatus;
   selectedFile?: string | null;
   fileContent?: string | null;
   repositoryPath?: string | undefined;
   taskId?: string | null;
+  showQueueAction?: boolean;
+  queueHead?: QueuedTaskDraft | null;
+  queuedCount?: number;
   onEnhancePrompt?: (payload: {
     originalPrompt: string;
     enableContextExtraction: boolean;
@@ -84,12 +92,16 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
       input,
       onInputChange,
       onSubmit,
+      onQueueSubmit,
       isLoading,
       status,
       selectedFile,
       fileContent,
       repositoryPath,
       taskId,
+      showQueueAction = false,
+      queueHead,
+      queuedCount = 0,
       onEnhancePrompt,
     },
     ref
@@ -1038,6 +1050,15 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
               className={`@container ${isDragging ? 'ring-2 ring-primary ring-offset-2 bg-accent/50' : ''}`}
               onSubmit={handleSubmit}
             >
+              {queueHead && (
+                <QueuedTaskBanner
+                  draft={queueHead}
+                  queueCount={queuedCount}
+                  onRemove={() => {
+                    useTaskQueueStore.getState().removeDraft(queueHead.projectId, queueHead.id);
+                  }}
+                />
+              )}
               <div className="relative">
                 {/* Enhance Prompt button - top right inside textarea */}
                 {onEnhancePrompt && (
@@ -1221,6 +1242,14 @@ export const ChatInput = forwardRef<ChatInputRef, ChatInputProps>(
                     error={voiceError}
                     disabled={isLoading}
                   />
+                  {showQueueAction && (
+                    <QueueTaskButton
+                      disabled={!input.trim() || isLoading}
+                      onClick={() =>
+                        onQueueSubmit?.(attachments.length > 0 ? attachments : undefined)
+                      }
+                    />
+                  )}
                   <PromptInputSubmit disabled={!input.trim() || isLoading} status={status} />
                 </div>
               </PromptInputToolbar>

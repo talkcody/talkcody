@@ -168,11 +168,12 @@ class CommandExecutor {
     const errors: string[] = [];
     const args: Record<string, unknown> = {};
 
+    if (rawArgs) {
+      args._raw = rawArgs;
+    }
+
     // If no parameters defined, just return raw args as single argument
     if (!command.parameters || command.parameters.length === 0) {
-      if (rawArgs) {
-        args._raw = rawArgs;
-      }
       return { args, errors };
     }
 

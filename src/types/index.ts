@@ -204,6 +204,13 @@ export type {
   TodoItem,
   UpdateProjectData,
 } from './task';
+export type {
+  ProjectTaskQueueState,
+  QueueDraftSnapshot,
+  QueuedTaskDraft,
+  QueuedTaskOrigin,
+  QueuedTaskStatus,
+} from './task-queue';
 // Tool types
 export type { ToolInput, ToolOutput, ToolWithUI } from './tool';
 // User question types

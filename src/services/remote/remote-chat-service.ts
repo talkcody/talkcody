@@ -638,7 +638,7 @@ class RemoteChatService {
       return;
     }
 
-    executionService.stopExecution(session.taskId);
+    await executionService.stopExecution(session.taskId);
     // Use plain text for command responses
     await this.sendMessage(message, this.getLocaleText().RemoteControl.stopped, false);
   }

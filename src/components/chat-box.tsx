@@ -5,7 +5,8 @@ import { LoaderCircle, Square } from 'lucide-react';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
 import { useExecutionState } from '@/hooks/use-execution-state';
-import { useMessages } from '@/hooks/use-task';
+import { useMessages, useRunningTaskIds } from '@/hooks/use-task';
+import { useTaskQueue } from '@/hooks/use-task-queue';
 import { useTasks } from '@/hooks/use-tasks';
 import { logger } from '@/lib/logger';
 import { generateId } from '@/lib/utils';
@@ -22,12 +23,14 @@ import { hookService } from '@/services/hooks/hook-service';
 import type { ChatStatus } from '@/services/llm/ui';
 import { messageService } from '@/services/message-service';
 import { previewSystemPrompt } from '@/services/prompt/preview';
+import { taskQueueService } from '@/services/task-queue-service';
+import { taskService } from '@/services/task-service';
 import { getEffectiveWorkspaceRoot } from '@/services/workspace-root-service';
 import { useAuthStore } from '@/stores/auth-store';
 import { settingsManager, useSettingsStore } from '@/stores/settings-store';
 import { useWorktreeStore } from '@/stores/worktree-store';
 import type { MessageAttachment, UIMessage } from '@/types/agent';
-import type { Command, CommandContext, CommandResult } from '@/types/command';
+import type { CommandContext, CommandResult, ParsedCommand } from '@/types/command';
 import { Task, TaskContent, TaskScrollButton } from './ai-elements/task';
 import { ChatInput, type ChatInputRef } from './chat/chat-input';
 import { FileChangesSummary } from './chat/file-changes-summary';
@@ -87,7 +90,10 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
     } | null>(null);
     const chatInputRef = useRef<ChatInputRef>(null);
     const language = useSettingsStore((state) => state.language);
+    const currentProjectId = useSettingsStore((state) => state.project);
     const t = useMemo(() => getLocale((language || 'en') as SupportedLocale), [language]);
+    const runningTaskIds = useRunningTaskIds();
+    const hasQueuedTaskAction = runningTaskIds.length > 0;
 
     // Use optimized hook for execution state - only subscribes to changes for this specific task
     const { isLoading, serverStatus, error } = useExecutionState(taskId);
@@ -99,6 +105,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
     // useMessages with taskId for per-task message caching
     const { messages, stopStreaming, deleteMessage, deleteMessagesFromIndex, findMessageIndex } =
       useMessages(currentTaskId);
+    const { queueHead, queueCount } = useTaskQueue(currentProjectId || null);
 
     // Handle input changes
     const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -324,7 +331,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
         // Stop task execution if still running (e.g., on error)
         // executionService handles its own cleanup
         if (activeTaskId && executionService.isRunning(activeTaskId)) {
-          executionService.stopExecution(activeTaskId);
+          void executionService.stopExecution(activeTaskId);
         }
       }
     };
@@ -455,7 +462,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
           setIsCompactionDialogOpen(true);
           setIsCompacting(true);
           setCompactionStats(null);
-          await executeCommand(parsedCommand.command, parsedCommand.rawArgs);
+          await executeCommand(parsedCommand);
           return;
         }
       }
@@ -465,7 +472,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
         const parsedCommand = commandExecutor.parseCommand(userMessage);
         if (parsedCommand.isValid && parsedCommand.command) {
           // Execute command directly without going through processMessage
-          await executeCommand(parsedCommand.command, parsedCommand.rawArgs);
+          await executeCommand(parsedCommand);
           return;
         }
       }
@@ -473,6 +480,50 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
       // If not a command, process as a normal message
       await processMessage(userMessage, attachments);
     };
+
+    const handleQueueSubmit = useCallback(
+      async (attachments?: MessageAttachment[]) => {
+        const prompt = input.trim();
+        if (!prompt || !currentProjectId) {
+          return;
+        }
+
+        const activeTaskId = currentTaskId || taskId;
+        if (activeTaskId) {
+          const hookSummary = await hookService.runUserPromptSubmit(activeTaskId, prompt);
+          hookService.applyHookSummary(hookSummary);
+          if (hookSummary.blocked || hookSummary.continue === false) {
+            const reason = hookSummary.blockReason || hookSummary.stopReason;
+            toast.error(reason || t.Settings.hooks.blockedPrompt);
+            return;
+          }
+        }
+
+        const snapshot = await taskQueueService.createSnapshot({
+          projectId: currentProjectId,
+          sourceTaskId: activeTaskId || null,
+          prompt,
+          attachments,
+          repositoryPath,
+          selectedFile,
+          selectedFileContent: fileContent,
+        });
+
+        await taskQueueService.enqueueDraft(snapshot);
+        await taskQueueService.tryStartNextQueuedItem(currentProjectId);
+        setInput('');
+      },
+      [
+        currentProjectId,
+        currentTaskId,
+        fileContent,
+        input,
+        repositoryPath,
+        selectedFile,
+        t.Settings.hooks.blockedPrompt,
+        taskId,
+      ]
+    );
 
     // Handle sending a message programmatically (e.g., from code review button)
     // biome-ignore lint/correctness/useExhaustiveDependencies: processMessage is intentionally omitted - it changes on every render but we want stable closure behavior
@@ -490,17 +541,22 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
         stopStreaming();
         // executionService handles abort controller and store updates
         if (executionService.isRunning(taskId)) {
-          executionService.stopExecution(taskId);
+          void executionService.stopExecution(taskId);
         }
       }
     };
 
     // Execute a command with the given arguments
-    const executeCommand = async (command: Command, rawArgs: string) => {
+    const executeCommand = async (parsedCommand: ParsedCommand) => {
+      const { command } = parsedCommand;
+      if (!command) {
+        return;
+      }
+
       try {
         // Build command context
         const context: CommandContext = {
-          taskId: currentTaskId,
+          taskId: currentTaskId || taskId,
           repositoryPath,
           selectedFile: selectedFile || undefined,
           fileContent: fileContent || undefined,
@@ -508,16 +564,12 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
             await processMessage(message, undefined);
           },
           createNewTask: async () => {
-            if (onTaskStart) {
-              onTaskStart('', '');
-            }
+            taskService.startNewTask();
+            setInput('');
           },
         };
 
-        // Execute the command directly (already parsed)
-        // Build args object: use _raw for raw string args, or empty object if no args expected
-        const args: Record<string, unknown> = rawArgs ? { _raw: rawArgs } : {};
-        const result: CommandResult = await command.executor(args, context);
+        const result: CommandResult = await commandExecutor.executeCommand(parsedCommand, context);
 
         if (result.data && typeof result.data === 'object') {
           const payload = result.data as {
@@ -559,15 +611,12 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
               command.preferredAgentId
             );
           }
-        } else {
-          // Show error
-          if (result.error) {
-            if (command.name === 'compact') {
-              setIsCompacting(false);
-              setIsCompactionDialogOpen(true);
-            }
-            toast.error(result.error);
+        } else if (result.error) {
+          if (command.name === 'compact') {
+            setIsCompacting(false);
+            setIsCompactionDialogOpen(true);
           }
+          toast.error(result.error);
         }
       } catch (error) {
         logger.error('Command execution failed:', error);
@@ -719,9 +768,13 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
           isLoading={isLoading}
           onEnhancePrompt={handleEnhancePrompt}
           onInputChange={handleInputChange}
+          onQueueSubmit={handleQueueSubmit}
           onSubmit={handleSubmit}
+          queueHead={queueHead}
+          queuedCount={queueCount}
           repositoryPath={repositoryPath}
           selectedFile={selectedFile}
+          showQueueAction={hasQueuedTaskAction}
           status={status}
           taskId={currentTaskId}
         />

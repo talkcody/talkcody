@@ -1,7 +1,13 @@
 // src/services/commands/built-in-commands.ts
 
+import { exists, readTextFile } from '@tauri-apps/plugin-fs';
 import { z } from 'zod';
 import { compactTaskContext } from '@/services/context/manual-context-compaction';
+import { normalizeFilePath } from '@/services/repository-utils';
+import { taskQueueService } from '@/services/task-queue-service';
+import { taskService } from '@/services/task-service';
+import { getValidatedWorkspaceRoot } from '@/services/workspace-root-service';
+import { useSettingsStore } from '@/stores/settings-store';
 import type { Command, CommandContext } from '@/types/command';
 import { CommandCategory, CommandType } from '@/types/command';
 
@@ -56,6 +62,34 @@ export async function getBuiltInCommands(): Promise<Command[]> {
       aliases: ['compress'],
       requiresTask: true,
       examples: ['/compact'],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    },
+
+    // /import-tasks - Import tasks from markdown into the task queue
+    {
+      id: 'import-tasks',
+      name: 'import-tasks',
+      description: 'Import todo items from a markdown file into the task queue',
+      category: CommandCategory.TASK,
+      type: CommandType.ACTION,
+      parameters: [
+        {
+          name: 'path',
+          description: 'Path to a markdown file containing todo items',
+          required: false,
+          type: 'file',
+        },
+      ],
+      parametersSchema: z.object({
+        path: z.string().optional(),
+        _raw: z.string().optional(),
+      }),
+      executor: async (args, context) => executeImportTasksCommand(args, context),
+      isBuiltIn: true,
+      enabled: true,
+      icon: 'ListTodo',
+      examples: ['/import-tasks tasks.md', '/import-tasks docs/tasks.md'],
       createdAt: new Date(),
       updatedAt: new Date(),
     },
@@ -292,6 +326,92 @@ async function executeCompactCommand(context: CommandContext) {
         reductionPercent: result.reductionPercent,
         compressionRatio: result.compressionRatio,
       },
+    },
+  };
+}
+
+function extractTodoPrompts(markdown: string): string[] {
+  const prompts: string[] = [];
+
+  for (const line of markdown.split(/\r?\n/)) {
+    const uncheckedMatch = line.match(/^\s*(?:[-*+]\s+)?\[\s\]\s+(.+?)\s*$/);
+    if (!uncheckedMatch?.[1]) {
+      continue;
+    }
+
+    const prompt = uncheckedMatch[1].trim();
+    if (prompt) {
+      prompts.push(prompt);
+    }
+  }
+
+  return prompts;
+}
+
+async function resolveImportTasksPath(
+  providedPath: string | undefined,
+  context: CommandContext
+): Promise<string> {
+  const rawPath = providedPath?.trim() || 'tasks.md';
+  const baseRoot = context.repositoryPath || (await getValidatedWorkspaceRoot());
+  return await normalizeFilePath(baseRoot, rawPath);
+}
+
+async function executeImportTasksCommand(args: Record<string, unknown>, context: CommandContext) {
+  const taskId = context.taskId;
+
+  const pathArg = typeof args.path === 'string' ? args.path : undefined;
+  const rawArg = typeof args._raw === 'string' ? args._raw : undefined;
+  const targetPath = await resolveImportTasksPath(rawArg || pathArg, context);
+
+  if (!(await exists(targetPath))) {
+    return {
+      success: false,
+      error: `Tasks file not found: ${targetPath}`,
+    };
+  }
+
+  const task = taskId ? await taskService.getTaskDetails(taskId) : null;
+  const projectId = task?.project_id ?? useSettingsStore.getState().getProject();
+  if (!projectId) {
+    return {
+      success: false,
+      error: 'Unable to determine the current project for task queue import',
+    };
+  }
+
+  const content = await readTextFile(targetPath);
+  const prompts = extractTodoPrompts(content);
+  if (prompts.length === 0) {
+    return {
+      success: false,
+      error: `No actionable todo items found in ${targetPath}`,
+    };
+  }
+
+  const drafts = await taskQueueService.enqueuePrompts({
+    projectId,
+    sourceTaskId: taskId ?? null,
+    prompts,
+    repositoryPath: context.repositoryPath,
+    selectedFile: context.selectedFile,
+    selectedFileContent: context.fileContent,
+    origin: 'command',
+  });
+
+  if (drafts.length === 0) {
+    return {
+      success: false,
+      error: `No queue entries were created from ${targetPath}`,
+    };
+  }
+
+  return {
+    success: true,
+    message: `Imported ${drafts.length} tasks from ${targetPath}`,
+    data: {
+      importedCount: drafts.length,
+      path: targetPath,
     },
   };
 }
