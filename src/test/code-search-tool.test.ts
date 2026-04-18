@@ -203,6 +203,72 @@ describe('codeSearch Tool', () => {
     });
   });
 
+  it('should pass malformed regex-like literal patterns through unchanged', async () => {
+    const pattern = 'setCookie(c, "session_token"|getCookie(c, "session_token"|sessions)';
+    const mockResult = [
+      {
+        file_path: 'session.ts',
+        matches: [
+          {
+            line_number: 24,
+            line_content: pattern,
+            byte_offset: 840,
+          },
+        ],
+      },
+    ];
+
+    mockInvoke.mockResolvedValue(mockResult);
+
+    const result = await codeSearch.execute?.({
+      pattern,
+      path: '/Users/test/project',
+    });
+
+    const actualResult = await normalizeResult(result);
+
+    expect(actualResult.success).toBe(true);
+    expect(actualResult.result).toContain(pattern);
+    expect(mockInvoke).toHaveBeenCalledWith('search_file_content', {
+      query: pattern,
+      rootPath: '/Users/test/project',
+      fileTypes: null,
+    });
+  });
+
+  it('should pass invalid character class patterns through unchanged', async () => {
+    const pattern = '[session_token';
+    const mockResult = [
+      {
+        file_path: 'session.ts',
+        matches: [
+          {
+            line_number: 8,
+            line_content: 'const key = "[session_token";',
+            byte_offset: 96,
+          },
+        ],
+      },
+    ];
+
+    mockInvoke.mockResolvedValue(mockResult);
+
+    const result = await codeSearch.execute?.({
+      pattern,
+      path: '/Users/test/project',
+    });
+
+    const actualResult = await normalizeResult(result);
+
+    expect(actualResult.success).toBe(true);
+    expect(actualResult.result).toContain('[session_token');
+    expect(mockInvoke).toHaveBeenCalledWith('search_file_content', {
+      query: pattern,
+      rootPath: '/Users/test/project',
+      fileTypes: null,
+    });
+  });
+
   it('should keep valid regex patterns unchanged', async () => {
     const mockResult = [
       {

@@ -182,18 +182,22 @@ impl RipgrepSearch {
             || query.ends_with('$')
     }
 
-    fn build_matcher(query: &str) -> Result<RegexMatcher, String> {
-        let pattern = if Self::looks_like_regex(query) {
-            query.to_string()
-        } else {
-            escape(query)
-        };
-
+    fn create_matcher(pattern: &str) -> Result<RegexMatcher, String> {
         RegexMatcherBuilder::new()
             .case_insensitive(true)
             .line_terminator(Some(b'\n'))
-            .build(&pattern)
+            .build(pattern)
             .map_err(|e| format!("Failed to create regex matcher: {}", e))
+    }
+
+    fn build_matcher(query: &str) -> Result<RegexMatcher, String> {
+        if Self::looks_like_regex(query) {
+            if let Ok(matcher) = Self::create_matcher(query) {
+                return Ok(matcher);
+            }
+        }
+
+        Self::create_matcher(&escape(query))
     }
 
     pub fn search_content(
@@ -484,6 +488,62 @@ mod tests {
                     .matches
                     .iter()
                     .any(|match_item| match_item.line_content.contains("register(skill)"))
+        }));
+    }
+
+    #[test]
+    fn test_search_falls_back_to_literal_for_invalid_regex_group() {
+        let temp_dir = create_test_search_directory();
+        let query = "setCookie(c, \"session_token\"|getCookie(c, \"session_token\"|sessions)";
+        fs::write(
+            temp_dir.path().join("src/session.ts"),
+            format!("const sessionExpression = {query};\n"),
+        )
+        .unwrap();
+        let search = RipgrepSearch::new();
+
+        let results = search
+            .search_content(query, temp_dir.path().to_str().unwrap())
+            .unwrap();
+
+        assert!(
+            !results.is_empty(),
+            "Should fall back to literal matching for invalid regex groups"
+        );
+        assert!(results.iter().any(|result| {
+            result.file_path.ends_with("session.ts")
+                && result
+                    .matches
+                    .iter()
+                    .any(|match_item| match_item.line_content.contains(query))
+        }));
+    }
+
+    #[test]
+    fn test_search_falls_back_to_literal_for_unclosed_character_class() {
+        let temp_dir = create_test_search_directory();
+        let query = "[session_token";
+        fs::write(
+            temp_dir.path().join("src/token.ts"),
+            format!("const tokenKey = \"{query}\";\n"),
+        )
+        .unwrap();
+        let search = RipgrepSearch::new();
+
+        let results = search
+            .search_content(query, temp_dir.path().to_str().unwrap())
+            .unwrap();
+
+        assert!(
+            !results.is_empty(),
+            "Should fall back to literal matching for invalid character classes"
+        );
+        assert!(results.iter().any(|result| {
+            result.file_path.ends_with("token.ts")
+                && result
+                    .matches
+                    .iter()
+                    .any(|match_item| match_item.line_content.contains(query))
         }));
     }
 
