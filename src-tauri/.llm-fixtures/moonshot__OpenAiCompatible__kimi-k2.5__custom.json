@@ -3838,7 +3838,7 @@
       "input_tokens": 5936,
       "output_tokens": 374,
       "total_tokens": 6310,
-      "cached_input_tokens": null,
+      "cached_input_tokens": 4352,
       "cache_creation_input_tokens": null
     },
     {

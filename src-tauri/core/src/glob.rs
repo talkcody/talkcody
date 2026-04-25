@@ -794,7 +794,10 @@ mod tests {
             )
             .unwrap();
 
-        let paths: Vec<String> = results.iter().map(|result| result.path.clone()).collect();
+        let paths: Vec<String> = results
+            .iter()
+            .map(|result| result.path.replace('\\', "/"))
+            .collect();
 
         assert!(paths.iter().any(|path| path.ends_with("src/main.ts")));
         assert!(paths

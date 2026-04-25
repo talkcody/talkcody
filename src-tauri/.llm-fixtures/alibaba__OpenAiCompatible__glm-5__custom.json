@@ -7949,7 +7949,7 @@
       "input_tokens": 11484,
       "output_tokens": 1427,
       "total_tokens": 12911,
-      "cached_input_tokens": null,
+      "cached_input_tokens": 7551,
       "cache_creation_input_tokens": null
     },
     {
