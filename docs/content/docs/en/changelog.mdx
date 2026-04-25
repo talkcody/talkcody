@@ -8,6 +8,29 @@ import { Callout } from 'fumadocs-ui/components/callout';
 
 All notable changes to TalkCody are documented here.
 
+## [0.6.0] - 2026-04-25
+
+### Added
+
+- **Task Queue**: Queue the current prompt as the next task and import todo items from Markdown with `/import-tasks`
+- **WeChat Remote Control**: Connect TalkCody to personal WeChat chats through iLink
+- **Auto Git Commit & Auto Check Finish**: New optional completion hooks can verify results and commit code automatically after a task ends
+- **Local Agent & Skill Import**: Import Agents and Skills directly from local folders
+- **Model Updates**: Added GPT-5.5, Claude Opus 4.7, Kimi K2.6, DeepSeek V4 Pro, and DeepSeek V4 Flash
+
+### Changed
+
+- **Normalized Skill Install Directories**: Unified installed skill folder naming for more consistent local and GitHub imports
+- **Search & Glob Improvements**: Improved pattern matching and automatically fall back to literal search when a regex is invalid
+- **Agent Loop Retry Improvements**: Improved retry stability for longer and more complex runs
+
+### Fixed
+
+- Fixed task queue state issues that could prevent queued tasks from starting correctly
+- Fixed Auto Code Review hook continuation behavior
+- Fixed code-search handling when `file_types` is empty
+- Fixed cached input token accounting in some model responses
+
 ## [0.5.0] - 2026-03-28
 
 ### Added
