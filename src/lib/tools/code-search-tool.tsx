@@ -54,10 +54,12 @@ Use this to find code patterns, function definitions, variable usage, or any tex
         searchPath = await join(projectRoot, searchPath);
       }
 
+      const normalizedFileTypes = file_types && file_types.length > 0 ? file_types : null;
+
       logger.info('Executing Rust RipgrepSearch with:', {
         pattern,
         path: searchPath,
-        file_types,
+        file_types: normalizedFileTypes,
       });
 
       // Use Rust RipgrepSearch via Tauri command with new optional parameters
@@ -71,7 +73,7 @@ Use this to find code patterns, function definitions, variable usage, or any tex
       }> = await invoke('search_file_content', {
         query: pattern,
         rootPath: searchPath,
-        fileTypes: file_types || null,
+        fileTypes: normalizedFileTypes,
       });
 
       if (searchResults && searchResults.length > 0) {

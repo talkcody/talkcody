@@ -167,15 +167,25 @@ export class TaskService {
     positionIndex: number,
     assistant_id?: string,
     attachments?: MessageAttachment[],
-    messageId?: string
+    messageId?: string,
+    reasoningContent?: string | null
   ): Promise<string> {
     const finalMessageId = messageId || generateId();
     const timestamp = Date.now();
     try {
       // Start transaction by saving message first
       await this.db.execute(
-        'INSERT INTO messages (id, conversation_id, role, content, timestamp, assistant_id, position_index) VALUES ($1, $2, $3, $4, $5, $6, $7)',
-        [finalMessageId, taskId, role, content, timestamp, assistant_id || null, positionIndex]
+        'INSERT INTO messages (id, conversation_id, role, content, reasoning_content, timestamp, assistant_id, position_index) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)',
+        [
+          finalMessageId,
+          taskId,
+          role,
+          content,
+          reasoningContent ?? null,
+          timestamp,
+          assistant_id || null,
+          positionIndex,
+        ]
       );
 
       // Save attachments if present
@@ -198,9 +208,16 @@ export class TaskService {
     }
   }
 
-  async updateMessage(messageId: string, content: string): Promise<void> {
+  async updateMessage(
+    messageId: string,
+    content: string,
+    reasoningContent?: string | null
+  ): Promise<void> {
     try {
-      await this.db.execute('UPDATE messages SET content = $1 WHERE id = $2', [content, messageId]);
+      await this.db.execute(
+        'UPDATE messages SET content = $1, reasoning_content = $2 WHERE id = $3',
+        [content, reasoningContent ?? null, messageId]
+      );
     } catch (error) {
       logger.error('Failed to update message:', error);
       throw error;

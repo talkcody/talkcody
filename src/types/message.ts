@@ -10,6 +10,7 @@ export interface StoredMessage {
   conversation_id: string;
   role: 'user' | 'assistant' | 'tool';
   content: string;
+  reasoning_content?: string | null;
   timestamp: number;
   assistant_id?: string;
   position_index: number;

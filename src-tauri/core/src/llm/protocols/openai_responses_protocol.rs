@@ -1,8 +1,8 @@
 use crate::llm::protocols::stream_parser::StreamParseState;
 use crate::llm::protocols::{
-    self, request_builder::RequestBuildContext, stream_parser::StreamParseContext, LlmProtocol,
-    OpenAiReasoningPartStatus, ProtocolRequestBuilder, ProtocolStreamParser, ProtocolStreamState,
-    ToolCallAccum,
+    self, parse_openai_usage, request_builder::RequestBuildContext,
+    stream_parser::StreamParseContext, LlmProtocol, OpenAiReasoningPartStatus,
+    ProtocolRequestBuilder, ProtocolStreamParser, ProtocolStreamState, ToolCallAccum,
 };
 use crate::llm::types::{ContentPart, Message, MessageContent, StreamEvent, ToolDefinition};
 use serde_json::{json, Value};
@@ -356,22 +356,16 @@ pub(crate) fn parse_openai_oauth_event_legacy(
 
     if payload.get("object").and_then(|v| v.as_str()) == Some("chat.completion.chunk") {
         if let Some(usage) = payload.get("usage") {
-            let input_tokens = usage
-                .get("prompt_tokens")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-            let output_tokens = usage
-                .get("completion_tokens")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-            let total_tokens = usage.get("total_tokens").and_then(|v| v.as_i64());
-            state.pending_events.push(StreamEvent::Usage {
-                input_tokens: input_tokens as i32,
-                output_tokens: output_tokens as i32,
-                total_tokens: total_tokens.map(|v| v as i32),
-                cached_input_tokens: None,
-                cache_creation_input_tokens: None,
-            });
+            let parsed_usage = parse_openai_usage(usage);
+            if parsed_usage.has_meaningful_data() {
+                state.pending_events.push(StreamEvent::Usage {
+                    input_tokens: parsed_usage.input_tokens,
+                    output_tokens: parsed_usage.output_tokens,
+                    total_tokens: parsed_usage.total_tokens,
+                    cached_input_tokens: parsed_usage.cached_input_tokens,
+                    cache_creation_input_tokens: parsed_usage.cache_creation_input_tokens,
+                });
+            }
         }
 
         if let Some(choices) = payload.get("choices").and_then(|v| v.as_array()) {
@@ -896,22 +890,16 @@ pub(crate) fn parse_openai_oauth_event_legacy(
                     state.openai_store = Some(store);
                 }
                 if let Some(usage) = response.get("usage") {
-                    let input_tokens = usage
-                        .get("input_tokens")
-                        .and_then(|v| v.as_i64())
-                        .unwrap_or(0);
-                    let output_tokens = usage
-                        .get("output_tokens")
-                        .and_then(|v| v.as_i64())
-                        .unwrap_or(0);
-                    let total_tokens = usage.get("total_tokens").and_then(|v| v.as_i64());
-                    state.pending_events.push(StreamEvent::Usage {
-                        input_tokens: input_tokens as i32,
-                        output_tokens: output_tokens as i32,
-                        total_tokens: total_tokens.map(|v| v as i32),
-                        cached_input_tokens: None,
-                        cache_creation_input_tokens: None,
-                    });
+                    let parsed_usage = parse_openai_usage(usage);
+                    if parsed_usage.has_meaningful_data() {
+                        state.pending_events.push(StreamEvent::Usage {
+                            input_tokens: parsed_usage.input_tokens,
+                            output_tokens: parsed_usage.output_tokens,
+                            total_tokens: parsed_usage.total_tokens,
+                            cached_input_tokens: parsed_usage.cached_input_tokens,
+                            cache_creation_input_tokens: parsed_usage.cache_creation_input_tokens,
+                        });
+                    }
                 }
                 // Only emit text from response.completed if no text was streamed
                 // via response.output_text.delta events (prevents duplicate messages)
@@ -1246,5 +1234,86 @@ impl LlmProtocol for OpenAiResponsesProtocol {
             &crate::llm::protocols::openai_protocol::OpenAiProtocol,
             ctx,
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn parse_chat_completion_chunk_emits_deepseek_cached_usage_tokens() {
+        let mut state = ProtocolStreamState::default();
+        let payload = json!({
+            "object": "chat.completion.chunk",
+            "usage": {
+                "prompt_tokens": 9622,
+                "completion_tokens": 623,
+                "total_tokens": 10245,
+                "prompt_tokens_details": { "cached_tokens": 8448 },
+                "prompt_cache_hit_tokens": 8448,
+                "prompt_cache_miss_tokens": 1174
+            },
+            "choices": [{ "finish_reason": "stop", "delta": {} }]
+        });
+
+        let event = parse_openai_oauth_event_legacy(None, &payload.to_string(), &mut state)
+            .expect("parse")
+            .expect("usage event");
+
+        match event {
+            StreamEvent::Usage {
+                input_tokens,
+                output_tokens,
+                total_tokens,
+                cached_input_tokens,
+                cache_creation_input_tokens,
+            } => {
+                assert_eq!(input_tokens, 9622);
+                assert_eq!(output_tokens, 623);
+                assert_eq!(total_tokens, Some(10245));
+                assert_eq!(cached_input_tokens, Some(8448));
+                assert_eq!(cache_creation_input_tokens, None);
+            }
+            _ => panic!("Expected Usage event, got {:?}", event),
+        }
+    }
+
+    #[test]
+    fn parse_response_completed_emits_cached_usage_from_input_token_details() {
+        let mut state = ProtocolStreamState::default();
+        let payload = json!({
+            "type": "response.completed",
+            "response": {
+                "usage": {
+                    "input_tokens": 16927,
+                    "input_tokens_details": { "cached_tokens": 9216 },
+                    "output_tokens": 322,
+                    "total_tokens": 17249
+                }
+            }
+        });
+
+        let event = parse_openai_oauth_event_legacy(None, &payload.to_string(), &mut state)
+            .expect("parse")
+            .expect("usage event");
+
+        match event {
+            StreamEvent::Usage {
+                input_tokens,
+                output_tokens,
+                total_tokens,
+                cached_input_tokens,
+                cache_creation_input_tokens,
+            } => {
+                assert_eq!(input_tokens, 16927);
+                assert_eq!(output_tokens, 322);
+                assert_eq!(total_tokens, Some(17249));
+                assert_eq!(cached_input_tokens, Some(9216));
+                assert_eq!(cache_creation_input_tokens, None);
+            }
+            _ => panic!("Expected Usage event, got {:?}", event),
+        }
     }
 }

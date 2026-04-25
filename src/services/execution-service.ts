@@ -124,6 +124,7 @@ class ExecutionService {
 
     let currentMessageId = '';
     let streamedContent = '';
+    let currentReasoningContent: string | undefined;
     let llmService: LLMService | undefined;
 
     try {
@@ -138,8 +139,14 @@ class ExecutionService {
             ? finalText
             : streamedContent || '';
         if (currentMessageId && text) {
-          await messageService.finalizeMessage(taskId, currentMessageId, text);
+          await messageService.finalizeMessage(
+            taskId,
+            currentMessageId,
+            text,
+            currentReasoningContent
+          );
           streamedContent = '';
+          currentReasoningContent = undefined;
         }
 
         const runningUsage = useTaskStore.getState().runningTaskUsage.get(taskId);
@@ -216,13 +223,15 @@ class ExecutionService {
             // Finalize previous message if any
             if (currentMessageId && streamedContent) {
               messageService
-                .finalizeMessage(taskId, currentMessageId, streamedContent)
+                .finalizeMessage(taskId, currentMessageId, streamedContent, currentReasoningContent)
                 .catch((err) => logger.error('Failed to finalize previous message:', err));
+              currentReasoningContent = undefined;
             }
 
             // Reset for new message
             streamedContent = '';
             currentMessageId = messageService.createAssistantMessage(taskId, agentId);
+            currentReasoningContent = undefined;
           },
 
           onChunk: (chunk: string) => {
@@ -274,6 +283,11 @@ class ExecutionService {
             };
 
             await messageService.addToolMessage(taskId, toolMessage);
+          },
+
+          onAssistantReasoning: (reasoningContent?: string) => {
+            if (abortController.signal.aborted) return;
+            currentReasoningContent = reasoningContent;
           },
 
           onAttachment: async (attachment) => {

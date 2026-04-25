@@ -459,6 +459,38 @@ describe('codeSearch Tool', () => {
     });
   });
 
+  it('should treat empty file_types as no filter', async () => {
+    const mockResult = [
+      {
+        file_path: 'test.ts',
+        matches: [
+          {
+            line_number: 1,
+            line_content: 'console.log("hello");',
+            byte_offset: 0,
+          },
+        ],
+      },
+    ];
+
+    mockInvoke.mockResolvedValue(mockResult);
+
+    const result = await codeSearch.execute?.({
+      pattern: 'console.log',
+      path: '/Users/test/project',
+      file_types: [],
+    });
+
+    const actualResult = await normalizeResult(result);
+
+    expect(actualResult.success).toBe(true);
+    expect(mockInvoke).toHaveBeenCalledWith('search_file_content', {
+      query: 'console.log',
+      rootPath: '/Users/test/project',
+      fileTypes: null,
+    });
+  });
+
   describe('path handling - relative path resolution', () => {
     it('should convert "." to project root path', async () => {
       // This is the key test case for the bug fix

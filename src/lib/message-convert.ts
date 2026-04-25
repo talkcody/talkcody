@@ -40,6 +40,41 @@ function normalizeContentToArray(content: string | unknown[]): ContentPart[] {
   return content as ContentPart[];
 }
 
+function mergeProviderOptions(
+  existing: ModelMessage['providerOptions'],
+  incoming: ModelMessage['providerOptions']
+): ModelMessage['providerOptions'] {
+  if (!existing) {
+    return incoming;
+  }
+  if (!incoming) {
+    return existing;
+  }
+
+  const merged: Record<string, unknown> = { ...existing };
+
+  for (const [key, incomingValue] of Object.entries(incoming)) {
+    const existingValue = merged[key];
+    if (
+      typeof existingValue === 'object' &&
+      existingValue !== null &&
+      !Array.isArray(existingValue) &&
+      typeof incomingValue === 'object' &&
+      incomingValue !== null &&
+      !Array.isArray(incomingValue)
+    ) {
+      merged[key] = {
+        ...(existingValue as Record<string, unknown>),
+        ...incomingValue,
+      };
+      continue;
+    }
+    merged[key] = incomingValue;
+  }
+
+  return merged;
+}
+
 /**
  * Merges consecutive assistant messages into a single message.
  * Anthropic API doesn't allow consecutive assistant messages, so they must be merged.
@@ -67,6 +102,7 @@ export function mergeConsecutiveAssistantMessages(messages: ModelMessage[]): Mod
         result[result.length - 1] = {
           ...lastMsg,
           content: combined as AssistantContentPart[],
+          providerOptions: mergeProviderOptions(lastMsg.providerOptions, msg.providerOptions),
         };
       }
 

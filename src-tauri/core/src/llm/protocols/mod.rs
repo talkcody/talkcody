@@ -92,6 +92,72 @@ pub struct ToolCallAccum {
     pub thought_signature: Option<String>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) struct ParsedUsage {
+    pub input_tokens: i32,
+    pub output_tokens: i32,
+    pub total_tokens: Option<i32>,
+    pub cached_input_tokens: Option<i32>,
+    pub cache_creation_input_tokens: Option<i32>,
+}
+
+impl ParsedUsage {
+    pub fn has_meaningful_data(&self) -> bool {
+        self.input_tokens > 0
+            || self.output_tokens > 0
+            || self.total_tokens.is_some_and(|value| value > 0)
+    }
+}
+
+pub(crate) fn parse_openai_usage(usage: &Value) -> ParsedUsage {
+    ParsedUsage {
+        input_tokens: usage_i32(usage, &["prompt_tokens", "input_tokens"]).unwrap_or(0),
+        output_tokens: usage_i32(usage, &["completion_tokens", "output_tokens"]).unwrap_or(0),
+        total_tokens: usage_i32(usage, &["total_tokens"]),
+        cached_input_tokens: usage_positive_i32(
+            usage,
+            &[
+                "cached_input_tokens",
+                "prompt_cache_hit_tokens",
+                "cache_read_input_tokens",
+                "cache_read_tokens",
+                "cached_tokens",
+            ],
+        )
+        .or_else(|| usage_nested_positive_i32(usage, &["prompt_tokens_details", "cached_tokens"]))
+        .or_else(|| usage_nested_positive_i32(usage, &["input_tokens_details", "cached_tokens"])),
+        cache_creation_input_tokens: usage_positive_i32(
+            usage,
+            &["cache_creation_input_tokens", "cache_write_tokens"],
+        ),
+    }
+}
+
+fn usage_i32(usage: &Value, keys: &[&str]) -> Option<i32> {
+    keys.iter()
+        .find_map(|key| usage.get(*key).and_then(json_value_to_i32))
+}
+
+fn usage_positive_i32(usage: &Value, keys: &[&str]) -> Option<i32> {
+    usage_i32(usage, keys).filter(|value| *value > 0)
+}
+
+fn usage_nested_positive_i32(usage: &Value, path: &[&str]) -> Option<i32> {
+    let mut current = usage;
+    for key in path {
+        current = current.get(*key)?;
+    }
+    json_value_to_i32(current).filter(|value| *value > 0)
+}
+
+fn json_value_to_i32(value: &Value) -> Option<i32> {
+    let number = value.as_i64()?;
+    if !(i32::MIN as i64..=i32::MAX as i64).contains(&number) {
+        return None;
+    }
+    Some(number as i32)
+}
+
 pub mod claude_protocol;
 pub mod openai_protocol;
 pub mod openai_responses_protocol;

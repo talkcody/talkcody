@@ -41,6 +41,7 @@ export function mapStoredToUIMessage(msg: StoredMessage): UIMessage {
         timestamp: new Date(msg.timestamp),
         isStreaming: false,
         assistantId: msg.assistant_id,
+        reasoningContent: msg.reasoning_content ?? undefined,
         toolCallId: toolContent.toolCallId,
         toolName: toolContent.toolName,
       };
@@ -54,6 +55,7 @@ export function mapStoredToUIMessage(msg: StoredMessage): UIMessage {
         timestamp: new Date(msg.timestamp),
         isStreaming: false,
         assistantId: msg.assistant_id,
+        reasoningContent: msg.reasoning_content ?? undefined,
         attachments: msg.attachments,
       };
     }
@@ -66,6 +68,7 @@ export function mapStoredToUIMessage(msg: StoredMessage): UIMessage {
     timestamp: new Date(msg.timestamp),
     isStreaming: false,
     assistantId: msg.assistant_id,
+    reasoningContent: msg.reasoning_content ?? undefined,
     attachments: msg.attachments,
     outputFormat: msg.role === 'assistant' ? resolveOutputFormat(msg.content) : undefined,
   };
@@ -83,6 +86,7 @@ export function mapStoredToSimpleUIMessage(msg: StoredMessage): UIMessage {
     timestamp: new Date(msg.timestamp),
     isStreaming: false,
     assistantId: msg.assistant_id,
+    reasoningContent: msg.reasoning_content ?? undefined,
     attachments: msg.attachments,
     outputFormat: msg.role === 'assistant' ? resolveOutputFormat(msg.content) : undefined,
   };

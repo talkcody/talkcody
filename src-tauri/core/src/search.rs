@@ -63,8 +63,17 @@ impl RipgrepSearch {
     }
 
     pub fn with_file_types(mut self, file_types: Option<Vec<String>>) -> Self {
-        self.file_types =
-            file_types.map(|types| types.into_iter().map(|t| t.to_lowercase()).collect());
+        self.file_types = file_types.and_then(|types| {
+            let normalized_types: HashSet<String> = types
+                .into_iter()
+                .filter_map(|file_type| {
+                    let normalized = file_type.trim().to_lowercase();
+                    (!normalized.is_empty()).then_some(normalized)
+                })
+                .collect();
+
+            (!normalized_types.is_empty()).then_some(normalized_types)
+        });
         self
     }
 
@@ -410,6 +419,16 @@ mod tests {
     }
 
     #[test]
+    fn test_with_file_types_empty_treated_as_none() {
+        let search = RipgrepSearch::new().with_file_types(Some(vec![]));
+        assert!(search.file_types.is_none());
+
+        let search =
+            RipgrepSearch::new().with_file_types(Some(vec![" ".to_string(), "".to_string()]));
+        assert!(search.file_types.is_none());
+    }
+
+    #[test]
     fn test_with_exclude_dirs() {
         let search = RipgrepSearch::new()
             .with_exclude_dirs(Some(vec!["node_modules".to_string(), "target".to_string()]));
@@ -627,6 +646,23 @@ mod tests {
                 result.file_path
             );
         }
+    }
+
+    #[test]
+    fn test_empty_file_type_filter_behaves_like_no_filter() {
+        let temp_dir = create_test_search_directory();
+        let search = RipgrepSearch::new().with_file_types(Some(vec![]));
+
+        let results = search
+            .search_content("println", temp_dir.path().to_str().unwrap())
+            .unwrap();
+
+        assert!(
+            results
+                .iter()
+                .any(|result| result.file_path.ends_with("main.rs")),
+            "Empty file type filters should not exclude all searchable files"
+        );
     }
 
     #[test]

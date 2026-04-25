@@ -233,6 +233,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
           content: msg.content,
           timestamp: msg.timestamp,
           assistantId: msg.assistantId,
+          reasoningContent: msg.reasoningContent,
           attachments: msg.attachments || [],
         }));
 

@@ -22,6 +22,7 @@ export interface ToolCallInfo {
   toolCallId: string;
   toolName: string;
   input: unknown;
+  reasoningContent?: string;
   providerMetadata?: Record<string, unknown>;
 }
 
@@ -456,6 +457,7 @@ export class ToolExecutor {
             timestamp: new Date(),
             toolCallId: toolCall.toolCallId,
             toolName: toolCall.toolName,
+            reasoningContent: toolCall.reasoningContent,
             nestedTools: [],
             // Add metadata flag so UI knows whether to render
             renderDoingUI: toolMetadata.renderDoingUI,

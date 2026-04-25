@@ -60,6 +60,9 @@ export class TursoDatabaseInit {
       // Migration 8: Create api_usage_events table
       await TursoDatabaseInit.migrateApiUsageEventsTable(db);
 
+      // Migration 9: Add reasoning_content column to messages
+      await TursoDatabaseInit.migrateMessagesReasoningContent(db);
+
       logger.info('✅ Database migrations check completed');
     } catch (error) {
       logger.error('❌ Database migration error:', error);
@@ -333,6 +336,31 @@ export class TursoDatabaseInit {
       }
     } catch (error) {
       logger.error('Error creating api_usage_events table:', error);
+    }
+  }
+
+  /**
+   * Add reasoning_content field to messages table
+   */
+  private static async migrateMessagesReasoningContent(db: TursoClient): Promise<void> {
+    try {
+      const result = await (db as any).execute(`
+        SELECT COUNT(*) as count
+        FROM pragma_table_info('messages')
+        WHERE name = 'reasoning_content'
+      `);
+
+      const columnExists = result.rows[0]?.count > 0;
+
+      if (!columnExists) {
+        logger.info('Migrating messages table to add reasoning_content field...');
+        await (db as any).execute(
+          `ALTER TABLE messages ADD COLUMN reasoning_content TEXT DEFAULT NULL`
+        );
+        logger.info('✅ Messages table reasoning_content migration completed');
+      }
+    } catch (error) {
+      logger.error('Error migrating messages table reasoning_content:', error);
     }
   }
 }

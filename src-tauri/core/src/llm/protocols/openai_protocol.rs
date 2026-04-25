@@ -1,5 +1,6 @@
 use crate::llm::protocols::{
     header_builder::{HeaderBuildContext, ProtocolHeaderBuilder},
+    parse_openai_usage,
     request_builder::{ProtocolRequestBuilder, RequestBuildContext},
     stream_parser::{self, ProtocolStreamParser, StreamParseContext, StreamParseState},
     LlmProtocol, ProtocolStreamState, ToolCallAccum,
@@ -489,26 +490,15 @@ impl ProtocolStreamParser for OpenAiProtocol {
 
         // Only emit Usage event when there's meaningful usage data
         if let Some(usage) = payload.get("usage") {
-            let input_tokens = usage
-                .get("prompt_tokens")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-            let output_tokens = usage
-                .get("completion_tokens")
-                .and_then(|v| v.as_i64())
-                .unwrap_or(0);
-            let total_tokens = usage.get("total_tokens").and_then(|v| v.as_i64());
+            let parsed_usage = parse_openai_usage(usage);
 
-            let has_meaningful_data =
-                input_tokens > 0 || output_tokens > 0 || total_tokens.is_some_and(|v| v > 0);
-
-            if has_meaningful_data {
+            if parsed_usage.has_meaningful_data() {
                 state.pending_events.push(StreamEvent::Usage {
-                    input_tokens: input_tokens as i32,
-                    output_tokens: output_tokens as i32,
-                    total_tokens: total_tokens.map(|v| v as i32),
-                    cached_input_tokens: None,
-                    cache_creation_input_tokens: None,
+                    input_tokens: parsed_usage.input_tokens,
+                    output_tokens: parsed_usage.output_tokens,
+                    total_tokens: parsed_usage.total_tokens,
+                    cached_input_tokens: parsed_usage.cached_input_tokens,
+                    cache_creation_input_tokens: parsed_usage.cache_creation_input_tokens,
                 });
             }
         }
@@ -1425,6 +1415,45 @@ mod tests {
                 "Expected ToolCall event without thought_signature, got {:?}",
                 event
             ),
+        }
+    }
+
+    #[test]
+    fn parse_stream_emits_deepseek_cached_usage_tokens() {
+        let protocol = OpenAiProtocol;
+        let mut state = ProtocolStreamState::default();
+        let payload = json!({
+            "usage": {
+                "prompt_tokens": 9622,
+                "completion_tokens": 623,
+                "total_tokens": 10245,
+                "prompt_tokens_details": { "cached_tokens": 8448 },
+                "prompt_cache_hit_tokens": 8448,
+                "prompt_cache_miss_tokens": 1174
+            },
+            "choices": [{ "finish_reason": "stop", "delta": {} }]
+        });
+
+        let event =
+            LlmProtocol::parse_stream_event(&protocol, None, &payload.to_string(), &mut state)
+                .expect("parse")
+                .expect("usage event");
+
+        match event {
+            StreamEvent::Usage {
+                input_tokens,
+                output_tokens,
+                total_tokens,
+                cached_input_tokens,
+                cache_creation_input_tokens,
+            } => {
+                assert_eq!(input_tokens, 9622);
+                assert_eq!(output_tokens, 623);
+                assert_eq!(total_tokens, Some(10245));
+                assert_eq!(cached_input_tokens, Some(8448));
+                assert_eq!(cache_creation_input_tokens, None);
+            }
+            _ => panic!("Expected Usage event, got {:?}", event),
         }
     }
 }

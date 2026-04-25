@@ -218,7 +218,8 @@ export class DatabaseService {
     positionIndex: number,
     assistant_id?: string,
     attachments?: MessageAttachment[],
-    messageId?: string
+    messageId?: string,
+    reasoningContent?: string | null
   ): Promise<string> {
     await this.ensureInitialized();
     if (!this.taskService) throw new Error('Task service not initialized');
@@ -229,7 +230,8 @@ export class DatabaseService {
       positionIndex,
       assistant_id,
       attachments,
-      messageId
+      messageId,
+      reasoningContent
     );
   }
 
@@ -288,10 +290,14 @@ export class DatabaseService {
     return this.taskService.getAttachmentsForMessage(messageId);
   }
 
-  async updateMessage(messageId: string, content: string): Promise<void> {
+  async updateMessage(
+    messageId: string,
+    content: string,
+    reasoningContent?: string | null
+  ): Promise<void> {
     await this.ensureInitialized();
     if (!this.taskService) throw new Error('Task service not initialized');
-    return this.taskService.updateMessage(messageId, content);
+    return this.taskService.updateMessage(messageId, content, reasoningContent);
   }
 
   async saveAttachment(messageId: string, attachment: MessageAttachment): Promise<void> {

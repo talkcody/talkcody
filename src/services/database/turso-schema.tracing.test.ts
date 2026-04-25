@@ -37,6 +37,7 @@ describe('TursoSchema tracing tables', () => {
       'CREATE INDEX IF NOT EXISTS idx_spans_started_at',
       'CREATE INDEX IF NOT EXISTS idx_span_events_timestamp',
       'CREATE INDEX IF NOT EXISTS idx_span_events_type',
+      'reasoning_content TEXT DEFAULT NULL',
     ];
 
     for (const statement of requiredStatements) {

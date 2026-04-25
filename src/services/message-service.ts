@@ -177,21 +177,30 @@ class MessageService {
     this.scheduleStreamingFlush();
   }
 
-  async finalizeMessage(taskId: string, messageId: string, content: string): Promise<void> {
+  async finalizeMessage(
+    taskId: string,
+    messageId: string,
+    content: string,
+    reasoningContent?: string
+  ): Promise<void> {
     // Flush any pending streaming updates for this task
     if (this.streamingBuffers.has(taskId)) {
       this.streamingBuffers.delete(taskId);
     }
 
     // 1. Update store (isStreaming = false)
-    useTaskStore.getState().updateMessageContent(taskId, messageId, content, false);
+    useTaskStore.getState().updateMessage(taskId, messageId, {
+      content,
+      isStreaming: false,
+      reasoningContent,
+    });
 
     // 2. Clear streaming state in ExecutionStore
     useExecutionStore.getState().clearStreamingContent(taskId);
 
     // 3. Persist to database
     try {
-      await databaseService.updateMessage(messageId, content);
+      await databaseService.updateMessage(messageId, content, reasoningContent ?? null);
     } catch (error) {
       logger.error('[MessageService] Failed to persist finalized message:', error);
     }
@@ -251,7 +260,8 @@ class MessageService {
         0,
         undefined,
         undefined,
-        toolMessage.id
+        toolMessage.id,
+        toolContent.type === 'tool-call' ? (toolMessage.reasoningContent ?? null) : null
       );
     } catch (error) {
       logger.error('[MessageService] Failed to persist tool message:', error);

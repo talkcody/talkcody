@@ -1,5 +1,5 @@
 {
-  "version": "2026-04-15T11:28:11.041Z",
+  "version": "2026-04-25T07:20:08.393Z",
   "models": {
     "gpt-5.4-nano": {
       "name": "GPT-5.4 Nano",
@@ -23,8 +23,8 @@
       },
       "context_length": 400000
     },
-    "gpt-5.4": {
-      "name": "GPT 5.4",
+    "gpt-5.5": {
+      "name": "GPT 5.5",
       "imageInput": true,
       "providers": [
         "aiGateway",
@@ -34,16 +34,16 @@
         "zenmux"
       ],
       "providerMappings": {
-        "openai": "gpt-5.4",
-        "github_copilot": "gpt-5.4",
-        "aiGateway": "openai/gpt-5.4",
-        "openRouter": "openai/gpt-5.4",
-        "zenmux": "openai/gpt-5.4"
+        "openai": "gpt-5.5",
+        "github_copilot": "gpt-5.5",
+        "aiGateway": "openai/gpt-5.5",
+        "openRouter": "openai/gpt-5.5",
+        "zenmux": "openai/gpt-5.5"
       },
       "pricing": {
-        "input": "0.0000025",
-        "output": "0.000015",
-        "cachedInput": "0.00000025"
+        "input": "0.000005",
+        "output": "0.00003",
+        "cachedInput": "0.0000005"
       },
       "context_length": 1050000
     },
@@ -68,30 +68,6 @@
         "input": "0.00000075",
         "output": "0.0000045",
         "cachedInput": "0.000000075"
-      },
-      "context_length": 400000
-    },
-    "gpt-5.3-codex": {
-      "name": "GPT-5.3-Codex",
-      "imageInput": true,
-      "providers": [
-        "aiGateway",
-        "openai",
-        "github_copilot",
-        "openRouter",
-        "zenmux"
-      ],
-      "providerMappings": {
-        "openai": "gpt-5.3-codex",
-        "github_copilot": "gpt-5.3-codex",
-        "aiGateway": "openai/gpt-5.3-codex",
-        "openRouter": "openai/gpt-5.3-codex",
-        "zenmux": "openai/gpt-5.3-codex"
-      },
-      "pricing": {
-        "input": "0.00000175",
-        "output": "0.000014",
-        "cachedInput": "0.000000175"
       },
       "context_length": 400000
     },
@@ -181,8 +157,8 @@
       },
       "context_length": 1048576
     },
-    "claude-opus-4.6": {
-      "name": "Claude Opus 4.6",
+    "claude-opus-4.7": {
+      "name": "Claude Opus 4.7",
       "imageInput": true,
       "interleaved": true,
       "providers": [
@@ -193,11 +169,11 @@
         "zenmux"
       ],
       "providerMappings": {
-        "anthropic": "claude-opus-4-6",
-        "github_copilot": "claude-opus-4.6",
-        "aiGateway": "anthropic/claude-opus-4.6",
-        "openRouter": "anthropic/claude-opus-4.6",
-        "zenmux": "anthropic/claude-opus-4.6"
+        "anthropic": "claude-opus-4-7",
+        "github_copilot": "claude-opus-4.7",
+        "aiGateway": "anthropic/claude-opus-4.7",
+        "openRouter": "anthropic/claude-opus-4.7",
+        "zenmux": "anthropic/claude-opus-4.7"
       },
       "pricing": {
         "input": "0.000005",
@@ -259,8 +235,8 @@
       },
       "context_length": 200000
     },
-    "kimi-k2.5": {
-      "name": "Kimi K2.5",
+    "kimi-k2.6": {
+      "name": "Kimi K2.6",
       "imageInput": true,
       "videoInput": true,
       "interleaved": true,
@@ -273,72 +249,49 @@
         "zenmux"
       ],
       "providerMappings": {
-        "aiGateway": "moonshotai/kimi-k2.5",
-        "openRouter": "moonshotai/kimi-k2.5",
-        "moonshot": "kimi-k2.5",
-        "kimi_coding": "kimi-k2.5",
-        "alibaba": "kimi-k2.5",
-        "zenmux": "moonshotai/kimi-k2.5"
+        "aiGateway": "moonshotai/kimi-k2.6",
+        "openRouter": "moonshotai/kimi-k2.6",
+        "moonshot": "kimi-k2.6",
+        "kimi_coding": "kimi-k2.6",
+        "alibaba": "kimi-k2.6",
+        "zenmux": "moonshotai/kimi-k2.6"
       },
       "pricing": {
-        "input": "0.0000006",
-        "output": "0.000003",
-        "cachedInput": "0.0000001"
+        "input": "0.00000095",
+        "output": "0.000004",
+        "cachedInput": "0.00000016"
       },
       "context_length": 262144
     },
-    "kimi-k2.6": {
-      "name": "Kimi K2.6",
-      "imageInput": true,
-      "videoInput": true,
-      "interleaved": true,
-      "providers": [
-        "kimi_coding"
-      ],
-      "providerMappings": {
-        "kimi_coding": "K2.6-code-preview"
-      },
-      "pricing": {
-        "input": "0.0000006",
-        "output": "0.000003",
-        "cachedInput": "0.0000001"
-      },
-      "context_length": 262144
-    },
-    "deepseek-v3.2": {
-      "name": "Deepseek V3.2",
+    "deepseek-v4-pro": {
+      "name": "Deepseek V4 Pro",
       "interleaved": true,
       "providers": [
         "deepseek"
       ],
       "providerMappings": {
-        "deepseek": "deepseek-reasoner"
+        "deepseek": "deepseek-v4-pro"
       },
       "pricing": {
-        "input": "0.00000028",
-        "output": "0.00000042",
-        "cachedInput": "0.000000028"
+        "input": "0.00000174",
+        "output": "0.00000348",
+        "cachedInput": "0.000000145"
       },
-      "context_length": 163840
+      "context_length": 1000000
     },
-    "qwen3.5-plus": {
-      "name": "Qwen 3.5 Plus",
-      "imageInput": true,
+    "deepseek-v4-flash": {
+      "name": "Deepseek V4 Flash",
+      "interleaved": true,
       "providers": [
-        "alibaba",
-        "openRouter",
-        "aiGateway"
+        "deepseek"
       ],
       "providerMappings": {
-        "alibaba": "qwen3.5-plus",
-        "openRouter": "qwen/qwen3.5-plus-02-15",
-        "aiGateway": "alibaba/qwen3.5-plus"
+        "deepseek": "deepseek-v4-flash"
       },
       "pricing": {
-        "input": "0.0000004",
-        "output": "0.0000024",
-        "cachedInput": "0.00000004",
-        "cacheCreation": "0.0000005"
+        "input": "0.00000014",
+        "output": "0.00000028",
+        "cachedInput": "0.000000028"
       },
       "context_length": 1000000
     },
@@ -358,27 +311,6 @@
         "cacheCreation": "0.0000005"
       },
       "context_length": 1000000
-    },
-    "grok-code-fast-1": {
-      "name": "Grok Code Fast",
-      "providers": [
-        "aiGateway",
-        "openRouter",
-        "github_copilot",
-        "zenmux"
-      ],
-      "providerMappings": {
-        "aiGateway": "xai/grok-code-fast-1",
-        "openRouter": "x-ai/grok-code-fast-1",
-        "github_copilot": "grok-code-fast-1",
-        "zenmux": "x-ai/grok-code-fast-1"
-      },
-      "pricing": {
-        "input": "0.0000002",
-        "output": "0.0000015",
-        "cachedInput": "0.00000002"
-      },
-      "context_length": 256000
     },
     "glm-51": {
       "name": "GLM 5.1",

@@ -17,6 +17,7 @@ export interface UIMessage {
   timestamp: Date;
   isStreaming?: boolean;
   assistantId?: string;
+  reasoningContent?: string;
   attachments?: MessageAttachment[];
   toolCallId?: string;
   toolName?: string;
@@ -87,6 +88,7 @@ export interface AgentLoopCallbacks {
   onStatus?: (status: string) => void;
   onToolMessage?: (message: UIMessage) => void;
   onAssistantMessageStart?: () => void;
+  onAssistantReasoning?: (reasoningContent?: string) => void;
   onAttachment?: (attachment: MessageAttachment) => void;
   onStepFinish?: (result: AgentLoopState) => void | Promise<void>;
   onToolCall?: (toolName: string, args: ToolInput) => void | Promise<void>;

@@ -138,6 +138,34 @@ function isContentTooLong(content: string | undefined): { tooLong: boolean; line
   return { tooLong: lineCount > MAX_LINES, lineCount };
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function mergeProviderOptions(
+  existing: ModelMessage['providerOptions'],
+  incoming: ModelMessage['providerOptions']
+): ModelMessage['providerOptions'] {
+  if (!existing) {
+    return incoming;
+  }
+  if (!incoming) {
+    return existing;
+  }
+
+  const merged: Record<string, unknown> = { ...existing };
+  for (const [key, incomingValue] of Object.entries(incoming)) {
+    const existingValue = merged[key];
+    if (isRecord(existingValue) && isRecord(incomingValue)) {
+      merged[key] = { ...existingValue, ...incomingValue };
+      continue;
+    }
+    merged[key] = incomingValue;
+  }
+
+  return merged;
+}
+
 export function formatReasoningText(text: string, isFirstReasoning: boolean): string {
   let lines = '';
   if (isFirstReasoning) {
@@ -229,6 +257,15 @@ export async function convertMessages(
         convertedMessages.push({
           role: 'assistant' as const,
           content: [toolCallPart],
+          ...(msg.reasoningContent
+            ? {
+                providerOptions: {
+                  openaiCompatible: {
+                    reasoning_content: msg.reasoningContent,
+                  },
+                },
+              }
+            : {}),
         });
       } else if (toolContent.type === 'tool-result') {
         // Handle undefined or null output
@@ -357,6 +394,15 @@ export async function convertMessages(
         convertedMessages.push({
           role: msg.role,
           content: contentStr,
+          ...(msg.reasoningContent
+            ? {
+                providerOptions: {
+                  openaiCompatible: {
+                    reasoning_content: msg.reasoningContent,
+                  },
+                },
+              }
+            : {}),
         });
       }
     }
@@ -389,6 +435,7 @@ export async function convertMessages(
       if (combinedContent.length > 0) {
         lastMsg.content = combinedContent;
       }
+      lastMsg.providerOptions = mergeProviderOptions(lastMsg.providerOptions, msg.providerOptions);
 
       logger.info('[convertMessages] Merged consecutive assistant messages', {
         lastContentLength: lastContent.length,

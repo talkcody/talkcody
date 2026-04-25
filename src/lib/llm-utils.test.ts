@@ -75,6 +75,36 @@ describe('convertMessages', () => {
       });
     });
 
+    it('should preserve reasoning_content on assistant messages', async () => {
+      const messages: UIMessage[] = [
+        {
+          id: '1',
+          role: 'user',
+          content: 'Hello',
+          timestamp: new Date(),
+        },
+        {
+          id: '2',
+          role: 'assistant',
+          content: 'Answer',
+          reasoningContent: 'thinking',
+          timestamp: new Date(),
+        },
+      ];
+
+      const result = await convertMessages(messages, defaultOptions);
+
+      expect(result[2]).toEqual({
+        role: 'assistant',
+        content: 'Answer',
+        providerOptions: {
+          openaiCompatible: {
+            reasoning_content: 'thinking',
+          },
+        },
+      });
+    });
+
     it('should skip system messages from input', async () => {
       const messages: UIMessage[] = [
         {
@@ -153,6 +183,67 @@ describe('convertMessages', () => {
             input: { file_path: '/test.txt' },
           },
         ],
+      });
+    });
+
+    it('should preserve reasoning_content on tool-call messages', async () => {
+      const messages: UIMessage[] = [
+        {
+          id: '1',
+          role: 'user',
+          content: 'Read the file',
+          timestamp: new Date(),
+        },
+        {
+          id: '2',
+          role: 'tool',
+          content: [
+            {
+              type: 'tool-call',
+              toolCallId: 'call-123',
+              toolName: 'readFile',
+              input: { file_path: '/test.txt' },
+            },
+          ],
+          reasoningContent: 'tool thinking',
+          timestamp: new Date(),
+          toolCallId: 'call-123',
+          toolName: 'readFile',
+        },
+        {
+          id: '3',
+          role: 'tool',
+          content: [
+            {
+              type: 'tool-result',
+              toolCallId: 'call-123',
+              toolName: 'readFile',
+              output: 'File content here',
+            },
+          ],
+          timestamp: new Date(),
+          toolCallId: 'call-123',
+          toolName: 'readFile',
+        },
+      ];
+
+      const result = await convertMessages(messages, defaultOptions);
+
+      expect(result[2]).toEqual({
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call-123',
+            toolName: 'readFile',
+            input: { file_path: '/test.txt' },
+          },
+        ],
+        providerOptions: {
+          openaiCompatible: {
+            reasoning_content: 'tool thinking',
+          },
+        },
       });
     });
 
@@ -525,6 +616,64 @@ describe('convertMessages', () => {
       expect(result[2].content).toHaveLength(2);
       expect(result[2].content[0].text).toBe('First response part');
       expect(result[2].content[1].text).toBe('Second response part');
+    });
+
+    it('should merge providerOptions when assistant text and tool-call rows share reasoning_content', async () => {
+      const messages: UIMessage[] = [
+        {
+          id: '1',
+          role: 'user',
+          content: 'Hello',
+          timestamp: new Date(),
+        },
+        {
+          id: '2',
+          role: 'assistant',
+          content: 'First response part',
+          reasoningContent: 'thinking',
+          timestamp: new Date(),
+        },
+        {
+          id: '3',
+          role: 'tool',
+          content: [
+            {
+              type: 'tool-call',
+              toolCallId: 'call-123',
+              toolName: 'readFile',
+              input: { file_path: '/test.txt' },
+            },
+          ],
+          reasoningContent: 'thinking',
+          timestamp: new Date(),
+          toolCallId: 'call-123',
+          toolName: 'readFile',
+        },
+        {
+          id: '4',
+          role: 'tool',
+          content: [
+            {
+              type: 'tool-result',
+              toolCallId: 'call-123',
+              toolName: 'readFile',
+              output: 'File content here',
+            },
+          ],
+          timestamp: new Date(),
+          toolCallId: 'call-123',
+          toolName: 'readFile',
+        },
+      ];
+
+      const result = await convertMessages(messages, defaultOptions);
+
+      expect(result[2].role).toBe('assistant');
+      expect(result[2].providerOptions).toEqual({
+        openaiCompatible: {
+          reasoning_content: 'thinking',
+        },
+      });
     });
 
     it('should merge three consecutive assistant messages', async () => {

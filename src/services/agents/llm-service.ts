@@ -62,6 +62,8 @@ export interface AgentLoopCallbacks {
   onStatus?: (status: string) => void;
   /** Called when a tool message is generated */
   onToolMessage?: (message: UIMessage) => void;
+  /** Called when an assistant turn's raw reasoning_content is finalized */
+  onAssistantReasoning?: (reasoningContent?: string) => void;
   /** Called when an attachment is generated (e.g., images) */
   onAttachment?: (attachment: MessageAttachment) => void;
 }
@@ -127,6 +129,42 @@ export class LLMService {
   private static readonly COMPACTED_MESSAGES_FILE = 'compacted-messages.json';
   /** Tool summaries collected during iteration for completion hooks */
   private toolSummaries: ToolSummary[] = [];
+
+  private getContinuationMessageSignature(message: UIMessage): string {
+    const normalizedContent =
+      typeof message.content === 'string' ? message.content : JSON.stringify(message.content);
+
+    return JSON.stringify({
+      role: message.role,
+      content: normalizedContent,
+      assistantId: message.assistantId ?? null,
+      toolCallId: message.toolCallId ?? null,
+      toolName: message.toolName ?? null,
+      parentToolCallId: message.parentToolCallId ?? null,
+    });
+  }
+
+  private mergeAppendContinuationMessages(
+    taskMessages: UIMessage[],
+    nextMessages: UIMessage[]
+  ): { messages: UIMessage[]; appendedCount: number } {
+    const existingSignatures = new Set(
+      taskMessages.map((message) => this.getContinuationMessageSignature(message))
+    );
+    const missingMessages = nextMessages.filter((message) => {
+      const signature = this.getContinuationMessageSignature(message);
+      if (existingSignatures.has(signature)) {
+        return false;
+      }
+      existingSignatures.add(signature);
+      return true;
+    });
+
+    return {
+      messages: [...taskMessages, ...missingMessages],
+      appendedCount: missingMessages.length,
+    };
+  }
 
   private getDefaultCompressionConfig(): CompressionConfig {
     return {
@@ -510,8 +548,15 @@ export class LLMService {
 
     // biome-ignore lint/suspicious/noAsyncPromiseExecutor: Complex agent loop requires async Promise executor
     return new Promise<void>(async (resolve, reject) => {
-      const { onChunk, onComplete, onError, onStatus, onToolMessage, onAssistantMessageStart } =
-        callbacks;
+      const {
+        onChunk,
+        onComplete,
+        onError,
+        onStatus,
+        onToolMessage,
+        onAssistantMessageStart,
+        onAssistantReasoning,
+      } = callbacks;
 
       const rejectOnAbort = (message: string) => {
         logger.info(message);
@@ -810,6 +855,15 @@ export class LLMService {
               return [name, toolDef];
             })
           );
+
+          // Normalize provider-specific assistant history once per iteration.
+          // Retries reuse the same loopState.messages, so repeating this on every retry is unnecessary.
+          const { messages: transformedMessages } = MessageTransform.transform(
+            loopState.messages,
+            model,
+            providerId ?? undefined
+          );
+          loopState.messages = transformedMessages;
 
           // Retry loop for transient network/provider failures.
           // 3 retries means 1 initial attempt + up to 3 additional attempts.
@@ -1299,7 +1353,12 @@ export class LLMService {
             if (result.action === 'continue') {
               const continuationMode = result.continuationMode || 'replace';
               let shouldContinueLoop = false;
-              let continuationSource: 'replace' | 'task-store' | 'next-messages' | 'none' = 'none';
+              let continuationSource:
+                | 'replace'
+                | 'task-store'
+                | 'task-store+next-messages'
+                | 'next-messages'
+                | 'none' = 'none';
 
               logger.info('[LLMService] Completion hook requested continuation', {
                 taskId: this.taskId,
@@ -1322,7 +1381,14 @@ export class LLMService {
                   );
 
                   if (latestTaskMessages.length > 0) {
-                    const rebuiltMessages = await convertMessages(latestTaskMessages, {
+                    const mergedTaskMessages = result.nextMessages?.length
+                      ? this.mergeAppendContinuationMessages(
+                          latestTaskMessages,
+                          result.nextMessages
+                        )
+                      : { messages: latestTaskMessages, appendedCount: 0 };
+
+                    const rebuiltMessages = await convertMessages(mergedTaskMessages.messages, {
                       rootPath,
                       systemPrompt,
                       model,
@@ -1334,7 +1400,16 @@ export class LLMService {
                       trimAssistantWhitespace: true,
                     });
                     shouldContinueLoop = true;
-                    continuationSource = 'task-store';
+                    continuationSource =
+                      mergedTaskMessages.appendedCount > 0
+                        ? 'task-store+next-messages'
+                        : 'task-store';
+
+                    logger.info('[LLMService] Rebuilt append continuation context', {
+                      taskId: this.taskId,
+                      continuationSource,
+                      appendedMissingNextMessageCount: mergedTaskMessages.appendedCount,
+                    });
                   }
                 }
 
@@ -1438,29 +1513,8 @@ export class LLMService {
               return;
             }
 
-            const toolExecutionOptions = {
-              tools: filteredTools,
-              loopState,
-              model,
-              abortController,
-              onToolMessage,
-              taskId: this.taskId,
-              rootPath,
-              subagentId,
-            };
-
-            // Execute tools with result capture callback
-            const results = await this.toolExecutor.executeWithSmartConcurrency(
-              toolCalls,
-              toolExecutionOptions,
-              onStatus,
-              // Capture tool results for completion hooks
-              (toolName, result, toolCallId) => {
-                this.captureToolResult(toolName, result, toolCallId);
-              }
-            );
-
-            // Build combined assistant message with text/reasoning AND tool calls
+            // Build combined assistant message with text/reasoning AND tool calls before
+            // executing tools so emitted tool-call messages can persist the same reasoning_content.
             const assistantContent = streamProcessor.getAssistantContent();
             const toolCallParts = toolCalls.map((tc) => {
               // Defensive: ensure input is object format (some providers return JSON string)
@@ -1488,14 +1542,46 @@ export class LLMService {
 
             const combinedAssistantContent: ContentPart[] = [...assistantContent, ...toolCallParts];
 
-            // Apply provider-specific transformation (e.g., DeepSeek reasoning_content)
-            const { providerId: pid } = parseModelIdentifier(model);
-            const { transformedContent } = MessageTransform.transform(
-              loopState.messages,
+            // Apply provider-specific transformation to both history and current assistant turn.
+            const { messages: transformedMessages, transformedContent } =
+              MessageTransform.transform(
+                loopState.messages,
+                model,
+                providerId ?? undefined,
+                combinedAssistantContent
+              );
+
+            loopState.messages = transformedMessages;
+            const reasoningContent =
+              transformedContent?.providerOptions?.openaiCompatible?.reasoning_content;
+            const toolCallsWithReasoning = toolCalls.map((toolCall) => ({
+              ...toolCall,
+              reasoningContent,
+            }));
+
+            const toolExecutionOptions = {
+              tools: filteredTools,
+              loopState,
               model,
-              pid ?? undefined,
-              combinedAssistantContent
+              abortController,
+              onToolMessage,
+              taskId: this.taskId,
+              rootPath,
+              subagentId,
+            };
+
+            // Execute tools with result capture callback
+            const results = await this.toolExecutor.executeWithSmartConcurrency(
+              toolCallsWithReasoning,
+              toolExecutionOptions,
+              onStatus,
+              // Capture tool results for completion hooks
+              (toolName, result, toolCallId) => {
+                this.captureToolResult(toolName, result, toolCallId);
+              }
             );
+
+            onAssistantReasoning?.(reasoningContent);
 
             const assistantMessage: ModelMessage = {
               role: 'assistant',
@@ -1523,9 +1609,24 @@ export class LLMService {
             // No tool calls - only add assistant message if there's text/reasoning content
             const assistantContent = streamProcessor.getAssistantContent();
             if (assistantContent.length > 0) {
+              const { messages: transformedMessages, transformedContent } =
+                MessageTransform.transform(
+                  loopState.messages,
+                  model,
+                  providerId ?? undefined,
+                  assistantContent
+                );
+              loopState.messages = transformedMessages;
+              onAssistantReasoning?.(
+                transformedContent?.providerOptions?.openaiCompatible?.reasoning_content
+              );
+
               const assistantMessage: ModelMessage = {
                 role: 'assistant',
-                content: assistantContent,
+                content: transformedContent?.content ?? assistantContent,
+                ...(transformedContent?.providerOptions && {
+                  providerOptions: transformedContent.providerOptions,
+                }),
               };
               loopState.messages.push(assistantMessage);
             }

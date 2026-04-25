@@ -62,6 +62,7 @@ export class TursoSchema {
         conversation_id TEXT NOT NULL,
         role TEXT NOT NULL,
         content TEXT NOT NULL,
+        reasoning_content TEXT DEFAULT NULL,
         timestamp INTEGER NOT NULL,
         assistant_id TEXT,
         position_index INTEGER DEFAULT 0,

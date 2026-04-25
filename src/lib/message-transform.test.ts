@@ -3,37 +3,15 @@ import type { Message as ModelMessage } from '@/services/llm/types';
 import { MessageTransform } from '@/lib/message-transform';
 
 describe('MessageTransform.transform', () => {
-  it('adds empty reasoning_content for DeepSeek when assistant content has no reasoning', () => {
-    const msgs: ModelMessage[] = [];
-    const assistantContent = [{ type: 'text', text: 'hello' }];
-
+  it('adds reasoning_content for DeepSeek and strips reasoning from current assistant content', () => {
     const { transformedContent } = MessageTransform.transform(
-      msgs,
-      'deepseek-v3.2',
-      'openrouter',
-      assistantContent
-    );
-
-    expect(transformedContent?.content).toEqual(assistantContent);
-    expect(transformedContent?.providerOptions).toEqual({
-      openaiCompatible: {
-        reasoning_content: '',
-      },
-    });
-  });
-
-  it('adds reasoning_content for DeepSeek when assistant content has reasoning', () => {
-    const msgs: ModelMessage[] = [];
-    const assistantContent = [
-      { type: 'reasoning', text: 'think' },
-      { type: 'text', text: 'answer' },
-    ];
-
-    const { transformedContent } = MessageTransform.transform(
-      msgs,
+      [],
       'deepseek-v3.2',
       'deepseek',
-      assistantContent
+      [
+        { type: 'reasoning', text: 'think' },
+        { type: 'text', text: 'answer' },
+      ]
     );
 
     expect(transformedContent?.content).toEqual([{ type: 'text', text: 'answer' }]);
@@ -44,209 +22,186 @@ describe('MessageTransform.transform', () => {
     });
   });
 
-  it('only includes reasoning_content for Kimi-2 when reasoning exists', () => {
-    const msgs: ModelMessage[] = [];
-    const assistantContent = [{ type: 'text', text: 'hello' }];
+  it('adds placeholder reasoning_content for DeepSeek tool-call assistant content without reasoning', () => {
+    const { transformedContent } = MessageTransform.transform([], 'deepseek-v4-pro', 'deepseek', [
+      {
+        type: 'tool-call',
+        toolCallId: 'call_1',
+        toolName: 'readFile',
+        input: { file_path: '/tmp/a.txt' },
+      },
+    ]);
 
+    expect(transformedContent?.providerOptions).toEqual({
+      openaiCompatible: {
+        reasoning_content: ' ',
+      },
+    });
+  });
+
+  it('adds placeholder reasoning_content for Kimi tool-call assistant content', () => {
     const { transformedContent } = MessageTransform.transform(
-      msgs,
-      'moonshotai/kimi-2',
-      'openrouter',
-      assistantContent
+      [],
+      'kimi-k2.6@kimi_coding',
+      'kimi_coding',
+      [
+        {
+          type: 'tool-call',
+          toolCallId: 'call_1',
+          toolName: 'readFile',
+          input: { file_path: '/tmp/a.txt' },
+        },
+      ]
     );
 
-    expect(transformedContent?.content).toEqual(assistantContent);
+    expect(transformedContent?.providerOptions).toEqual({
+      openaiCompatible: {
+        reasoning_content: ' ',
+      },
+    });
+  });
+
+  it('does not add reasoning_content for non-reasoning providers without tool-call constraints', () => {
+    const { transformedContent } = MessageTransform.transform([], 'gpt-4o', 'openai', [
+      { type: 'text', text: 'hello' },
+    ]);
+
+    expect(transformedContent?.content).toEqual([{ type: 'text', text: 'hello' }]);
     expect(transformedContent?.providerOptions).toBeUndefined();
   });
 
-  it('adds non-empty reasoning_content for Kimi-2 when tool calls are present', () => {
-    const msgs: ModelMessage[] = [];
-    const assistantContent = [
+  it('normalizes historical DeepSeek assistant tool-call messages without reasoning_content', () => {
+    const msgs: ModelMessage[] = [
+      { role: 'user', content: [{ type: 'text', text: 'read file' }] },
       {
-        type: 'tool-call',
-        toolCallId: 'call_1',
-        toolName: 'webFetch',
-        input: { url: 'https://example.com' },
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call_1',
+            toolName: 'readFile',
+            input: { file_path: '/tmp/a.txt' },
+          },
+        ],
       },
     ];
 
-    const { transformedContent } = MessageTransform.transform(
-      msgs,
-      'moonshotai/kimi-k2.5',
-      'openrouter',
-      assistantContent
-    );
+    const { messages } = MessageTransform.transform(msgs, 'deepseek-v4-pro', 'deepseek');
+    const assistant = messages[1] as Extract<ModelMessage, { role: 'assistant' }>;
 
-    expect(transformedContent?.content).toEqual(assistantContent);
-    expect(transformedContent?.providerOptions).toEqual({
+    expect(assistant.providerOptions).toEqual({
       openaiCompatible: {
         reasoning_content: ' ',
       },
     });
   });
 
-  it('adds non-empty reasoning_content for Kimi-2 when tool calls are in assistant content', () => {
+  it('normalizes historical Kimi assistant tool-call messages without reasoning_content', () => {
     const msgs: ModelMessage[] = [
+      { role: 'user', content: [{ type: 'text', text: 'read file' }] },
       {
-        role: 'user',
-        content: [{ type: 'text', text: 'Please read the file' }],
-      },
-    ];
-    const assistantContent = [
-      {
-        type: 'tool-call',
-        toolCallId: 'call_1',
-        toolName: 'readFile',
-        input: { file_path: '/tmp/a.txt' },
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call_1',
+            toolName: 'readFile',
+            input: { file_path: '/tmp/a.txt' },
+          },
+        ],
       },
     ];
 
-    const { transformedContent } = MessageTransform.transform(
-      msgs,
-      'moonshotai/kimi-k2.5',
-      'openrouter',
-      assistantContent
-    );
+    const { messages } = MessageTransform.transform(msgs, 'kimi-k2.6@kimi_coding', 'kimi_coding');
+    const assistant = messages[1] as Extract<ModelMessage, { role: 'assistant' }>;
 
-    expect(transformedContent?.providerOptions).toEqual({
+    expect(assistant.providerOptions).toEqual({
       openaiCompatible: {
         reasoning_content: ' ',
       },
     });
   });
 
-  it('does not overwrite existing reasoning_content in assistant messages', () => {
+  it('preserves existing historical reasoning_content', () => {
     const msgs: ModelMessage[] = [
       {
-        role: 'user',
-        content: [{ type: 'text', text: 'Please read the file' }],
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call_1',
+            toolName: 'glob',
+            input: { pattern: '**/*.ts' },
+          },
+        ],
+        providerOptions: {
+          openaiCompatible: {
+            reasoning_content: 'already-there',
+          },
+        },
       },
     ];
-    const assistantContent = [
+
+    const { messages } = MessageTransform.transform(msgs, 'kimi-k2.6@kimi_coding', 'kimi_coding');
+    const assistant = messages[0] as Extract<ModelMessage, { role: 'assistant' }>;
+    const openaiCompatible = (assistant.providerOptions as { openaiCompatible?: { reasoning_content?: string } })
+      .openaiCompatible;
+
+    expect(openaiCompatible?.reasoning_content).toBe('already-there');
+  });
+
+  it('normalizes historical reasoning blocks into reasoning_content for Kimi', () => {
+    const msgs: ModelMessage[] = [
+      {
+        role: 'assistant',
+        content: [
+          { type: 'reasoning', text: 'first' },
+          { type: 'reasoning', text: ' second' },
+          {
+            type: 'tool-call',
+            toolCallId: 'call_1',
+            toolName: 'readFile',
+            input: { file_path: '/tmp/a.txt' },
+          },
+        ],
+      },
+    ];
+
+    const { messages } = MessageTransform.transform(msgs, 'kimi-k2.6@kimi_coding', 'kimi_coding');
+    const assistant = messages[0] as Extract<ModelMessage, { role: 'assistant' }>;
+
+    expect(assistant.content).toEqual([
       {
         type: 'tool-call',
         toolCallId: 'call_1',
         toolName: 'readFile',
         input: { file_path: '/tmp/a.txt' },
       },
-    ];
-
-    // First transform to add reasoning_content
-    const firstResult = MessageTransform.transform(
-      msgs,
-      'moonshotai/kimi-k2.5',
-      'openrouter',
-      assistantContent
-    );
-    expect(firstResult.transformedContent?.providerOptions?.openaiCompatible?.reasoning_content).toBe(' ');
-
-    // Second transform with same content should produce same result
-    const secondResult = MessageTransform.transform(
-      msgs,
-      'moonshotai/kimi-k2.5',
-      'openrouter',
-      assistantContent
-    );
-    expect(secondResult.transformedContent?.providerOptions?.openaiCompatible?.reasoning_content).toBe(' ');
+    ]);
+    expect(assistant.providerOptions).toEqual({
+      openaiCompatible: {
+        reasoning_content: 'first second',
+      },
+    });
   });
 
-  it('BUG: should provide reasoning_content for Moonshot Kimi K2.5 when assistantContent has only tool calls and no reasoning', () => {
-    // This test reproduces the bug where an assistant message with tool calls
-    // but no reasoning content is processed for Moonshot Kimi K2.5 model.
-    // The actual model ID is 'kimi-k2.5' (with 'k' before '2'), but the code
-    // checks for 'kimi-2' pattern, which doesn't match 'kimi-k2.5'.
-    // This causes usesMoonshot to be false, and providerOptions is not set.
+  it('keeps non-reasoning providers unchanged when no assistantContent is provided', () => {
     const msgs: ModelMessage[] = [
       {
-        role: 'user',
-        content: [{ type: 'text', text: 'Please read the file' }],
+        role: 'assistant',
+        content: [
+          {
+            type: 'tool-call',
+            toolCallId: 'call_1',
+            toolName: 'readFile',
+            input: { file_path: '/tmp/a.txt' },
+          },
+        ],
       },
     ];
 
-    // assistantContent has tool calls but NO reasoning parts
-    const assistantContent = [
-      {
-        type: 'tool-call',
-        toolCallId: 'call_1',
-        toolName: 'readFile',
-        input: { file_path: '/tmp/test.txt' },
-      },
-    ];
+    const { messages } = MessageTransform.transform(msgs, 'gpt-4o', 'openai');
 
-    // Call transform with the ACTUAL model ID format used in production: 'moonshotai/kimi-k2.5'
-    // This does NOT match the 'kimi-2' pattern in resolveReasoningProviders
-    const { transformedContent } = MessageTransform.transform(
-      msgs,
-      'moonshotai/kimi-k2.5',
-      'openrouter',
-      assistantContent
-    );
-
-    // The bug: providerOptions is undefined because 'kimi-k2.5' doesn't match 'kimi-2' pattern
-    // This causes the error: "thinking is enabled but reasoning_content is missing"
-    expect(transformedContent).toBeDefined();
-    expect(transformedContent?.providerOptions).toBeDefined();
-    expect(transformedContent?.providerOptions?.openaiCompatible?.reasoning_content).toBe(' ');
-  });
-
-  it('provides reasoning_content when model ID matches kimi-2 pattern', () => {
-    // This test shows that the code works when model ID matches the expected pattern
-    // 'kimi-2.5' matches 'kimi-2', so providerOptions is correctly set
-    const msgs: ModelMessage[] = [
-      {
-        role: 'user',
-        content: [{ type: 'text', text: 'Please read the file' }],
-      },
-    ];
-
-    const assistantContent = [
-      {
-        type: 'tool-call',
-        toolCallId: 'call_1',
-        toolName: 'readFile',
-        input: { file_path: '/tmp/test.txt' },
-      },
-    ];
-
-    const { transformedContent } = MessageTransform.transform(
-      msgs,
-      'moonshotai/kimi-k2.5',
-      'openrouter',
-      assistantContent
-    );
-
-    expect(transformedContent).toBeDefined();
-    expect(transformedContent?.providerOptions).toBeDefined();
-    expect(transformedContent?.providerOptions?.openaiCompatible?.reasoning_content).toBe(' ');
-  });
-
-  it('provides reasoning_content when providerId is moonshot directly', () => {
-    // When providerId is 'moonshot', usesMoonshot should be true regardless of model ID
-    const msgs: ModelMessage[] = [
-      {
-        role: 'user',
-        content: [{ type: 'text', text: 'Please read the file' }],
-      },
-    ];
-
-    const assistantContent = [
-      {
-        type: 'tool-call',
-        toolCallId: 'call_1',
-        toolName: 'readFile',
-        input: { file_path: '/tmp/test.txt' },
-      },
-    ];
-
-    const { transformedContent } = MessageTransform.transform(
-      msgs,
-      'kimi-k2.5',
-      'moonshot',
-      assistantContent
-    );
-
-    expect(transformedContent).toBeDefined();
-    expect(transformedContent?.providerOptions).toBeDefined();
-    expect(transformedContent?.providerOptions?.openaiCompatible?.reasoning_content).toBe(' ');
+    expect(messages).toBe(msgs);
   });
 });

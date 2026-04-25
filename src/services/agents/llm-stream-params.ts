@@ -40,9 +40,14 @@ export class LLMStreamParams {
       return undefined;
     }
 
-    const { providerId } = parseModelIdentifier(options.modelIdentifier);
+    const { modelKey, providerId } = parseModelIdentifier(options.modelIdentifier);
+    const normalizedModelKey = modelKey.toLowerCase();
     const normalizedProviderId = providerId?.toLowerCase();
-    const includeOpenAI = !normalizedProviderId || normalizedProviderId === 'openai';
+    const isDeepSeekV4 = normalizedModelKey.startsWith('deepseek-v4');
+    const isNativeDeepSeek =
+      normalizedProviderId === 'deepseek' || (!normalizedProviderId && isDeepSeekV4);
+    const includeOpenAI =
+      (!normalizedProviderId || normalizedProviderId === 'openai') && !isNativeDeepSeek;
     const includeOpenRouter = normalizedProviderId === 'openrouter';
 
     const providerOptionsMap: ProviderOptions = {
@@ -61,7 +66,11 @@ export class LLMStreamParams {
       },
     };
 
-    if (includeOpenAI) {
+    if (isNativeDeepSeek && isDeepSeekV4) {
+      providerOptionsMap.openai = {
+        reasoningEffort: LLMStreamParams.mapDeepSeekV4ReasoningEffort(options.reasoningEffort),
+      };
+    } else if (includeOpenAI) {
       providerOptionsMap.openai = {
         reasoningEffort: options.reasoningEffort,
       };
@@ -74,6 +83,10 @@ export class LLMStreamParams {
     }
 
     return Object.keys(providerOptionsMap).length > 0 ? providerOptionsMap : undefined;
+  }
+
+  static mapDeepSeekV4ReasoningEffort(reasoningEffort: ReasoningEffort): 'high' | 'max' {
+    return reasoningEffort.toLowerCase() === 'xhigh' ? 'max' : 'high';
   }
 
   static temperature(modelIdentifier: string): number | undefined {

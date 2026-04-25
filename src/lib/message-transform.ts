@@ -1,4 +1,10 @@
-import type { ContentPart, Message as ModelMessage } from '@/services/llm/types';
+import type { ContentPart, Message as ModelMessage, ProviderOptions } from '@/services/llm/types';
+
+type ReasoningProviderOptions = {
+  openaiCompatible: {
+    reasoning_content: string;
+  };
+};
 
 export namespace MessageTransform {
   function shouldApplyCaching(providerId: string, modelId: string): boolean {
@@ -24,35 +30,88 @@ export namespace MessageTransform {
       normalizedProviderId === 'deepseek' || normalizedModelId.includes('deepseek');
     const usesMoonshot =
       !usesDeepseek &&
-      (normalizedProviderId === 'moonshot' || normalizedModelId.includes('kimi-k2'));
+      (normalizedProviderId === 'moonshot' ||
+        normalizedProviderId === 'kimi_coding' ||
+        normalizedModelId.includes('kimi-k2'));
 
     return { usesDeepseek, usesMoonshot };
   }
 
-  function getReasoningText(content: ContentPart[]): string {
-    return content
-      .filter((part) => part.type === 'reasoning')
-      .map((part) => part.text)
-      .join('');
+  function isRecord(value: unknown): value is Record<string, unknown> {
+    return typeof value === 'object' && value !== null && !Array.isArray(value);
+  }
+
+  function mergeProviderOptions(
+    existing?: ProviderOptions,
+    incoming?: ProviderOptions
+  ): ProviderOptions | undefined {
+    if (!existing) {
+      return incoming ?? undefined;
+    }
+    if (!incoming) {
+      return existing;
+    }
+
+    const merged: Record<string, unknown> = { ...existing };
+
+    for (const [key, incomingValue] of Object.entries(incoming)) {
+      const existingValue = merged[key];
+      if (isRecord(existingValue) && isRecord(incomingValue)) {
+        merged[key] = { ...existingValue, ...incomingValue };
+        continue;
+      }
+      merged[key] = incomingValue;
+    }
+
+    return merged;
   }
 
   function getHasToolCall(content?: ContentPart[]): boolean {
     return content?.some((part) => part.type === 'tool-call') ?? false;
   }
 
-  function getLatestAssistantContent(msgs: ModelMessage[]): ContentPart[] | undefined {
-    for (let i = msgs.length - 1; i >= 0; i -= 1) {
-      const msg = msgs[i];
-      if (!msg || msg.role !== 'assistant') {
-        continue;
-      }
-      if (Array.isArray(msg.content)) {
-        return msg.content as ContentPart[];
-      }
+  function getExistingReasoningContent(msg: ModelMessage): string | undefined {
+    if (!msg.providerOptions || !isRecord(msg.providerOptions)) {
       return undefined;
     }
 
-    return undefined;
+    const openaiCompatible = msg.providerOptions.openaiCompatible;
+    if (!isRecord(openaiCompatible)) {
+      return undefined;
+    }
+
+    const reasoningContent = openaiCompatible.reasoning_content;
+    return typeof reasoningContent === 'string' ? reasoningContent : undefined;
+  }
+
+  function createReasoningProviderOptions(reasoningContent: string): ReasoningProviderOptions {
+    return {
+      openaiCompatible: {
+        reasoning_content: reasoningContent,
+      },
+    };
+  }
+
+  function resolveReasoningContent(
+    existingReasoningContent: string | undefined,
+    reasoningText: string,
+    includesToolCall: boolean,
+    usesDeepseek: boolean,
+    usesMoonshot: boolean
+  ): string {
+    if (existingReasoningContent !== undefined) {
+      return existingReasoningContent;
+    }
+
+    if (reasoningText.length > 0) {
+      return reasoningText;
+    }
+
+    if (includesToolCall && (usesDeepseek || usesMoonshot)) {
+      return ' ';
+    }
+
+    return reasoningText;
   }
 
   function applyCacheToMessage(msg: ModelMessage, providerId: string): void {
@@ -89,6 +148,73 @@ export namespace MessageTransform {
     return { content: filteredContent, reasoningText };
   }
 
+  function normalizeHistoricalAssistantMessage(
+    msg: ModelMessage,
+    usesDeepseek: boolean,
+    usesMoonshot: boolean
+  ): ModelMessage {
+    if (msg.role !== 'assistant' || !Array.isArray(msg.content)) {
+      return msg;
+    }
+
+    const content = msg.content as ContentPart[];
+    const extracted = extractReasoning(content);
+    const includesToolCall = getHasToolCall(extracted.content);
+    const existingReasoningContent = getExistingReasoningContent(msg);
+    const shouldIncludeReasoningContent =
+      usesDeepseek || extracted.reasoningText.length > 0 || (usesMoonshot && includesToolCall);
+
+    if (!shouldIncludeReasoningContent && extracted.reasoningText.length === 0) {
+      return msg;
+    }
+
+    const reasoningContent = resolveReasoningContent(
+      existingReasoningContent,
+      extracted.reasoningText,
+      includesToolCall,
+      usesDeepseek,
+      usesMoonshot
+    );
+
+    const providerOptions = shouldIncludeReasoningContent
+      ? mergeProviderOptions(msg.providerOptions, createReasoningProviderOptions(reasoningContent))
+      : msg.providerOptions;
+    const nextContent = extracted.reasoningText.length > 0 ? extracted.content : content;
+    const contentChanged = nextContent !== content;
+    const providerOptionsChanged = providerOptions !== msg.providerOptions;
+
+    if (!contentChanged && !providerOptionsChanged) {
+      return msg;
+    }
+
+    return {
+      ...msg,
+      content: nextContent,
+      ...(providerOptions !== undefined ? { providerOptions } : {}),
+    };
+  }
+
+  function normalizeHistoricalMessages(
+    msgs: ModelMessage[],
+    usesDeepseek: boolean,
+    usesMoonshot: boolean
+  ): ModelMessage[] {
+    if (!usesDeepseek && !usesMoonshot) {
+      return msgs;
+    }
+
+    let changed = false;
+    const normalizedMessages = msgs.map((msg) => {
+      const nextMsg = normalizeHistoricalAssistantMessage(msg, usesDeepseek, usesMoonshot);
+      if (nextMsg !== msg) {
+        changed = true;
+      }
+      return nextMsg;
+    });
+
+    return changed ? normalizedMessages : msgs;
+  }
+
   export function transform(
     msgs: ModelMessage[],
     modelId: string,
@@ -98,61 +224,50 @@ export namespace MessageTransform {
     messages: ModelMessage[];
     transformedContent?: {
       content: ContentPart[];
-      providerOptions?: { openaiCompatible: { reasoning_content: string } };
+      providerOptions?: ReasoningProviderOptions;
     };
   } {
+    const { usesDeepseek, usesMoonshot } = resolveReasoningProviders(modelId, providerId);
+    const messages = normalizeHistoricalMessages(msgs, usesDeepseek, usesMoonshot);
+
     // Apply prompt caching for supported providers
     if (providerId && shouldApplyCaching(providerId, modelId)) {
-      applyCaching(msgs, providerId);
+      applyCaching(messages, providerId);
     }
 
-    const { usesDeepseek, usesMoonshot } = resolveReasoningProviders(modelId, providerId);
-    const latestAssistantContent = getLatestAssistantContent(msgs);
-    const includesToolCall =
-      getHasToolCall(assistantContent) ||
-      (assistantContent ? false : getHasToolCall(latestAssistantContent));
-    const reasoningText = assistantContent ? getReasoningText(assistantContent) : '';
+    if (!assistantContent) {
+      return { messages };
+    }
+
+    const extracted = extractReasoning(assistantContent);
+    const includesToolCall = getHasToolCall(extracted.content);
     const shouldIncludeReasoningContent =
-      usesDeepseek || reasoningText.length > 0 || (usesMoonshot && includesToolCall);
+      usesDeepseek || extracted.reasoningText.length > 0 || (usesMoonshot && includesToolCall);
 
     // Transform assistant content for providers that require reasoning_content
-    if (assistantContent && (usesDeepseek || usesMoonshot || shouldIncludeReasoningContent)) {
-      const extracted = extractReasoning(assistantContent);
-      const reasoningContent =
-        usesMoonshot && shouldIncludeReasoningContent && extracted.reasoningText.length === 0
-          ? ' '
-          : extracted.reasoningText;
+    if (usesDeepseek || usesMoonshot || shouldIncludeReasoningContent) {
+      const reasoningContent = resolveReasoningContent(
+        undefined,
+        extracted.reasoningText,
+        includesToolCall,
+        usesDeepseek,
+        usesMoonshot
+      );
       const transformedContent = {
         content: extracted.content,
         providerOptions: shouldIncludeReasoningContent
-          ? {
-              openaiCompatible: {
-                reasoning_content: reasoningContent,
-              },
-            }
+          ? createReasoningProviderOptions(reasoningContent)
           : undefined,
       };
 
-      return { messages: msgs, transformedContent };
+      return { messages, transformedContent };
     }
 
-    if (shouldIncludeReasoningContent) {
-      return {
-        messages: msgs,
-        transformedContent: {
-          content: assistantContent ?? [],
-          providerOptions: {
-            openaiCompatible: {
-              reasoning_content: reasoningText,
-            },
-          },
-        },
-      };
-    }
-
-    // Default passthrough
-    const transformedContent = assistantContent ? { content: assistantContent } : undefined;
-
-    return { messages: msgs, transformedContent };
+    return {
+      messages,
+      transformedContent: {
+        content: assistantContent,
+      },
+    };
   }
 }

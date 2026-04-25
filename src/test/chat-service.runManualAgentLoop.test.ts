@@ -364,6 +364,84 @@ describe('ChatService.runManualAgentLoop', () => {
   });
 
   describe('Completion hook continuation', () => {
+    it('should continue with append mode and merge synthetic user messages when task store is stale', async () => {
+      const appendHook: CompletionHook = {
+        name: 'append-hook-stale-store',
+        priority: 20,
+        shouldRun: () => true,
+        run: vi
+          .fn()
+          .mockResolvedValueOnce({
+            action: 'continue',
+            continuationMode: 'append',
+            nextMessages: [
+              {
+                id: 'append-msg-stale-1',
+                role: 'user',
+                content: 'Please fix auto review issues',
+                timestamp: new Date(),
+              },
+            ],
+          })
+          .mockResolvedValueOnce({ action: 'stop' }),
+      };
+
+      completionHookPipeline.register(appendHook);
+
+      const { useTaskStore } = await import('@/stores/task-store');
+      const getMessagesMock = vi.fn().mockReturnValue([
+        {
+          id: 'store-msg-1',
+          role: 'user',
+          content: 'initial request',
+          timestamp: new Date(),
+        },
+        {
+          id: 'store-msg-2',
+          role: 'assistant',
+          content: 'auto review found issues',
+          timestamp: new Date(),
+        },
+      ]);
+      vi.mocked(useTaskStore.getState).mockReturnValue({
+        getMessages: getMessagesMock,
+        getTask: vi.fn(() => undefined),
+        updateTask: vi.fn(),
+        updateTaskUsage: vi.fn(),
+      });
+
+      mockStreamText
+        .mockReturnValueOnce(
+          createLlmEventStream([
+            { type: 'text-delta', text: 'first iteration output' },
+            { type: 'done', finish_reason: 'stop' },
+          ])
+        )
+        .mockReturnValueOnce(
+          createLlmEventStream([
+            { type: 'text-delta', text: 'second iteration handles review' },
+            { type: 'done', finish_reason: 'stop' },
+          ])
+        );
+
+      const options = createBasicOptions({ maxIterations: 5 });
+      await chatService.runAgentLoop(options, mockCallbacks);
+
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      expect(getMessagesMock).toHaveBeenCalled();
+      expect(mockCallbacks.onComplete).toHaveBeenCalledWith('second iteration handles review');
+
+      const secondCallPayload = mockStreamText.mock.calls[1]?.[0] as {
+        messages?: Array<{ role?: string; content?: unknown }>;
+      };
+      const secondCallMessages = secondCallPayload.messages || [];
+      const appendedMessages = secondCallMessages.filter(
+        (msg) => msg.role === 'user' && msg.content === 'Please fix auto review issues'
+      );
+
+      expect(appendedMessages).toHaveLength(1);
+    });
+
     it('should continue with append mode and keep auto review input in next iteration', async () => {
       const appendHook: CompletionHook = {
         name: 'append-hook',
@@ -441,11 +519,11 @@ describe('ChatService.runManualAgentLoop', () => {
         messages?: Array<{ role?: string; content?: unknown }>;
       };
       const secondCallMessages = secondCallPayload.messages || [];
-      expect(
-        secondCallMessages.some(
-          (msg) => msg.role === 'user' && msg.content === 'Please fix auto review issues'
-        )
-      ).toBe(true);
+      const appendedMessages = secondCallMessages.filter(
+        (msg) => msg.role === 'user' && msg.content === 'Please fix auto review issues'
+      );
+
+      expect(appendedMessages).toHaveLength(1);
     });
 
     it('should continue with replace mode using nextMessages only', async () => {
