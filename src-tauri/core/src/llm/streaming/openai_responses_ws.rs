@@ -87,7 +87,7 @@ impl WebSocketSessionState {
 
     fn should_rotate_connection(&self) -> bool {
         self.connection_age()
-            .map(|age| age >= SUBSCRIPTION_MAX_CONNECTION_AGE)
+            .map(connection_age_uses_rotation_budget)
             .unwrap_or(false)
     }
 
@@ -468,12 +468,20 @@ fn normalized_session_id(session_id: Option<&str>) -> Option<&str> {
     })
 }
 
+fn connection_age_uses_rotation_budget(age: Duration) -> bool {
+    age >= SUBSCRIPTION_MAX_CONNECTION_AGE
+}
+
 fn active_response_read_poll_interval() -> Duration {
     ACTIVE_RESPONSE_READ_POLL_INTERVAL
 }
 
+fn active_response_idle_timeout_uses_long_lived_budget(idle_for: Duration) -> bool {
+    idle_for >= websocket_read_idle_timeout()
+}
+
 fn active_response_has_exceeded_idle_timeout(last_frame_received_at: Instant) -> bool {
-    last_frame_received_at.elapsed() >= websocket_read_idle_timeout()
+    active_response_idle_timeout_uses_long_lived_budget(last_frame_received_at.elapsed())
 }
 
 fn active_response_timeout_error() -> String {
@@ -873,11 +881,12 @@ mod tests {
 
     #[test]
     fn active_response_idle_timeout_uses_the_long_lived_budget() {
-        let fresh_frame = Instant::now() - Duration::from_secs(45);
-        assert!(!active_response_has_exceeded_idle_timeout(fresh_frame));
-
-        let stale_frame = Instant::now() - Duration::from_secs(60 * 60 + 1);
-        assert!(active_response_has_exceeded_idle_timeout(stale_frame));
+        assert!(!active_response_idle_timeout_uses_long_lived_budget(
+            Duration::from_secs(45)
+        ));
+        assert!(active_response_idle_timeout_uses_long_lived_budget(
+            Duration::from_secs(60 * 60 + 1)
+        ));
         assert_eq!(
             active_response_timeout_error(),
             "WebSocket timeout - no data received for 3600 seconds"
@@ -886,13 +895,12 @@ mod tests {
 
     #[test]
     fn websocket_session_rotation_uses_connection_age() {
-        let mut fresh_session = WebSocketSessionState::default();
-        fresh_session.connected_at = Some(Instant::now() - Duration::from_secs(60));
-        assert!(!fresh_session.should_rotate_connection());
-
-        let mut stale_session = WebSocketSessionState::default();
-        stale_session.connected_at = Some(Instant::now() - Duration::from_secs(56 * 60));
-        assert!(stale_session.should_rotate_connection());
+        assert!(!connection_age_uses_rotation_budget(Duration::from_secs(
+            60
+        )));
+        assert!(connection_age_uses_rotation_budget(Duration::from_secs(
+            56 * 60
+        )));
     }
 
     #[test]
