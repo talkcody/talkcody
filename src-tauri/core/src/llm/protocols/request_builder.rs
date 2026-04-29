@@ -1,6 +1,8 @@
 // Protocol-level request building trait
 // Handles conversion from internal message types to provider-specific API format
-use crate::llm::types::{Message, ToolDefinition};
+use crate::llm::types::{
+    ContinuationContext, ConversationMode, InputMode, Message, ToolDefinition,
+};
 use serde_json::Value;
 
 /// Context for building a request
@@ -15,6 +17,12 @@ pub struct RequestBuildContext<'a> {
     pub top_k: Option<i32>,
     pub provider_options: Option<&'a Value>,
     pub extra_body: Option<&'a Value>,
+    pub conversation_mode: Option<ConversationMode>,
+    pub input_mode: Option<InputMode>,
+    pub previous_response_id: Option<&'a str>,
+    pub transport_session_id: Option<&'a str>,
+    pub allow_transport_fallback: Option<bool>,
+    pub continuation_context: Option<&'a ContinuationContext>,
 }
 
 /// Trait for building protocol-specific requests

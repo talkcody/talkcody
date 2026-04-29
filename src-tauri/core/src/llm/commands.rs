@@ -13,6 +13,7 @@ use crate::llm::ai_services::types::{
 use crate::llm::auth::api_key_manager::LlmState;
 use crate::llm::models::model_registry::ModelRegistry;
 use crate::llm::models::model_sync;
+use crate::llm::streaming::openai_responses_ws;
 use crate::llm::streaming::stream_handler::StreamHandler;
 use crate::llm::transcription::service::TranscriptionService;
 use crate::llm::transcription::types::TranscriptionContext;
@@ -75,6 +76,12 @@ pub async fn llm_stream_text(
     });
 
     Ok(StreamResponse { request_id })
+}
+
+#[tauri::command]
+pub async fn llm_close_responses_session(session_id: String) -> Result<(), String> {
+    openai_responses_ws::close_session(&session_id).await;
+    Ok(())
 }
 
 #[tauri::command]
@@ -142,7 +149,7 @@ pub async fn llm_is_model_available(
 ) -> Result<bool, String> {
     let registry = state.registry.lock().await;
     let api_keys = state.api_keys.lock().await;
-    let api_map = api_keys.load_api_keys().await?;
+    let api_map = ModelRegistry::load_provider_credentials(&api_keys).await?;
     let custom_providers = api_keys.load_custom_providers().await?;
     let models =
         crate::llm::models::model_registry::ModelRegistry::load_models_config(&api_keys).await?;

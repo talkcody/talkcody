@@ -14,12 +14,14 @@ class AITaskTitleService {
       }
 
       const language = settingsManager.getSync('language');
-      const model = await modelTypeService.resolveModelType(ModelType.SMALL);
+      const modelChain = await modelTypeService.resolveModelTypeChain(ModelType.SMALL);
+      const [model, ...fallbackModels] = modelChain;
 
       const result = await llmClient.generateTitle({
         userInput,
         language: language === 'zh' ? 'zh' : 'en',
         model,
+        fallbackModels,
       });
 
       if (result.title) {

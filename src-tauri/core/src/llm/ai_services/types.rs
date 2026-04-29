@@ -37,6 +37,8 @@ pub struct ContextCompactionRequest {
     #[serde(rename = "conversationHistory")]
     pub conversation_history: String,
     pub model: Option<String>,
+    #[serde(default, rename = "fallbackModels")]
+    pub fallback_models: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -53,6 +55,8 @@ pub struct GitMessageContext {
     #[serde(rename = "diffText")]
     pub diff_text: String,
     pub model: Option<String>,
+    #[serde(default, rename = "fallbackModels")]
+    pub fallback_models: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -95,6 +99,8 @@ pub struct TitleGenerationRequest {
     pub user_input: String,
     pub language: Option<String>,
     pub model: Option<String>,
+    #[serde(default, rename = "fallbackModels")]
+    pub fallback_models: Option<Vec<String>>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

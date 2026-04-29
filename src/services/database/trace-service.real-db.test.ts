@@ -106,4 +106,197 @@ describe('TraceService', () => {
     expect(detail?.spans[0]?.startedAt).toBe(1234);
     expect(detail?.spans[0]?.endedAt).toBe(2345);
   });
+
+  it('stores null attributes when span attributes are omitted', async () => {
+    const traceId = 'trace-tool-2';
+    const spanId = 'span-tool-2';
+
+    await service.startSpan({
+      spanId,
+      traceId,
+      name: 'Step1-tool-glob',
+      startedAt: 3456,
+    });
+
+    const detail = await service.getTraceDetails(traceId);
+
+    expect(detail?.spans[0]?.attributes).toBeNull();
+  });
+
+  it('computes transport counters for openai subscription traces', async () => {
+    const traceId = 'trace-openai-subscription';
+    const websocketBaselineSpanId = 'span-openai-baseline';
+    const websocketIncrementalSpanId = 'span-openai-incremental';
+    const httpFallbackSpanId = 'span-openai-http';
+
+    db.rawExecute(
+      'INSERT INTO traces (id, started_at, ended_at, metadata) VALUES (?, ?, ?, ?)',
+      [traceId, 1000, 2000, null]
+    );
+
+    db.rawExecute(
+      'INSERT INTO spans (id, trace_id, parent_span_id, name, started_at, ended_at, attributes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        websocketBaselineSpanId,
+        traceId,
+        null,
+        'Step1-llm',
+        1100,
+        1200,
+        JSON.stringify({
+          'gen_ai.system': 'openai',
+          'gen_ai.request.model': 'gpt-5.4',
+        }),
+      ]
+    );
+    db.rawExecute(
+      'INSERT INTO spans (id, trace_id, parent_span_id, name, started_at, ended_at, attributes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        websocketIncrementalSpanId,
+        traceId,
+        null,
+        'Step2-llm',
+        1300,
+        1400,
+        JSON.stringify({
+          'gen_ai.system': 'openai',
+          'gen_ai.request.model': 'gpt-5.4',
+        }),
+      ]
+    );
+    db.rawExecute(
+      'INSERT INTO spans (id, trace_id, parent_span_id, name, started_at, ended_at, attributes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        httpFallbackSpanId,
+        traceId,
+        null,
+        'Step3-llm',
+        1500,
+        1600,
+        JSON.stringify({
+          'gen_ai.system': 'openai',
+          'gen_ai.request.model': 'gpt-5.4',
+        }),
+      ]
+    );
+
+    db.rawExecute(
+      'INSERT INTO span_events (id, span_id, timestamp, event_type, payload) VALUES (?, ?, ?, ?, ?)',
+      [
+        'event-openai-baseline',
+        websocketBaselineSpanId,
+        1101,
+        'http.request.body',
+        JSON.stringify({ transport: 'websocket', input_mode: 'full-history' }),
+      ]
+    );
+    db.rawExecute(
+      'INSERT INTO span_events (id, span_id, timestamp, event_type, payload) VALUES (?, ?, ?, ?, ?)',
+      [
+        'event-openai-incremental',
+        websocketIncrementalSpanId,
+        1301,
+        'http.request.body',
+        JSON.stringify({ transport: 'websocket', input_mode: 'incremental' }),
+      ]
+    );
+    db.rawExecute(
+      'INSERT INTO span_events (id, span_id, timestamp, event_type, payload) VALUES (?, ?, ?, ?, ?)',
+      [
+        'event-openai-http',
+        httpFallbackSpanId,
+        1501,
+        'http.request.body',
+        JSON.stringify({ transport: 'http-sse', input_mode: 'full-history' }),
+      ]
+    );
+
+    const detail = await service.getTraceDetails(traceId);
+
+    expect(detail?.openAiSubscriptionMetrics).toEqual({
+      websocketTurnCount: 2,
+      incrementalTurnCount: 1,
+      baselineTurnCount: 2,
+      httpFallbackCount: 1,
+    });
+  });
+
+  it('infers incremental websocket turns from previous_response_id when input mode metadata is absent', async () => {
+    const traceId = 'trace-openai-subscription-inferred';
+    const websocketBaselineSpanId = 'span-openai-inferred-baseline';
+    const websocketIncrementalSpanId = 'span-openai-inferred-incremental';
+    const httpFallbackSpanId = 'span-openai-inferred-http';
+
+    db.rawExecute(
+      'INSERT INTO traces (id, started_at, ended_at, metadata) VALUES (?, ?, ?, ?)',
+      [traceId, 2000, 3000, null]
+    );
+
+    for (const [spanId, name, startedAt, endedAt] of [
+      [websocketBaselineSpanId, 'Step1-llm', 2100, 2200],
+      [websocketIncrementalSpanId, 'Step2-llm', 2300, 2400],
+      [httpFallbackSpanId, 'Step3-llm', 2500, 2600],
+    ] as const) {
+      db.rawExecute(
+        'INSERT INTO spans (id, trace_id, parent_span_id, name, started_at, ended_at, attributes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [
+          spanId,
+          traceId,
+          null,
+          name,
+          startedAt,
+          endedAt,
+          JSON.stringify({
+            'gen_ai.system': 'openai',
+            'gen_ai.request.model': 'gpt-5.4',
+          }),
+        ]
+      );
+    }
+
+    db.rawExecute(
+      'INSERT INTO span_events (id, span_id, timestamp, event_type, payload) VALUES (?, ?, ?, ?, ?)',
+      [
+        'event-openai-inferred-baseline',
+        websocketBaselineSpanId,
+        2101,
+        'http.request.body',
+        JSON.stringify({ transport: 'websocket', input: [{ role: 'user', content: 'hello' }] }),
+      ]
+    );
+    db.rawExecute(
+      'INSERT INTO span_events (id, span_id, timestamp, event_type, payload) VALUES (?, ?, ?, ?, ?)',
+      [
+        'event-openai-inferred-incremental',
+        websocketIncrementalSpanId,
+        2301,
+        'http.request.body',
+        JSON.stringify({
+          transport: 'websocket',
+          previous_response_id: 'resp_123',
+          input: [{ type: 'function_call_output', call_id: 'call_1', output: 'ok' }],
+        }),
+      ]
+    );
+    db.rawExecute(
+      'INSERT INTO span_events (id, span_id, timestamp, event_type, payload) VALUES (?, ?, ?, ?, ?)',
+      [
+        'event-openai-inferred-http',
+        httpFallbackSpanId,
+        2501,
+        'http.request.body',
+        JSON.stringify({ transport: 'http-sse', input: [{ role: 'user', content: 'retry' }] }),
+      ]
+    );
+
+    const detail = await service.getTraceDetails(traceId);
+
+    expect(detail?.openAiSubscriptionMetrics).toEqual({
+      websocketTurnCount: 2,
+      incrementalTurnCount: 1,
+      baselineTurnCount: 2,
+      httpFallbackCount: 1,
+    });
+  });
 });
+

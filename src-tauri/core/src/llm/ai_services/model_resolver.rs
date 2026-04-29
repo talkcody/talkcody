@@ -10,23 +10,89 @@ pub enum FallbackStrategy {
     Compaction,
 }
 
+pub async fn resolve_model_identifiers(
+    api_keys: &ApiKeyManager,
+    registry: &ProviderRegistry,
+    preferred: Option<String>,
+    fallback_models: Option<Vec<String>>,
+    strategy: FallbackStrategy,
+) -> Result<Vec<String>, String> {
+    let mut resolved_identifiers: Vec<String> = Vec::new();
+
+    if let Some(model) = preferred {
+        push_resolved_model_candidate(
+            &mut resolved_identifiers,
+            api_keys,
+            registry,
+            &model,
+            "Preferred",
+        )
+        .await?;
+    }
+
+    if let Some(models) = fallback_models {
+        for model in models {
+            push_resolved_model_candidate(
+                &mut resolved_identifiers,
+                api_keys,
+                registry,
+                &model,
+                "Fallback",
+            )
+            .await?;
+        }
+    }
+
+    if !resolved_identifiers.is_empty() {
+        return Ok(resolved_identifiers);
+    }
+
+    let strategy_fallback = match strategy {
+        FallbackStrategy::AnyAvailable => resolve_any_available(api_keys, registry).await?,
+        FallbackStrategy::Compaction => resolve_compaction_fallback(api_keys, registry).await?,
+    };
+
+    Ok(vec![strategy_fallback])
+}
+
 pub async fn resolve_model_identifier(
     api_keys: &ApiKeyManager,
     registry: &ProviderRegistry,
     preferred: Option<String>,
     strategy: FallbackStrategy,
 ) -> Result<String, String> {
-    if let Some(model) = preferred {
-        if let Some(resolved) = try_resolve_model(api_keys, registry, &model).await? {
-            return Ok(resolved);
-        }
-        log::warn!("Preferred model {} is not available, falling back", model);
+    let resolved_identifiers =
+        resolve_model_identifiers(api_keys, registry, preferred, None, strategy).await?;
+    resolved_identifiers
+        .into_iter()
+        .next()
+        .ok_or_else(|| "No available model for the requested operation".to_string())
+}
+
+async fn push_resolved_model_candidate(
+    resolved_identifiers: &mut Vec<String>,
+    api_keys: &ApiKeyManager,
+    registry: &ProviderRegistry,
+    model_identifier: &str,
+    candidate_label: &str,
+) -> Result<(), String> {
+    if model_identifier.trim().is_empty() {
+        return Ok(());
     }
 
-    match strategy {
-        FallbackStrategy::AnyAvailable => resolve_any_available(api_keys, registry).await,
-        FallbackStrategy::Compaction => resolve_compaction_fallback(api_keys, registry).await,
+    if let Some(resolved_model) = try_resolve_model(api_keys, registry, model_identifier).await? {
+        if !resolved_identifiers.contains(&resolved_model) {
+            resolved_identifiers.push(resolved_model);
+        }
+    } else {
+        log::warn!(
+            "{} model {} is not available, skipping",
+            candidate_label,
+            model_identifier
+        );
     }
+
+    Ok(())
 }
 
 async fn try_resolve_model(
@@ -35,10 +101,10 @@ async fn try_resolve_model(
     model_identifier: &str,
 ) -> Result<Option<String>, String> {
     let models = api_keys.load_models_config().await?;
-    let api_map = api_keys.load_api_keys().await?;
+    let api_map = ModelRegistry::load_provider_credentials(api_keys).await?;
     let custom_providers = api_keys.load_custom_providers().await?;
 
-    if models.models.contains_key(model_identifier) {
+    if model_identifier.contains('@') {
         if let Ok((model_key, provider_id)) = ModelRegistry::get_model_provider(
             model_identifier,
             &api_map,
@@ -51,16 +117,18 @@ async fn try_resolve_model(
         return Ok(None);
     }
 
-    if model_identifier.contains('@') {
-        let parts: Vec<&str> = model_identifier.split('@').collect();
-        if parts.len() == 2 {
-            let model_key = parts[0];
-            let provider_id = parts[1];
-            if models.models.contains_key(model_key) && registry.provider(provider_id).is_some() {
-                return Ok(Some(format!("{}@{}", model_key, provider_id)));
-            }
-        }
+    if !models.models.contains_key(model_identifier) {
         return Ok(None);
+    }
+
+    if let Ok((model_key, provider_id)) = ModelRegistry::get_model_provider(
+        model_identifier,
+        &api_map,
+        registry,
+        &custom_providers,
+        &models,
+    ) {
+        return Ok(Some(format!("{}@{}", model_key, provider_id)));
     }
 
     Ok(None)
@@ -134,7 +202,14 @@ mod tests {
     use std::sync::Arc;
     use tempfile::TempDir;
 
-    async fn setup_context(provider_id: &str) -> (ApiKeyManager, ProviderRegistry) {
+    async fn setup_context() -> (ApiKeyManager, ProviderRegistry) {
+        setup_context_with_openai_credential("api_key_openai", "test-key").await
+    }
+
+    async fn setup_context_with_openai_credential(
+        credential_key: &str,
+        credential_value: &str,
+    ) -> (ApiKeyManager, ProviderRegistry) {
         let dir = TempDir::new().expect("temp dir");
         let db_path = dir.path().join("models-test.db");
         let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
@@ -148,14 +223,29 @@ mod tests {
 
         let api_keys = ApiKeyManager::new(db, dir.path().join("app-data"));
         api_keys
-            .set_setting(&format!("api_key_{}", provider_id), "test-key")
+            .set_setting(credential_key, credential_value)
             .await
-            .expect("set api key");
+            .expect("set credential");
 
-        let provider_config = ProviderConfig {
-            id: provider_id.to_string(),
-            name: provider_id.to_string(),
+        let openai_provider = ProviderConfig {
+            id: "openai".to_string(),
+            name: "openai".to_string(),
             protocol: ProtocolType::OpenAiCompatible,
+            base_url: "http://localhost".to_string(),
+            api_key_name: "TEST_API_KEY".to_string(),
+            supports_oauth: true,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: AuthType::Bearer,
+        };
+        let anthropic_provider = ProviderConfig {
+            id: "anthropic".to_string(),
+            name: "anthropic".to_string(),
+            protocol: ProtocolType::Claude,
             base_url: "http://localhost".to_string(),
             api_key_name: "TEST_API_KEY".to_string(),
             supports_oauth: false,
@@ -167,30 +257,52 @@ mod tests {
             extra_body: None,
             auth_type: AuthType::Bearer,
         };
-        let registry = ProviderRegistry::new(vec![provider_config]);
+        let registry = ProviderRegistry::new(vec![openai_provider, anthropic_provider]);
 
         let models_config = ModelsConfiguration {
             version: "1".to_string(),
-            models: HashMap::from([(
-                "test-model".to_string(),
-                ModelConfig {
-                    name: "Test Model".to_string(),
-                    image_input: false,
-                    image_output: false,
-                    audio_input: false,
-                    video_input: false,
-                    interleaved: false,
-                    providers: vec![provider_id.to_string()],
-                    provider_mappings: None,
-                    pricing: Some(ModelPricing {
-                        input: "0.0001".to_string(),
-                        output: "0.0002".to_string(),
-                        cached_input: None,
-                        cache_creation: None,
-                    }),
-                    context_length: Some(8192),
-                },
-            )]),
+            models: HashMap::from([
+                (
+                    "test-model".to_string(),
+                    ModelConfig {
+                        name: "Test Model".to_string(),
+                        image_input: false,
+                        image_output: false,
+                        audio_input: false,
+                        video_input: false,
+                        interleaved: false,
+                        providers: vec!["openai".to_string()],
+                        provider_mappings: None,
+                        pricing: Some(ModelPricing {
+                            input: "0.0001".to_string(),
+                            output: "0.0002".to_string(),
+                            cached_input: None,
+                            cache_creation: None,
+                        }),
+                        context_length: Some(8192),
+                    },
+                ),
+                (
+                    "backup-model".to_string(),
+                    ModelConfig {
+                        name: "Backup Model".to_string(),
+                        image_input: false,
+                        image_output: false,
+                        audio_input: false,
+                        video_input: false,
+                        interleaved: false,
+                        providers: vec!["openai".to_string()],
+                        provider_mappings: None,
+                        pricing: Some(ModelPricing {
+                            input: "0.0002".to_string(),
+                            output: "0.0003".to_string(),
+                            cached_input: None,
+                            cache_creation: None,
+                        }),
+                        context_length: Some(4096),
+                    },
+                ),
+            ]),
         };
 
         api_keys
@@ -206,7 +318,7 @@ mod tests {
 
     #[tokio::test]
     async fn resolves_preferred_model_when_available() {
-        let (api_keys, registry) = setup_context("openai").await;
+        let (api_keys, registry) = setup_context().await;
         let resolved = resolve_model_identifier(
             &api_keys,
             &registry,
@@ -220,8 +332,24 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn resolves_preferred_model_with_oauth_token() {
+        let (api_keys, registry) =
+            setup_context_with_openai_credential("openai_oauth_access_token", "oauth-token").await;
+        let resolved = resolve_model_identifier(
+            &api_keys,
+            &registry,
+            Some("test-model@openai".to_string()),
+            FallbackStrategy::AnyAvailable,
+        )
+        .await
+        .expect("resolve oauth model");
+
+        assert_eq!(resolved, "test-model@openai");
+    }
+
+    #[tokio::test]
     async fn falls_back_to_any_available_when_preferred_missing() {
-        let (api_keys, registry) = setup_context("openai").await;
+        let (api_keys, registry) = setup_context().await;
         let resolved = resolve_model_identifier(
             &api_keys,
             &registry,
@@ -231,6 +359,47 @@ mod tests {
         .await
         .expect("resolve model");
 
-        assert_eq!(resolved, "test-model@openai");
+        assert_eq!(resolved, "backup-model@openai");
+    }
+
+    #[tokio::test]
+    async fn resolves_model_chain_in_order_and_dedupes_entries() {
+        let (api_keys, registry) = setup_context().await;
+        let resolved = resolve_model_identifiers(
+            &api_keys,
+            &registry,
+            Some("test-model@openai".to_string()),
+            Some(vec![
+                "test-model@openai".to_string(),
+                "backup-model@openai".to_string(),
+            ]),
+            FallbackStrategy::AnyAvailable,
+        )
+        .await
+        .expect("resolve model chain");
+
+        assert_eq!(
+            resolved,
+            vec![
+                "test-model@openai".to_string(),
+                "backup-model@openai".to_string(),
+            ]
+        );
+    }
+
+    #[tokio::test]
+    async fn skips_unavailable_explicit_provider_entries() {
+        let (api_keys, registry) = setup_context().await;
+        let resolved = resolve_model_identifiers(
+            &api_keys,
+            &registry,
+            Some("test-model@anthropic".to_string()),
+            Some(vec!["backup-model@openai".to_string()]),
+            FallbackStrategy::AnyAvailable,
+        )
+        .await
+        .expect("resolve model chain");
+
+        assert_eq!(resolved, vec!["backup-model@openai".to_string()]);
     }
 }

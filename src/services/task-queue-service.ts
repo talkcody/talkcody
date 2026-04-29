@@ -199,7 +199,10 @@ class TaskQueueService {
         agent = await agentRegistry.getWithResolvedTools('planner');
       }
 
-      const model = draft.model || (await modelService.getCurrentModel());
+      const resolvedAgentModel = (agent as (typeof agent & { model?: string }) | undefined)?.model;
+      const resolvedFallbackModels =
+        (agent as (typeof agent & { fallbackModels?: string[] }) | undefined)?.fallbackModels ?? [];
+      const model = draft.model || resolvedAgentModel || (await modelService.getCurrentModel());
       const tools = agent?.tools ?? {};
 
       const executionPromise = (async () => {
@@ -251,6 +254,7 @@ class TaskQueueService {
             taskId,
             messages: [userMessage],
             model,
+            fallbackModels: draft.model ? undefined : resolvedFallbackModels,
             systemPrompt,
             tools,
             agentId,

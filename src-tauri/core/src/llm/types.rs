@@ -111,9 +111,70 @@ pub struct TraceContext {
     pub metadata: Option<HashMap<String, String>>,
 }
 
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum ConversationMode {
+    Stateless,
+    ResponsesChained,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+#[serde(rename_all = "kebab-case")]
+pub enum InputMode {
+    FullHistory,
+    Incremental,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct ContinuationContext {
+    pub iteration: i32,
+    #[serde(rename = "baselineMessageCount")]
+    pub baseline_message_count: i32,
+    #[serde(rename = "deltaMessageCount")]
+    pub delta_message_count: i32,
+    #[serde(rename = "fallbackCount")]
+    pub fallback_count: i32,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ResponseTransport {
+    #[serde(rename = "http-sse")]
+    HttpSse,
+    #[serde(rename = "websocket")]
+    Websocket,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ResponseMetadataProvider {
+    #[serde(rename = "openai-subscription")]
+    OpenAiSubscription,
+    #[serde(rename = "openai-api")]
+    OpenAiApi,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TransportFallbackSource {
+    #[serde(rename = "websocket")]
+    Websocket,
+    #[serde(rename = "responses-chained")]
+    ResponsesChained,
+}
+
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum TransportFallbackTarget {
+    #[serde(rename = "http-sse")]
+    HttpSse,
+    #[serde(rename = "stateless")]
+    Stateless,
+    #[serde(rename = "fresh-websocket-baseline")]
+    FreshWebsocketBaseline,
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StreamTextRequest {
     pub model: String,
+    #[serde(default, rename = "fallbackModels")]
+    pub fallback_models: Option<Vec<String>>,
     pub messages: Vec<Message>,
     pub tools: Option<Vec<ToolDefinition>>,
     pub stream: Option<bool>,
@@ -128,6 +189,18 @@ pub struct StreamTextRequest {
     pub provider_options: Option<serde_json::Value>,
     #[serde(rename = "requestId")]
     pub request_id: Option<String>,
+    #[serde(default, rename = "conversationMode")]
+    pub conversation_mode: Option<ConversationMode>,
+    #[serde(default, rename = "inputMode")]
+    pub input_mode: Option<InputMode>,
+    #[serde(default, rename = "previousResponseId")]
+    pub previous_response_id: Option<String>,
+    #[serde(default, rename = "transportSessionId")]
+    pub transport_session_id: Option<String>,
+    #[serde(default, rename = "allowTransportFallback")]
+    pub allow_transport_fallback: Option<bool>,
+    #[serde(default, rename = "continuationContext")]
+    pub continuation_context: Option<ContinuationContext>,
     #[serde(rename = "traceContext")]
     pub trace_context: Option<TraceContext>,
 }
@@ -247,6 +320,21 @@ pub enum StreamEvent {
     },
     ReasoningEnd {
         id: String,
+    },
+    ResponseMetadata {
+        #[serde(rename = "responseId")]
+        response_id: String,
+        transport: ResponseTransport,
+        provider: ResponseMetadataProvider,
+        #[serde(default, rename = "continuationAccepted")]
+        continuation_accepted: Option<bool>,
+        #[serde(default, rename = "transportSessionId")]
+        transport_session_id: Option<String>,
+    },
+    TransportFallback {
+        reason: String,
+        from: TransportFallbackSource,
+        to: TransportFallbackTarget,
     },
     Usage {
         input_tokens: i32,
@@ -415,6 +503,115 @@ mod tests {
         assert_eq!(config.base_url, "https://api.test.com");
         assert_eq!(config.api_key, "test-key");
         assert!(config.enabled);
+    }
+
+    #[test]
+    fn stream_text_request_serializes_continuation_fields() {
+        let request = StreamTextRequest {
+            model: "gpt-5.2-codex".to_string(),
+            fallback_models: Some(vec!["gpt-5-mini@openai".to_string()]),
+            messages: vec![Message::User {
+                content: MessageContent::Text("continue".to_string()),
+                provider_options: None,
+            }],
+            tools: None,
+            stream: Some(true),
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            provider_options: None,
+            request_id: Some("req_123".to_string()),
+            conversation_mode: Some(ConversationMode::ResponsesChained),
+            input_mode: Some(InputMode::Incremental),
+            previous_response_id: Some("resp_prev".to_string()),
+            transport_session_id: Some("session_123".to_string()),
+            allow_transport_fallback: Some(true),
+            continuation_context: Some(ContinuationContext {
+                iteration: 2,
+                baseline_message_count: 3,
+                delta_message_count: 1,
+                fallback_count: 0,
+            }),
+            trace_context: None,
+        };
+
+        let value = serde_json::to_value(&request).unwrap();
+        assert_eq!(
+            value
+                .get("fallbackModels")
+                .and_then(|item| item.as_array())
+                .map(|items| items.len()),
+            Some(1)
+        );
+        assert_eq!(
+            value.get("conversationMode").and_then(|item| item.as_str()),
+            Some("responses-chained")
+        );
+        assert_eq!(
+            value.get("inputMode").and_then(|item| item.as_str()),
+            Some("incremental")
+        );
+        assert_eq!(
+            value
+                .get("previousResponseId")
+                .and_then(|item| item.as_str()),
+            Some("resp_prev")
+        );
+        assert_eq!(
+            value
+                .get("transportSessionId")
+                .and_then(|item| item.as_str()),
+            Some("session_123")
+        );
+        assert_eq!(
+            value
+                .get("allowTransportFallback")
+                .and_then(|item| item.as_bool()),
+            Some(true)
+        );
+        assert_eq!(
+            value
+                .get("continuationContext")
+                .and_then(|item| item.get("baselineMessageCount"))
+                .and_then(|item| item.as_i64()),
+            Some(3)
+        );
+    }
+
+    #[test]
+    fn stream_event_response_metadata_serializes_expected_shape() {
+        let event = StreamEvent::ResponseMetadata {
+            response_id: "resp_123".to_string(),
+            transport: ResponseTransport::HttpSse,
+            provider: ResponseMetadataProvider::OpenAiSubscription,
+            continuation_accepted: Some(true),
+            transport_session_id: Some("session_123".to_string()),
+        };
+
+        let value = serde_json::to_value(event).unwrap();
+        assert_eq!(
+            value.get("type").and_then(|item| item.as_str()),
+            Some("response-metadata")
+        );
+        assert_eq!(
+            value.get("responseId").and_then(|item| item.as_str()),
+            Some("resp_123")
+        );
+        assert_eq!(
+            value.get("transport").and_then(|item| item.as_str()),
+            Some("http-sse")
+        );
+        assert_eq!(
+            value.get("provider").and_then(|item| item.as_str()),
+            Some("openai-subscription")
+        );
+        assert_eq!(
+            value
+                .get("continuationAccepted")
+                .and_then(|item| item.as_bool()),
+            Some(true)
+        );
     }
 
     #[test]

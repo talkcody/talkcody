@@ -317,11 +317,6 @@ export class ToolExecutor {
           parentSpanId: null,
           name: spanName,
           startedAt: toolStartTime,
-          attributes: {
-            toolCallId: toolCall.toolCallId,
-            toolName: normalizedSpanToolName,
-            stepNumber,
-          },
         })
         .catch((error) => {
           logger.warn('[ToolExecutor] Failed to start tool span', {

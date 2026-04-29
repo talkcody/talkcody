@@ -1,7 +1,8 @@
 #![cfg(test)]
 
 use crate::llm::testing::fixtures::{
-    assert_json_matches, build_sse_body, ProviderFixture, RecordedResponse,
+    assert_json_matches, build_sse_body, recorded_json_body_to_http_text, ProviderFixture,
+    RecordedResponse,
 };
 use std::net::TcpListener;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -110,7 +111,8 @@ fn handle_request(
             body,
         } => {
             let mut response =
-                tiny_http::Response::from_string(body.to_string()).with_status_code(*status);
+                tiny_http::Response::from_string(recorded_json_body_to_http_text(body))
+                    .with_status_code(*status);
             let content_type = headers
                 .get("content-type")
                 .cloned()

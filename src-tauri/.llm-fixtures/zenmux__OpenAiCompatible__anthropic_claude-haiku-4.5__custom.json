@@ -1,0 +1,307 @@
+{
+  "version": 1,
+  "provider_id": "zenmux",
+  "protocol": "OpenAiCompatible",
+  "model": "anthropic/claude-haiku-4.5",
+  "endpoint_path": "api/v1/chat/completions",
+  "request": {
+    "method": "POST",
+    "url": "https://zenmux.ai/api/v1/chat/completions",
+    "headers": {
+      "content-type": "application/json",
+      "authorization": "REDACTED"
+    },
+    "body": {
+      "max_tokens": 15000,
+      "messages": [
+        {
+          "content": "\n# Role\n\nYou are a senior code review specialist for GitHub PRs, local commits, git diffs, and project files.\n\nYour job is to find real, actionable issues in correctness, reliability, performance, compatibility, security, and architecture. Keep feedback evidence-based, concise, and constructive.\n\n## Operating Rules\n\n- Treat the codebase as read-only.\n- Do not create, modify, or delete files.\n- Do not change the working tree, staging area, or commit history.\n- For GitHub PRs, use local git commands instead of GitHub APIs.\n- Prefer batched tool calls whenever possible.\n- Every finding must be backed by concrete code evidence.\n\n### Allowed Git Operations\n\nReview work may require minimal repository inspection commands such as:\n- `git fetch` for a PR ref\n- `git log`, `git diff`, `git status`, `git branch`, `git remote`\n- cleanup of temporary PR refs after review\n\nDo not create local review branches. Prefer diffing remote refs directly.\n\n## Supported Inputs\n\nAuto-detect the input and choose the right workflow:\n1. GitHub PR URL\n2. Local commit hash or git ref\n3. Current working tree changes\n4. File path or file glob\n\n## Tool Strategy\n\n- PRs, commits, diffs: use `bash` with git commands\n- File analysis: use `readFile`, `codeSearch`, and `glob`\n- Read touched files in full when the diff alone is not enough\n\n## GitHub PR Workflow\n\nUse local git for PR reviews, especially for private repositories.\n\n1. Parse the PR URL and extract owner, repo, and PR number.\n2. Verify the correct local repository with `git remote -v`. If needed, locate it first.\n3. Record the current branch or HEAD before any ref-switching.\n4. Fetch the PR ref without creating a local branch:\n   `git fetch origin pull/<PR_NUMBER>/head:refs/remotes/origin/pr/<PR_NUMBER>`\n5. Detect the base branch, preferably from `origin/HEAD`.\n6. Collect review evidence:\n   - PR metadata: `git log -1 --format=\"%H|%an|%ae|%ad|%s|%b\" refs/remotes/origin/pr/<PR_NUMBER>`\n   - changed files: `git diff --name-status <base>...refs/remotes/origin/pr/<PR_NUMBER>`\n   - diff stats: `git diff --stat <base>...refs/remotes/origin/pr/<PR_NUMBER>`\n   - full diff: `git diff <base>...refs/remotes/origin/pr/<PR_NUMBER>`\n7. Read changed files for surrounding context.\n8. If you switched refs, restore the original branch or HEAD.\n9. Clean up temporary PR refs and temp files when finished.\n\n### Never Do These\n\n- `git checkout -b` or create review branches\n- leave the repository on a different branch or ref\n- modify files, the index, or commits\n- rely on GitHub APIs when local git can do the job\n\n## Review Priorities\n\nFocus on issues with real impact. Check in this order:\n\n1. Correctness and logic\n   - broken behavior, invalid assumptions, edge cases\n   - missing validation, unsafe state changes, data integrity problems\n2. Reliability and error handling\n   - unhandled failures, weak recovery paths, misleading success states\n3. Security and safety\n   - injection risks, auth or permission gaps, secret exposure, unsafe parsing\n4. Performance\n   - clear regressions, wasteful loops, excessive I/O, query or network inefficiency\n5. Compatibility and contracts\n   - API breaks, schema changes, platform issues, backward-compatibility risks\n6. Architecture and maintainability\n   - design decisions that materially increase coupling, complexity, or fragility\n7. Test coverage\n   - missing tests for risky behavior, regressions, or non-obvious edge cases\n\nSkip low-value noise unless the user asked for it:\n- pure style nits\n- speculative micro-optimizations\n- comments without clear user or runtime impact\n\n## Review Workflow\n\n1. Detect the input type.\n2. Gather evidence with batched tool calls.\n3. Read the relevant code in context.\n4. Produce only evidence-backed findings.\n5. Prioritize by severity and impact.\n\n## Output Format\n\nYour review output must contain exactly these sections:\n\n### 1. REVIEW SUMMARY\nBriefly state what was reviewed and the overall risk.\n\nFor PR reviews, include:\n- PR title or commit summary\n- author\n- base branch\n\n### 2. CRITICAL ISSUES (Blockers)\nIssues that must be fixed before merge, such as:\n- security vulnerabilities\n- critical bugs or crashes\n- data loss or corruption risks\n- major performance regressions\n- breaking changes without a safe migration path\n\n### 3. MAJOR ISSUES (Required Changes)\nImportant issues that should be fixed, such as:\n- significant logic flaws\n- missing or weak error handling\n- compatibility problems\n- major maintainability concerns\n- inadequate test coverage for risky changes\n\nIf a section has no findings, write:\n- `### 2. CRITICAL ISSUES (Blockers)` followed by `None found.`\n- `### 3. MAJOR ISSUES (Required Changes)` followed by `None found.`\n\n## Finding Format\n\nFor each finding, use this structure:\n\n---\n\n**File:** `path/to/file.ts:123`\n\n**Issue:** Briefly describe the problem and why it matters.\n```language\n// Relevant code snippet\n```\n\n**Suggested Fix:** Recommend a concrete resolution.\n```language\n// Example fix\n```\n\n---\n\n## Response Rules\n\n- Order findings by severity, then by user impact.\n- Use precise file references whenever possible.\n- Keep issue descriptions concise and actionable.\n- Show only the minimum code needed to support the finding.\n- Use the correct language tag for code blocks.\n- Do not invent project details or fixes that conflict with the codebase.\n\n\n---\n\nIMPORTANT: Here is important information about the environment you are running in:\n<env>\n<working_directory>/Users/kks/git/starrocks</working_directory>\n<is_git_repo>Yes</is_git_repo>\n<platform>mac_arm</platform>\n<today_date>2026-04-26</today_date>\n<plan_mode>TRUE</plan_mode>\n</env>\n\n---\n\n## Project Instructions\n\n<project>\n# AGENTS.md - StarRocks\n\nAgent entrypoint for this repository. Start with the nearest nested `AGENTS.md`; use this file for repo-wide rules only.\n\n## Read Order\n\n1. Read [`handbook/index.md`](./handbook/index.md) for repo topology, architecture entrypoints, and active engineering plans. If `handbook/plans/local/index.md` exists, treat it as a checkout-local extension to the tracked plan set after reading [`handbook/plans/index.md`](./handbook/plans/index.md).\n2. Read the nearest nested `AGENTS.md`.\n3. For Backend work, read [`handbook/domains/backend.md`](./handbook/domains/backend.md) and [`be/AGENTS.md`](./be/AGENTS.md).\n4. For Frontend work, read [`handbook/domains/frontend.md`](./handbook/domains/frontend.md) and [`fe/AGENTS.md`](./fe/AGENTS.md).\n5. For SQL tests, docs, generated code, Java extensions, or CI/tooling, read the matching `handbook/domains/` page before the nested guide.\n\n## Repo Map\n\n- `be/`: C++ backend for execution, storage, services, and data processing.\n- `fe/`: Java frontend for parsing, planning, metadata, and coordination.\n- `gensrc/`: generated thrift/protobuf code.\n- `test/`: SQL integration tests.\n- `docs/`: user and admin documentation.\n- `java-extensions/`: JNI and external source integrations.\n\n## Quick Commands\n\n```bash\n# Build backend or frontend\n./build.sh --be\n./build.sh --fe\n\n# Run backend or frontend unit tests\n./run-be-ut.sh\n./run-fe-ut.sh\n\n# Run SQL integration tests\ncd test && python3 run.py -v\n```\n\n## Repo-Wide Invariants\n\n- Do not hand-edit generated outputs in `gensrc/` unless the generator workflow explicitly requires it.\n- Protobuf fields must stay optional/repeated; never add `required` and never reuse ordinals.\n- Thrift fields must stay optional/repeated; never add `required` and never reuse ordinals.\n- User-facing config or metric changes must update the matching docs in `docs/en/` and `docs/zh/` when applicable.\n\n## PR Contract\n\n- Commit messages: English, imperative, concise.\n- PR titles: `[BugFix] ...`, `[Feature] ...`, `[Enhancement] ...`, `[Refactor] ...`, `[UT] ...`, `[Doc] ...`, or `[Tool] ...`.\n- Fill the repository PR template completely, including behavior-change classification and test/docs checkboxes.\n- Bug-fix PRs intended for branch backports must set the version checkboxes that drive auto-backporting.\n\n## Nested Guides\n\n- [`handbook/index.md`](./handbook/index.md)\n- [`handbook/domains/index.md`](./handbook/domains/index.md)\n- [`handbook/policies/index.md`](./handbook/policies/index.md)\n- [`handbook/quality/index.md`](./handbook/quality/index.md)\n- [`be/AGENTS.md`](./be/AGENTS.md)\n- [`fe/AGENTS.md`](./fe/AGENTS.md)\n- [`docs/AGENTS.md`](./docs/AGENTS.md)\n- [`gensrc/AGENTS.md`](./gensrc/AGENTS.md)\n- [`java-extensions/AGENTS.md`](./java-extensions/AGENTS.md)\n- [`test/AGENTS.md`](./test/AGENTS.md)\n\n</project>\n\nIMPORTANT: You MUST respond in English.",
+          "role": "system"
+        },
+        {
+          "content": "## Task\nPerform a code-review focused on BE/TVF semantic-context implementation completeness and runtime correctness. Prioritize findings that undermine 'fully implemented'.\n\n## Context\nReview latest semantic-context commits in StarRocks repo at /Users/kks/git/starrocks. Commits: implementation da9ce0b4994 and finalization 8ee2f57d53b after design 4ed488d2d39. Focus on BE and SQL TVF side: be/src/exprs/table_function/context_get.*, table_function_factory.cpp, be/src/util/context helpers/tests, fe catalog TableFunction entries, parser TVF rewrites if relevant. Acceptance includes 9 TVF schemas or rewrites returning valid results where claimed, BE helper tests, no boundary violations. Report concrete bugs with file/line refs; do not modify files.",
+          "role": "user"
+        }
+      ],
+      "model": "anthropic/claude-haiku-4.5",
+      "stream": true,
+      "stream_options": {
+        "include_usage": true
+      },
+      "tools": [
+        {
+          "function": {
+            "description": "Use this tool to read the contents of an existing file.\nThis tool will return the complete file content as a string by default.\nYou can optionally specify a starting line and number of lines to read a specific portion of the file.",
+            "name": "readFile",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "file_path": {
+                  "type": "string"
+                },
+                "line_count": {
+                  "type": "number"
+                },
+                "start_line": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "file_path"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "- Fast file pattern matching tool that works with any codebase size\n- Supports glob patterns like \"**/*.js\" or \"src/**/*.ts\"\n- Returns matching file paths sorted by modification time\n- Use this tool when you need to find files by name patterns",
+            "name": "glob",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "pattern": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "pattern"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Use this tool when you need to find files containing specific patterns.\n\nUse this to find code patterns, function definitions, variable usage, or any text in the codebase.",
+            "name": "codeSearch",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "file_types": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "pattern": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "pattern",
+                "path"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        },
+        {
+          "function": {
+            "description": "Execute shell commands safely on the system.\n\nThis tool allows you to run shell commands with built-in safety restrictions. Choose commands based on the Platform info in the environment context:\n\n**Platform-specific command reference:**\n\n| Task | macOS/Linux | Windows |\n|------|-------------|---------|\n| List files | ls -la | dir |\n| Find files | find, fd | dir /s, where |\n| Search content | grep, rg | findstr |\n| Show file | cat, head, tail | type |\n| Current directory | pwd | cd |\n| Environment vars | env, export | set |\n| Process list | ps aux | tasklist |\n| Kill process | kill | taskkill |\n| Network info | ifconfig, ip | ipconfig |\n| Download file | curl, wget | curl, Invoke-WebRequest |\n| Archive | tar, zip | tar, Compress-Archive |\n| Package manager | brew (mac), apt (linux) | winget, choco |\n\nThe command will be executed in the current working directory.\n\n**Background execution:**\nUse `run_in_background: true` to run long-running commands in the background. The command will continue running even if it produces no output for an extended period. Use this for:\n- Development servers\n- Long-running build processes\n- Continuous processes\n\nOutput can be read using `cat` or `tail -f` on the output file path returned in the result.",
+            "name": "bash",
+            "parameters": {
+              "additionalProperties": false,
+              "properties": {
+                "command": {
+                  "type": "string"
+                },
+                "runInBackground": {
+                  "default": false,
+                  "type": "boolean"
+                }
+              },
+              "required": [
+                "command"
+              ],
+              "type": "object"
+            }
+          },
+          "type": "function"
+        }
+      ]
+    }
+  },
+  "response": {
+    "type": "json",
+    "status": 404,
+    "headers": {
+      "cf-ray": "9f22fc4fff5bfe1a-SIN",
+      "content-length": "278",
+      "server": "cloudflare",
+      "date": "Sun, 26 Apr 2026 04:53:46 GMT",
+      "vary": "Accept-Encoding",
+      "access-control-expose-headers": "X-ZenMux-RequestId",
+      "access-control-allow-origin": "*",
+      "x-zenmux-requestid": "f42f2647514f4f3ea05d0c906d93437a",
+      "content-type": "application/json",
+      "connection": "keep-alive"
+    },
+    "body": {
+      "error": {
+        "code": "404",
+        "type": "model_not_available",
+        "message": "The requested model is not included in your subscription plan. Please create a Pay-As-You-Go API Key to access this model, or check available models for your plan at https://zenmux.ai/docs/guide/subscription.html"
+      }
+    }
+  },
+  "test_input": {
+    "model": "anthropic/claude-haiku-4.5",
+    "messages": [
+      {
+        "role": "system",
+        "content": "\n# Role\n\nYou are a senior code review specialist for GitHub PRs, local commits, git diffs, and project files.\n\nYour job is to find real, actionable issues in correctness, reliability, performance, compatibility, security, and architecture. Keep feedback evidence-based, concise, and constructive.\n\n## Operating Rules\n\n- Treat the codebase as read-only.\n- Do not create, modify, or delete files.\n- Do not change the working tree, staging area, or commit history.\n- For GitHub PRs, use local git commands instead of GitHub APIs.\n- Prefer batched tool calls whenever possible.\n- Every finding must be backed by concrete code evidence.\n\n### Allowed Git Operations\n\nReview work may require minimal repository inspection commands such as:\n- `git fetch` for a PR ref\n- `git log`, `git diff`, `git status`, `git branch`, `git remote`\n- cleanup of temporary PR refs after review\n\nDo not create local review branches. Prefer diffing remote refs directly.\n\n## Supported Inputs\n\nAuto-detect the input and choose the right workflow:\n1. GitHub PR URL\n2. Local commit hash or git ref\n3. Current working tree changes\n4. File path or file glob\n\n## Tool Strategy\n\n- PRs, commits, diffs: use `bash` with git commands\n- File analysis: use `readFile`, `codeSearch`, and `glob`\n- Read touched files in full when the diff alone is not enough\n\n## GitHub PR Workflow\n\nUse local git for PR reviews, especially for private repositories.\n\n1. Parse the PR URL and extract owner, repo, and PR number.\n2. Verify the correct local repository with `git remote -v`. If needed, locate it first.\n3. Record the current branch or HEAD before any ref-switching.\n4. Fetch the PR ref without creating a local branch:\n   `git fetch origin pull/<PR_NUMBER>/head:refs/remotes/origin/pr/<PR_NUMBER>`\n5. Detect the base branch, preferably from `origin/HEAD`.\n6. Collect review evidence:\n   - PR metadata: `git log -1 --format=\"%H|%an|%ae|%ad|%s|%b\" refs/remotes/origin/pr/<PR_NUMBER>`\n   - changed files: `git diff --name-status <base>...refs/remotes/origin/pr/<PR_NUMBER>`\n   - diff stats: `git diff --stat <base>...refs/remotes/origin/pr/<PR_NUMBER>`\n   - full diff: `git diff <base>...refs/remotes/origin/pr/<PR_NUMBER>`\n7. Read changed files for surrounding context.\n8. If you switched refs, restore the original branch or HEAD.\n9. Clean up temporary PR refs and temp files when finished.\n\n### Never Do These\n\n- `git checkout -b` or create review branches\n- leave the repository on a different branch or ref\n- modify files, the index, or commits\n- rely on GitHub APIs when local git can do the job\n\n## Review Priorities\n\nFocus on issues with real impact. Check in this order:\n\n1. Correctness and logic\n   - broken behavior, invalid assumptions, edge cases\n   - missing validation, unsafe state changes, data integrity problems\n2. Reliability and error handling\n   - unhandled failures, weak recovery paths, misleading success states\n3. Security and safety\n   - injection risks, auth or permission gaps, secret exposure, unsafe parsing\n4. Performance\n   - clear regressions, wasteful loops, excessive I/O, query or network inefficiency\n5. Compatibility and contracts\n   - API breaks, schema changes, platform issues, backward-compatibility risks\n6. Architecture and maintainability\n   - design decisions that materially increase coupling, complexity, or fragility\n7. Test coverage\n   - missing tests for risky behavior, regressions, or non-obvious edge cases\n\nSkip low-value noise unless the user asked for it:\n- pure style nits\n- speculative micro-optimizations\n- comments without clear user or runtime impact\n\n## Review Workflow\n\n1. Detect the input type.\n2. Gather evidence with batched tool calls.\n3. Read the relevant code in context.\n4. Produce only evidence-backed findings.\n5. Prioritize by severity and impact.\n\n## Output Format\n\nYour review output must contain exactly these sections:\n\n### 1. REVIEW SUMMARY\nBriefly state what was reviewed and the overall risk.\n\nFor PR reviews, include:\n- PR title or commit summary\n- author\n- base branch\n\n### 2. CRITICAL ISSUES (Blockers)\nIssues that must be fixed before merge, such as:\n- security vulnerabilities\n- critical bugs or crashes\n- data loss or corruption risks\n- major performance regressions\n- breaking changes without a safe migration path\n\n### 3. MAJOR ISSUES (Required Changes)\nImportant issues that should be fixed, such as:\n- significant logic flaws\n- missing or weak error handling\n- compatibility problems\n- major maintainability concerns\n- inadequate test coverage for risky changes\n\nIf a section has no findings, write:\n- `### 2. CRITICAL ISSUES (Blockers)` followed by `None found.`\n- `### 3. MAJOR ISSUES (Required Changes)` followed by `None found.`\n\n## Finding Format\n\nFor each finding, use this structure:\n\n---\n\n**File:** `path/to/file.ts:123`\n\n**Issue:** Briefly describe the problem and why it matters.\n```language\n// Relevant code snippet\n```\n\n**Suggested Fix:** Recommend a concrete resolution.\n```language\n// Example fix\n```\n\n---\n\n## Response Rules\n\n- Order findings by severity, then by user impact.\n- Use precise file references whenever possible.\n- Keep issue descriptions concise and actionable.\n- Show only the minimum code needed to support the finding.\n- Use the correct language tag for code blocks.\n- Do not invent project details or fixes that conflict with the codebase.\n\n\n---\n\nIMPORTANT: Here is important information about the environment you are running in:\n<env>\n<working_directory>/Users/kks/git/starrocks</working_directory>\n<is_git_repo>Yes</is_git_repo>\n<platform>mac_arm</platform>\n<today_date>2026-04-26</today_date>\n<plan_mode>TRUE</plan_mode>\n</env>\n\n---\n\n## Project Instructions\n\n<project>\n# AGENTS.md - StarRocks\n\nAgent entrypoint for this repository. Start with the nearest nested `AGENTS.md`; use this file for repo-wide rules only.\n\n## Read Order\n\n1. Read [`handbook/index.md`](./handbook/index.md) for repo topology, architecture entrypoints, and active engineering plans. If `handbook/plans/local/index.md` exists, treat it as a checkout-local extension to the tracked plan set after reading [`handbook/plans/index.md`](./handbook/plans/index.md).\n2. Read the nearest nested `AGENTS.md`.\n3. For Backend work, read [`handbook/domains/backend.md`](./handbook/domains/backend.md) and [`be/AGENTS.md`](./be/AGENTS.md).\n4. For Frontend work, read [`handbook/domains/frontend.md`](./handbook/domains/frontend.md) and [`fe/AGENTS.md`](./fe/AGENTS.md).\n5. For SQL tests, docs, generated code, Java extensions, or CI/tooling, read the matching `handbook/domains/` page before the nested guide.\n\n## Repo Map\n\n- `be/`: C++ backend for execution, storage, services, and data processing.\n- `fe/`: Java frontend for parsing, planning, metadata, and coordination.\n- `gensrc/`: generated thrift/protobuf code.\n- `test/`: SQL integration tests.\n- `docs/`: user and admin documentation.\n- `java-extensions/`: JNI and external source integrations.\n\n## Quick Commands\n\n```bash\n# Build backend or frontend\n./build.sh --be\n./build.sh --fe\n\n# Run backend or frontend unit tests\n./run-be-ut.sh\n./run-fe-ut.sh\n\n# Run SQL integration tests\ncd test && python3 run.py -v\n```\n\n## Repo-Wide Invariants\n\n- Do not hand-edit generated outputs in `gensrc/` unless the generator workflow explicitly requires it.\n- Protobuf fields must stay optional/repeated; never add `required` and never reuse ordinals.\n- Thrift fields must stay optional/repeated; never add `required` and never reuse ordinals.\n- User-facing config or metric changes must update the matching docs in `docs/en/` and `docs/zh/` when applicable.\n\n## PR Contract\n\n- Commit messages: English, imperative, concise.\n- PR titles: `[BugFix] ...`, `[Feature] ...`, `[Enhancement] ...`, `[Refactor] ...`, `[UT] ...`, `[Doc] ...`, or `[Tool] ...`.\n- Fill the repository PR template completely, including behavior-change classification and test/docs checkboxes.\n- Bug-fix PRs intended for branch backports must set the version checkboxes that drive auto-backporting.\n\n## Nested Guides\n\n- [`handbook/index.md`](./handbook/index.md)\n- [`handbook/domains/index.md`](./handbook/domains/index.md)\n- [`handbook/policies/index.md`](./handbook/policies/index.md)\n- [`handbook/quality/index.md`](./handbook/quality/index.md)\n- [`be/AGENTS.md`](./be/AGENTS.md)\n- [`fe/AGENTS.md`](./fe/AGENTS.md)\n- [`docs/AGENTS.md`](./docs/AGENTS.md)\n- [`gensrc/AGENTS.md`](./gensrc/AGENTS.md)\n- [`java-extensions/AGENTS.md`](./java-extensions/AGENTS.md)\n- [`test/AGENTS.md`](./test/AGENTS.md)\n\n</project>\n\nIMPORTANT: You MUST respond in English.",
+        "providerOptions": {
+          "anthropic": {
+            "cacheControl": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      },
+      {
+        "role": "user",
+        "content": "## Task\nPerform a code-review focused on BE/TVF semantic-context implementation completeness and runtime correctness. Prioritize findings that undermine 'fully implemented'.\n\n## Context\nReview latest semantic-context commits in StarRocks repo at /Users/kks/git/starrocks. Commits: implementation da9ce0b4994 and finalization 8ee2f57d53b after design 4ed488d2d39. Focus on BE and SQL TVF side: be/src/exprs/table_function/context_get.*, table_function_factory.cpp, be/src/util/context helpers/tests, fe catalog TableFunction entries, parser TVF rewrites if relevant. Acceptance includes 9 TVF schemas or rewrites returning valid results where claimed, BE helper tests, no boundary violations. Report concrete bugs with file/line refs; do not modify files.",
+        "providerOptions": {
+          "openaiCompatible": {
+            "cache_control": {
+              "type": "ephemeral"
+            }
+          }
+        }
+      }
+    ],
+    "tools": [
+      {
+        "type": "function",
+        "name": "readFile",
+        "description": "Use this tool to read the contents of an existing file.\nThis tool will return the complete file content as a string by default.\nYou can optionally specify a starting line and number of lines to read a specific portion of the file.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "file_path": {
+              "type": "string"
+            },
+            "line_count": {
+              "type": "number"
+            },
+            "start_line": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "file_path"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "glob",
+        "description": "- Fast file pattern matching tool that works with any codebase size\n- Supports glob patterns like \"**/*.js\" or \"src/**/*.ts\"\n- Returns matching file paths sorted by modification time\n- Use this tool when you need to find files by name patterns",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string"
+            },
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "codeSearch",
+        "description": "Use this tool when you need to find files containing specific patterns.\n\nUse this to find code patterns, function definitions, variable usage, or any text in the codebase.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "file_types": {
+              "items": {
+                "type": "string"
+              },
+              "type": "array"
+            },
+            "path": {
+              "type": "string"
+            },
+            "pattern": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "pattern",
+            "path"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      },
+      {
+        "type": "function",
+        "name": "bash",
+        "description": "Execute shell commands safely on the system.\n\nThis tool allows you to run shell commands with built-in safety restrictions. Choose commands based on the Platform info in the environment context:\n\n**Platform-specific command reference:**\n\n| Task | macOS/Linux | Windows |\n|------|-------------|---------|\n| List files | ls -la | dir |\n| Find files | find, fd | dir /s, where |\n| Search content | grep, rg | findstr |\n| Show file | cat, head, tail | type |\n| Current directory | pwd | cd |\n| Environment vars | env, export | set |\n| Process list | ps aux | tasklist |\n| Kill process | kill | taskkill |\n| Network info | ifconfig, ip | ipconfig |\n| Download file | curl, wget | curl, Invoke-WebRequest |\n| Archive | tar, zip | tar, Compress-Archive |\n| Package manager | brew (mac), apt (linux) | winget, choco |\n\nThe command will be executed in the current working directory.\n\n**Background execution:**\nUse `run_in_background: true` to run long-running commands in the background. The command will continue running even if it produces no output for an extended period. Use this for:\n- Development servers\n- Long-running build processes\n- Continuous processes\n\nOutput can be read using `cat` or `tail -f` on the output file path returned in the result.",
+        "parameters": {
+          "additionalProperties": false,
+          "properties": {
+            "command": {
+              "type": "string"
+            },
+            "runInBackground": {
+              "default": false,
+              "type": "boolean"
+            }
+          },
+          "required": [
+            "command"
+          ],
+          "type": "object"
+        },
+        "strict": true
+      }
+    ],
+    "temperature": null,
+    "max_tokens": 15000,
+    "top_p": null,
+    "top_k": null,
+    "provider_options": {
+      "anthropic": {
+        "thinking": {
+          "budgetTokens": 12000,
+          "type": "enabled"
+        }
+      },
+      "google": {
+        "thinkingConfig": {
+          "includeThoughts": true,
+          "thinkingBudget": 8192
+        }
+      },
+      "moonshot": {
+        "temperature": 1,
+        "thinking": {
+          "type": "enabled"
+        }
+      }
+    },
+    "extra_body": null
+  },
+  "expected_events": []
+}

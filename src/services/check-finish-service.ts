@@ -219,6 +219,8 @@ export class CheckFinishService {
       }
 
       const resolvedModel = (agent as typeof agent & { model?: string }).model;
+      const resolvedFallbackModels =
+        (agent as typeof agent & { fallbackModels?: string[] }).fallbackModels ?? [];
       if (!resolvedModel) {
         logger.warn('[CheckFinish] Model not resolved for agent', { taskId });
         return null;
@@ -284,6 +286,7 @@ export class CheckFinishService {
         {
           messages,
           model: resolvedModel,
+          fallbackModels: resolvedFallbackModels,
           systemPrompt,
           tools: agent.tools,
           isSubagent: true,

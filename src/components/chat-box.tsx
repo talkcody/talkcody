@@ -158,7 +158,10 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
         );
         agent = await agentRegistry.getWithResolvedTools('planner');
       }
-      const model = await modelService.getCurrentModel();
+      const resolvedAgentModel = (agent as (typeof agent & { model?: string }) | undefined)?.model;
+      const resolvedFallbackModels =
+        (agent as (typeof agent & { fallbackModels?: string[] }) | undefined)?.fallbackModels ?? [];
+      const model = resolvedAgentModel || (await modelService.getCurrentModel());
       logger.info(`Using model "${model}" for message processing`);
 
       // Check if using TalkCody provider and user is not authenticated
@@ -298,6 +301,7 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
             taskId: activeTaskId,
             messages: conversationHistory,
             model,
+            fallbackModels: resolvedFallbackModels,
             systemPrompt,
             tools,
             agentId,

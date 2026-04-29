@@ -1,7 +1,9 @@
 use crate::llm::auth::api_key_manager::ApiKeyManager;
+use crate::llm::protocols::openai_responses_protocol::classify_continuation_rejection;
 use crate::llm::protocols::stream_parser::StreamParseState;
-use crate::llm::providers::provider::ProviderContext;
+use crate::llm::providers::provider::{ProviderContext, ProviderRoute, ProviderTransport};
 use crate::llm::providers::provider_registry::ProviderRegistry;
+use crate::llm::streaming::openai_responses_ws::{self, OpenAiResponsesWsOutcome};
 use crate::llm::testing::fixtures::FixtureInput;
 use crate::llm::testing::{Recorder, RecordingContext, TestConfig, TestMode};
 use crate::llm::tracing::types::{float_attr, int_attr};
@@ -18,6 +20,34 @@ use tokio::time::timeout;
 
 static REQUEST_COUNTER: AtomicU32 = AtomicU32::new(1000);
 static HTTP_CLIENT: OnceLock<reqwest::Client> = OnceLock::new();
+
+pub(crate) const TRANSIENT_PROVIDER_RETRY_LIMIT: u32 = 3;
+pub(crate) const TRANSIENT_PROVIDER_RETRY_BASE_DELAY_MS: u64 = 1000;
+
+const TRANSIENT_PROVIDER_PROCESSING_REQUEST_HINT: &str =
+    "an error occurred while processing your request";
+const TRANSIENT_PROVIDER_RETRY_REQUEST_HINT: &str = "retry your request";
+const TRANSIENT_PROVIDER_OVERLOAD_HINT: &str = "our servers are currently overloaded";
+
+pub(crate) fn transient_provider_retry_delay_ms(attempt: u32) -> u64 {
+    TRANSIENT_PROVIDER_RETRY_BASE_DELAY_MS * (1u64 << attempt.saturating_sub(1))
+}
+
+pub(crate) fn is_transient_provider_retryable_error(message: &str) -> bool {
+    let normalized = message.to_ascii_lowercase();
+    let is_processing_request_error = normalized
+        .contains(TRANSIENT_PROVIDER_PROCESSING_REQUEST_HINT)
+        && (normalized.contains(TRANSIENT_PROVIDER_RETRY_REQUEST_HINT)
+            || normalized.contains("help.openai.com")
+            || normalized.contains("request id"));
+    let is_overloaded = normalized.contains(TRANSIENT_PROVIDER_OVERLOAD_HINT);
+
+    is_processing_request_error || is_overloaded
+}
+
+pub(crate) fn should_retry_transient_http_error(status: u16, body: &str) -> bool {
+    status >= 500 || is_transient_provider_retryable_error(body)
+}
 
 /// Token usage info: (input_tokens, output_tokens, total_tokens, cached_input_tokens, cache_creation_input_tokens)
 type TokenUsageInfo = (i32, i32, Option<i32>, Option<i32>, Option<i32>);
@@ -84,6 +114,12 @@ impl StreamHandler {
             top_k: request.top_k,
             provider_options: request.provider_options.as_ref(),
             trace_context: request.trace_context.as_ref(),
+            conversation_mode: request.conversation_mode,
+            input_mode: request.input_mode,
+            previous_response_id: request.previous_response_id.as_deref(),
+            transport_session_id: request.transport_session_id.as_deref(),
+            allow_transport_fallback: request.allow_transport_fallback,
+            continuation_context: request.continuation_context.as_ref(),
         };
 
         let built_request = provider.build_complete_request(&provider_ctx).await?;
@@ -133,6 +169,8 @@ impl StreamHandler {
                 .and_then(|metadata| metadata.get("client_start_ms"))
                 .and_then(|value| value.parse::<i64>().ok());
 
+            let request_transport = built_request.transport;
+            let request_route = built_request.route;
             let mut attributes = HashMap::new();
             attributes.insert(
                 crate::llm::tracing::types::attributes::GEN_AI_REQUEST_MODEL.to_string(),
@@ -176,6 +214,32 @@ impl StreamHandler {
             );
             trace_span_id = Some(span_id.clone());
 
+            if let ProviderRoute::OpenAiSubscription = request_route {
+                let mut trace_request_body = built_request.body.clone();
+                if let Some(obj) = trace_request_body.as_object_mut() {
+                    obj.insert(
+                        "transport".to_string(),
+                        serde_json::to_value(request_transport.as_response_transport())
+                            .unwrap_or(serde_json::Value::Null),
+                    );
+                    obj.insert(
+                        "route".to_string(),
+                        serde_json::Value::String("openai-subscription".to_string()),
+                    );
+                }
+                trace_writer.add_event(
+                    span_id.clone(),
+                    crate::llm::tracing::types::attributes::HTTP_REQUEST_BODY.to_string(),
+                    Some(trace_request_body),
+                );
+            } else {
+                trace_writer.add_event(
+                    span_id.clone(),
+                    crate::llm::tracing::types::attributes::HTTP_REQUEST_BODY.to_string(),
+                    Some(built_request.body.clone()),
+                );
+            }
+
             // let _parent_exists = trace_context
             //     .parent_span_id
             //     .as_deref()
@@ -192,16 +256,7 @@ impl StreamHandler {
 
         let headers = built_request.headers.clone();
         let body = built_request.body.clone();
-
-        // Record request event for tracing
-        if let Some(ref span_id) = trace_span_id {
-            let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
-            trace_writer.add_event(
-                span_id.clone(),
-                crate::llm::tracing::types::attributes::HTTP_REQUEST_BODY.to_string(),
-                Some(body.clone()),
-            );
-        }
+        let request_transport = built_request.transport;
 
         let test_config = TestConfig::from_env();
 
@@ -261,6 +316,16 @@ impl StreamHandler {
             });
         }
 
+        let uses_subscription_timeout_budget =
+            openai_responses_ws::uses_subscription_timeout_budget(&built_request);
+        let request_timeout_override = uses_subscription_timeout_budget
+            .then_some(openai_responses_ws::subscription_http_request_timeout());
+        let stream_timeout = if uses_subscription_timeout_budget {
+            openai_responses_ws::websocket_read_idle_timeout()
+        } else {
+            Duration::from_secs(300)
+        };
+
         let client = HTTP_CLIENT.get_or_init(|| {
             reqwest::Client::builder()
                 .connect_timeout(Duration::from_secs(10))
@@ -274,419 +339,113 @@ impl StreamHandler {
         });
         log::debug!("[LLM Stream {}] HTTP client ready", request_id);
 
-        let mut req_builder = client.post(&url);
-        for (key, value) in headers {
-            req_builder = req_builder.header(&key, &value);
-        }
-        req_builder = req_builder
-            .header("Accept", "text/event-stream")
-            .json(&body);
-
-        // log::info!("[LLM Stream {}] Sending HTTP request...", request_id);
-
-        // Retry configuration: exponential backoff with max 3 retries
-        const MAX_RETRIES: u32 = 3;
-        const BASE_DELAY_MS: u64 = 1000;
-
-        let mut response = None;
-        let mut last_error: Option<String> = None;
-
-        for attempt in 0..=MAX_RETRIES {
-            if attempt > 0 {
-                let delay_ms = BASE_DELAY_MS * (1 << (attempt - 1)); // Exponential backoff: 1s, 2s, 4s
-                log::info!(
-                    "[LLM Stream {}] Retrying request (attempt {}/{}), waiting {}ms",
-                    request_id,
-                    attempt,
-                    MAX_RETRIES,
-                    delay_ms
-                );
-                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-            }
-
-            match req_builder.try_clone() {
-                Some(builder) => match builder.send().await {
-                    Ok(resp) => {
-                        response = Some(resp);
-                        break;
-                    }
-                    Err(e) => {
-                        let err_msg = format!("{}", e);
-                        log::warn!(
-                            "[LLM Stream {}] Request attempt {}/{} failed: {}",
-                            request_id,
-                            attempt + 1,
-                            MAX_RETRIES + 1,
-                            err_msg
-                        );
-                        last_error = Some(err_msg);
-                    }
-                },
-                None => {
-                    // Request body cannot be cloned, try without cloning
-                    match req_builder.send().await {
-                        Ok(resp) => {
-                            response = Some(resp);
-                            break;
-                        }
-                        Err(e) => {
-                            let err_msg = format!("{}", e);
-                            log::warn!(
-                                "[LLM Stream {}] Request attempt {}/{} failed: {}",
-                                request_id,
-                                attempt + 1,
-                                MAX_RETRIES + 1,
-                                err_msg
-                            );
-                            last_error = Some(err_msg);
-                            // Cannot retry without cloning
-                            break;
-                        }
-                    }
-                }
-            }
-        }
-
-        let response = response.ok_or_else(|| {
-            let err = last_error.unwrap_or_else(|| "Request failed after all retries".to_string());
-            log::error!("[LLM Stream {}] Request failed: {}", request_id, err);
-            format!("Request failed: {}", err)
-        })?;
-
-        let status = response.status().as_u16();
-        if status >= 400 {
-            let response_headers = response.headers().clone();
-            let text = response.text().await.unwrap_or_default();
-            log::error!(
-                "[LLM Stream {}] HTTP error {}: {}",
-                request_id,
-                status,
-                text
-            );
-            if let Some(recorder) = recorder.as_mut() {
-                let _ = recorder.finish_error(status, &response_headers, &text);
-            }
-            // Record error in tracing span
-            if let Some(ref span_id) = trace_span_id {
-                let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
-                trace_writer.add_event(
-                    span_id.clone(),
-                    crate::llm::tracing::types::attributes::ERROR_TYPE.to_string(),
-                    Some(serde_json::json!({
-                        "error_type": "http_error",
-                        "status_code": status,
-                        "message": text,
-                    })),
-                );
-            }
-            let error_event = StreamEvent::Error {
-                message: format!("HTTP {}: {}", status, text),
-            };
-            let _ = window.emit(&event_name, &error_event);
-            return Err(format!("HTTP error {}", status));
-        }
-
-        let response_headers = response.headers().clone();
-        let mut stream = response.bytes_stream();
-        let mut buffer: Vec<u8> = Vec::new();
         let mut state = StreamParseState::default();
-        let mut chunk_count = 0;
         let mut response_text = String::new();
-        let stream_timeout = Duration::from_secs(300); // Timeout between chunks
-        const STREAM_MAX_RETRIES: u32 = 3;
-        const STREAM_BASE_DELAY_MS: u64 = 1000;
-        let mut stream_error_retries: u32 = 0;
 
-        'stream_loop: loop {
-            // Use timeout to prevent hanging on stream.next().await
-            let chunk_result = timeout(stream_timeout, stream.next()).await;
-
-            let chunk = match chunk_result {
-                Ok(Some(result)) => result,
-                Ok(None) => {
-                    log::info!(
-                        "[LLM Stream {}] Stream ended normally after {} chunks",
-                        request_id,
-                        chunk_count
+        if request_transport == ProviderTransport::Websocket
+            && openai_responses_ws::should_use_websocket_transport(&built_request)
+        {
+            log::info!(
+                "[LLM Stream {}] Attempting OpenAI subscription websocket transport",
+                request_id
+            );
+            match openai_responses_ws::stream_request(
+                provider.as_ref(),
+                &provider_ctx,
+                &built_request,
+                |event| {
+                    self.handle_stream_event(
+                        &window,
+                        &event_name,
+                        &request_id,
+                        &event,
+                        &mut state,
+                        &mut trace_usage,
+                        &mut trace_finish_reason,
+                        &mut trace_ttft_emitted,
+                        &mut done_emitted,
+                        &mut response_text,
+                        recorder.as_mut(),
+                        trace_span_id.as_ref(),
+                        trace_client_start_ms,
                     );
-                    break;
+                },
+            )
+            .await
+            {
+                Ok(OpenAiResponsesWsOutcome::Completed { .. }) => {}
+                Ok(OpenAiResponsesWsOutcome::FallbackToHttpSse) => {
+                    state.response_metadata_transport =
+                        Some(crate::llm::types::ResponseTransport::HttpSse);
+                    self.execute_http_sse_stream(
+                        &window,
+                        &event_name,
+                        &request_id,
+                        &provider_ctx,
+                        provider.as_ref(),
+                        &url,
+                        &headers,
+                        &body,
+                        request_timeout_override,
+                        stream_timeout,
+                        trace_span_id.as_ref(),
+                        trace_client_start_ms,
+                        &mut state,
+                        &mut trace_usage,
+                        &mut trace_finish_reason,
+                        &mut trace_ttft_emitted,
+                        &mut done_emitted,
+                        &mut response_text,
+                        &mut recorder,
+                        client,
+                    )
+                    .await?;
                 }
-                Err(_) => {
-                    log::error!(
-                        "[LLM Stream {}] Stream timeout - no data received for {} seconds",
-                        request_id,
-                        stream_timeout.as_secs()
-                    );
-                    // Record error in tracing span
+                Err(err) => {
                     if let Some(ref span_id) = trace_span_id {
                         let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
                         trace_writer.add_event(
                             span_id.clone(),
                             crate::llm::tracing::types::attributes::ERROR_TYPE.to_string(),
                             Some(serde_json::json!({
-                                "error_type": "stream_timeout",
-                                "timeout_seconds": stream_timeout.as_secs(),
-                                "message": format!("Stream timeout - no data received for {} seconds", stream_timeout.as_secs()),
+                                "error_type": "websocket_error",
+                                "message": err,
                             })),
                         );
                     }
-                    let error_event = StreamEvent::Error {
-                        message: format!(
-                            "Stream timeout - no data received for {} seconds",
-                            stream_timeout.as_secs()
-                        ),
-                    };
-                    let _ = window.emit(&event_name, &error_event);
-                    return Err(format!(
-                        "Stream timeout - no data received for {} seconds",
-                        stream_timeout.as_secs()
-                    ));
-                }
-            };
-
-            chunk_count += 1;
-
-            let bytes = match chunk {
-                Ok(b) => b,
-                Err(e) => {
-                    let err_msg = e.to_string();
-                    if Self::is_decode_response_body_error(&err_msg)
-                        && stream_error_retries < STREAM_MAX_RETRIES
-                    {
-                        let delay_ms = STREAM_BASE_DELAY_MS * (1u64 << stream_error_retries);
-                        log::warn!(
-                            "[LLM Stream {}] Stream decode error at chunk {}, retrying {}/{} after {}ms: {}",
-                            request_id,
-                            chunk_count,
-                            stream_error_retries + 1,
-                            STREAM_MAX_RETRIES,
-                            delay_ms,
-                            err_msg
-                        );
-                        stream_error_retries += 1;
-                        tokio::time::sleep(Duration::from_millis(delay_ms)).await;
-                        continue;
-                    }
-                    log::error!(
-                        "[LLM Stream {}] Stream error at chunk {}: {}",
-                        request_id,
-                        chunk_count,
-                        err_msg
+                    let _ = window.emit(
+                        &event_name,
+                        &StreamEvent::Error {
+                            message: err.clone(),
+                        },
                     );
-                    // Record error in tracing span
-                    if let Some(ref span_id) = trace_span_id {
-                        let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
-                        trace_writer.add_event(
-                            span_id.clone(),
-                            crate::llm::tracing::types::attributes::ERROR_TYPE.to_string(),
-                            Some(serde_json::json!({
-                                "error_type": "stream_error",
-                                "chunk_count": chunk_count,
-                                "message": format!("Stream error: {}", err_msg),
-                            })),
-                        );
-                    }
-                    let error_event = StreamEvent::Error {
-                        message: format!("Stream error: {}", err_msg),
-                    };
-                    let _ = window.emit(&event_name, &error_event);
-                    return Err(format!("Stream error: {}", err_msg));
-                }
-            };
-
-            stream_error_retries = 0;
-
-            if bytes.is_empty() {
-                log::debug!("[LLM Stream {}] Received empty chunk", request_id);
-                continue;
-            }
-
-            buffer.extend_from_slice(&bytes);
-
-            // Process SSE events from buffer, handling both \n\n and \r\n\r\n delimiters
-            while let Some((idx, delimiter_len)) = Self::find_sse_delimiter(&buffer) {
-                let event_bytes = buffer[..idx].to_vec();
-                buffer.drain(..idx + delimiter_len);
-
-                let event_str = match String::from_utf8(event_bytes) {
-                    Ok(s) => s,
-                    Err(e) => {
-                        log::error!(
-                            "[LLM Stream {}] Invalid UTF-8 in SSE event: {}",
-                            request_id,
-                            e
-                        );
-                        // Record error in tracing span
-                        if let Some(ref span_id) = trace_span_id {
-                            let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
-                            trace_writer.add_event(
-                                span_id.clone(),
-                                crate::llm::tracing::types::attributes::ERROR_TYPE.to_string(),
-                                Some(serde_json::json!({
-                                    "error_type": "utf8_error",
-                                    "message": format!("Invalid UTF-8 in SSE event: {}", e),
-                                })),
-                            );
-                        }
-                        let error_event = StreamEvent::Error {
-                            message: format!("Invalid UTF-8 in SSE event: {}", e),
-                        };
-                        let _ = window.emit(&event_name, &error_event);
-                        return Err(format!("Invalid UTF-8 in SSE event: {}", e));
-                    }
-                };
-
-                if let Some(parsed) = Self::parse_sse_event(&event_str) {
-                    if let Some(recorder) = recorder.as_mut() {
-                        recorder.record_sse_event(parsed.event.as_deref(), &parsed.data);
-                    }
-                    let parsed_result = provider
-                        .parse_stream_event_with_context(
-                            &provider_ctx,
-                            parsed.event.as_deref(),
-                            &parsed.data,
-                            &mut state,
-                        )
-                        .await;
-                    match parsed_result {
-                        Ok(Some(event)) => {
-                            // Capture usage and finish_reason for tracing
-                            match &event {
-                                StreamEvent::Usage {
-                                    input_tokens,
-                                    output_tokens,
-                                    total_tokens,
-                                    cached_input_tokens,
-                                    cache_creation_input_tokens,
-                                } => {
-                                    trace_usage = Some((
-                                        *input_tokens,
-                                        *output_tokens,
-                                        *total_tokens,
-                                        *cached_input_tokens,
-                                        *cache_creation_input_tokens,
-                                    ));
-                                }
-                                StreamEvent::Done { finish_reason } => {
-                                    trace_finish_reason = finish_reason.clone();
-                                }
-                                _ => {}
-                            }
-
-                            if let Some(recorder) = recorder.as_mut() {
-                                recorder.record_expected_event(&event);
-                            }
-                            Self::append_text_delta(&mut response_text, &event);
-                            self.emit_stream_event(&window, &event_name, &request_id, &event);
-
-                            if !trace_ttft_emitted {
-                                if let (Some(ref span_id), Some(client_start_ms)) =
-                                    (trace_span_id.as_ref(), trace_client_start_ms)
-                                {
-                                    let now_ms = chrono::Utc::now().timestamp_millis();
-                                    if now_ms >= client_start_ms {
-                                        let ttft_ms = now_ms - client_start_ms;
-                                        let trace_writer =
-                                            window.app_handle().state::<Arc<TraceWriter>>();
-                                        trace_writer.add_event(
-                                            span_id.to_string(),
-                                            crate::llm::tracing::types::attributes::GEN_AI_TTFT_MS
-                                                .to_string(),
-                                            Some(serde_json::json!({ "ttft_ms": ttft_ms })),
-                                        );
-                                    }
-                                }
-                                trace_ttft_emitted = true;
-                            }
-
-                            if !state.pending_events.is_empty() {
-                                for pending in state.pending_events.drain(..) {
-                                    if let Some(recorder) = recorder.as_mut() {
-                                        recorder.record_expected_event(&pending);
-                                    }
-                                    Self::append_text_delta(&mut response_text, &pending);
-                                    self.emit_stream_event(
-                                        &window,
-                                        &event_name,
-                                        &request_id,
-                                        &pending,
-                                    );
-                                }
-                            }
-
-                            if matches!(event, StreamEvent::Done { .. }) {
-                                log::info!(
-                                    "[LLM Stream {}] Done event received, ending stream loop",
-                                    request_id
-                                );
-                                done_emitted = true;
-                                break 'stream_loop;
-                            }
-                        }
-                        Ok(None) => {
-                            log::debug!(
-                                "[LLM Stream {}] No event emitted from parsed data",
-                                request_id
-                            );
-                            if !state.pending_events.is_empty() {
-                                for pending in state.pending_events.drain(..) {
-                                    if let Some(recorder) = recorder.as_mut() {
-                                        recorder.record_expected_event(&pending);
-                                    }
-                                    Self::append_text_delta(&mut response_text, &pending);
-                                    self.emit_stream_event(
-                                        &window,
-                                        &event_name,
-                                        &request_id,
-                                        &pending,
-                                    );
-                                }
-                            }
-                        }
-                        Err(err) => {
-                            log::error!(
-                                "[LLM Stream {}] Error parsing stream event: {}",
-                                request_id,
-                                err
-                            );
-                            // Record error in tracing span
-                            if let Some(ref span_id) = trace_span_id {
-                                let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
-                                trace_writer.add_event(
-                                    span_id.clone(),
-                                    crate::llm::tracing::types::attributes::ERROR_TYPE.to_string(),
-                                    Some(serde_json::json!({
-                                        "error_type": "parse_error",
-                                        "message": err,
-                                    })),
-                                );
-                            }
-                            let _ = window.emit(
-                                &event_name,
-                                &StreamEvent::Error {
-                                    message: err.clone(),
-                                },
-                            );
-                            return Err(err);
-                        }
-                    }
-                } else {
-                    log::debug!(
-                        "[LLM Stream {}] No SSE event parsed from: {}",
-                        request_id,
-                        event_str
-                    );
+                    return Err(err);
                 }
             }
-        }
-
-        if let Some(recorder) = recorder.as_mut() {
-            if state.finish_reason.as_deref() == Some("tool_calls") {
-                recorder.record_expected_event(&StreamEvent::Done {
-                    finish_reason: state.finish_reason.clone(),
-                });
-            }
-            let _ = recorder.finish_stream(status, &response_headers);
+        } else {
+            self.execute_http_sse_stream(
+                &window,
+                &event_name,
+                &request_id,
+                &provider_ctx,
+                provider.as_ref(),
+                &url,
+                &headers,
+                &body,
+                request_timeout_override,
+                stream_timeout,
+                trace_span_id.as_ref(),
+                trace_client_start_ms,
+                &mut state,
+                &mut trace_usage,
+                &mut trace_finish_reason,
+                &mut trace_ttft_emitted,
+                &mut done_emitted,
+                &mut response_text,
+                &mut recorder,
+                client,
+            )
+            .await?;
         }
 
         // Record response event and usage for tracing
@@ -778,12 +537,537 @@ impl StreamHandler {
         Ok(request_id)
     }
 
+    #[allow(clippy::too_many_arguments)]
+    async fn execute_http_sse_stream(
+        &self,
+        window: &tauri::Window,
+        event_name: &str,
+        request_id: &str,
+        provider_ctx: &ProviderContext<'_>,
+        provider: &dyn crate::llm::providers::Provider,
+        url: &str,
+        headers: &HashMap<String, String>,
+        body: &serde_json::Value,
+        request_timeout_override: Option<Duration>,
+        stream_timeout: Duration,
+        trace_span_id: Option<&String>,
+        trace_client_start_ms: Option<i64>,
+        state: &mut StreamParseState,
+        trace_usage: &mut Option<TokenUsageInfo>,
+        trace_finish_reason: &mut Option<String>,
+        trace_ttft_emitted: &mut bool,
+        done_emitted: &mut bool,
+        response_text: &mut String,
+        recorder: &mut Option<Recorder>,
+        client: &reqwest::Client,
+    ) -> Result<(), String> {
+        let mut response = None;
+        let mut last_error: Option<String> = None;
+
+        for attempt in 0..=TRANSIENT_PROVIDER_RETRY_LIMIT {
+            let mut req_builder = client.post(url);
+            for (key, value) in headers {
+                req_builder = req_builder.header(key, value);
+            }
+            if let Some(timeout_override) = request_timeout_override {
+                req_builder = req_builder.timeout(timeout_override);
+            }
+            req_builder = req_builder.header("Accept", "text/event-stream").json(body);
+
+            if attempt > 0 {
+                let delay_ms = transient_provider_retry_delay_ms(attempt);
+                log::info!(
+                    "[LLM Stream {}] Retrying request (attempt {}/{}), waiting {}ms",
+                    request_id,
+                    attempt,
+                    TRANSIENT_PROVIDER_RETRY_LIMIT,
+                    delay_ms
+                );
+                tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+            }
+
+            let response_result = match req_builder.try_clone() {
+                Some(builder) => builder.send().await,
+                None => req_builder.send().await,
+            };
+
+            let response_candidate = match response_result {
+                Ok(resp) => resp,
+                Err(err) => {
+                    let err_msg = err.to_string();
+                    log::warn!(
+                        "[LLM Stream {}] Request attempt {}/{} failed: {}",
+                        request_id,
+                        attempt + 1,
+                        TRANSIENT_PROVIDER_RETRY_LIMIT + 1,
+                        err_msg
+                    );
+                    last_error = Some(err_msg);
+                    if attempt == TRANSIENT_PROVIDER_RETRY_LIMIT {
+                        break;
+                    }
+                    continue;
+                }
+            };
+
+            let status = response_candidate.status().as_u16();
+            if status >= 400 {
+                let response_headers = response_candidate.headers().clone();
+                let text = response_candidate.text().await.unwrap_or_default();
+                let err_msg = format!("HTTP {}: {}", status, text);
+
+                if should_retry_transient_http_error(status, &text)
+                    && attempt < TRANSIENT_PROVIDER_RETRY_LIMIT
+                {
+                    log::warn!(
+                        "[LLM Stream {}] Retrying transient HTTP error attempt {}/{}: {}",
+                        request_id,
+                        attempt + 1,
+                        TRANSIENT_PROVIDER_RETRY_LIMIT + 1,
+                        err_msg
+                    );
+                    last_error = Some(err_msg);
+                    continue;
+                }
+
+                log::error!(
+                    "[LLM Stream {}] HTTP error {}: {}",
+                    request_id,
+                    status,
+                    text
+                );
+                if let Some(recorder) = recorder.as_mut() {
+                    let _ = recorder.finish_error(status, &response_headers, &text);
+                }
+                if let Ok(payload) = serde_json::from_str::<serde_json::Value>(&text) {
+                    if let Some(reason) = classify_continuation_rejection(
+                        &payload,
+                        provider_ctx.previous_response_id.is_some(),
+                    ) {
+                        let fallback_event = StreamEvent::TransportFallback {
+                            reason,
+                            from: crate::llm::types::TransportFallbackSource::ResponsesChained,
+                            to: crate::llm::types::TransportFallbackTarget::Stateless,
+                        };
+                        self.emit_stream_event(window, event_name, request_id, &fallback_event);
+                    }
+                }
+                if let Some(span_id) = trace_span_id {
+                    let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
+                    trace_writer.add_event(
+                        span_id.clone(),
+                        crate::llm::tracing::types::attributes::ERROR_TYPE.to_string(),
+                        Some(serde_json::json!({
+                            "error_type": "http_error",
+                            "status_code": status,
+                            "message": text,
+                        })),
+                    );
+                }
+                let error_event = StreamEvent::Error {
+                    message: format!("HTTP {}: {}", status, text),
+                };
+                let _ = window.emit(event_name, &error_event);
+                return Err(format!("HTTP error {}", status));
+            }
+
+            response = Some(response_candidate);
+            break;
+        }
+
+        let response = response.ok_or_else(|| {
+            let err = last_error.unwrap_or_else(|| "Request failed after all retries".to_string());
+            log::error!("[LLM Stream {}] Request failed: {}", request_id, err);
+            format!("Request failed: {}", err)
+        })?;
+
+        let status = response.status().as_u16();
+        let response_headers = response.headers().clone();
+        let mut stream = response.bytes_stream();
+        let mut buffer: Vec<u8> = Vec::new();
+        let mut chunk_count = 0;
+        const STREAM_MAX_RETRIES: u32 = 3;
+        const STREAM_BASE_DELAY_MS: u64 = 1000;
+        let mut stream_error_retries: u32 = 0;
+
+        'stream_loop: loop {
+            let chunk_result = timeout(stream_timeout, stream.next()).await;
+
+            let chunk = match chunk_result {
+                Ok(Some(result)) => result,
+                Ok(None) => {
+                    log::info!(
+                        "[LLM Stream {}] Stream ended normally after {} chunks",
+                        request_id,
+                        chunk_count
+                    );
+                    break;
+                }
+                Err(_) => {
+                    log::error!(
+                        "[LLM Stream {}] Stream timeout - no data received for {} seconds",
+                        request_id,
+                        stream_timeout.as_secs()
+                    );
+                    if let Some(span_id) = trace_span_id {
+                        let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
+                        trace_writer.add_event(
+                            span_id.clone(),
+                            crate::llm::tracing::types::attributes::ERROR_TYPE.to_string(),
+                            Some(serde_json::json!({
+                                "error_type": "stream_timeout",
+                                "timeout_seconds": stream_timeout.as_secs(),
+                                "message": format!("Stream timeout - no data received for {} seconds", stream_timeout.as_secs()),
+                            })),
+                        );
+                    }
+                    let error_event = StreamEvent::Error {
+                        message: format!(
+                            "Stream timeout - no data received for {} seconds",
+                            stream_timeout.as_secs()
+                        ),
+                    };
+                    let _ = window.emit(event_name, &error_event);
+                    return Err(format!(
+                        "Stream timeout - no data received for {} seconds",
+                        stream_timeout.as_secs()
+                    ));
+                }
+            };
+
+            chunk_count += 1;
+
+            let bytes = match chunk {
+                Ok(bytes) => bytes,
+                Err(err) => {
+                    let err_msg = err.to_string();
+                    if Self::is_decode_response_body_error(&err_msg)
+                        && stream_error_retries < STREAM_MAX_RETRIES
+                    {
+                        let delay_ms = STREAM_BASE_DELAY_MS * (1u64 << stream_error_retries);
+                        log::warn!(
+                            "[LLM Stream {}] Stream decode error at chunk {}, retrying {}/{} after {}ms: {}",
+                            request_id,
+                            chunk_count,
+                            stream_error_retries + 1,
+                            STREAM_MAX_RETRIES,
+                            delay_ms,
+                            err_msg
+                        );
+                        stream_error_retries += 1;
+                        tokio::time::sleep(Duration::from_millis(delay_ms)).await;
+                        continue;
+                    }
+                    log::error!(
+                        "[LLM Stream {}] Stream error at chunk {}: {}",
+                        request_id,
+                        chunk_count,
+                        err_msg
+                    );
+                    if let Some(span_id) = trace_span_id {
+                        let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
+                        trace_writer.add_event(
+                            span_id.clone(),
+                            crate::llm::tracing::types::attributes::ERROR_TYPE.to_string(),
+                            Some(serde_json::json!({
+                                "error_type": "stream_error",
+                                "chunk_count": chunk_count,
+                                "message": format!("Stream error: {}", err_msg),
+                            })),
+                        );
+                    }
+                    let error_event = StreamEvent::Error {
+                        message: format!("Stream error: {}", err_msg),
+                    };
+                    let _ = window.emit(event_name, &error_event);
+                    return Err(format!("Stream error: {}", err_msg));
+                }
+            };
+
+            stream_error_retries = 0;
+
+            if bytes.is_empty() {
+                log::debug!("[LLM Stream {}] Received empty chunk", request_id);
+                continue;
+            }
+
+            buffer.extend_from_slice(&bytes);
+
+            while let Some((idx, delimiter_len)) = Self::find_sse_delimiter(&buffer) {
+                let event_bytes = buffer[..idx].to_vec();
+                buffer.drain(..idx + delimiter_len);
+
+                let event_str = match String::from_utf8(event_bytes) {
+                    Ok(value) => value,
+                    Err(err) => {
+                        log::error!(
+                            "[LLM Stream {}] Invalid UTF-8 in SSE event: {}",
+                            request_id,
+                            err
+                        );
+                        if let Some(span_id) = trace_span_id {
+                            let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
+                            trace_writer.add_event(
+                                span_id.clone(),
+                                crate::llm::tracing::types::attributes::ERROR_TYPE.to_string(),
+                                Some(serde_json::json!({
+                                    "error_type": "utf8_error",
+                                    "message": format!("Invalid UTF-8 in SSE event: {}", err),
+                                })),
+                            );
+                        }
+                        let error_event = StreamEvent::Error {
+                            message: format!("Invalid UTF-8 in SSE event: {}", err),
+                        };
+                        let _ = window.emit(event_name, &error_event);
+                        return Err(format!("Invalid UTF-8 in SSE event: {}", err));
+                    }
+                };
+
+                if let Some(parsed) = Self::parse_sse_event(&event_str) {
+                    if let Some(recorder) = recorder.as_mut() {
+                        recorder.record_sse_event(parsed.event.as_deref(), &parsed.data);
+                    }
+                    let parsed_result = provider
+                        .parse_stream_event_with_context(
+                            provider_ctx,
+                            parsed.event.as_deref(),
+                            &parsed.data,
+                            state,
+                        )
+                        .await;
+                    match parsed_result {
+                        Ok(Some(event)) => {
+                            self.handle_stream_event(
+                                window,
+                                event_name,
+                                request_id,
+                                &event,
+                                state,
+                                trace_usage,
+                                trace_finish_reason,
+                                trace_ttft_emitted,
+                                done_emitted,
+                                response_text,
+                                recorder.as_mut(),
+                                trace_span_id,
+                                trace_client_start_ms,
+                            );
+                            if *done_emitted {
+                                break 'stream_loop;
+                            }
+                        }
+                        Ok(None) => {
+                            self.emit_pending_events(
+                                window,
+                                event_name,
+                                request_id,
+                                state,
+                                trace_usage,
+                                trace_finish_reason,
+                                trace_ttft_emitted,
+                                done_emitted,
+                                response_text,
+                                recorder.as_mut(),
+                                trace_span_id,
+                                trace_client_start_ms,
+                            );
+                            if *done_emitted {
+                                break 'stream_loop;
+                            }
+                        }
+                        Err(err) => {
+                            log::error!(
+                                "[LLM Stream {}] Error parsing stream event: {}",
+                                request_id,
+                                err
+                            );
+                            if let Some(span_id) = trace_span_id {
+                                let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
+                                trace_writer.add_event(
+                                    span_id.clone(),
+                                    crate::llm::tracing::types::attributes::ERROR_TYPE.to_string(),
+                                    Some(serde_json::json!({
+                                        "error_type": "parse_error",
+                                        "message": err,
+                                    })),
+                                );
+                            }
+                            let _ = window.emit(
+                                event_name,
+                                &StreamEvent::Error {
+                                    message: err.clone(),
+                                },
+                            );
+                            return Err(err);
+                        }
+                    }
+                }
+            }
+        }
+
+        if let Some(recorder) = recorder.as_mut() {
+            if state.finish_reason.as_deref() == Some("tool_calls") {
+                recorder.record_expected_event(&StreamEvent::Done {
+                    finish_reason: state.finish_reason.clone(),
+                });
+            }
+            let _ = recorder.finish_stream(status, &response_headers);
+        }
+
+        Ok(())
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn handle_stream_event(
+        &self,
+        window: &tauri::Window,
+        event_name: &str,
+        request_id: &str,
+        event: &StreamEvent,
+        state: &mut StreamParseState,
+        trace_usage: &mut Option<TokenUsageInfo>,
+        trace_finish_reason: &mut Option<String>,
+        trace_ttft_emitted: &mut bool,
+        done_emitted: &mut bool,
+        response_text: &mut String,
+        mut recorder: Option<&mut Recorder>,
+        trace_span_id: Option<&String>,
+        trace_client_start_ms: Option<i64>,
+    ) {
+        Self::capture_trace_event(trace_usage, trace_finish_reason, event);
+        if let Some(recorder) = recorder.as_deref_mut() {
+            recorder.record_expected_event(event);
+        }
+        Self::append_text_delta(response_text, event);
+        self.emit_stream_event(window, event_name, request_id, event);
+        Self::emit_ttft_if_needed(
+            window,
+            trace_span_id,
+            trace_client_start_ms,
+            trace_ttft_emitted,
+        );
+        self.emit_pending_events(
+            window,
+            event_name,
+            request_id,
+            state,
+            trace_usage,
+            trace_finish_reason,
+            trace_ttft_emitted,
+            done_emitted,
+            response_text,
+            recorder,
+            trace_span_id,
+            trace_client_start_ms,
+        );
+        if matches!(event, StreamEvent::Done { .. }) {
+            log::info!(
+                "[LLM Stream {}] Done event received, ending stream loop",
+                request_id
+            );
+            *done_emitted = true;
+        }
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn emit_pending_events(
+        &self,
+        window: &tauri::Window,
+        event_name: &str,
+        request_id: &str,
+        state: &mut StreamParseState,
+        trace_usage: &mut Option<TokenUsageInfo>,
+        trace_finish_reason: &mut Option<String>,
+        trace_ttft_emitted: &mut bool,
+        done_emitted: &mut bool,
+        response_text: &mut String,
+        mut recorder: Option<&mut Recorder>,
+        trace_span_id: Option<&String>,
+        trace_client_start_ms: Option<i64>,
+    ) {
+        while let Some(pending) = state.pending_events.first().cloned() {
+            state.pending_events.remove(0);
+            Self::capture_trace_event(trace_usage, trace_finish_reason, &pending);
+            if let Some(recorder) = recorder.as_deref_mut() {
+                recorder.record_expected_event(&pending);
+            }
+            Self::append_text_delta(response_text, &pending);
+            self.emit_stream_event(window, event_name, request_id, &pending);
+            Self::emit_ttft_if_needed(
+                window,
+                trace_span_id,
+                trace_client_start_ms,
+                trace_ttft_emitted,
+            );
+            if matches!(pending, StreamEvent::Done { .. }) {
+                *done_emitted = true;
+            }
+        }
+    }
+
+    fn capture_trace_event(
+        trace_usage: &mut Option<TokenUsageInfo>,
+        trace_finish_reason: &mut Option<String>,
+        event: &StreamEvent,
+    ) {
+        match event {
+            StreamEvent::Usage {
+                input_tokens,
+                output_tokens,
+                total_tokens,
+                cached_input_tokens,
+                cache_creation_input_tokens,
+            } => {
+                *trace_usage = Some((
+                    *input_tokens,
+                    *output_tokens,
+                    *total_tokens,
+                    *cached_input_tokens,
+                    *cache_creation_input_tokens,
+                ));
+            }
+            StreamEvent::Done { finish_reason } => {
+                *trace_finish_reason = finish_reason.clone();
+            }
+            _ => {}
+        }
+    }
+
+    fn emit_ttft_if_needed(
+        window: &tauri::Window,
+        trace_span_id: Option<&String>,
+        trace_client_start_ms: Option<i64>,
+        trace_ttft_emitted: &mut bool,
+    ) {
+        if *trace_ttft_emitted {
+            return;
+        }
+        if let (Some(span_id), Some(client_start_ms)) = (trace_span_id, trace_client_start_ms) {
+            let now_ms = chrono::Utc::now().timestamp_millis();
+            if now_ms >= client_start_ms {
+                let ttft_ms = now_ms - client_start_ms;
+                let trace_writer = window.app_handle().state::<Arc<TraceWriter>>();
+                trace_writer.add_event(
+                    span_id.to_string(),
+                    crate::llm::tracing::types::attributes::GEN_AI_TTFT_MS.to_string(),
+                    Some(serde_json::json!({ "ttft_ms": ttft_ms })),
+                );
+            }
+        }
+        *trace_ttft_emitted = true;
+    }
+
     async fn resolve_model_info(
         &self,
         model_identifier: &str,
     ) -> Result<(String, String, String), String> {
         let models = self.api_keys.load_models_config().await?;
-        let api_keys = self.api_keys.load_api_keys().await?;
+        let api_keys =
+            crate::llm::models::model_registry::ModelRegistry::load_provider_credentials(
+                &self.api_keys,
+            )
+            .await?;
         let custom_providers = self.api_keys.load_custom_providers().await?;
 
         let (model_key, provider_id) =
@@ -956,6 +1240,35 @@ mod tests {
         ));
     }
 
+    #[test]
+    fn detects_transient_provider_retryable_error_messages() {
+        assert!(is_transient_provider_retryable_error(
+            "An error occurred while processing your request. You can retry your request, or contact us through our help center at help.openai.com if the error persists. Please include the request ID 57d3c258-9704-418d-b87f-9faab1a82bd8 in your message."
+        ));
+        assert!(is_transient_provider_retryable_error(
+            "Our servers are currently overloaded. Please try again later."
+        ));
+        assert!(!is_transient_provider_retryable_error(
+            "Your request was rejected because a required parameter is missing."
+        ));
+    }
+
+    #[test]
+    fn retries_transient_http_errors_even_without_5xx_status() {
+        assert!(should_retry_transient_http_error(
+            429,
+            "Our servers are currently overloaded. Please try again later."
+        ));
+        assert!(should_retry_transient_http_error(
+            500,
+            "Internal server error"
+        ));
+        assert!(!should_retry_transient_http_error(400, "Bad request"));
+        assert_eq!(transient_provider_retry_delay_ms(1), 1_000);
+        assert_eq!(transient_provider_retry_delay_ms(2), 2_000);
+        assert_eq!(transient_provider_retry_delay_ms(3), 4_000);
+    }
+
     #[tokio::test]
     async fn moonshot_video_input_forces_standard_base_url() {
         let dir = TempDir::new().expect("temp dir");
@@ -1004,6 +1317,12 @@ mod tests {
             top_k: None,
             provider_options: None,
             trace_context: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
         };
 
         let base_url = provider
@@ -1039,6 +1358,7 @@ mod tests {
 
         let request = StreamTextRequest {
             model: "gpt-5.1-codex-max@openai".to_string(),
+            fallback_models: None,
             messages: vec![Message::User {
                 content: MessageContent::Text("hi".to_string()),
                 provider_options: None,
@@ -1051,6 +1371,12 @@ mod tests {
             top_k: None,
             provider_options: None,
             request_id: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
             trace_context: None,
         };
 
@@ -1066,6 +1392,12 @@ mod tests {
             top_k: request.top_k,
             provider_options: request.provider_options.as_ref(),
             trace_context: request.trace_context.as_ref(),
+            conversation_mode: request.conversation_mode,
+            input_mode: request.input_mode,
+            previous_response_id: request.previous_response_id.as_deref(),
+            transport_session_id: request.transport_session_id.as_deref(),
+            allow_transport_fallback: request.allow_transport_fallback,
+            continuation_context: request.continuation_context.as_ref(),
         };
 
         let endpoint = provider.resolve_endpoint_path(&ctx).await;
@@ -1106,6 +1438,7 @@ mod tests {
 
         let request = StreamTextRequest {
             model: "gpt-4o@openai".to_string(),
+            fallback_models: None,
             messages: vec![Message::User {
                 content: MessageContent::Text("hi".to_string()),
                 provider_options: None,
@@ -1118,6 +1451,12 @@ mod tests {
             top_k: None,
             provider_options: None,
             request_id: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
             trace_context: None,
         };
 
@@ -1133,6 +1472,12 @@ mod tests {
             top_k: request.top_k,
             provider_options: request.provider_options.as_ref(),
             trace_context: request.trace_context.as_ref(),
+            conversation_mode: request.conversation_mode,
+            input_mode: request.input_mode,
+            previous_response_id: request.previous_response_id.as_deref(),
+            transport_session_id: request.transport_session_id.as_deref(),
+            allow_transport_fallback: request.allow_transport_fallback,
+            continuation_context: request.continuation_context.as_ref(),
         };
 
         let endpoint = provider.resolve_endpoint_path(&ctx).await;
@@ -1172,6 +1517,7 @@ mod tests {
 
         let request = StreamTextRequest {
             model: "gpt-5.2-codex".to_string(),
+            fallback_models: None,
             messages: vec![
                 Message::User {
                     content: MessageContent::Text("hi".to_string()),
@@ -1208,6 +1554,12 @@ mod tests {
             top_k: None,
             provider_options: None,
             request_id: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
             trace_context: None,
         };
 
@@ -1221,6 +1573,12 @@ mod tests {
             top_k: request.top_k,
             provider_options: request.provider_options.as_ref(),
             extra_body: provider.config().extra_body.as_ref(),
+            conversation_mode: request.conversation_mode,
+            input_mode: request.input_mode,
+            previous_response_id: request.previous_response_id.as_deref(),
+            transport_session_id: request.transport_session_id.as_deref(),
+            allow_transport_fallback: request.allow_transport_fallback,
+            continuation_context: request.continuation_context.as_ref(),
         };
         let body = OpenAiResponsesProtocol
             .build_request(request_ctx)
@@ -1481,6 +1839,12 @@ mod tests {
             top_k: None,
             provider_options: None,
             trace_context: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
         };
 
         let base_url = provider
@@ -1719,6 +2083,7 @@ mod tests {
 
         let request = StreamTextRequest {
             model: "gpt-5.2-codex".to_string(),
+            fallback_models: None,
             messages: vec![
                 Message::System {
                     content: "You are a helpful assistant.".to_string(),
@@ -1759,6 +2124,12 @@ mod tests {
             top_k: None,
             provider_options: None,
             request_id: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
             trace_context: None,
         };
 
@@ -1772,6 +2143,12 @@ mod tests {
             top_k: request.top_k,
             provider_options: request.provider_options.as_ref(),
             extra_body: provider.config().extra_body.as_ref(),
+            conversation_mode: request.conversation_mode,
+            input_mode: request.input_mode,
+            previous_response_id: request.previous_response_id.as_deref(),
+            transport_session_id: request.transport_session_id.as_deref(),
+            allow_transport_fallback: request.allow_transport_fallback,
+            continuation_context: request.continuation_context.as_ref(),
         };
         let body = OpenAiResponsesProtocol
             .build_request(request_ctx)

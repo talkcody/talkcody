@@ -118,6 +118,17 @@ impl ProtocolImpl for ClaudeProtocolWrapper {
             reasoning_id: state.reasoning_id.clone(),
             openai_reasoning: std::mem::take(&mut state.openai_reasoning),
             openai_store: state.openai_store,
+            response_id: state.response_id.clone(),
+            response_metadata_emitted: state.response_metadata_emitted,
+            response_metadata_provider: state.response_metadata_provider,
+            response_metadata_transport: state.response_metadata_transport,
+            response_metadata_transport_session_id: state
+                .response_metadata_transport_session_id
+                .clone(),
+            response_metadata_continuation_requested: state
+                .response_metadata_continuation_requested,
+            response_activity_started: state.response_activity_started,
+            response_metadata_continuation_accepted: state.response_metadata_continuation_accepted,
         };
 
         let result = self
@@ -138,6 +149,17 @@ impl ProtocolImpl for ClaudeProtocolWrapper {
         state.reasoning_id = legacy.reasoning_id;
         state.openai_reasoning = legacy.openai_reasoning;
         state.openai_store = legacy.openai_store;
+        state.response_id = legacy.response_id;
+        state.response_metadata_emitted = legacy.response_metadata_emitted;
+        state.response_metadata_provider = legacy.response_metadata_provider;
+        state.response_metadata_transport = legacy.response_metadata_transport;
+        state.response_metadata_transport_session_id =
+            legacy.response_metadata_transport_session_id;
+        state.response_metadata_continuation_requested =
+            legacy.response_metadata_continuation_requested;
+        state.response_activity_started = legacy.response_activity_started;
+        state.response_metadata_continuation_accepted =
+            legacy.response_metadata_continuation_accepted;
 
         result
     }

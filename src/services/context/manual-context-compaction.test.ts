@@ -3,7 +3,7 @@ import type { UIMessage } from '@/types/agent';
 import { compactTaskContext } from './manual-context-compaction';
 
 const mockCompactContext = vi.hoisted(() => vi.fn());
-const mockResolveModelTypeSync = vi.hoisted(() => vi.fn());
+const mockResolveModelTypeChainSync = vi.hoisted(() => vi.fn());
 const mockGetMessages = vi.hoisted(() => vi.fn());
 const mockGetTask = vi.hoisted(() => vi.fn());
 const mockSetMessages = vi.hoisted(() => vi.fn());
@@ -19,7 +19,7 @@ vi.mock('@/services/ai/ai-context-compaction', () => ({
 
 vi.mock('@/providers/models/model-type-service', () => ({
   modelTypeService: {
-    resolveModelTypeSync: mockResolveModelTypeSync,
+    resolveModelTypeChainSync: mockResolveModelTypeChainSync,
   },
 }));
 
@@ -65,7 +65,10 @@ describe('compactTaskContext', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockGetEffectiveWorkspaceRoot.mockResolvedValue('/repo');
-    mockResolveModelTypeSync.mockReturnValue('google/gemini-2.5-flash-lite');
+    mockResolveModelTypeChainSync.mockReturnValue([
+      'google/gemini-2.5-flash-lite',
+      'openai/gpt-4o-mini',
+    ]);
     mockWriteFile.mockResolvedValue('/path/to/file');
     mockGetLocale.mockReturnValue({
       Chat: {
@@ -147,6 +150,11 @@ describe('compactTaskContext', () => {
 
     expect(result.success).toBe(true);
     expect(mockWriteFile).toHaveBeenCalledTimes(1);
+    expect(mockCompactContext).toHaveBeenCalledWith(
+      expect.any(String),
+      'google/gemini-2.5-flash-lite',
+      ['openai/gpt-4o-mini']
+    );
     expect(mockSetMessages).not.toHaveBeenCalled();
 
     // Use compressed messages from result

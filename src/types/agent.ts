@@ -3,6 +3,21 @@ import type { ModelType } from './model-types';
 import type { OutputFormatType } from './output-format';
 import type { ToolInput, ToolOutput, ToolWithUI } from './tool';
 
+export interface ResponsesChainState {
+  enabled: boolean;
+  provider: 'openai-subscription';
+  transportPreference: 'auto' | 'websocket' | 'http';
+  transportSessionId?: string;
+  lastResponseId?: string;
+  baselineMessageCount: number;
+  fallbackCount: number;
+  broken: boolean;
+  brokenReason?: string;
+  lastTransport?: 'http-sse' | 'websocket';
+  lastContinuationAccepted?: boolean;
+  needsFreshWebsocketBaseline?: boolean;
+}
+
 /**
  * Custom tool set type that accepts our ToolWithUI objects.
  * This is used for AgentDefinition.tools which stores ToolWithUI instances.
@@ -57,6 +72,7 @@ export interface ConvertMessagesOptions {
 export interface AgentLoopOptions {
   messages: UIMessage[];
   model: string;
+  fallbackModels?: string[];
   systemPrompt?: string;
   tools?: AgentToolSet;
   isThink?: boolean;
@@ -79,6 +95,7 @@ export interface AgentLoopState {
   unknownFinishReasonCount?: number; // Counter for unknown finish reasons to prevent infinite loops
   rawChunks?: unknown[]; // Raw chunks from provider for debugging
   hasSkillScripts?: boolean; // Flag to track if skills with scripts have been loaded
+  responsesChain?: ResponsesChainState;
 }
 
 export interface AgentLoopCallbacks {
@@ -100,6 +117,7 @@ export interface CompressionConfig {
   enabled: boolean;
   preserveRecentMessages: number;
   compressionModel: string;
+  compressionFallbackModels?: string[];
   compressionThreshold: number; // 0.0 to 1.0, percentage of context window
 }
 
@@ -149,6 +167,8 @@ export interface AgentDefinition {
   name: string;
   description?: string;
   modelType: ModelType; // Model type category (main_model, small_model, etc.)
+  model?: string; // resolved concrete model identifier for execution
+  fallbackModels?: string[]; // ordered fallback chain used by the request layer
   systemPrompt: string | (() => Promise<string>) | (() => string);
   tools?: AgentToolSet;
   hidden?: boolean; // if true, not shown to users

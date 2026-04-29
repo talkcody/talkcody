@@ -63,6 +63,13 @@ vi.mock('../services/workspace-root-service', () => ({
   getEffectiveWorkspaceRoot: vi.fn().mockResolvedValue('/test/path'),
 }));
 
+vi.mock('@/providers/models/model-type-service', () => ({
+  modelTypeService: {
+    resolveModelTypeChainSync: vi.fn(() => ['test-compression-model']),
+    resolveModelTypeSync: vi.fn(() => 'test-compression-model'),
+  },
+}));
+
 vi.mock('../services/ai/ai-pricing-service', () => ({
   aiPricingService: {
     calculateCost: vi.fn().mockResolvedValue(0.001),
@@ -258,6 +265,7 @@ describe('ChatService.runManualAgentLoop', () => {
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.clearAllMocks();
   });
 
@@ -998,6 +1006,72 @@ describe('ChatService.runManualAgentLoop', () => {
           message: 'Unexpected error in agent loop (Error): Unknown stream error',
         })
       );
+    });
+
+    it('should retry transient processing-request errors and recover', async () => {
+      vi.useFakeTimers();
+
+      mockStreamText
+        .mockReturnValueOnce(
+          createLlmEventStream([
+            {
+              type: 'error',
+              message:
+                'An error occurred while processing your request. You can retry your request, or contact us through our help center at help.openai.com if the error persists. Please include the request ID 57d3c258-9704-418d-b87f-9faab1a82bd8 in your message.',
+            },
+          ])
+        )
+        .mockReturnValueOnce(
+          createLlmEventStream([
+            { type: 'text-delta', text: 'Recovered after retry.' },
+            { type: 'done', finish_reason: 'stop' },
+          ])
+        );
+
+      const runPromise = chatService.runAgentLoop(createBasicOptions(), mockCallbacks);
+
+      await vi.advanceTimersByTimeAsync(1000);
+      await runPromise;
+
+      expect(mockStreamText).toHaveBeenCalledTimes(2);
+      expect(mockCallbacks.onComplete).toHaveBeenCalledWith('Recovered after retry.');
+      expect(mockCallbacks.onError).not.toHaveBeenCalled();
+    });
+
+    it('should retry overloaded responses on the same model before switching to a fallback model', async () => {
+      vi.useFakeTimers();
+
+      const overloadedMessage = 'Our servers are currently overloaded. Please try again later.';
+      mockStreamText
+        .mockReturnValueOnce(createLlmEventStream([{ type: 'error', message: overloadedMessage }]))
+        .mockReturnValueOnce(createLlmEventStream([{ type: 'error', message: overloadedMessage }]))
+        .mockReturnValueOnce(createLlmEventStream([{ type: 'error', message: overloadedMessage }]))
+        .mockReturnValueOnce(createLlmEventStream([{ type: 'error', message: overloadedMessage }]))
+        .mockReturnValueOnce(
+          createLlmEventStream([
+            { type: 'text-delta', text: 'Recovered on fallback model.' },
+            { type: 'done', finish_reason: 'stop' },
+          ])
+        );
+
+      const runPromise = chatService.runAgentLoop(
+        createBasicOptions({ fallbackModels: ['fallback-model'] }),
+        mockCallbacks
+      );
+
+      await vi.advanceTimersByTimeAsync(6000);
+      await runPromise;
+
+      expect(mockStreamText).toHaveBeenCalledTimes(5);
+      expect(mockStreamText.mock.calls.slice(0, 4).map(([request]) => request.model)).toEqual([
+        'test-model',
+        'test-model',
+        'test-model',
+        'test-model',
+      ]);
+      expect(mockStreamText.mock.calls[4]?.[0]?.model).toBe('fallback-model');
+      expect(mockCallbacks.onComplete).toHaveBeenCalledWith('Recovered on fallback model.');
+      expect(mockCallbacks.onError).not.toHaveBeenCalled();
     });
 
     it('should call onError callback exactly once for stream errors after retries are exhausted', async () => {

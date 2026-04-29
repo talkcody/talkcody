@@ -4,7 +4,10 @@ use crate::llm::protocols::{
     stream_parser::StreamParseContext, LlmProtocol, OpenAiReasoningPartStatus,
     ProtocolRequestBuilder, ProtocolStreamParser, ProtocolStreamState, ToolCallAccum,
 };
-use crate::llm::types::{ContentPart, Message, MessageContent, StreamEvent, ToolDefinition};
+use crate::llm::types::{
+    ContentPart, Message, MessageContent, StreamEvent, ToolDefinition, TransportFallbackSource,
+    TransportFallbackTarget,
+};
 use serde_json::{json, Value};
 
 pub struct OpenAiResponsesProtocol;
@@ -220,6 +223,11 @@ impl ProtocolRequestBuilder for OpenAiResponsesProtocol {
         if let Some(top_k) = ctx.top_k {
             body["top_k"] = json!(top_k);
         }
+        if let Some(previous_response_id) = ctx.previous_response_id {
+            if !previous_response_id.trim().is_empty() {
+                body["previous_response_id"] = json!(previous_response_id);
+            }
+        }
         if let Some(provider_options) = ctx.provider_options {
             if let Some(openai_opts) = provider_options.get("openai") {
                 if let Some(reasoning_effort) = openai_opts.get("reasoningEffort") {
@@ -279,6 +287,181 @@ fn build_openai_oauth_tool_input(arguments: &str, force: bool) -> Option<Value> 
     }
 }
 
+fn extract_response_id(payload: &Value) -> Option<String> {
+    payload
+        .get("response")
+        .and_then(|response| response.get("id"))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn push_response_metadata_event(state: &mut ProtocolStreamState) {
+    let Some(response_id) = state.response_id.clone() else {
+        return;
+    };
+    let Some(provider) = state.response_metadata_provider else {
+        return;
+    };
+    let Some(transport) = state.response_metadata_transport else {
+        return;
+    };
+
+    state.pending_events.push(StreamEvent::ResponseMetadata {
+        response_id,
+        transport,
+        provider,
+        continuation_accepted: state.response_metadata_continuation_accepted,
+        transport_session_id: state.response_metadata_transport_session_id.clone(),
+    });
+    state.response_metadata_emitted = true;
+}
+
+fn queue_response_metadata_if_ready(state: &mut ProtocolStreamState) {
+    if state.response_metadata_emitted {
+        return;
+    }
+
+    if state.response_metadata_continuation_requested
+        && state.response_metadata_continuation_accepted.is_none()
+    {
+        return;
+    }
+
+    push_response_metadata_event(state);
+}
+
+fn capture_response_metadata(payload: &Value, state: &mut ProtocolStreamState) {
+    if state.response_id.is_none() {
+        state.response_id = extract_response_id(payload);
+    }
+    queue_response_metadata_if_ready(state);
+}
+
+fn mark_continuation_accepted_if_ready(state: &mut ProtocolStreamState) {
+    if state.response_metadata_continuation_requested
+        && state.response_metadata_continuation_accepted.is_none()
+    {
+        state.response_metadata_continuation_accepted = Some(true);
+    }
+    queue_response_metadata_if_ready(state);
+}
+
+fn mark_response_activity_started(state: &mut ProtocolStreamState) {
+    state.response_activity_started = true;
+    mark_continuation_accepted_if_ready(state);
+}
+
+fn extract_response_error(payload: &Value) -> Option<&Value> {
+    payload
+        .get("response")
+        .and_then(|response| response.get("error"))
+        .or_else(|| payload.get("error"))
+}
+
+fn extract_response_error_message(payload: &Value) -> Option<String> {
+    extract_response_error(payload)
+        .and_then(|error| error.get("message"))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+        .or_else(|| {
+            payload
+                .get("message")
+                .or_else(|| payload.get("detail"))
+                .and_then(|value| value.as_str())
+                .filter(|value| !value.is_empty())
+                .map(str::to_string)
+        })
+}
+
+fn extract_response_error_code(payload: &Value) -> Option<String> {
+    extract_response_error(payload)
+        .and_then(|error| error.get("code").or_else(|| error.get("error_code")))
+        .or_else(|| payload.get("code").or_else(|| payload.get("error_code")))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn extract_response_error_param(payload: &Value) -> Option<String> {
+    extract_response_error(payload)
+        .and_then(|error| error.get("param"))
+        .or_else(|| payload.get("param"))
+        .and_then(|value| value.as_str())
+        .filter(|value| !value.is_empty())
+        .map(str::to_string)
+}
+
+fn continuation_rejection_reason(payload: &Value, state: &ProtocolStreamState) -> Option<String> {
+    if !state.response_metadata_continuation_requested {
+        return None;
+    }
+
+    let code = extract_response_error_code(payload);
+    let message = extract_response_error_message(payload);
+    let param = extract_response_error_param(payload);
+
+    let matches_continuation = |value: &str| {
+        let normalized = value.to_ascii_lowercase();
+        normalized.contains("previous_response") || normalized.contains("continuation")
+    };
+
+    if code.as_deref().is_some_and(matches_continuation) {
+        return code;
+    }
+    if param
+        .as_deref()
+        .is_some_and(|value| value.eq_ignore_ascii_case("previous_response_id"))
+    {
+        return code.or(param).or(message);
+    }
+    if message.as_deref().is_some_and(matches_continuation) {
+        return code.or(message);
+    }
+
+    None
+}
+
+pub(crate) fn classify_continuation_rejection(
+    payload: &Value,
+    continuation_requested: bool,
+) -> Option<String> {
+    let state = ProtocolStreamState {
+        response_metadata_continuation_requested: continuation_requested,
+        ..Default::default()
+    };
+    continuation_rejection_reason(payload, &state)
+}
+
+fn queue_continuation_rejection_events(payload: &Value, state: &mut ProtocolStreamState) {
+    let Some(reason) = continuation_rejection_reason(payload, state) else {
+        return;
+    };
+
+    state.response_metadata_continuation_accepted = Some(false);
+    if state.response_metadata_emitted {
+        push_response_metadata_event(state);
+    } else {
+        queue_response_metadata_if_ready(state);
+    }
+
+    if !state.response_activity_started {
+        let fallback_target = if state.response_metadata_transport
+            == Some(crate::llm::types::ResponseTransport::Websocket)
+        {
+            TransportFallbackTarget::FreshWebsocketBaseline
+        } else {
+            TransportFallbackTarget::Stateless
+        };
+        state.pending_events.push(StreamEvent::TransportFallback {
+            reason,
+            from: TransportFallbackSource::ResponsesChained,
+            to: fallback_target,
+        });
+    }
+}
+
 pub(crate) fn parse_openai_oauth_event(
     event_type: Option<&str>,
     data: &str,
@@ -299,6 +482,16 @@ pub(crate) fn parse_openai_oauth_event(
         reasoning_id: state.reasoning_id.clone(),
         openai_reasoning: std::mem::take(&mut state.openai_reasoning),
         openai_store: state.openai_store,
+        response_id: state.response_id.clone(),
+        response_metadata_emitted: state.response_metadata_emitted,
+        response_metadata_provider: state.response_metadata_provider,
+        response_metadata_transport: state.response_metadata_transport,
+        response_metadata_transport_session_id: state
+            .response_metadata_transport_session_id
+            .clone(),
+        response_metadata_continuation_requested: state.response_metadata_continuation_requested,
+        response_activity_started: state.response_activity_started,
+        response_metadata_continuation_accepted: state.response_metadata_continuation_accepted,
     };
 
     let result = parse_openai_oauth_event_legacy(event_type, data, &mut legacy_state);
@@ -317,6 +510,17 @@ pub(crate) fn parse_openai_oauth_event(
     state.current_thinking_id = legacy_state.current_thinking_id;
     state.openai_reasoning = legacy_state.openai_reasoning;
     state.openai_store = legacy_state.openai_store;
+    state.response_id = legacy_state.response_id;
+    state.response_metadata_emitted = legacy_state.response_metadata_emitted;
+    state.response_metadata_provider = legacy_state.response_metadata_provider;
+    state.response_metadata_transport = legacy_state.response_metadata_transport;
+    state.response_metadata_transport_session_id =
+        legacy_state.response_metadata_transport_session_id;
+    state.response_metadata_continuation_requested =
+        legacy_state.response_metadata_continuation_requested;
+    state.response_activity_started = legacy_state.response_activity_started;
+    state.response_metadata_continuation_accepted =
+        legacy_state.response_metadata_continuation_accepted;
 
     result
 }
@@ -353,8 +557,10 @@ pub(crate) fn parse_openai_oauth_event_legacy(
     };
 
     let payload: Value = serde_json::from_str(data).map_err(|e| e.to_string())?;
+    capture_response_metadata(&payload, state);
 
     if payload.get("object").and_then(|v| v.as_str()) == Some("chat.completion.chunk") {
+        mark_response_activity_started(state);
         if let Some(usage) = payload.get("usage") {
             let parsed_usage = parse_openai_usage(usage);
             if parsed_usage.has_meaningful_data() {
@@ -431,6 +637,28 @@ pub(crate) fn parse_openai_oauth_event_legacy(
         Some(value) => value,
         None => return Ok(None),
     };
+
+    if matches!(
+        event_type.as_str(),
+        "response.output_item.added"
+            | "response.content_part.added"
+            | "response.output_text.delta"
+            | "response.output_text.done"
+            | "response.function_call_arguments.delta"
+            | "response.function_call_arguments.done"
+            | "response.reasoning_summary_part.added"
+            | "response.reasoning_summary_text.delta"
+            | "response.reasoning_summary_part.done"
+            | "response.output_item.done"
+            | "response.reasoning_text.delta"
+            | "response.reasoning_text.done"
+            | "response.reasoning_part.added"
+            | "response.reasoning_content.delta"
+            | "response.reasoning_part.done"
+            | "response.completed"
+    ) {
+        mark_response_activity_started(state);
+    }
 
     match event_type.as_str() {
         "response.created" | "response.in_progress" => {
@@ -994,14 +1222,10 @@ pub(crate) fn parse_openai_oauth_event_legacy(
                 finish_reason: state.finish_reason.clone(),
             });
         }
-        "response.failed" => {
-            let message = payload
-                .get("response")
-                .and_then(|r| r.get("error"))
-                .and_then(|e| e.get("message"))
-                .and_then(|v| v.as_str())
-                .unwrap_or("Response failed")
-                .to_string();
+        "response.failed" | "error" => {
+            queue_continuation_rejection_events(&payload, state);
+            let message = extract_response_error_message(&payload)
+                .unwrap_or_else(|| "Response failed".to_string());
             log::error!("[OpenAI OAuth] Response failed: {}", message);
             state.pending_events.push(StreamEvent::Error { message });
         }
@@ -1171,6 +1395,12 @@ impl LlmProtocol for OpenAiResponsesProtocol {
             top_k,
             provider_options,
             extra_body,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
         };
         ProtocolRequestBuilder::build_request(self, ctx)
     }
@@ -1197,6 +1427,17 @@ impl LlmProtocol for OpenAiResponsesProtocol {
             current_thinking_id: state.current_thinking_id.clone(),
             openai_reasoning: std::mem::take(&mut state.openai_reasoning),
             openai_store: state.openai_store,
+            response_id: state.response_id.clone(),
+            response_metadata_emitted: state.response_metadata_emitted,
+            response_metadata_provider: state.response_metadata_provider,
+            response_metadata_transport: state.response_metadata_transport,
+            response_metadata_transport_session_id: state
+                .response_metadata_transport_session_id
+                .clone(),
+            response_metadata_continuation_requested: state
+                .response_metadata_continuation_requested,
+            response_activity_started: state.response_activity_started,
+            response_metadata_continuation_accepted: state.response_metadata_continuation_accepted,
         };
 
         let result = ProtocolStreamParser::parse_stream_event(self, ctx, &mut new_state);
@@ -1215,6 +1456,17 @@ impl LlmProtocol for OpenAiResponsesProtocol {
         state.current_thinking_id = new_state.current_thinking_id;
         state.openai_reasoning = new_state.openai_reasoning;
         state.openai_store = new_state.openai_store;
+        state.response_id = new_state.response_id;
+        state.response_metadata_emitted = new_state.response_metadata_emitted;
+        state.response_metadata_provider = new_state.response_metadata_provider;
+        state.response_metadata_transport = new_state.response_metadata_transport;
+        state.response_metadata_transport_session_id =
+            new_state.response_metadata_transport_session_id;
+        state.response_metadata_continuation_requested =
+            new_state.response_metadata_continuation_requested;
+        state.response_activity_started = new_state.response_activity_started;
+        state.response_metadata_continuation_accepted =
+            new_state.response_metadata_continuation_accepted;
 
         result
     }
@@ -1240,7 +1492,306 @@ impl LlmProtocol for OpenAiResponsesProtocol {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::llm::types::{ResponseMetadataProvider, ResponseTransport};
     use serde_json::json;
+
+    #[test]
+    fn build_request_includes_previous_response_id() {
+        let protocol = OpenAiResponsesProtocol;
+        let messages = vec![Message::User {
+            content: MessageContent::Text("follow up".to_string()),
+            provider_options: None,
+        }];
+        let ctx = RequestBuildContext {
+            model: "gpt-5.2-codex",
+            messages: &messages,
+            tools: None,
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            provider_options: None,
+            extra_body: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: Some("resp_prev_123"),
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
+        };
+
+        let body = ProtocolRequestBuilder::build_request(&protocol, ctx).expect("build request");
+        assert_eq!(
+            body.get("previous_response_id")
+                .and_then(|value| value.as_str()),
+            Some("resp_prev_123")
+        );
+    }
+
+    #[test]
+    fn parse_response_created_defers_metadata_until_continuation_is_accepted() {
+        let mut state = ProtocolStreamState {
+            response_metadata_provider: Some(ResponseMetadataProvider::OpenAiSubscription),
+            response_metadata_transport: Some(ResponseTransport::Websocket),
+            response_metadata_transport_session_id: Some("sess_chain".to_string()),
+            response_metadata_continuation_requested: true,
+            ..Default::default()
+        };
+        let created = json!({
+            "type": "response.created",
+            "response": {
+                "id": "resp_chain_123",
+                "store": false
+            }
+        });
+
+        let created_event = parse_openai_oauth_event_legacy(None, &created.to_string(), &mut state)
+            .expect("parse created event");
+        assert!(created_event.is_none());
+        assert!(!state.response_metadata_emitted);
+        assert_eq!(state.response_metadata_continuation_accepted, None);
+
+        let delta = json!({
+            "type": "response.output_text.delta",
+            "delta": "continued output"
+        });
+        let first = parse_openai_oauth_event_legacy(None, &delta.to_string(), &mut state)
+            .expect("parse delta")
+            .expect("metadata event");
+        match first {
+            StreamEvent::ResponseMetadata {
+                response_id,
+                transport,
+                provider,
+                continuation_accepted,
+                transport_session_id,
+            } => {
+                assert_eq!(response_id, "resp_chain_123");
+                assert_eq!(transport, ResponseTransport::Websocket);
+                assert_eq!(provider, ResponseMetadataProvider::OpenAiSubscription);
+                assert_eq!(continuation_accepted, Some(true));
+                assert_eq!(transport_session_id.as_deref(), Some("sess_chain"));
+            }
+            _ => panic!("Expected ResponseMetadata, got {:?}", first),
+        }
+
+        let second = state.pending_events.remove(0);
+        assert!(matches!(second, StreamEvent::TextStart));
+        let third = state.pending_events.remove(0);
+        assert!(matches!(third, StreamEvent::TextDelta { .. }));
+    }
+
+    #[test]
+    fn parse_response_failed_emits_continuation_rejection_metadata_and_stateless_fallback() {
+        let mut state = ProtocolStreamState {
+            response_metadata_provider: Some(ResponseMetadataProvider::OpenAiSubscription),
+            response_metadata_transport: Some(ResponseTransport::HttpSse),
+            response_metadata_transport_session_id: Some("sess_chain".to_string()),
+            response_metadata_continuation_requested: true,
+            ..Default::default()
+        };
+        let created = json!({
+            "type": "response.created",
+            "response": {
+                "id": "resp_chain_456",
+                "store": false
+            }
+        });
+        let created_event = parse_openai_oauth_event_legacy(None, &created.to_string(), &mut state)
+            .expect("parse created event");
+        assert!(created_event.is_none());
+
+        let failed = json!({
+            "type": "response.failed",
+            "response": {
+                "id": "resp_chain_456",
+                "error": {
+                    "code": "previous_response_not_found",
+                    "message": "The previous_response_id was not found"
+                }
+            }
+        });
+        let first = parse_openai_oauth_event_legacy(None, &failed.to_string(), &mut state)
+            .expect("parse failed event")
+            .expect("metadata event");
+        match first {
+            StreamEvent::ResponseMetadata {
+                response_id,
+                continuation_accepted,
+                ..
+            } => {
+                assert_eq!(response_id, "resp_chain_456");
+                assert_eq!(continuation_accepted, Some(false));
+            }
+            _ => panic!("Expected ResponseMetadata, got {:?}", first),
+        }
+
+        let second = state.pending_events.remove(0);
+        match second {
+            StreamEvent::TransportFallback { reason, from, to } => {
+                assert_eq!(reason, "previous_response_not_found");
+                assert_eq!(
+                    from,
+                    crate::llm::types::TransportFallbackSource::ResponsesChained
+                );
+                assert_eq!(to, crate::llm::types::TransportFallbackTarget::Stateless);
+            }
+            _ => panic!("Expected TransportFallback, got {:?}", second),
+        }
+
+        let third = state.pending_events.remove(0);
+        match third {
+            StreamEvent::Error { message } => {
+                assert!(message.contains("previous_response_id was not found"));
+            }
+            _ => panic!("Expected Error, got {:?}", third),
+        }
+    }
+
+    #[test]
+    fn parse_response_failed_after_activity_skips_stateless_fallback() {
+        let mut state = ProtocolStreamState {
+            response_metadata_provider: Some(ResponseMetadataProvider::OpenAiSubscription),
+            response_metadata_transport: Some(ResponseTransport::Websocket),
+            response_metadata_transport_session_id: Some("sess_chain".to_string()),
+            response_metadata_continuation_requested: true,
+            response_activity_started: true,
+            ..Default::default()
+        };
+        let created = json!({
+            "type": "response.created",
+            "response": {
+                "id": "resp_chain_789",
+                "store": false
+            }
+        });
+        let _ = parse_openai_oauth_event_legacy(None, &created.to_string(), &mut state)
+            .expect("parse created event");
+
+        let failed = json!({
+            "type": "error",
+            "code": "previous_response_not_found",
+            "message": "The previous response could not be found",
+            "param": "previous_response_id"
+        });
+        let first = parse_openai_oauth_event_legacy(None, &failed.to_string(), &mut state)
+            .expect("parse failed event")
+            .expect("metadata event");
+        match first {
+            StreamEvent::ResponseMetadata {
+                response_id,
+                continuation_accepted,
+                ..
+            } => {
+                assert_eq!(response_id, "resp_chain_789");
+                assert_eq!(continuation_accepted, Some(false));
+            }
+            _ => panic!("Expected ResponseMetadata, got {:?}", first),
+        }
+
+        let second = state.pending_events.remove(0);
+        assert!(matches!(second, StreamEvent::Error { .. }));
+        assert!(state.pending_events.is_empty());
+    }
+
+    #[test]
+    fn parse_response_created_emits_response_metadata_once() {
+        let mut state = ProtocolStreamState {
+            response_metadata_provider: Some(ResponseMetadataProvider::OpenAiSubscription),
+            response_metadata_transport: Some(ResponseTransport::HttpSse),
+            response_metadata_transport_session_id: Some("sess_123".to_string()),
+            response_metadata_continuation_accepted: Some(true),
+            ..Default::default()
+        };
+        let created = json!({
+            "type": "response.created",
+            "response": {
+                "id": "resp_123",
+                "store": false
+            }
+        });
+
+        let first = parse_openai_oauth_event_legacy(None, &created.to_string(), &mut state)
+            .expect("parse")
+            .expect("metadata event");
+        match first {
+            StreamEvent::ResponseMetadata {
+                response_id,
+                transport,
+                provider,
+                continuation_accepted,
+                transport_session_id,
+            } => {
+                assert_eq!(response_id, "resp_123");
+                assert_eq!(transport, ResponseTransport::HttpSse);
+                assert_eq!(provider, ResponseMetadataProvider::OpenAiSubscription);
+                assert_eq!(continuation_accepted, Some(true));
+                assert_eq!(transport_session_id.as_deref(), Some("sess_123"));
+            }
+            _ => panic!("Expected ResponseMetadata, got {:?}", first),
+        }
+        assert!(state.response_metadata_emitted);
+
+        let completed = json!({
+            "type": "response.completed",
+            "response": {
+                "id": "resp_123",
+                "usage": {
+                    "input_tokens": 3,
+                    "output_tokens": 2,
+                    "total_tokens": 5
+                }
+            }
+        });
+        let second = parse_openai_oauth_event_legacy(None, &completed.to_string(), &mut state)
+            .expect("parse")
+            .expect("usage event");
+        assert!(matches!(second, StreamEvent::Usage { .. }));
+        assert!(!state
+            .pending_events
+            .iter()
+            .any(|event| matches!(event, StreamEvent::ResponseMetadata { .. })));
+    }
+
+    #[test]
+    fn parse_response_completed_can_emit_metadata_when_first_known() {
+        let mut state = ProtocolStreamState {
+            response_metadata_provider: Some(ResponseMetadataProvider::OpenAiApi),
+            response_metadata_transport: Some(ResponseTransport::HttpSse),
+            ..Default::default()
+        };
+        let completed = json!({
+            "type": "response.completed",
+            "response": {
+                "id": "resp_completed",
+                "usage": {
+                    "input_tokens": 1,
+                    "output_tokens": 1,
+                    "total_tokens": 2
+                }
+            }
+        });
+
+        let first = parse_openai_oauth_event_legacy(None, &completed.to_string(), &mut state)
+            .expect("parse")
+            .expect("metadata event");
+        match first {
+            StreamEvent::ResponseMetadata {
+                response_id,
+                provider,
+                ..
+            } => {
+                assert_eq!(response_id, "resp_completed");
+                assert_eq!(provider, ResponseMetadataProvider::OpenAiApi);
+            }
+            _ => panic!("Expected ResponseMetadata, got {:?}", first),
+        }
+
+        let second = state.pending_events.remove(0);
+        assert!(matches!(second, StreamEvent::Usage { .. }));
+        let third = state.pending_events.remove(0);
+        assert!(matches!(third, StreamEvent::Done { .. }));
+    }
 
     #[test]
     fn parse_chat_completion_chunk_emits_deepseek_cached_usage_tokens() {

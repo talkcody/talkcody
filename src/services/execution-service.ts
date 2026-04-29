@@ -38,6 +38,7 @@ export interface ExecutionConfig {
   taskId: string;
   messages: UIMessage[];
   model: string;
+  fallbackModels?: string[];
   systemPrompt?: string;
   tools?: AgentToolSet;
   agentId?: string;
@@ -93,7 +94,7 @@ class ExecutionService {
    * Start execution for a task
    */
   async startExecution(config: ExecutionConfig, callbacks?: ExecutionCallbacks): Promise<void> {
-    const { taskId, messages, model, systemPrompt, tools, agentId } = config;
+    const { taskId, messages, model, fallbackModels, systemPrompt, tools, agentId } = config;
 
     const executionStore = useExecutionStore.getState();
     const executionRootPath = await getEffectiveWorkspaceRoot(taskId);
@@ -205,6 +206,7 @@ class ExecutionService {
         {
           messages,
           model,
+          fallbackModels,
           systemPrompt,
           tools,
           agentId,

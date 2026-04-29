@@ -1,5 +1,16 @@
 export type ProviderOptions = Record<string, unknown> | null;
 
+export type ConversationMode = 'stateless' | 'responses-chained';
+
+export type InputMode = 'full-history' | 'incremental';
+
+export type ContinuationContext = {
+  iteration: number;
+  baselineMessageCount: number;
+  deltaMessageCount: number;
+  fallbackCount: number;
+};
+
 export type MessageContent = string | ContentPart[];
 
 export type Message =
@@ -74,6 +85,7 @@ export type TraceContext = {
 
 export type StreamTextRequest = {
   model: string;
+  fallbackModels?: string[] | null;
   messages: Message[];
   tools?: ToolDefinition[] | null;
   stream?: boolean | null;
@@ -84,6 +96,12 @@ export type StreamTextRequest = {
   providerOptions?: ProviderOptions;
   requestId?: string | null;
   traceContext?: TraceContext | null;
+  conversationMode?: ConversationMode | null;
+  inputMode?: InputMode | null;
+  previousResponseId?: string | null;
+  transportSessionId?: string | null;
+  allowTransportFallback?: boolean | null;
+  continuationContext?: ContinuationContext | null;
 };
 
 export type StreamResponse = {
@@ -114,6 +132,20 @@ export type StreamEvent =
   | {
       type: 'reasoning-end';
       id: string;
+    }
+  | {
+      type: 'response-metadata';
+      responseId: string;
+      transport: 'http-sse' | 'websocket';
+      provider: 'openai-subscription' | 'openai-api';
+      continuationAccepted?: boolean;
+      transportSessionId?: string;
+    }
+  | {
+      type: 'transport-fallback';
+      reason: string;
+      from: 'websocket' | 'responses-chained';
+      to: 'http-sse' | 'stateless' | 'fresh-websocket-baseline';
     }
   | {
       type: 'usage';
@@ -229,6 +261,7 @@ export type GitMessageContext = {
   userInput?: string | null;
   diffText: string;
   model?: string | null;
+  fallbackModels?: string[] | null;
 };
 
 export type GitMessageResult = {
@@ -257,6 +290,7 @@ export type TitleGenerationRequest = {
   userInput: string;
   language?: string | null;
   model?: string | null;
+  fallbackModels?: string[] | null;
 };
 
 export type TitleGenerationResult = {
@@ -266,6 +300,7 @@ export type TitleGenerationResult = {
 export type ContextCompactionRequest = {
   conversationHistory: string;
   model?: string | null;
+  fallbackModels?: string[] | null;
 };
 
 export type ContextCompactionResult = {

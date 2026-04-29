@@ -1,5 +1,6 @@
 use crate::llm::testing::fixtures::{
-    FixtureInput, ProviderFixture, RecordedRequest, RecordedResponse, RecordedSseEvent,
+    normalize_recorded_json_body, FixtureInput, ProviderFixture, RecordedRequest, RecordedResponse,
+    RecordedSseEvent,
 };
 use crate::llm::types::StreamEvent;
 use serde_json::Value;
@@ -143,7 +144,7 @@ impl Recorder {
         self.fixture.response = RecordedResponse::Json {
             status,
             headers: headers_from_header_map(response_headers),
-            body: Value::String(body.to_string()),
+            body: normalize_recorded_json_body(&Value::String(body.to_string())),
         };
         crate::llm::testing::fixtures::write_fixture(&self.path, &self.fixture)
     }

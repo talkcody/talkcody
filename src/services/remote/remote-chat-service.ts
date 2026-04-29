@@ -321,7 +321,10 @@ class RemoteChatService {
     if (!agent) {
       agent = await agentRegistry.getWithResolvedTools('planner');
     }
-    const model = await modelService.getCurrentModel();
+    const resolvedAgentModel = (agent as (typeof agent & { model?: string }) | undefined)?.model;
+    const resolvedFallbackModels =
+      (agent as (typeof agent & { fallbackModels?: string[] }) | undefined)?.fallbackModels ?? [];
+    const model = resolvedAgentModel || (await modelService.getCurrentModel());
 
     const messages = useTaskStore.getState().getMessages(session.taskId);
 
@@ -331,6 +334,7 @@ class RemoteChatService {
       taskId: session.taskId,
       messages,
       model,
+      fallbackModels: resolvedFallbackModels,
       systemPrompt,
       tools: agent?.tools,
       agentId,

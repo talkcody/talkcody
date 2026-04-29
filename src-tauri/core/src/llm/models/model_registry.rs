@@ -56,23 +56,12 @@ impl ModelRegistry {
             custom_providers.providers.len()
         );
 
-        let mut api_key_map = api_keys.load_api_keys().await?;
+        let api_key_map = Self::load_provider_credentials(api_keys).await?;
         log::info!(
-            "[ModelRegistry] Loaded {} API keys: {:?}",
+            "[ModelRegistry] Loaded {} provider credentials: {:?}",
             api_key_map.len(),
             api_key_map.keys()
         );
-
-        let oauth_tokens = api_keys.load_oauth_tokens().await?;
-        log::info!(
-            "[ModelRegistry] Loaded {} OAuth tokens: {:?}",
-            oauth_tokens.len(),
-            oauth_tokens.keys()
-        );
-
-        for (provider_id, token) in oauth_tokens {
-            api_key_map.entry(provider_id).or_insert(token);
-        }
 
         let registered_providers: Vec<_> =
             registry.providers().iter().map(|p| p.id.clone()).collect();
@@ -92,6 +81,24 @@ impl ModelRegistry {
             available.len()
         );
         Ok(available)
+    }
+
+    pub async fn load_provider_credentials(
+        api_keys: &ApiKeyManager,
+    ) -> Result<HashMap<String, String>, String> {
+        let mut api_key_map = api_keys.load_api_keys().await?;
+        let oauth_tokens = api_keys.load_oauth_tokens().await?;
+        log::info!(
+            "[ModelRegistry] Loaded {} OAuth tokens: {:?}",
+            oauth_tokens.len(),
+            oauth_tokens.keys()
+        );
+
+        for (provider_id, token) in oauth_tokens {
+            api_key_map.entry(provider_id).or_insert(token);
+        }
+
+        Ok(api_key_map)
     }
 
     fn compute_available_models_internal(
@@ -175,7 +182,33 @@ impl ModelRegistry {
     ) -> Result<(String, String), String> {
         let parts: Vec<&str> = model_identifier.split('@').collect();
         if parts.len() == 2 {
-            return Ok((parts[0].to_string(), parts[1].to_string()));
+            let model_key = parts[0];
+            let provider_id = parts[1];
+
+            let model_cfg = config
+                .models
+                .get(model_key)
+                .ok_or_else(|| format!("Unknown model {}", model_key))?;
+
+            if !model_cfg
+                .providers
+                .iter()
+                .any(|provider| provider == provider_id)
+            {
+                return Err(format!(
+                    "Provider {} is not configured for model {}",
+                    provider_id, model_key
+                ));
+            }
+
+            if !Self::provider_available(provider_id, api_keys, registry, custom_providers) {
+                return Err(format!(
+                    "Provider {} is not available for model {}",
+                    provider_id, model_key
+                ));
+            }
+
+            return Ok((model_key.to_string(), provider_id.to_string()));
         }
 
         if let Some(model_cfg) = config.models.get(model_identifier) {
@@ -460,7 +493,7 @@ mod tests {
             "openai",
             crate::llm::types::AuthType::Bearer,
         )]);
-        let api_keys = HashMap::new();
+        let api_keys = HashMap::from([("openai".to_string(), "key".to_string())]);
         let custom_providers = CustomProvidersConfiguration {
             version: "1".to_string(),
             providers: HashMap::new(),

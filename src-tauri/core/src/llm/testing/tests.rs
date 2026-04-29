@@ -112,10 +112,7 @@ fn protocol_for_fixture(fixture: &ProviderFixture) -> Box<dyn LlmProtocol> {
 }
 
 fn normalize_expected_json_body(body: &Value) -> Value {
-    match body {
-        Value::String(text) => serde_json::from_str(text).unwrap_or_else(|_| body.clone()),
-        _ => body.clone(),
-    }
+    super::fixtures::normalize_recorded_json_body(body)
 }
 
 fn collect_events(protocol: &dyn LlmProtocol, fixture: &ProviderFixture) -> Vec<Value> {

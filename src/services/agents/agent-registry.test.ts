@@ -34,6 +34,7 @@ vi.mock('@/stores/settings-store', () => ({
 vi.mock('@/providers/models/model-type-service', () => ({
   modelTypeService: {
     resolveModelType: vi.fn().mockResolvedValue('gpt-4@openai'),
+    resolveModelTypeChain: vi.fn().mockResolvedValue(['gpt-4@openai']),
   },
 }));
 

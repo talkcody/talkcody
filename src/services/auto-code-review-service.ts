@@ -79,6 +79,8 @@ export class AutoCodeReviewService {
       }
 
       const resolvedModel = (agent as typeof agent & { model?: string }).model;
+      const resolvedFallbackModels =
+        (agent as typeof agent & { fallbackModels?: string[] }).fallbackModels ?? [];
       if (!resolvedModel) {
         logger.warn('[AutoCodeReview] Model not resolved for code review agent', { taskId });
         return null;
@@ -129,6 +131,7 @@ export class AutoCodeReviewService {
         {
           messages,
           model: resolvedModel,
+          fallbackModels: resolvedFallbackModels,
           systemPrompt,
           tools: agent.tools,
           isSubagent: true,

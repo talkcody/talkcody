@@ -502,6 +502,13 @@ export interface LocaleDefinition {
       providerUpdated: (type: string) => string;
       updateFailed: (type: string) => string;
       selectModel: string;
+      orderedRetryHint: string;
+      addFallbackModel: string;
+      noFallbackModels: string;
+      priority: (value: number) => string;
+      moveUp: string;
+      moveDown: string;
+      remove: string;
       customModels: {
         title: string;
         description: string;
@@ -1315,6 +1322,11 @@ export interface LocaleDefinition {
     description: string;
     listTitle: string;
     detailTitle: string;
+    transportMetricsTitle: string;
+    websocketTurnCountLabel: string;
+    incrementalTurnCountLabel: string;
+    baselineTurnCountLabel: string;
+    httpFallbackCountLabel: string;
     spansTitle: string;
     eventsTitle: string;
     attributesLabel: string;

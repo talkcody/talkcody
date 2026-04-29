@@ -141,7 +141,8 @@ impl PromptEnhancementService {
             "{}\n\nUser prompt to enhance:\n{}",
             system_prompt, user_prompt
         );
-        let llm_request = StreamCollector::create_completion_request(model_identifier, full_prompt);
+        let llm_request =
+            StreamCollector::create_completion_request(model_identifier, None, full_prompt);
 
         let runner = StreamRunner::new(registry.clone(), api_keys.clone());
         let result =

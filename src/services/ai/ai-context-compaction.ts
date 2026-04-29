@@ -10,9 +10,14 @@ class AIContextCompactionService {
    *
    * @param conversationHistory - The conversation history to compress (text format)
    * @param model - Optional model identifier to use for compression
+   * @param fallbackModels - Optional ordered fallback models used if the primary request fails
    * @returns Promise that resolves to the compressed summary text
    */
-  async compactContext(conversationHistory: string, model?: string): Promise<string> {
+  async compactContext(
+    conversationHistory: string,
+    model?: string,
+    fallbackModels: string[] = []
+  ): Promise<string> {
     try {
       logger.info('Starting AI context compaction');
 
@@ -21,12 +26,14 @@ class AIContextCompactionService {
         throw new Error('Conversation history is required for compaction');
       }
 
-      const modelIdentifier =
-        model ?? (await modelTypeService.resolveModelType(ModelType.MESSAGE_COMPACTION));
+      const [primaryModel, ...resolvedFallbackModels] = model
+        ? [model, ...fallbackModels]
+        : await modelTypeService.resolveModelTypeChain(ModelType.MESSAGE_COMPACTION);
 
       const result = await llmClient.compactContext({
         conversationHistory,
-        model: modelIdentifier,
+        model: primaryModel,
+        fallbackModels: resolvedFallbackModels,
       });
 
       const compressedSummaryValue = result?.compressedSummary;

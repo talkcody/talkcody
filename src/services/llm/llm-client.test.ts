@@ -104,6 +104,22 @@ describe('llmClient', () => {
     });
   });
 
+  it('forwards fallback model payloads for compaction requests', async () => {
+    const request = {
+      conversationHistory: 'Conversation text',
+      model: 'primary-model',
+      fallbackModels: ['backup-model'],
+    };
+
+    (invoke as ReturnType<typeof vi.fn>).mockResolvedValue({
+      compressedSummary: 'summary',
+    });
+
+    await llmClient.compactContext(request);
+
+    expect(invoke).toHaveBeenCalledWith('llm_compact_context', { request });
+  });
+
   it('calls llm_generate_image with correct payload', async () => {
     const mockResult = {
       provider: 'openai',
@@ -113,7 +129,7 @@ describe('llmClient', () => {
 
     (invoke as ReturnType<typeof vi.fn>).mockResolvedValue(mockResult);
 
-      const request = {
+    const request = {
       model: 'dall-e-3@openai',
       prompt: 'A sunset over mountains',
       responseFormat: 'url',

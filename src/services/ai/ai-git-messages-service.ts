@@ -14,11 +14,13 @@ class AIGitMessagesService {
         return null;
       }
 
-      const model = await modelTypeService.resolveModelType(ModelType.SMALL);
+      const modelChain = await modelTypeService.resolveModelTypeChain(ModelType.SMALL);
+      const [model, ...fallbackModels] = modelChain;
 
       const result = await llmClient.generateCommitMessage({
         ...context,
         model,
+        fallbackModels,
       });
 
       if (result.message) {

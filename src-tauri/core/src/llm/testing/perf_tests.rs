@@ -42,6 +42,12 @@ fn perf_openai_build_request() {
         top_k: Some(64),
         provider_options: None,
         extra_body: None,
+        conversation_mode: None,
+        input_mode: None,
+        previous_response_id: None,
+        transport_session_id: None,
+        allow_transport_fallback: None,
+        continuation_context: None,
     };
 
     let iterations = 300;

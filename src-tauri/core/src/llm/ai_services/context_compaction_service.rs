@@ -1,4 +1,4 @@
-use crate::llm::ai_services::model_resolver::{resolve_model_identifier, FallbackStrategy};
+use crate::llm::ai_services::model_resolver::{resolve_model_identifiers, FallbackStrategy};
 use crate::llm::ai_services::stream_collector::StreamCollector;
 use crate::llm::ai_services::stream_runner::StreamRunner;
 use crate::llm::ai_services::types::{ContextCompactionRequest, ContextCompactionResult};
@@ -48,15 +48,26 @@ impl ContextCompactionService {
             prompt.len()
         );
 
-        let model_identifier = resolve_model_identifier(
+        let resolved_models = resolve_model_identifiers(
             api_keys,
             registry,
             request.model.clone(),
+            request.fallback_models.clone(),
             FallbackStrategy::Compaction,
         )
         .await?;
+        let model_identifier = resolved_models[0].clone();
+        let fallback_models = resolved_models[1..].to_vec();
 
-        let stream_request = StreamCollector::create_completion_request(model_identifier, prompt);
+        let stream_request = StreamCollector::create_completion_request(
+            model_identifier,
+            if fallback_models.is_empty() {
+                None
+            } else {
+                Some(fallback_models)
+            },
+            prompt,
+        );
         let runner = StreamRunner::new(registry.clone(), api_keys.clone());
         let result = StreamCollector::collect_with_runner(
             &runner,
@@ -265,6 +276,7 @@ mod tests {
         let request = ContextCompactionRequest {
             conversation_history: "   ".to_string(),
             model: None,
+            fallback_models: None,
         };
 
         let result = service.compact_context(request, &api_keys, &registry).await;

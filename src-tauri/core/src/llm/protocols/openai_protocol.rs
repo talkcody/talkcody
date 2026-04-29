@@ -630,6 +630,12 @@ impl LlmProtocol for OpenAiProtocol {
             top_k,
             provider_options,
             extra_body,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
         };
         ProtocolRequestBuilder::build_request(self, ctx)
     }
@@ -656,6 +662,17 @@ impl LlmProtocol for OpenAiProtocol {
             current_thinking_id: state.current_thinking_id.clone(),
             openai_reasoning: std::mem::take(&mut state.openai_reasoning),
             openai_store: state.openai_store,
+            response_id: state.response_id.clone(),
+            response_metadata_emitted: state.response_metadata_emitted,
+            response_metadata_provider: state.response_metadata_provider,
+            response_metadata_transport: state.response_metadata_transport,
+            response_metadata_transport_session_id: state
+                .response_metadata_transport_session_id
+                .clone(),
+            response_metadata_continuation_requested: state
+                .response_metadata_continuation_requested,
+            response_activity_started: state.response_activity_started,
+            response_metadata_continuation_accepted: state.response_metadata_continuation_accepted,
         };
 
         let result = ProtocolStreamParser::parse_stream_event(self, ctx, &mut new_state);
@@ -675,6 +692,17 @@ impl LlmProtocol for OpenAiProtocol {
         state.current_thinking_id = new_state.current_thinking_id;
         state.openai_reasoning = new_state.openai_reasoning;
         state.openai_store = new_state.openai_store;
+        state.response_id = new_state.response_id;
+        state.response_metadata_emitted = new_state.response_metadata_emitted;
+        state.response_metadata_provider = new_state.response_metadata_provider;
+        state.response_metadata_transport = new_state.response_metadata_transport;
+        state.response_metadata_transport_session_id =
+            new_state.response_metadata_transport_session_id;
+        state.response_metadata_continuation_requested =
+            new_state.response_metadata_continuation_requested;
+        state.response_activity_started = new_state.response_activity_started;
+        state.response_metadata_continuation_accepted =
+            new_state.response_metadata_continuation_accepted;
 
         result
     }

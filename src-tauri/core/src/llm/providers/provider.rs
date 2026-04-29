@@ -8,7 +8,10 @@ use crate::llm::protocols::{
     stream_parser::{StreamParseContext, StreamParseState},
 };
 use crate::llm::types::ProtocolType;
-use crate::llm::types::{Message, ProviderConfig, StreamEvent, ToolDefinition, TraceContext};
+use crate::llm::types::{
+    ContinuationContext, ConversationMode, InputMode, Message, ProviderConfig,
+    ResponseMetadataProvider, ResponseTransport, StreamEvent, ToolDefinition, TraceContext,
+};
 use async_trait::async_trait;
 use serde_json::Value;
 use std::collections::HashMap;
@@ -28,6 +31,44 @@ pub struct ProviderContext<'a> {
     pub provider_options: Option<&'a Value>,
     #[allow(dead_code)]
     pub trace_context: Option<&'a TraceContext>,
+    pub conversation_mode: Option<ConversationMode>,
+    pub input_mode: Option<InputMode>,
+    pub previous_response_id: Option<&'a str>,
+    pub transport_session_id: Option<&'a str>,
+    pub allow_transport_fallback: Option<bool>,
+    pub continuation_context: Option<&'a ContinuationContext>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderTransport {
+    HttpSse,
+    Websocket,
+}
+
+impl ProviderTransport {
+    pub fn as_response_transport(self) -> ResponseTransport {
+        match self {
+            Self::HttpSse => ResponseTransport::HttpSse,
+            Self::Websocket => ResponseTransport::Websocket,
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ProviderRoute {
+    Default,
+    OpenAiSubscription,
+    OpenAiApi,
+}
+
+impl ProviderRoute {
+    pub fn response_metadata_provider(self) -> Option<ResponseMetadataProvider> {
+        match self {
+            Self::OpenAiSubscription => Some(ResponseMetadataProvider::OpenAiSubscription),
+            Self::OpenAiApi => Some(ResponseMetadataProvider::OpenAiApi),
+            Self::Default => None,
+        }
+    }
 }
 
 /// Credentials for authentication
@@ -49,6 +90,8 @@ pub struct BuiltRequest {
     pub url: String,
     pub headers: HashMap<String, String>,
     pub body: Value,
+    pub transport: ProviderTransport,
+    pub route: ProviderRoute,
 }
 
 /// Trait for provider-specific logic
@@ -151,6 +194,12 @@ pub trait Provider: Send + Sync {
             top_k,
             provider_options: ctx.provider_options,
             extra_body: ctx.provider_config.extra_body.as_ref(),
+            conversation_mode: ctx.conversation_mode,
+            input_mode: ctx.input_mode,
+            previous_response_id: ctx.previous_response_id,
+            transport_session_id: ctx.transport_session_id,
+            allow_transport_fallback: ctx.allow_transport_fallback,
+            continuation_context: ctx.continuation_context,
         };
 
         self.build_protocol_request(request_ctx)
@@ -195,6 +244,16 @@ pub trait Provider: Send + Sync {
         self.config().supports_oauth
     }
 
+    /// Resolve transport selection metadata for the request.
+    async fn transport_for_request(&self, _ctx: &ProviderContext<'_>) -> ProviderTransport {
+        ProviderTransport::HttpSse
+    }
+
+    /// Resolve provider routing metadata for the request.
+    async fn route_for_request(&self, _ctx: &ProviderContext<'_>) -> ProviderRoute {
+        ProviderRoute::Default
+    }
+
     /// Build the complete request
     async fn build_complete_request(
         &self,
@@ -206,6 +265,8 @@ pub trait Provider: Send + Sync {
         let credentials = self.get_credentials(ctx.api_key_manager).await?;
         let headers = self.build_headers(ctx, &credentials).await?;
         let body = self.build_request(ctx).await?;
+        let transport = self.transport_for_request(ctx).await;
+        let route = self.route_for_request(ctx).await;
 
         let url = format!(
             "{}/{}",
@@ -213,7 +274,13 @@ pub trait Provider: Send + Sync {
             endpoint_path
         );
 
-        Ok(BuiltRequest { url, headers, body })
+        Ok(BuiltRequest {
+            url,
+            headers,
+            body,
+            transport,
+            route,
+        })
     }
 }
 

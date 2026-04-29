@@ -1,4 +1,6 @@
-use crate::llm::types::{Message, StreamEvent, ToolDefinition};
+use crate::llm::types::{
+    Message, ResponseMetadataProvider, ResponseTransport, StreamEvent, ToolDefinition,
+};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 
@@ -69,6 +71,14 @@ pub struct ProtocolStreamState {
     pub reasoning_id: Option<String>,
     pub openai_reasoning: HashMap<String, OpenAiReasoningState>,
     pub openai_store: Option<bool>,
+    pub response_id: Option<String>,
+    pub response_metadata_emitted: bool,
+    pub response_metadata_provider: Option<ResponseMetadataProvider>,
+    pub response_metadata_transport: Option<ResponseTransport>,
+    pub response_metadata_transport_session_id: Option<String>,
+    pub response_metadata_continuation_requested: bool,
+    pub response_activity_started: bool,
+    pub response_metadata_continuation_accepted: Option<bool>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

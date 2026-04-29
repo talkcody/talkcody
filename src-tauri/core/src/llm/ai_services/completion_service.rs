@@ -50,7 +50,7 @@ impl CompletionService {
         )
         .await?;
 
-        let request = StreamCollector::create_completion_request(model_identifier, prompt);
+        let request = StreamCollector::create_completion_request(model_identifier, None, prompt);
 
         let runner = StreamRunner::new(registry.clone(), api_keys.clone());
         let result =

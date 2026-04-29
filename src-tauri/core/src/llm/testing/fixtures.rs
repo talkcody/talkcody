@@ -64,6 +64,27 @@ pub struct RecordedSseEvent {
     pub data: String,
 }
 
+pub fn normalize_recorded_json_body(body: &Value) -> Value {
+    match body {
+        Value::String(text) => serde_json::from_str(text).unwrap_or_else(|_| body.clone()),
+        _ => body.clone(),
+    }
+}
+
+pub fn recorded_json_body_to_http_text(body: &Value) -> String {
+    match body {
+        Value::String(text) => text.clone(),
+        _ => body.to_string(),
+    }
+}
+
+fn normalize_provider_fixture(mut fixture: ProviderFixture) -> ProviderFixture {
+    if let RecordedResponse::Json { body, .. } = &mut fixture.response {
+        *body = normalize_recorded_json_body(body);
+    }
+    fixture
+}
+
 #[allow(dead_code)]
 #[cfg(test)]
 pub fn fixture_file_name(fixture: &ProviderFixture) -> String {
@@ -84,7 +105,9 @@ pub fn fixture_path(dir: &Path, fixture: &ProviderFixture) -> PathBuf {
 pub fn load_fixture(path: &Path) -> Result<ProviderFixture, String> {
     let raw = std::fs::read_to_string(path)
         .map_err(|e| format!("Failed to read fixture {}: {}", path.display(), e))?;
-    serde_json::from_str(&raw).map_err(|e| format!("Failed to parse fixture: {}", e))
+    serde_json::from_str::<ProviderFixture>(&raw)
+        .map(normalize_provider_fixture)
+        .map_err(|e| format!("Failed to parse fixture: {}", e))
 }
 
 pub fn write_fixture(path: &Path, fixture: &ProviderFixture) -> Result<(), String> {
@@ -97,7 +120,8 @@ pub fn write_fixture(path: &Path, fixture: &ProviderFixture) -> Result<(), Strin
             )
         })?;
     }
-    let raw = serde_json::to_string_pretty(fixture)
+    let fixture = normalize_provider_fixture(fixture.clone());
+    let raw = serde_json::to_string_pretty(&fixture)
         .map_err(|e| format!("Failed to serialize fixture: {}", e))?;
     std::fs::write(path, raw)
         .map_err(|e| format!("Failed to write fixture {}: {}", path.display(), e))
@@ -234,5 +258,33 @@ fn describe_json(value: &Value) -> String {
         Value::String(v) => format!("\"{}\"", v),
         Value::Array(_) => "array".to_string(),
         Value::Object(_) => "object".to_string(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn normalize_recorded_json_body_parses_stringified_json_objects() {
+        let normalized =
+            normalize_recorded_json_body(&Value::String("{\"error\":{\"code\":404}}".to_string()));
+
+        assert_eq!(normalized, json!({ "error": { "code": 404 } }));
+    }
+
+    #[test]
+    fn normalize_recorded_json_body_keeps_plain_strings() {
+        let normalized =
+            normalize_recorded_json_body(&Value::String("not-json-response".to_string()));
+
+        assert_eq!(normalized, Value::String("not-json-response".to_string()));
+    }
+
+    #[test]
+    fn recorded_json_body_to_http_text_keeps_plain_strings_unquoted() {
+        let body = recorded_json_body_to_http_text(&Value::String("not-json-response".to_string()));
+        assert_eq!(body, "not-json-response");
     }
 }

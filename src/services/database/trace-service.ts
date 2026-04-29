@@ -1,7 +1,23 @@
-import type { SpanEventRecord, SpanRecord, TraceDetail, TraceSummary } from '@/types/trace';
+import type {
+  OpenAiSubscriptionTraceMetrics,
+  SpanEventRecord,
+  SpanRecord,
+  TraceDetail,
+  TraceSummary,
+} from '@/types/trace';
 import type { TursoClient } from './turso-client';
 
 const DEFAULT_TRACE_LIMIT = 50;
+const HTTP_REQUEST_BODY_EVENT = 'http.request.body';
+const OPENAI_PROVIDER_KEY = 'gen_ai.system';
+const OPENAI_MODEL_KEY = 'gen_ai.request.model';
+const OPENAI_SUBSCRIPTION_PROVIDER = 'openai';
+const HTTP_SSE_TRANSPORT = 'http-sse';
+const WEBSOCKET_TRANSPORT = 'websocket';
+const FULL_HISTORY_INPUT_MODE = 'full-history';
+const INCREMENTAL_INPUT_MODE = 'incremental';
+const PREVIOUS_RESPONSE_ID_KEY = 'previous_response_id';
+const PREVIOUS_RESPONSE_ID_CAMEL_KEY = 'previousResponseId';
 
 function safeJsonParse(value: string | null): Record<string, unknown> | null {
   if (!value) return null;
@@ -74,6 +90,98 @@ function toSpanEventRecord(row: {
   };
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' && value.length > 0 ? value : null;
+}
+
+function isOpenAiSubscriptionSpan(span: SpanRecord): boolean {
+  const attributes = span.attributes;
+  if (!attributes) {
+    return false;
+  }
+
+  const provider = asString(attributes[OPENAI_PROVIDER_KEY]);
+  if (provider !== OPENAI_SUBSCRIPTION_PROVIDER) {
+    return false;
+  }
+
+  const model = asString(attributes[OPENAI_MODEL_KEY]);
+  return model != null && model.length > 0;
+}
+
+function resolveOpenAiSubscriptionInputMode(
+  payload: Record<string, unknown>,
+  transport: string | null
+): string | null {
+  const explicitInputMode = asString(payload.input_mode) ?? asString(payload.inputMode);
+  if (explicitInputMode) {
+    return explicitInputMode;
+  }
+
+  const previousResponseId =
+    asString(payload[PREVIOUS_RESPONSE_ID_KEY]) ??
+    asString(payload[PREVIOUS_RESPONSE_ID_CAMEL_KEY]);
+  if (previousResponseId) {
+    return INCREMENTAL_INPUT_MODE;
+  }
+
+  if (transport === WEBSOCKET_TRANSPORT || transport === HTTP_SSE_TRANSPORT) {
+    return FULL_HISTORY_INPUT_MODE;
+  }
+
+  return null;
+}
+
+function computeOpenAiSubscriptionTraceMetrics(
+  spans: SpanRecord[],
+  eventsBySpanId: Record<string, SpanEventRecord[]>
+): OpenAiSubscriptionTraceMetrics | null {
+  const llmSpans = spans.filter(isOpenAiSubscriptionSpan);
+  if (llmSpans.length === 0) {
+    return null;
+  }
+
+  const metrics: OpenAiSubscriptionTraceMetrics = {
+    websocketTurnCount: 0,
+    incrementalTurnCount: 0,
+    baselineTurnCount: 0,
+    httpFallbackCount: 0,
+  };
+
+  for (const span of llmSpans) {
+    const requestEvent = (eventsBySpanId[span.id] ?? []).find(
+      (event) => event.eventType === HTTP_REQUEST_BODY_EVENT
+    );
+    const payload = asRecord(requestEvent?.payload);
+    if (!payload) {
+      continue;
+    }
+
+    const transport = asString(payload.transport);
+    if (transport === WEBSOCKET_TRANSPORT) {
+      metrics.websocketTurnCount += 1;
+    }
+    if (transport === HTTP_SSE_TRANSPORT) {
+      metrics.httpFallbackCount += 1;
+    }
+
+    const inputMode = resolveOpenAiSubscriptionInputMode(payload, transport);
+    if (inputMode === INCREMENTAL_INPUT_MODE) {
+      metrics.incrementalTurnCount += 1;
+    } else if (inputMode === FULL_HISTORY_INPUT_MODE) {
+      metrics.baselineTurnCount += 1;
+    }
+  }
+
+  return metrics;
+}
+
 export class TraceService {
   constructor(private db: TursoClient) {}
 
@@ -93,7 +201,10 @@ export class TraceService {
     attributes?: Record<string, unknown> | null;
   }): Promise<void> {
     const startedAt = input.startedAt ?? Date.now();
-    const attributes = input.attributes ? JSON.stringify(input.attributes) : '{}';
+    const attributes =
+      input.attributes && Object.keys(input.attributes).length > 0
+        ? JSON.stringify(input.attributes)
+        : null;
 
     await this.ensureTrace(input.traceId, startedAt);
 
@@ -201,6 +312,7 @@ export class TraceService {
         trace: toTraceSummary(traceRow),
         spans,
         eventsBySpanId: {},
+        openAiSubscriptionMetrics: null,
       };
     }
 
@@ -241,6 +353,7 @@ export class TraceService {
       trace: toTraceSummary(traceRow),
       spans,
       eventsBySpanId,
+      openAiSubscriptionMetrics: computeOpenAiSubscriptionTraceMetrics(spans, eventsBySpanId),
     };
   }
 

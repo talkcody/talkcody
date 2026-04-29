@@ -531,6 +531,15 @@ const en: LocaleDefinition = {
       providerUpdated: (type) => `Provider for ${type} updated`,
       updateFailed: (type) => `Failed to update ${type}`,
       selectModel: 'Select model',
+      orderedRetryHint:
+        'If the current model request fails before a response is produced, TalkCody retries the next model in this order.',
+      addFallbackModel: 'Add Fallback Model',
+      noFallbackModels:
+        'No fallback models configured. Default behavior stays active until you add overrides.',
+      priority: (value) => `Priority ${value}`,
+      moveUp: 'Move Up',
+      moveDown: 'Move Down',
+      remove: 'Remove',
       customModels: {
         title: 'Custom Models',
         description: 'Add models from your providers that are not in the default list',
@@ -1355,6 +1364,11 @@ const en: LocaleDefinition = {
     description: 'Inspect LLM traces, spans, and request/response metadata.',
     listTitle: 'Traces',
     detailTitle: 'Trace Details',
+    transportMetricsTitle: 'OpenAI Subscription Transport',
+    websocketTurnCountLabel: 'WebSocket turns',
+    incrementalTurnCountLabel: 'Incremental turns',
+    baselineTurnCountLabel: 'Baseline turns',
+    httpFallbackCountLabel: 'HTTP fallback turns',
     spansTitle: 'Spans',
     eventsTitle: 'Events',
     attributesLabel: 'Attributes',

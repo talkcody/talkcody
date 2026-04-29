@@ -11,6 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import InfiniteScroll from '@/components/ui/infinite-scroll';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
@@ -18,10 +19,17 @@ import { useLocale } from '@/hooks/use-locale';
 import { logger } from '@/lib/logger';
 import { databaseService } from '@/services/database-service';
 import { useSettingsStore } from '@/stores/settings-store';
-import type { SpanEventRecord, SpanRecord, TraceDetail, TraceSummary } from '@/types/trace';
+import type {
+  OpenAiSubscriptionTraceMetrics,
+  SpanEventRecord,
+  SpanRecord,
+  TraceDetail,
+  TraceSummary,
+} from '@/types/trace';
 
 const MAX_JSON_PREVIEW = 2000;
 const MAX_PAYLOAD_HEIGHT = '24rem';
+const TRACE_PAGE_SIZE = 10;
 
 const formatTraceCount = (count: number) => `${count} trace${count !== 1 ? 's' : ''}`;
 
@@ -74,6 +82,34 @@ function getSpanLabel(span: SpanRecord) {
   return span.name || span.id;
 }
 
+function isLlmStepSpan(span: SpanRecord) {
+  return /^Step\d+-llm$/.test(span.name);
+}
+
+function getTransportMetricCards(
+  metrics: OpenAiSubscriptionTraceMetrics,
+  tracingLocale: ReturnType<typeof useLocale>['t']['Tracing']
+) {
+  return [
+    {
+      label: tracingLocale.websocketTurnCountLabel,
+      value: metrics.websocketTurnCount,
+    },
+    {
+      label: tracingLocale.incrementalTurnCountLabel,
+      value: metrics.incrementalTurnCount,
+    },
+    {
+      label: tracingLocale.baselineTurnCountLabel,
+      value: metrics.baselineTurnCount,
+    },
+    {
+      label: tracingLocale.httpFallbackCountLabel,
+      value: metrics.httpFallbackCount,
+    },
+  ];
+}
+
 // Build span hierarchy tree
 function buildSpanTree(spans: SpanRecord[]): SpanNode[] {
   const spanMap = new Map<string, SpanNode>();
@@ -122,6 +158,10 @@ export function LLMTracingPage() {
   const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
   const [detail, setDetail] = useState<TraceDetail | null>(null);
   const [loadingList, setLoadingList] = useState(true);
+  const [loadingMoreTraces, setLoadingMoreTraces] = useState(false);
+  const [hasMoreTraces, setHasMoreTraces] = useState(true);
+  const [traceOffset, setTraceOffset] = useState(0);
+  const [traceListScrollRoot, setTraceListScrollRoot] = useState<HTMLDivElement | null>(null);
   const [loadingDetail, setLoadingDetail] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedSpans, setExpandedSpans] = useState<Set<string>>(() => new Set());
@@ -137,17 +177,25 @@ export function LLMTracingPage() {
       setSelectedTraceId(null);
       setDetail(null);
       setLoadingList(false);
+      setLoadingMoreTraces(false);
+      setHasMoreTraces(false);
+      setTraceOffset(0);
       setError(null);
       return;
     }
 
     setLoadingList(true);
+    setLoadingMoreTraces(false);
     setError(null);
     try {
-      const list = await databaseService.getTraces();
+      const list = await databaseService.getTraces(TRACE_PAGE_SIZE, 0);
       setTraces(list);
+      setTraceOffset(list.length);
+      setHasMoreTraces(list.length === TRACE_PAGE_SIZE);
       if (list.length > 0) {
-        setSelectedTraceId((current) => current ?? list[0]?.id ?? null);
+        setSelectedTraceId((current) =>
+          current && list.some((trace) => trace.id === current) ? current : (list[0]?.id ?? null)
+        );
       } else {
         setSelectedTraceId(null);
         setDetail(null);
@@ -160,6 +208,39 @@ export function LLMTracingPage() {
       setLoadingList(false);
     }
   }, [t.Tracing.loadError, traceEnabled]);
+
+  const loadMoreTraces = useCallback(async () => {
+    if (loadingList || loadingMoreTraces || !hasMoreTraces || !traceEnabled) {
+      return;
+    }
+
+    setLoadingMoreTraces(true);
+    setError(null);
+    try {
+      const list = await databaseService.getTraces(TRACE_PAGE_SIZE, traceOffset);
+      setTraces((current) => {
+        const existingIds = new Set(current.map((trace) => trace.id));
+        return current.concat(list.filter((trace) => !existingIds.has(trace.id)));
+      });
+      setTraceOffset((current) => current + list.length);
+      if (list.length < TRACE_PAGE_SIZE) {
+        setHasMoreTraces(false);
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : t.Tracing.loadError;
+      setError(message);
+      logger.error('Failed to load more traces', err);
+    } finally {
+      setLoadingMoreTraces(false);
+    }
+  }, [
+    hasMoreTraces,
+    loadingList,
+    loadingMoreTraces,
+    t.Tracing.loadError,
+    traceEnabled,
+    traceOffset,
+  ]);
 
   const loadTraceDetail = useCallback(
     async (traceId: string) => {
@@ -174,10 +255,10 @@ export function LLMTracingPage() {
       try {
         const result = await databaseService.getTraceDetails(traceId);
         setDetail(result);
-        // Expand root spans by default to reduce initial render cost.
+        // Expand root LLM spans by default to reduce initial render cost.
         if (result?.spans) {
           const rootSpanIds = result.spans
-            .filter((span) => !span.parentSpanId)
+            .filter((span) => isLlmStepSpan(span) && !span.parentSpanId)
             .map((span) => span.id);
           setExpandedSpans(new Set(rootSpanIds));
         }
@@ -224,20 +305,24 @@ export function LLMTracingPage() {
 
   const selectedTrace = detail?.trace ?? null;
   const spanEventsMap = detail?.eventsBySpanId ?? {};
+  const visibleSpans = useMemo(
+    () => detail?.spans?.filter((span) => isLlmStepSpan(span)) ?? [],
+    [detail?.spans]
+  );
 
   // Build span tree for hierarchical display
   const spanTree = useMemo(() => {
-    if (!detail?.spans) return [];
-    return buildSpanTree(detail.spans);
-  }, [detail?.spans]);
+    if (visibleSpans.length === 0) return [];
+    return buildSpanTree(visibleSpans);
+  }, [visibleSpans]);
 
   // Calculate timeline bounds
   const timelineBounds = useMemo(() => {
-    if (!detail?.spans?.length) return null;
-    const start = Math.min(...detail.spans.map((s) => s.startedAt));
-    const end = Math.max(...detail.spans.map((s) => s.endedAt ?? s.startedAt));
+    if (visibleSpans.length === 0) return null;
+    const start = Math.min(...visibleSpans.map((s) => s.startedAt));
+    const end = Math.max(...visibleSpans.map((s) => s.endedAt ?? s.startedAt));
     return { start, end, duration: Math.max(end - start, 0) };
-  }, [detail?.spans]);
+  }, [visibleSpans]);
 
   const traceTiming = useMemo(() => {
     if (timelineBounds) {
@@ -322,15 +407,37 @@ export function LLMTracingPage() {
             </button>
           );
         })}
+        {traceListScrollRoot && hasMoreTraces && (
+          <InfiniteScroll
+            hasMore={hasMoreTraces}
+            isLoading={loadingMoreTraces}
+            next={loadMoreTraces}
+            root={traceListScrollRoot}
+            threshold={1}
+          >
+            <div className="flex h-8 items-center justify-center px-3 py-2">
+              {loadingMoreTraces ? (
+                <span className="text-xs text-muted-foreground">{t.Common.loading}</span>
+              ) : (
+                <span aria-hidden="true" className="block h-2 w-full" />
+              )}
+            </div>
+          </InfiniteScroll>
+        )}
       </div>
     );
   }, [
     error,
+    hasMoreTraces,
     loadingList,
+    loadingMoreTraces,
+    loadMoreTraces,
     selectedTraceId,
+    t.Common.loading,
     t.Tracing.disabledListHint,
     t.Tracing.emptyDescription,
     traceEnabled,
+    traceListScrollRoot,
     traces,
   ]);
 
@@ -427,7 +534,7 @@ export function LLMTracingPage() {
 
   // Render timeline view
   const renderTimelineView = useCallback(() => {
-    if (!detail?.spans?.length || !timelineBounds) {
+    if (!visibleSpans.length || !timelineBounds) {
       return (
         <div className="py-8 text-sm text-muted-foreground text-center">{t.Tracing.noSpans}</div>
       );
@@ -501,7 +608,7 @@ export function LLMTracingPage() {
       </div>
     );
   }, [
-    detail?.spans,
+    visibleSpans.length,
     timelineBounds,
     t.Tracing.noSpans,
     t.Tracing.spansTitle,
@@ -537,6 +644,9 @@ export function LLMTracingPage() {
 
     const startedAt = traceTiming?.startedAt ?? selectedTrace.startedAt;
     const endedAt = traceTiming?.endedAt ?? selectedTrace.endedAt;
+    const transportMetricCards = detail?.openAiSubscriptionMetrics
+      ? getTransportMetricCards(detail.openAiSubscriptionMetrics, t.Tracing)
+      : [];
 
     return (
       <div className="mx-auto w-full max-w-6xl space-y-5 p-4">
@@ -569,6 +679,24 @@ export function LLMTracingPage() {
               </span>
             </div>
           </div>
+          {transportMetricCards.length > 0 && (
+            <div className="mt-4 rounded-lg border border-blue-500/20 bg-blue-500/5 p-3">
+              <div className="text-xs font-semibold uppercase tracking-wide text-blue-700 dark:text-blue-300">
+                {t.Tracing.transportMetricsTitle}
+              </div>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                {transportMetricCards.map((metric) => (
+                  <div
+                    key={metric.label}
+                    className="rounded-md border border-border/60 bg-background/80 px-3 py-2"
+                  >
+                    <div className="text-[11px] text-muted-foreground">{metric.label}</div>
+                    <div className="mt-1 text-lg font-semibold text-foreground">{metric.value}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Span Content */}
@@ -577,7 +705,7 @@ export function LLMTracingPage() {
             <h3 className="text-sm font-semibold">{t.Tracing.spansTitle}</h3>
           </div>
           <div className="p-4">
-            {detail?.spans.length ? (
+            {visibleSpans.length ? (
               renderTimelineView()
             ) : (
               <div className="text-sm text-muted-foreground py-8 text-center">
@@ -591,15 +719,16 @@ export function LLMTracingPage() {
   }, [
     detail,
     loadingDetail,
+    renderTimelineView,
     selectedTrace,
     traceEnabled,
     traceTiming,
-    renderTimelineView,
     t.Tracing,
+    visibleSpans.length,
   ]);
 
   return (
-    <div className="flex h-full flex-col bg-background">
+    <div className="flex h-full min-h-0 flex-col bg-background">
       <div className="flex items-center justify-between border-b bg-card px-4 py-3">
         <div>
           <h1 className="text-xl font-bold">{t.Tracing.title}</h1>
@@ -630,20 +759,26 @@ export function LLMTracingPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="w-80 min-w-[320px] max-w-[400px] border-r bg-card/50">
-          <div className="h-full flex flex-col">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="w-80 min-h-0 min-w-[320px] max-w-[400px] border-r bg-card/50">
+          <div className="flex h-full min-h-0 flex-col">
             <div className="border-b px-3 py-2.5 bg-card">
               <h2 className="text-sm font-semibold text-foreground">{t.Tracing.listTitle}</h2>
               <p className="text-[11px] text-muted-foreground mt-0.5">
                 {traceEnabled ? formatTraceCount(traces.length) : t.Tracing.disabledTraceCountLabel}
               </p>
             </div>
-            <ScrollArea className="flex-1">{traceListContent}</ScrollArea>
+            <div
+              ref={setTraceListScrollRoot}
+              data-testid="trace-list-scroll-container"
+              className="min-h-0 flex-1 overflow-auto"
+            >
+              {traceListContent}
+            </div>
           </div>
         </div>
-        <div className="flex-1 overflow-hidden bg-background">
-          <ScrollArea className="h-full">{detailContent}</ScrollArea>
+        <div className="flex min-h-0 flex-1 overflow-hidden bg-background">
+          <ScrollArea className="flex-1">{detailContent}</ScrollArea>
         </div>
       </div>
 

@@ -26,7 +26,7 @@ impl ImageGenerationService {
         models: &ModelsConfiguration,
         request: ImageGenerationRequest,
     ) -> Result<ImageGenerationResponse, String> {
-        let api_map = api_keys.load_api_keys().await?;
+        let api_map = ModelRegistry::load_provider_credentials(api_keys).await?;
 
         // Resolve model: use provided model, or auto-select if empty
         let model_identifier = if request.model.trim().is_empty() {

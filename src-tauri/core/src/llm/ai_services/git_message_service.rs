@@ -1,4 +1,4 @@
-use crate::llm::ai_services::model_resolver::{resolve_model_identifier, FallbackStrategy};
+use crate::llm::ai_services::model_resolver::{resolve_model_identifiers, FallbackStrategy};
 use crate::llm::ai_services::stream_collector::StreamCollector;
 use crate::llm::ai_services::stream_runner::StreamRunner;
 use crate::llm::ai_services::types::{GitMessageContext, GitMessageResult};
@@ -36,15 +36,26 @@ impl GitMessageService {
             prompt.len()
         );
 
-        let model_identifier = resolve_model_identifier(
+        let resolved_models = resolve_model_identifiers(
             api_keys,
             registry,
             context.model.clone(),
+            context.fallback_models.clone(),
             FallbackStrategy::AnyAvailable,
         )
         .await?;
+        let model_identifier = resolved_models[0].clone();
+        let fallback_models = resolved_models[1..].to_vec();
 
-        let request = StreamCollector::create_completion_request(model_identifier, prompt);
+        let request = StreamCollector::create_completion_request(
+            model_identifier,
+            if fallback_models.is_empty() {
+                None
+            } else {
+                Some(fallback_models)
+            },
+            prompt,
+        );
         let runner = StreamRunner::new(registry.clone(), api_keys.clone());
         let result =
             StreamCollector::collect_with_runner(&runner, request, Duration::from_secs(30)).await?;

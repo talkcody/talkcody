@@ -33,8 +33,7 @@ impl TranscriptionService {
         );
 
         // Load API keys map
-        let api_map = api_keys
-            .load_api_keys()
+        let api_map = ModelRegistry::load_provider_credentials(api_keys)
             .await
             .map_err(TranscriptionError::RequestFailed)?;
 
@@ -154,7 +153,7 @@ impl TranscriptionService {
         models: &crate::llm::types::ModelsConfiguration,
         model_identifier: &str,
     ) -> Result<bool, String> {
-        let api_map = api_keys.load_api_keys().await?;
+        let api_map = ModelRegistry::load_provider_credentials(api_keys).await?;
 
         match ModelRegistry::get_model_provider(
             model_identifier,

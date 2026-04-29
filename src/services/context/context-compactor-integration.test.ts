@@ -25,6 +25,13 @@ vi.mock('@/services/ai/ai-context-compaction', () => ({
   },
 }));
 
+vi.mock('@/providers/models/model-type-service', () => ({
+  modelTypeService: {
+    resolveModelTypeChainSync: vi.fn(() => ['test-compression-model']),
+    resolveModelTypeSync: vi.fn(() => 'test-compression-model'),
+  },
+}));
+
 import type { Message as ModelMessage } from '@/services/llm/types';
 import { LLMService } from '../agents/llm-service';
 import { ContextCompactor } from './context-compactor';

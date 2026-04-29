@@ -11,7 +11,8 @@ use crate::llm::protocols::stream_parser::{
 };
 use crate::llm::protocols::ProtocolHeaderBuilder;
 use crate::llm::providers::provider::{
-    BaseProvider, Provider, ProviderContext, ProviderCredentials as Creds,
+    BaseProvider, Provider, ProviderContext, ProviderCredentials as Creds, ProviderRoute,
+    ProviderTransport,
 };
 use crate::llm::types::ProtocolType;
 use crate::llm::types::{ProviderConfig, StreamEvent};
@@ -62,6 +63,22 @@ impl OpenAiProvider {
             .unwrap_or(false)
     }
 
+    async fn route_for_context(&self, ctx: &ProviderContext<'_>) -> ProviderRoute {
+        if self.is_oauth_mode(ctx.api_key_manager).await {
+            ProviderRoute::OpenAiSubscription
+        } else if Self::is_responses_model(ctx.model) {
+            ProviderRoute::OpenAiApi
+        } else {
+            ProviderRoute::Default
+        }
+    }
+
+    async fn supports_responses_websocket(&self, ctx: &ProviderContext<'_>) -> bool {
+        self.is_oauth_mode(ctx.api_key_manager).await
+            && ctx.conversation_mode == Some(crate::llm::types::ConversationMode::ResponsesChained)
+            && ctx.transport_session_id.is_some()
+    }
+
     /// Build request for OAuth/Codex API format
     #[cfg(test)]
     pub(crate) fn build_oauth_request(&self, ctx: &ProviderContext<'_>) -> Result<Value, String> {
@@ -75,6 +92,12 @@ impl OpenAiProvider {
             top_k: ctx.top_k,
             provider_options: ctx.provider_options,
             extra_body: ctx.provider_config.extra_body.as_ref(),
+            conversation_mode: ctx.conversation_mode,
+            input_mode: ctx.input_mode,
+            previous_response_id: ctx.previous_response_id,
+            transport_session_id: ctx.transport_session_id,
+            allow_transport_fallback: ctx.allow_transport_fallback,
+            continuation_context: ctx.continuation_context,
         };
         self.responses_protocol.build_request(request_ctx)
     }
@@ -182,6 +205,12 @@ impl Provider for OpenAiProvider {
                 top_k: ctx.top_k,
                 provider_options: ctx.provider_options,
                 extra_body: ctx.provider_config.extra_body.as_ref(),
+                conversation_mode: ctx.conversation_mode,
+                input_mode: ctx.input_mode,
+                previous_response_id: ctx.previous_response_id,
+                transport_session_id: ctx.transport_session_id,
+                allow_transport_fallback: ctx.allow_transport_fallback,
+                continuation_context: ctx.continuation_context,
             };
             self.responses_protocol.build_request(request_ctx)
         } else {
@@ -196,6 +225,12 @@ impl Provider for OpenAiProvider {
                 top_k: ctx.top_k,
                 provider_options: ctx.provider_options,
                 extra_body: ctx.provider_config.extra_body.as_ref(),
+                conversation_mode: ctx.conversation_mode,
+                input_mode: ctx.input_mode,
+                previous_response_id: ctx.previous_response_id,
+                transport_session_id: ctx.transport_session_id,
+                allow_transport_fallback: ctx.allow_transport_fallback,
+                continuation_context: ctx.continuation_context,
             };
             let mut body = self.protocol.build_request(request_ctx)?;
             // OpenAI native API requires max_completion_tokens instead of deprecated max_tokens
@@ -215,12 +250,45 @@ impl Provider for OpenAiProvider {
         data: &str,
         state: &mut StreamParseState,
     ) -> Result<Option<StreamEvent>, String> {
-        if self.is_oauth_mode(ctx.api_key_manager).await || Self::is_responses_model(ctx.model) {
+        let route = self.route_for_context(ctx).await;
+        if route != ProviderRoute::Default {
+            if state.response_metadata_provider.is_none() {
+                state.response_metadata_provider = route.response_metadata_provider();
+            }
+            if state.response_metadata_transport.is_none() {
+                state.response_metadata_transport = Some(
+                    self.transport_for_request(ctx)
+                        .await
+                        .as_response_transport(),
+                );
+            }
+            if state.response_metadata_transport_session_id.is_none() {
+                state.response_metadata_transport_session_id =
+                    ctx.transport_session_id.map(str::to_string);
+            }
+            if ctx.previous_response_id.is_some() {
+                state.response_metadata_continuation_requested = true;
+            }
+        }
+
+        if route != ProviderRoute::Default {
             let parse_ctx = StreamParseContext { event_type, data };
             self.responses_protocol.parse_stream_event(parse_ctx, state)
         } else {
             self.parse_stream_event(event_type, data, state)
         }
+    }
+
+    async fn transport_for_request(&self, ctx: &ProviderContext<'_>) -> ProviderTransport {
+        if self.supports_responses_websocket(ctx).await {
+            ProviderTransport::Websocket
+        } else {
+            ProviderTransport::HttpSse
+        }
+    }
+
+    async fn route_for_request(&self, ctx: &ProviderContext<'_>) -> ProviderRoute {
+        self.route_for_context(ctx).await
     }
 
     fn build_protocol_headers(&self, ctx: HeaderBuildContext) -> HashMap<String, String> {
@@ -279,6 +347,7 @@ mod tests {
 
         let request = StreamTextRequest {
             model: "gpt-5.2-codex".to_string(),
+            fallback_models: None,
             messages: vec![
                 Message::User {
                     content: MessageContent::Text("hi".to_string()),
@@ -315,6 +384,12 @@ mod tests {
             top_k: None,
             provider_options: None,
             request_id: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
             trace_context: None,
         };
 
@@ -330,6 +405,12 @@ mod tests {
             top_k: request.top_k,
             provider_options: request.provider_options.as_ref(),
             trace_context: request.trace_context.as_ref(),
+            conversation_mode: request.conversation_mode,
+            input_mode: request.input_mode,
+            previous_response_id: request.previous_response_id.as_deref(),
+            transport_session_id: request.transport_session_id.as_deref(),
+            allow_transport_fallback: request.allow_transport_fallback,
+            continuation_context: request.continuation_context.as_ref(),
         };
 
         let body = provider.build_oauth_request(&ctx).expect("request body");
@@ -363,6 +444,81 @@ mod tests {
                 .and_then(|item| item.get("output"))
                 .and_then(|value| value.as_str()),
             Some("ok")
+        );
+    }
+
+    #[tokio::test]
+    async fn build_openai_oauth_request_includes_previous_response_id() {
+        let dir = TempDir::new().expect("temp dir");
+        let db_path = dir.path().join("talkcody-test.db");
+        let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
+        db.connect().await.expect("db connect");
+        let api_keys = ApiKeyManager::new(db, std::path::PathBuf::from("/tmp"));
+        let provider = OpenAiProvider::new(ProviderConfig {
+            id: "openai".to_string(),
+            name: "OpenAI".to_string(),
+            protocol: ProtocolType::OpenAiCompatible,
+            base_url: "https://api.openai.com/v1".to_string(),
+            api_key_name: "OPENAI_API_KEY".to_string(),
+            supports_oauth: true,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: crate::llm::types::AuthType::Bearer,
+        });
+
+        let request = StreamTextRequest {
+            model: "gpt-5.2-codex".to_string(),
+            fallback_models: None,
+            messages: vec![Message::User {
+                content: MessageContent::Text("hi".to_string()),
+                provider_options: None,
+            }],
+            tools: None,
+            stream: Some(true),
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            provider_options: None,
+            request_id: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: Some("resp_prev_456".to_string()),
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
+            trace_context: None,
+        };
+
+        let ctx = ProviderContext {
+            provider_config: provider.config(),
+            api_key_manager: &api_keys,
+            model: "gpt-5.2-codex",
+            messages: &request.messages,
+            tools: request.tools.as_deref(),
+            temperature: request.temperature,
+            max_tokens: request.max_tokens,
+            top_p: request.top_p,
+            top_k: request.top_k,
+            provider_options: request.provider_options.as_ref(),
+            trace_context: request.trace_context.as_ref(),
+            conversation_mode: request.conversation_mode,
+            input_mode: request.input_mode,
+            previous_response_id: request.previous_response_id.as_deref(),
+            transport_session_id: request.transport_session_id.as_deref(),
+            allow_transport_fallback: request.allow_transport_fallback,
+            continuation_context: request.continuation_context.as_ref(),
+        };
+
+        let body = provider.build_oauth_request(&ctx).expect("request body");
+        assert_eq!(
+            body.get("previous_response_id")
+                .and_then(|value| value.as_str()),
+            Some("resp_prev_456")
         );
     }
 
@@ -567,6 +723,7 @@ mod tests {
 
         let request = StreamTextRequest {
             model: "gpt-5.2-codex".to_string(),
+            fallback_models: None,
             messages: vec![
                 Message::System {
                     content: "You are a helpful assistant.".to_string(),
@@ -607,6 +764,12 @@ mod tests {
             top_k: None,
             provider_options: None,
             request_id: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
             trace_context: None,
         };
 
@@ -622,6 +785,12 @@ mod tests {
             top_k: request.top_k,
             provider_options: request.provider_options.as_ref(),
             trace_context: request.trace_context.as_ref(),
+            conversation_mode: request.conversation_mode,
+            input_mode: request.input_mode,
+            previous_response_id: request.previous_response_id.as_deref(),
+            transport_session_id: request.transport_session_id.as_deref(),
+            allow_transport_fallback: request.allow_transport_fallback,
+            continuation_context: request.continuation_context.as_ref(),
         };
 
         let body = provider.build_oauth_request(&ctx).expect("request body");
@@ -707,5 +876,257 @@ mod tests {
                 );
             }
         }
+    }
+
+    #[tokio::test]
+    async fn openai_responses_do_not_mark_continuation_accepted_from_request_shape() {
+        let dir = TempDir::new().expect("temp dir");
+        let db_path = dir.path().join("talkcody-test.db");
+        let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
+        db.connect().await.expect("db connect");
+        let api_keys = ApiKeyManager::new(db, std::path::PathBuf::from("/tmp"));
+
+        let provider = OpenAiProvider::new(ProviderConfig {
+            id: "openai".to_string(),
+            name: "OpenAI".to_string(),
+            protocol: ProtocolType::OpenAiCompatible,
+            base_url: "https://api.openai.com/v1".to_string(),
+            api_key_name: "OPENAI_API_KEY".to_string(),
+            supports_oauth: true,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: crate::llm::types::AuthType::Bearer,
+        });
+
+        let messages = vec![Message::User {
+            content: MessageContent::Text("continue".to_string()),
+            provider_options: None,
+        }];
+        let ctx = ProviderContext {
+            provider_config: provider.config(),
+            api_key_manager: &api_keys,
+            model: "gpt-5.2-codex",
+            messages: &messages,
+            tools: None,
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            provider_options: None,
+            trace_context: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: Some("resp_prev_123"),
+            transport_session_id: Some("session-123"),
+            allow_transport_fallback: Some(true),
+            continuation_context: None,
+        };
+
+        let mut state = StreamParseState::default();
+        let event = provider
+            .parse_stream_event_with_context(&ctx, None, "{}", &mut state)
+            .await
+            .expect("parse event");
+
+        assert!(event.is_none());
+        assert!(state.response_metadata_continuation_requested);
+        assert_eq!(state.response_metadata_continuation_accepted, None);
+    }
+
+    #[tokio::test]
+    async fn openai_subscription_transport_uses_websocket_when_session_id_present() {
+        let dir = TempDir::new().expect("temp dir");
+        let db_path = dir.path().join("talkcody-test.db");
+        let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
+        db.connect().await.expect("db connect");
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)",
+            vec![],
+        )
+        .await
+        .expect("create settings");
+        let api_keys = ApiKeyManager::new(db, std::path::PathBuf::from("/tmp"));
+        api_keys
+            .set_setting("openai_oauth_access_token", "oauth-token")
+            .await
+            .expect("set oauth token");
+
+        let provider = OpenAiProvider::new(ProviderConfig {
+            id: "openai".to_string(),
+            name: "OpenAI".to_string(),
+            protocol: ProtocolType::OpenAiCompatible,
+            base_url: "https://api.openai.com/v1".to_string(),
+            api_key_name: "OPENAI_API_KEY".to_string(),
+            supports_oauth: true,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: crate::llm::types::AuthType::Bearer,
+        });
+
+        let messages = vec![Message::User {
+            content: MessageContent::Text("hi".to_string()),
+            provider_options: None,
+        }];
+        let ctx = ProviderContext {
+            provider_config: provider.config(),
+            api_key_manager: &api_keys,
+            model: "gpt-5.2-codex",
+            messages: &messages,
+            tools: None,
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            provider_options: None,
+            trace_context: None,
+            conversation_mode: Some(crate::llm::types::ConversationMode::ResponsesChained),
+            input_mode: Some(crate::llm::types::InputMode::Incremental),
+            previous_response_id: Some("resp_prev_123"),
+            transport_session_id: Some("session-123"),
+            allow_transport_fallback: Some(true),
+            continuation_context: None,
+        };
+
+        assert_eq!(
+            provider.transport_for_request(&ctx).await,
+            ProviderTransport::Websocket
+        );
+        assert_eq!(
+            provider.route_for_request(&ctx).await,
+            ProviderRoute::OpenAiSubscription
+        );
+    }
+
+    #[tokio::test]
+    async fn openai_subscription_transport_stays_http_without_explicit_chain_session() {
+        let dir = TempDir::new().expect("temp dir");
+        let db_path = dir.path().join("talkcody-test.db");
+        let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
+        db.connect().await.expect("db connect");
+        db.execute(
+            "CREATE TABLE IF NOT EXISTS settings (key TEXT PRIMARY KEY, value TEXT, updated_at INTEGER)",
+            vec![],
+        )
+        .await
+        .expect("create settings");
+        let api_keys = ApiKeyManager::new(db, std::path::PathBuf::from("/tmp"));
+        api_keys
+            .set_setting("openai_oauth_access_token", "oauth-token")
+            .await
+            .expect("set oauth token");
+
+        let provider = OpenAiProvider::new(ProviderConfig {
+            id: "openai".to_string(),
+            name: "OpenAI".to_string(),
+            protocol: ProtocolType::OpenAiCompatible,
+            base_url: "https://api.openai.com/v1".to_string(),
+            api_key_name: "OPENAI_API_KEY".to_string(),
+            supports_oauth: true,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: crate::llm::types::AuthType::Bearer,
+        });
+
+        let messages = vec![Message::User {
+            content: MessageContent::Text("hi".to_string()),
+            provider_options: None,
+        }];
+        let ctx = ProviderContext {
+            provider_config: provider.config(),
+            api_key_manager: &api_keys,
+            model: "gpt-5.2-codex",
+            messages: &messages,
+            tools: None,
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            provider_options: None,
+            trace_context: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: Some("session-123"),
+            allow_transport_fallback: Some(true),
+            continuation_context: None,
+        };
+
+        assert_eq!(
+            provider.transport_for_request(&ctx).await,
+            ProviderTransport::HttpSse
+        );
+        assert_eq!(
+            provider.route_for_request(&ctx).await,
+            ProviderRoute::OpenAiSubscription
+        );
+    }
+    #[tokio::test]
+    async fn openai_api_responses_transport_stays_http_sse() {
+        let dir = TempDir::new().expect("temp dir");
+        let db_path = dir.path().join("talkcody-test.db");
+        let db = Arc::new(Database::new(db_path.to_string_lossy().to_string()));
+        db.connect().await.expect("db connect");
+        let api_keys = ApiKeyManager::new(db, std::path::PathBuf::from("/tmp"));
+
+        let provider = OpenAiProvider::new(ProviderConfig {
+            id: "openai".to_string(),
+            name: "OpenAI".to_string(),
+            protocol: ProtocolType::OpenAiCompatible,
+            base_url: "https://api.openai.com/v1".to_string(),
+            api_key_name: "OPENAI_API_KEY".to_string(),
+            supports_oauth: true,
+            supports_coding_plan: false,
+            supports_international: false,
+            coding_plan_base_url: None,
+            international_base_url: None,
+            headers: None,
+            extra_body: None,
+            auth_type: crate::llm::types::AuthType::Bearer,
+        });
+
+        let messages = vec![Message::User {
+            content: MessageContent::Text("hi".to_string()),
+            provider_options: None,
+        }];
+        let ctx = ProviderContext {
+            provider_config: provider.config(),
+            api_key_manager: &api_keys,
+            model: "gpt-5.2-codex",
+            messages: &messages,
+            tools: None,
+            temperature: None,
+            max_tokens: None,
+            top_p: None,
+            top_k: None,
+            provider_options: None,
+            trace_context: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: Some("session-123"),
+            allow_transport_fallback: Some(true),
+            continuation_context: None,
+        };
+
+        assert_eq!(
+            provider.route_for_request(&ctx).await,
+            ProviderRoute::OpenAiApi
+        );
+        assert_eq!(
+            provider.transport_for_request(&ctx).await,
+            ProviderTransport::HttpSse
+        );
     }
 }

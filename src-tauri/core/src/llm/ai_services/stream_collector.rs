@@ -30,24 +30,22 @@ impl StreamCollector {
             let chunk_result = tokio::time::timeout(timeout, stream.next()).await;
 
             match chunk_result {
-                Ok(Some(Ok(event))) => {
-                    match event {
-                        StreamEvent::TextDelta { text } => {
-                            if first_delta_time.is_none() {
-                                first_delta_time = Some(start_time.elapsed());
-                            }
-                            delta_count += 1;
-                            full_text.push_str(&text);
+                Ok(Some(Ok(event))) => match event {
+                    StreamEvent::TextDelta { text } => {
+                        if first_delta_time.is_none() {
+                            first_delta_time = Some(start_time.elapsed());
                         }
-                        StreamEvent::Done { .. } => break,
-                        StreamEvent::Error { message } => {
-                            return Err(format!("Stream error: {}", message));
-                        }
-                        _ => {} // Ignore other events like Usage, ToolCall, etc.
+                        delta_count += 1;
+                        full_text.push_str(&text);
                     }
-                }
+                    StreamEvent::Done { .. } => break,
+                    StreamEvent::Error { message } => {
+                        return Err(format!("Stream error: {}", message));
+                    }
+                    _ => {}
+                },
                 Ok(Some(Err(e))) => return Err(e),
-                Ok(None) => break, // Stream ended
+                Ok(None) => break,
                 Err(_) => return Err(format!("Stream timeout after {:?}", timeout)),
             }
         }
@@ -100,9 +98,14 @@ impl StreamCollector {
     }
 
     /// Create a simple text completion request with a single user message
-    pub fn create_completion_request(model: String, prompt: String) -> StreamTextRequest {
+    pub fn create_completion_request(
+        model: String,
+        fallback_models: Option<Vec<String>>,
+        prompt: String,
+    ) -> StreamTextRequest {
         StreamTextRequest {
             model,
+            fallback_models,
             messages: vec![Message::User {
                 content: crate::llm::types::MessageContent::Text(prompt),
                 provider_options: None,
@@ -115,6 +118,12 @@ impl StreamCollector {
             top_k: None,
             provider_options: None,
             request_id: None,
+            conversation_mode: None,
+            input_mode: None,
+            previous_response_id: None,
+            transport_session_id: None,
+            allow_transport_fallback: None,
+            continuation_context: None,
             trace_context: None,
         }
     }
@@ -156,8 +165,7 @@ mod tests {
 
         assert_eq!(result.text, "Hello World");
         assert_eq!(result.delta_count, 3);
-        // Time can be 0 in very fast tests, so we just check it's not unreasonably large
-        assert!(result.total_time_ms < 10000); // Less than 10 seconds
+        assert!(result.total_time_ms < 10000);
         assert!(result.time_to_first_delta_ms.is_some());
     }
 
@@ -225,10 +233,15 @@ mod tests {
     async fn create_completion_request_builds_correct_structure() {
         let request = StreamCollector::create_completion_request(
             "gpt-4o".to_string(),
+            Some(vec!["gpt-4o-mini".to_string()]),
             "Generate a title".to_string(),
         );
 
         assert_eq!(request.model, "gpt-4o");
+        assert_eq!(
+            request.fallback_models,
+            Some(vec!["gpt-4o-mini".to_string()])
+        );
         assert_eq!(request.messages.len(), 1);
         assert!(request.stream.unwrap_or(false));
     }

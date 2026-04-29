@@ -1,6 +1,6 @@
 // Protocol-level stream parsing trait
 // Handles conversion from SSE stream data to internal StreamEvent types
-use crate::llm::types::StreamEvent;
+use crate::llm::types::{ResponseMetadataProvider, ResponseTransport, StreamEvent};
 
 /// State maintained during stream parsing
 #[derive(Default)]
@@ -22,6 +22,14 @@ pub struct StreamParseState {
     // OpenAI Responses reasoning summary tracking
     pub openai_reasoning: std::collections::HashMap<String, super::OpenAiReasoningState>,
     pub openai_store: Option<bool>,
+    pub response_id: Option<String>,
+    pub response_metadata_emitted: bool,
+    pub response_metadata_provider: Option<ResponseMetadataProvider>,
+    pub response_metadata_transport: Option<ResponseTransport>,
+    pub response_metadata_transport_session_id: Option<String>,
+    pub response_metadata_continuation_requested: bool,
+    pub response_activity_started: bool,
+    pub response_metadata_continuation_accepted: Option<bool>,
 }
 
 impl StreamParseState {

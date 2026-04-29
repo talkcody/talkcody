@@ -581,11 +581,13 @@ class AgentRegistry {
 
     // Step 2: Resolve model type to concrete model
     let resolvedModel: string;
+    let resolvedFallbackModels: string[] = [];
     try {
       const { modelTypeService } = await import('@/providers/models/model-type-service');
 
-      // Resolve the model type to a concrete model using settings
-      resolvedModel = await modelTypeService.resolveModelType(agent.modelType);
+      const resolvedModelChain = await modelTypeService.resolveModelTypeChain(agent.modelType);
+      resolvedModel = resolvedModelChain[0] || '';
+      resolvedFallbackModels = resolvedModelChain.slice(1);
       logger.debug(
         `Resolved model type '${agent.modelType}' to '${resolvedModel}' for agent '${id}'`
       );
@@ -596,7 +598,11 @@ class AgentRegistry {
 
     // Step 3: Resolve MCP tools if agent has tools
     if (!agent.tools || Object.keys(agent.tools).length === 0) {
-      return { ...agent, model: resolvedModel } as AgentDefinition;
+      return {
+        ...agent,
+        model: resolvedModel,
+        fallbackModels: resolvedFallbackModels,
+      } as AgentDefinition;
     }
 
     try {
@@ -605,10 +611,15 @@ class AgentRegistry {
         ...agent,
         tools: resolvedTools,
         model: resolvedModel,
+        fallbackModels: resolvedFallbackModels,
       } as AgentDefinition;
     } catch (error) {
       logger.error(`Failed to resolve MCP tools for agent '${id}':`, error);
-      return { ...agent, model: resolvedModel } as AgentDefinition; // Return agent with resolved model even if MCP resolution fails
+      return {
+        ...agent,
+        model: resolvedModel,
+        fallbackModels: resolvedFallbackModels,
+      } as AgentDefinition; // Return agent with resolved model even if MCP resolution fails
     }
   }
 

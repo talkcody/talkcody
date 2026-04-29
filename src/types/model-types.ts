@@ -15,6 +15,8 @@ export enum ModelType {
   CODE_REVIEW = 'code_review_model',
 }
 
+const ORDERED_MODEL_TYPES = new Set<ModelType>([ModelType.SMALL, ModelType.MESSAGE_COMPACTION]);
+
 export const MODEL_TYPE_LABELS: Record<ModelType, string> = {
   [ModelType.MAIN]: 'Main Model',
   [ModelType.SMALL]: 'Small Model',
@@ -64,6 +66,69 @@ export const MODEL_TYPE_SETTINGS_KEYS = {
   [ModelType.PLAN]: 'model_type_plan',
   [ModelType.CODE_REVIEW]: 'model_type_code_review',
 } as const;
+
+export function isOrderedModelType(modelType: ModelType): boolean {
+  return ORDERED_MODEL_TYPES.has(modelType);
+}
+
+export function normalizeModelIdentifiers(modelIdentifiers: string[]): string[] {
+  return Array.from(
+    new Set(
+      modelIdentifiers
+        .map((modelIdentifier) => modelIdentifier.trim())
+        .filter((modelIdentifier) => modelIdentifier.length > 0)
+    )
+  );
+}
+
+export function parseStoredModelTypeValue(
+  value: string | null | undefined,
+  modelType: ModelType
+): string[] {
+  if (typeof value !== 'string') {
+    return [];
+  }
+
+  const trimmedValue = value.trim();
+  if (!trimmedValue) {
+    return [];
+  }
+
+  if (isOrderedModelType(modelType) && trimmedValue.startsWith('[')) {
+    try {
+      const parsedValue = JSON.parse(trimmedValue);
+      if (Array.isArray(parsedValue)) {
+        return normalizeModelIdentifiers(
+          parsedValue.filter((entry): entry is string => typeof entry === 'string')
+        );
+      }
+    } catch {
+      return normalizeModelIdentifiers([trimmedValue]);
+    }
+  }
+
+  return normalizeModelIdentifiers([trimmedValue]);
+}
+
+export function serializeStoredModelTypeValue(
+  modelType: ModelType,
+  modelIdentifiers: string[]
+): string {
+  const normalizedIdentifiers = normalizeModelIdentifiers(modelIdentifiers);
+  if (normalizedIdentifiers.length === 0) {
+    return '';
+  }
+
+  if (!isOrderedModelType(modelType)) {
+    return normalizedIdentifiers[0] || '';
+  }
+
+  return JSON.stringify(normalizedIdentifiers);
+}
+
+export function getDefaultModelTypeChain(modelType: ModelType): string[] {
+  return normalizeModelIdentifiers([DEFAULT_MODELS_BY_TYPE[modelType]]);
+}
 
 export function isValidModelType(value: string): value is ModelType {
   return Object.values(ModelType).includes(value as ModelType);

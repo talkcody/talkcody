@@ -57,6 +57,7 @@ describe('MessageCompactor', () => {
     enabled: true,
     preserveRecentMessages: 3,
     compressionModel: 'google/gemini-2.5-flash-lite',
+    compressionFallbackModels: ['openai/gpt-4o-mini'],
     compressionThreshold: 0.7,
   };
 
@@ -117,6 +118,11 @@ This is a test compression analysis.
       expect(result.compressionRatio).toBeLessThan(1);
       expect(result.compressedSummary).toBeTruthy();
       expect(result.preservedMessages).toHaveLength(3);
+      expect(mockCompactContext).toHaveBeenCalledWith(
+        expect.any(String),
+        'google/gemini-2.5-flash-lite',
+        ['openai/gpt-4o-mini']
+      );
       expect(mockCompactContext).toHaveBeenCalledTimes(1);
     });
 

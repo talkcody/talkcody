@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
+import { databaseService } from '@/services/database-service';
 import type { AgentLoopState, AgentToolSet } from '@/types/agent';
 import { ToolExecutor } from './tool-executor';
 
@@ -18,6 +19,8 @@ describe('tool-executor - callAgent toolCallId passing', () => {
   let mockLoopState: AgentLoopState;
 
   beforeEach(() => {
+    vi.clearAllMocks();
+
     // Create a mock execute function that captures the arguments
     mockCallAgentExecute = vi.fn().mockResolvedValue({
       success: true,
@@ -168,6 +171,43 @@ describe('tool-executor - callAgent toolCallId passing', () => {
     // Verify _toolCallId is NOT added to bash tool
     expect(executeArgs._toolCallId).toBeUndefined();
     expect(executeArgs.command).toBe('ls -la');
+  });
+
+  it('should start tool trace spans without storing tool-only attributes', async () => {
+    const mockBashExecute = vi.fn().mockResolvedValue('command output');
+
+    const bashTools: AgentToolSet = {
+      bash: {
+        description: 'Execute bash command',
+        inputSchema: z.object({}),
+        execute: mockBashExecute,
+      },
+    };
+
+    const toolCall = {
+      toolCallId: 'call_bash_trace_123',
+      toolName: 'bash',
+      input: {
+        command: 'ls -la',
+      },
+    };
+
+    await toolExecutor.executeToolCall(toolCall, {
+      tools: bashTools,
+      loopState: mockLoopState,
+      model: 'test-model',
+      onToolMessage: mockOnToolMessage,
+      taskId: 'trace-task-1',
+    });
+
+    expect(databaseService.startSpan).toHaveBeenCalledTimes(1);
+
+    const spanInput = vi.mocked(databaseService.startSpan).mock.calls[0]?.[0];
+    expect(spanInput).toMatchObject({
+      traceId: 'trace-task-1',
+      name: 'Step1-tool-bash',
+    });
+    expect(spanInput).not.toHaveProperty('attributes');
   });
 
   it('should send tool-call message with correct toolCallId before execution', async () => {

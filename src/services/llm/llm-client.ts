@@ -136,6 +136,13 @@ export class LlmClient {
     };
   }
 
+  async closeResponsesSession(sessionId: string): Promise<void> {
+    if (!sessionId.trim()) {
+      return;
+    }
+    await invoke('llm_close_responses_session', { sessionId });
+  }
+
   async collectText(
     request: StreamTextRequest,
     abortSignal?: AbortSignal

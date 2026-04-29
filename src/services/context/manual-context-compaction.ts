@@ -32,14 +32,20 @@ interface BuildCompactionConfigInput {
 const DEFAULT_COMPRESSION_CONFIG: Omit<CompressionConfig, 'compressionModel'> = {
   enabled: true,
   preserveRecentMessages: 6,
+  compressionFallbackModels: [],
   compressionThreshold: 0.8,
 };
 
 function buildCompressionConfig({ config }: BuildCompactionConfigInput): CompressionConfig {
+  const [resolvedCompressionModel, ...compressionFallbackModels] =
+    modelTypeService.resolveModelTypeChainSync(ModelType.MESSAGE_COMPACTION);
+  const compressionModel = resolvedCompressionModel || '';
+
   return {
     ...DEFAULT_COMPRESSION_CONFIG,
     ...config,
-    compressionModel: modelTypeService.resolveModelTypeSync(ModelType.MESSAGE_COMPACTION),
+    compressionModel,
+    compressionFallbackModels,
   };
 }
 

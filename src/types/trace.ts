@@ -6,6 +6,13 @@ export type TraceSummary = {
   spanCount: number;
 };
 
+export type OpenAiSubscriptionTraceMetrics = {
+  websocketTurnCount: number;
+  incrementalTurnCount: number;
+  baselineTurnCount: number;
+  httpFallbackCount: number;
+};
+
 export type SpanRecord = {
   id: string;
   traceId: string;
@@ -28,4 +35,5 @@ export type TraceDetail = {
   trace: TraceSummary;
   spans: SpanRecord[];
   eventsBySpanId: Record<string, SpanEventRecord[]>;
+  openAiSubscriptionMetrics?: OpenAiSubscriptionTraceMetrics | null;
 };

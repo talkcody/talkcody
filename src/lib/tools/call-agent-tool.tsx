@@ -117,6 +117,8 @@ export const callAgent = createTool({
       }
 
       const resolvedModel = (agent as AgentDefinition & { model?: string }).model;
+      const resolvedFallbackModels =
+        (agent as AgentDefinition & { fallbackModels?: string[] }).fallbackModels ?? [];
       if (!resolvedModel) {
         logger.error(`callAgent: Model not resolved for agent ${agentId}`);
         addStatus('Model unavailable');
@@ -228,6 +230,7 @@ export const callAgent = createTool({
             {
               messages,
               model: resolvedModel,
+              fallbackModels: resolvedFallbackModels,
               systemPrompt,
               tools: agent.tools,
               isSubagent: true,

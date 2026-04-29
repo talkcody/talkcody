@@ -41,6 +41,7 @@ vi.mock('@/providers/models/model-type-service', () => ({
   modelTypeService: {
     resolveModelType: vi.fn(async () => 'gemini-3-pro-image@aiGateway'),
     resolveModelTypeSync: vi.fn(() => 'gemini-3-pro-image@aiGateway'),
+    resolveModelTypeChainSync: vi.fn(() => ['gemini-3-pro-image@aiGateway']),
   },
 }));
 

@@ -1094,6 +1094,7 @@ pub fn run() {
             lsp::lsp_download_server,
             oauth_callback_server::start_oauth_callback_server,
             llm_commands::llm_stream_text,
+            llm_commands::llm_close_responses_session,
             llm_commands::llm_list_available_models,
             llm_commands::llm_register_custom_provider,
             llm_commands::llm_check_model_updates,

@@ -5,6 +5,24 @@ import type { StreamEvent } from './types';
 
 type EventHandler = (event: StreamEvent) => void;
 
+type ProviderMetadataAliasEvent = StreamEvent & {
+  provider_metadata?: unknown;
+};
+
+export type ResponseMetadataAliasEvent = StreamEvent & {
+  responseId?: string;
+  response_id?: string;
+  transportSessionId?: string;
+  transport_session_id?: string;
+  continuationAccepted?: boolean;
+  continuation_accepted?: boolean;
+};
+
+type TransportFallbackAliasEvent = StreamEvent & {
+  reason?: string;
+  fallback_reason?: string;
+};
+
 export class LlmEventStream {
   private unlisten: UnlistenFn | null = null;
   private closed = false;
@@ -76,16 +94,37 @@ export function createEventQueue<T>() {
 }
 
 export function normalizeStreamEvent(event: StreamEvent): StreamEvent {
+  let normalized = event;
+
   if ('provider_metadata' in event && event.provider_metadata) {
-    const { provider_metadata, ...rest } = event as StreamEvent & {
-      provider_metadata?: unknown;
-    };
-    return {
+    const { provider_metadata, ...rest } = event as ProviderMetadataAliasEvent;
+    normalized = {
       ...(rest as StreamEvent),
       providerMetadata: provider_metadata as Record<string, unknown>,
     } as StreamEvent;
   }
-  return event;
+
+  if (normalized.type === 'response-metadata') {
+    const metadataEvent = normalized as ResponseMetadataAliasEvent;
+    return {
+      ...metadataEvent,
+      responseId: metadataEvent.responseId ?? metadataEvent.response_id ?? '',
+      transportSessionId:
+        metadataEvent.transportSessionId ?? metadataEvent.transport_session_id ?? undefined,
+      continuationAccepted:
+        metadataEvent.continuationAccepted ?? metadataEvent.continuation_accepted ?? undefined,
+    } as StreamEvent;
+  }
+
+  if (normalized.type === 'transport-fallback') {
+    const fallbackEvent = normalized as TransportFallbackAliasEvent;
+    return {
+      ...fallbackEvent,
+      reason: fallbackEvent.reason ?? fallbackEvent.fallback_reason ?? 'unknown',
+    } as StreamEvent;
+  }
+
+  return normalized;
 }
 
 export function isTerminalEvent(event: StreamEvent): boolean {
