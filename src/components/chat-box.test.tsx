@@ -10,11 +10,25 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const mocks = vi.hoisted(() => ({
   runningTaskIds: [] as string[],
+  currentTaskId: undefined as string | undefined,
+  executionState: {
+    isLoading: false,
+    serverStatus: '',
+    error: null as string | null,
+  },
+  messages: [] as Array<{ id: string; role: string; content: string; timestamp: Date }>,
+  stopStreaming: vi.fn(),
+  deleteMessagesFromIndex: vi.fn(),
+  findMessageIndex: vi.fn(() => -1),
   createSnapshot: vi.fn(),
   enqueueDraft: vi.fn(),
   tryStartNextQueuedItem: vi.fn(),
   executeCommand: vi.fn(),
   parseCommand: vi.fn(() => ({ isValid: false, command: null, rawArgs: '' })),
+  addUserMessage: vi.fn(),
+  deleteMessageFromService: vi.fn(),
+  initialOnDelete: undefined as undefined | ((messageId: string) => Promise<void> | void),
+  latestOnDelete: undefined as undefined | ((messageId: string) => Promise<void> | void),
 }));
 
 vi.mock('sonner', () => ({
@@ -49,20 +63,15 @@ vi.mock('@/locales', () => ({
 }));
 
 vi.mock('@/hooks/use-execution-state', () => ({
-  useExecutionState: () => ({
-    isLoading: false,
-    serverStatus: '',
-    error: null,
-  }),
+  useExecutionState: () => mocks.executionState,
 }));
 
 vi.mock('@/hooks/use-task', () => ({
   useMessages: () => ({
-    messages: [],
-    stopStreaming: vi.fn(),
-    deleteMessage: vi.fn(),
-    deleteMessagesFromIndex: vi.fn(),
-    findMessageIndex: vi.fn(() => -1),
+    messages: mocks.messages,
+    stopStreaming: mocks.stopStreaming,
+    deleteMessagesFromIndex: mocks.deleteMessagesFromIndex,
+    findMessageIndex: mocks.findMessageIndex,
   }),
   useRunningTaskIds: () => mocks.runningTaskIds,
 }));
@@ -76,7 +85,7 @@ vi.mock('@/hooks/use-task-queue', () => ({
 
 vi.mock('@/hooks/use-tasks', () => ({
   useTasks: () => ({
-    currentTaskId: undefined,
+    currentTaskId: mocks.currentTaskId,
     setError: vi.fn(),
     createTask: vi.fn(),
   }),
@@ -153,7 +162,8 @@ vi.mock('@/services/database-service', () => ({
 
 vi.mock('@/services/message-service', () => ({
   messageService: {
-    addUserMessage: vi.fn(),
+    addUserMessage: mocks.addUserMessage,
+    deleteMessage: mocks.deleteMessageFromService,
   },
 }));
 
@@ -206,7 +216,18 @@ vi.mock('./chat/file-changes-summary', () => ({
 }));
 
 vi.mock('./chat/message-list', () => ({
-  MessageList: () => null,
+  MessageList: ({ onDelete }: { onDelete?: (messageId: string) => Promise<void> | void }) => {
+    if (!mocks.initialOnDelete && onDelete) {
+      mocks.initialOnDelete = onDelete;
+    }
+    mocks.latestOnDelete = onDelete;
+
+    return (
+      <button onClick={() => onDelete?.('message-1')} type="button">
+        delete-message
+      </button>
+    );
+  },
 }));
 
 vi.mock('./talkcody-free-login-dialog', () => ({
@@ -277,6 +298,16 @@ describe('ChatBox queue action', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.runningTaskIds = [];
+    mocks.currentTaskId = undefined;
+    mocks.executionState = {
+      isLoading: false,
+      serverStatus: '',
+      error: null,
+    };
+    mocks.messages = [];
+    mocks.initialOnDelete = undefined;
+    mocks.latestOnDelete = undefined;
+    mocks.findMessageIndex.mockReturnValue(-1);
     mocks.createSnapshot.mockResolvedValue({
       projectId: 'project-a',
       sourceTaskId: null,
@@ -360,6 +391,51 @@ describe('ChatBox queue action', () => {
           repositoryPath: undefined,
         })
       );
+    });
+  });
+
+  it('blocks delete requests while the task is still loading', async () => {
+    mocks.currentTaskId = 'task-1';
+    mocks.executionState = {
+      isLoading: true,
+      serverStatus: 'Thinking...',
+      error: null,
+    };
+
+    render(<ChatBox taskId="task-1" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'delete-message' }));
+
+    await waitFor(() => {
+      expect(mocks.deleteMessageFromService).not.toHaveBeenCalled();
+    });
+  });
+
+  it('allows a previously captured delete callback to work after stop clears loading state', async () => {
+    mocks.currentTaskId = 'task-1';
+    mocks.executionState = {
+      isLoading: true,
+      serverStatus: 'Thinking...',
+      error: null,
+    };
+
+    const { rerender } = render(<ChatBox taskId="task-1" />);
+
+    const initialOnDelete = mocks.initialOnDelete;
+    expect(initialOnDelete).toBeDefined();
+
+    mocks.executionState = {
+      isLoading: false,
+      serverStatus: '',
+      error: null,
+    };
+
+    rerender(<ChatBox taskId="task-1" />);
+
+    await initialOnDelete?.('message-1');
+
+    await waitFor(() => {
+      expect(mocks.deleteMessageFromService).toHaveBeenCalledWith('task-1', 'message-1');
     });
   });
 });

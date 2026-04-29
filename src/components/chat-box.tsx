@@ -103,11 +103,12 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
     const { currentTaskId, setError, createTask } = useTasks(onTaskStart);
 
     // useMessages with taskId for per-task message caching
-    const { messages, stopStreaming, deleteMessage, deleteMessagesFromIndex, findMessageIndex } =
+    const { messages, stopStreaming, deleteMessagesFromIndex, findMessageIndex } =
       useMessages(currentTaskId);
     const { queueHead, queueCount } = useTaskQueue(currentProjectId || null);
+    const isDeleteMessageBlockedRef = useRef(isLoading);
+    isDeleteMessageBlockedRef.current = isLoading;
 
-    // Handle input changes
     const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       setInput(e.target.value);
     };
@@ -416,23 +417,25 @@ export const ChatBox = forwardRef<ChatBoxRef, ChatBoxProps>(
       );
     };
 
-    const handleDeleteMessage = async (messageId: string) => {
-      if (isLoading) return;
+    const handleDeleteMessage = useCallback(
+      async (messageId: string) => {
+        if (isDeleteMessageBlockedRef.current) return;
 
-      // Delete from database
-      if (currentTaskId) {
-        try {
-          logger.info('Deleting message from database:', messageId);
-          await databaseService.deleteMessage(messageId);
-        } catch (error) {
-          logger.error('Failed to delete message from database:', error);
+        const activeTaskId = currentTaskId ?? taskId;
+        if (!activeTaskId) {
+          logger.warn('No task ID available for message deletion', { messageId });
           return;
         }
-      }
 
-      // Delete from UI
-      deleteMessage(messageId);
-    };
+        try {
+          logger.info('Deleting message from task:', { taskId: activeTaskId, messageId });
+          await messageService.deleteMessage(activeTaskId, messageId);
+        } catch (error) {
+          logger.error('Failed to delete message:', error);
+        }
+      },
+      [currentTaskId, taskId]
+    );
 
     const handleSubmit = async (e: React.FormEvent, attachments?: MessageAttachment[]) => {
       e.preventDefault();
