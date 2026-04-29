@@ -196,7 +196,7 @@ export function SkillsPage() {
     if (!deletingSkill) return;
 
     try {
-      await deleteSkill(deletingSkill.id);
+      await deleteSkill(deletingSkill.id, deletingSkill.localPath);
       toast.success(t.Skills.page.deleted);
       refreshLocal();
     } catch (error) {
@@ -219,7 +219,7 @@ export function SkillsPage() {
         content: skillData.content ? { ...skillData.content } : undefined,
         tags: skillData.metadata?.tags,
       };
-      await updateSkill(editingSkill.id, updateRequest);
+      await updateSkill(editingSkill.id, updateRequest, editingSkill.localPath);
     } else {
       // Transform Partial<Skill> to CreateSkillRequest
       if (!skillData.name || !skillData.description || !skillData.category || !skillData.content) {

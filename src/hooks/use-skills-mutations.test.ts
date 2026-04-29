@@ -51,6 +51,7 @@ describe('useSkillMutations', () => {
       deleteSkill: vi.fn(),
       getSkillByName: vi.fn(),
       loadSkill: vi.fn(),
+      loadSkillByPath: vi.fn(),
       listSkills: vi.fn(),
     };
 
@@ -319,7 +320,7 @@ describe('useSkillMutations', () => {
 
       mockAgentSkillService.getSkillByName.mockResolvedValue(existingAgentSkill);
       mockAgentSkillService.updateSkill.mockResolvedValue(undefined);
-      mockAgentSkillService.loadSkill.mockResolvedValue(updatedAgentSkill);
+      mockAgentSkillService.loadSkillByPath.mockResolvedValue(updatedAgentSkill);
 
       const { result } = renderHook(() => useSkillMutations());
 
@@ -351,7 +352,8 @@ describe('useSkillMutations', () => {
             tags: 'tag1,tag2',
           }),
           name: 'Updated Skill',
-        })
+        }),
+        '/path/to/skill'
       );
       expect(updatedSkill).toEqual({
         id: 'original-skill',
@@ -373,6 +375,60 @@ describe('useSkillMutations', () => {
       // Verify the name was updated in the returned skill
       expect(updatedSkill.name).toBe('Updated Skill');
       expect(result.current.error).toBeNull();
+    });
+
+    it('should resolve project-local skills by path when updating', async () => {
+      const existingAgentSkill = {
+        name: 'release-talkcody',
+        path: '/workspace/.talkcody/skills/release-talkcody',
+        frontmatter: {
+          name: 'release-talkcody',
+          description: 'Project-local skill',
+          metadata: {
+            category: 'Release',
+            tags: 'release',
+          },
+        },
+        content: '# Release Skill',
+        directory: {
+          name: 'release-talkcody',
+          path: '/workspace/.talkcody/skills/release-talkcody',
+          hasSkillMd: true,
+          hasScriptsDir: false,
+          hasReferencesDir: false,
+          hasAssetsDir: false,
+          scriptFiles: [],
+          referenceFiles: [],
+          assetFiles: [],
+        },
+      };
+
+      mockAgentSkillService.loadSkillByPath
+        .mockResolvedValueOnce(existingAgentSkill)
+        .mockResolvedValueOnce(existingAgentSkill);
+      mockAgentSkillService.updateSkill.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useSkillMutations());
+
+      await waitFor(async () => {
+        await result.current.updateSkill(
+          'release-talkcody',
+          { description: 'Updated project skill' },
+          '/workspace/.talkcody/skills/release-talkcody'
+        );
+      });
+
+      expect(mockAgentSkillService.loadSkillByPath).toHaveBeenNthCalledWith(
+        1,
+        '/workspace/.talkcody/skills/release-talkcody'
+      );
+      expect(mockAgentSkillService.getSkillByName).not.toHaveBeenCalled();
+      expect(mockAgentSkillService.updateSkill).toHaveBeenCalledWith(
+        'release-talkcody',
+        expect.objectContaining({ description: 'Updated project skill' }),
+        expect.any(Object),
+        '/workspace/.talkcody/skills/release-talkcody'
+      );
     });
 
     it('should handle update skill errors when skill not found', async () => {
@@ -473,7 +529,56 @@ describe('useSkillMutations', () => {
       });
 
       expect(mockAgentSkillService.getSkillByName).toHaveBeenCalledWith('test-skill');
-      expect(mockAgentSkillService.deleteSkill).toHaveBeenCalledWith('Test Skill');
+      expect(mockAgentSkillService.deleteSkill).toHaveBeenCalledWith('Test Skill', '/path/to/skill');
+      expect(result.current.error).toBeNull();
+    });
+
+    it('should resolve project-local skills by path when deleting', async () => {
+      const mockAgentSkill = {
+        name: 'release-talkcody',
+        path: '/workspace/.talkcody/skills/release-talkcody',
+        frontmatter: {
+          name: 'release-talkcody',
+          description: 'Project-local skill',
+          metadata: {
+            category: 'Release',
+            tags: '',
+          },
+        },
+        content: '# Release Skill',
+        directory: {
+          name: 'release-talkcody',
+          path: '/workspace/.talkcody/skills/release-talkcody',
+          hasSkillMd: true,
+          hasScriptsDir: false,
+          hasReferencesDir: false,
+          hasAssetsDir: false,
+          scriptFiles: [],
+          referenceFiles: [],
+          assetFiles: [],
+        },
+      };
+
+      mockAgentSkillService.loadSkillByPath.mockResolvedValue(mockAgentSkill);
+      mockAgentSkillService.deleteSkill.mockResolvedValue(undefined);
+
+      const { result } = renderHook(() => useSkillMutations());
+
+      await waitFor(async () => {
+        await result.current.deleteSkill(
+          'release-talkcody',
+          '/workspace/.talkcody/skills/release-talkcody'
+        );
+      });
+
+      expect(mockAgentSkillService.loadSkillByPath).toHaveBeenCalledWith(
+        '/workspace/.talkcody/skills/release-talkcody'
+      );
+      expect(mockAgentSkillService.getSkillByName).not.toHaveBeenCalled();
+      expect(mockAgentSkillService.deleteSkill).toHaveBeenCalledWith(
+        'release-talkcody',
+        '/workspace/.talkcody/skills/release-talkcody'
+      );
       expect(result.current.error).toBeNull();
     });
 

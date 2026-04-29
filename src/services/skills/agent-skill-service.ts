@@ -5,7 +5,15 @@
  * https://agentskills.io/specification
  */
 
-import { appDataDir, homeDir, isAbsolute, join, normalize } from '@tauri-apps/api/path';
+import {
+  appDataDir,
+  basename,
+  dirname,
+  homeDir,
+  isAbsolute,
+  join,
+  normalize,
+} from '@tauri-apps/api/path';
 import {
   exists,
   mkdir,
@@ -97,22 +105,10 @@ export class AgentSkillService {
    * List all skills (with concurrent loading for better performance)
    */
   async listSkills(): Promise<AgentSkill[]> {
-    const skillsDir = await this.getSkillsDir();
-    const entries = await readDir(skillsDir);
+    const skillRoots = await this.getAllSkillRoots();
+    const skillEntries = await this.listSkillEntries(skillRoots);
 
-    const claudeDirs = await ClaudeCodeImporter.getClaudeCodeSkillDirs();
-    const extraEntries = await this.listClaudeSkillEntries(claudeDirs);
-
-    const skillEntries = [
-      ...entries
-        .filter((entry) => entry.isDirectory)
-        .map((entry) => ({ name: entry.name, baseDir: skillsDir })),
-      ...extraEntries
-        .filter((entry) => entry.isDirectory)
-        .map((entry) => ({ name: entry.name, baseDir: entry.path })),
-    ];
-
-    // ✅ Concurrent loading: Load all skills in parallel
+    // Concurrent loading: Load all skills in parallel
     const loadPromises = skillEntries.map((entry) =>
       this.loadSkill(entry.name, entry.baseDir).catch((error) => {
         logger.warn(`Failed to load skill ${entry.name}:`, error);
@@ -174,32 +170,71 @@ export class AgentSkillService {
   }
 
   /**
-   * Get skill by name (optimized - load directly by normalized name)
+   * Get skill by name, searching app data first and then discovered external roots.
    */
   async getSkillByName(name: string): Promise<AgentSkill | null> {
-    // Normalize the name to directory format
     const normalizedName = AgentSkillValidator.normalizeName(name);
+    const skillRoots = await this.getAllSkillRoots();
 
-    // Try to load directly by normalized name
-    return await this.loadSkill(normalizedName);
+    for (const baseDir of skillRoots) {
+      const skill = await this.loadSkill(normalizedName, baseDir);
+      if (skill) {
+        return skill;
+      }
+    }
+
+    return null;
   }
 
-  private async listClaudeSkillEntries(
-    directories: Array<{ path: string }>
-  ): Promise<Array<{ name: string; path: string; isDirectory: boolean }>> {
+  /**
+   * Load a skill by its absolute directory path.
+   */
+  async loadSkillByPath(skillPath: string): Promise<AgentSkill | null> {
+    const normalizedSkillPath = await normalize(skillPath);
+    if (!(await exists(normalizedSkillPath))) {
+      return null;
+    }
+
+    const directoryName = await basename(normalizedSkillPath);
+    const baseDir = await dirname(normalizedSkillPath);
+    return await this.loadSkill(directoryName, baseDir);
+  }
+
+  private async getAllSkillRoots(): Promise<string[]> {
+    const roots = [await this.getSkillsDir()];
+    const claudeDirs = await ClaudeCodeImporter.getClaudeCodeSkillDirs();
+
+    for (const directory of claudeDirs) {
+      roots.push(directory.path);
+    }
+
+    const seen = new Set<string>();
+    const dedupedRoots: string[] = [];
+
+    for (const root of roots) {
+      const normalizedRoot = await normalize(root);
+      if (seen.has(normalizedRoot)) {
+        continue;
+      }
+      seen.add(normalizedRoot);
+      dedupedRoots.push(root);
+    }
+
+    return dedupedRoots;
+  }
+
+  private async listSkillEntries(
+    skillRoots: string[]
+  ): Promise<Array<{ name: string; baseDir: string }>> {
     const allEntries = await Promise.all(
-      directories.map(async (directory) => {
+      skillRoots.map(async (baseDir) => {
         try {
-          const entries = await readDir(directory.path);
+          const entries = await readDir(baseDir);
           return entries
             .filter((entry) => entry.isDirectory)
-            .map((entry) => ({
-              name: entry.name,
-              path: directory.path,
-              isDirectory: true,
-            }));
+            .map((entry) => ({ name: entry.name, baseDir }));
         } catch (error) {
-          logger.warn(`Failed to read Claude Code skills directory ${directory.path}:`, error);
+          logger.warn(`Failed to read skills directory ${baseDir}:`, error);
           return [];
         }
       })
@@ -284,9 +319,12 @@ export class AgentSkillService {
   async updateSkill(
     skillName: string,
     updates: UpdateSkillParams,
-    frontmatterOverride?: Partial<AgentSkillFrontmatter>
+    frontmatterOverride?: Partial<AgentSkillFrontmatter>,
+    skillPath?: string
   ): Promise<void> {
-    const skill = await this.loadSkill(skillName);
+    const skill = skillPath
+      ? await this.loadSkillByPath(skillPath)
+      : await this.getSkillByName(skillName);
     if (!skill) {
       throw new Error(`Skill ${skillName} not found`);
     }
@@ -314,22 +352,23 @@ export class AgentSkillService {
 
     await writeTextFile(await join(skill.path, 'SKILL.md'), skillMdContent);
 
-    logger.info(`Updated skill: ${skillName}`);
+    logger.info(`Updated skill: ${skill.name}`);
   }
 
   /**
    * Delete a skill
    */
-  async deleteSkill(skillName: string): Promise<void> {
-    const skillsDir = await this.getSkillsDir();
-    const skillPath = await join(skillsDir, skillName);
+  async deleteSkill(skillName: string, skillPath?: string): Promise<void> {
+    const skill = skillPath
+      ? await this.loadSkillByPath(skillPath)
+      : await this.getSkillByName(skillName);
 
-    if (!(await exists(skillPath))) {
+    if (!skill) {
       throw new Error(`Skill ${skillName} not found`);
     }
 
-    await remove(skillPath, { recursive: true });
-    logger.info(`Deleted skill: ${skillName}`);
+    await remove(skill.path, { recursive: true });
+    logger.info(`Deleted skill: ${skill.name}`);
   }
 
   /**

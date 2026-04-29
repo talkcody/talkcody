@@ -408,7 +408,8 @@ export function useSkillMutations() {
         license?: string;
         compatibility?: string;
         metadata?: { tags: string[] };
-      }
+      },
+      localPath?: string
     ) => {
       try {
         setLoading(true);
@@ -417,8 +418,10 @@ export function useSkillMutations() {
         // Use AgentSkillService to update skills
         const agentService = await getAgentSkillService();
 
-        // Get the existing skill by name (id is the directory name which equals skill name)
-        const existingSkill = await agentService.getSkillByName(id);
+        // Resolve the existing skill using the exact path when available.
+        const existingSkill = localPath
+          ? await agentService.loadSkillByPath(localPath)
+          : await agentService.getSkillByName(id);
         if (!existingSkill) {
           throw new Error(`Skill with name ${id} not found`);
         }
@@ -469,13 +472,18 @@ export function useSkillMutations() {
 
         updates.metadata = metadata;
 
-        // Update the skill using name as identifier
-        await agentService.updateSkill(existingSkill.name, updates, finalFrontmatter);
+        // Update the skill using its resolved location
+        await agentService.updateSkill(
+          existingSkill.name,
+          updates,
+          finalFrontmatter,
+          existingSkill.path
+        );
 
         logger.info(`Updated skill: ${existingSkill.name}`);
 
-        // Reload the updated skill
-        const updatedSkill = await agentService.loadSkill(existingSkill.name);
+        // Reload the updated skill from the same path
+        const updatedSkill = await agentService.loadSkillByPath(existingSkill.path);
         if (!updatedSkill) {
           throw new Error('Failed to reload updated skill');
         }
@@ -495,23 +503,24 @@ export function useSkillMutations() {
     []
   );
 
-  const deleteSkill = useCallback(async (id: string) => {
+  const deleteSkill = useCallback(async (id: string, localPath?: string) => {
     try {
       setLoading(true);
       setError(null);
 
       // Use AgentSkillService to delete skills
-      // id is the directory name which equals skill name
       const agentService = await getAgentSkillService();
 
-      // Verify the skill exists
-      const skill = await agentService.getSkillByName(id);
+      // Resolve the exact skill to avoid missing project-local skills.
+      const skill = localPath
+        ? await agentService.loadSkillByPath(localPath)
+        : await agentService.getSkillByName(id);
       if (!skill) {
         throw new Error(`Skill with name ${id} not found`);
       }
 
-      // Delete the skill using its name
-      await agentService.deleteSkill(skill.name);
+      // Delete the skill using its resolved path
+      await agentService.deleteSkill(skill.name, skill.path);
       logger.info(`Deleted skill: ${skill.name}`);
     } catch (err) {
       logger.error('Failed to delete skill:', err);
