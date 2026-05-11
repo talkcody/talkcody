@@ -311,7 +311,6 @@ const zh: LocaleDefinition = {
       customProviders: '自定义提供商',
       models: '模型',
       terminal: '终端',
-      lint: '代码检查',
       lsp: 'LSP',
       worktree: '工作树',
       shortcuts: '快捷键',
@@ -1930,110 +1929,7 @@ const zh: LocaleDefinition = {
     },
   },
 
-  Lint: {
-    // Panel
-    problems: '问题',
-    noProblems: '没有发现问题',
-    lintDisabled: 'Lint 功能已禁用',
-    autoFixAll: '自动修复所有问题',
-
-    // Severity
-    error: '错误',
-    warning: '警告',
-    info: '信息',
-    showErrors: '显示错误',
-    showWarnings: '显示警告',
-    showInfo: '显示信息',
-
-    // Diagnostic
-    lineColumn: (line, column) => `第 ${line} 行，第 ${column} 列`,
-    quickFix: '快速修复',
-    fix: '修复',
-    viewInEditor: '在编辑器中查看',
-
-    // Quick fix options
-    fixes: {
-      removeVariable: '删除未使用的变量',
-      removeVariableDesc: '移除声明但未使用的变量',
-      removeImports: '删除未使用的导入',
-      removeImportsDesc: '移除导入但未使用的模块',
-      convertToConst: '转换为 const 声明',
-      convertToConstDesc: '将 let 声明转换为 const',
-      addTypeAnnotation: '添加类型注解',
-      addTypeAnnotationDesc: '为 any 类型添加明确的类型注解',
-      addComment: '添加注释',
-      addCommentDesc: '为空函数添加说明注释',
-      ignoreDiagnostic: '忽略此诊断',
-      ignoreDiagnosticDesc: '添加注释忽略此诊断',
-      cancel: '取消',
-    },
-
-    // Messages
-    fixApplied: '修复已应用',
-    fixFailed: (error) => `修复失败: ${error}`,
-    autoFixComingSoon: '批量自动修复功能即将推出',
-    autoFixFailed: '自动修复失败',
-    unknownError: '未知错误',
-
-    // Settings
-    settings: {
-      title: '代码检查设置',
-      description: '配置编辑器中的语法检查和代码质量诊断',
-      tooltipTitle: '代码检查',
-      tooltipDescription: '配置代码检查和质量诊断设置，实现编辑器中的实时错误检测。',
-      resetToDefaults: '重置为默认',
-      currentStatus: '当前状态',
-      viewStatistics: '查看当前的诊断统计信息',
-      enableLint: '启用代码检查',
-      enableLintDesc: '开启后将对代码进行实时的语法检查和质量问题诊断',
-      enableBiome: '启用 Biome 集成',
-      enableBiomeDesc: '使用 Biome 进行代码质量检查和自动修复',
-      severitySettings: '严重级别设置',
-      severitySettingsDesc: '选择要显示的诊断严重级别',
-      showErrorsDesc: '显示语法错误和严重问题',
-      showWarningsDesc: '显示代码质量问题和建议',
-      showInfoDesc: '显示代码风格和格式建议',
-      displaySettings: '显示设置',
-      showInEditor: '在编辑器中显示',
-      showInEditorDesc: '在编辑器中显示诊断信息的波浪线标记',
-      showProblemsPanel: '显示问题面板',
-      showProblemsPanelDesc: '在侧边栏显示问题面板',
-      performanceSettings: '性能设置',
-      checkDelay: '检查延迟 (毫秒)',
-      checkDelayDesc: '输入停止后多久开始检查，范围: 100-10000ms',
-      quickFixSettings: '快速修复设置',
-      enableQuickFix: '启用快速修复',
-      enableQuickFixDesc: '允许对支持的诊断问题进行快速修复',
-      supportedLanguages: '支持的语言',
-      runtimeWarning: '未找到运行时',
-      runtimeWarningDesc: '代码检查功能需要安装 Node.js 或 Bun。请安装其中之一以启用代码检查。',
-      downloadNode: '下载 Node.js',
-      downloadBun: '下载 Bun',
-    },
-
-    // Diagnostic codes descriptions
-    diagnosticCodes: {
-      'no-unused-variables': '未使用的变量',
-      'no-unused-imports': '未使用的导入',
-      'use-const': '应使用 const 声明',
-      'prefer-const': '建议使用 const 声明',
-      'no-explicit-any': '避免使用 any 类型',
-      'no-empty-function': '避免空函数',
-      'no-console': '避免使用 console',
-      'no-debugger': '避免使用 debugger',
-      'no-alert': '避免使用 alert',
-      eqeqeq: '使用 === 代替 ==',
-      curly: '在控制语句中使用花括号',
-      'no-unused-expressions': '避免未使用的表达式',
-      'prefer-arrow-callback': '使用箭头函数作为回调',
-      'no-var': '避免使用 var 声明',
-    },
-
-    // Editor header
-    checking: '检查中...',
-    noIssues: '没有问题',
-
-    // File editor header status
+  FileEditor: {
     autoSaving: '自动保存中...',
     saving: '保存中...',
     aiAnalyzing: 'AI 分析中...',
@@ -2043,13 +1939,6 @@ const zh: LocaleDefinition = {
     notIndexedYet: '尚未索引',
     indexed: '已索引',
     notIndexed: '未索引',
-
-    // FixApplier
-    FixApplier: {
-      editorNotReady: '编辑器未就绪',
-      editorModelNotReady: '编辑器模型未就绪',
-      unknownFixType: (fixId) => `未知的修复类型: ${fixId}`,
-    },
   },
 
   Lsp: {

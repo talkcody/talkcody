@@ -2,7 +2,6 @@ import {
   BookOpen,
   Bot,
   Code,
-  FileCode,
   GitBranch,
   Info,
   Key,
@@ -20,7 +19,6 @@ import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { CustomToolsSettings } from '@/components/settings/custom-tools-settings';
 import { GeneralSettings } from '@/components/settings/general-settings';
 import { HooksSettings } from '@/components/settings/hooks-settings';
-import { LintSettings } from '@/components/settings/lint-settings';
 import { LspSettings } from '@/components/settings/lsp-settings';
 import { MemorySettings } from '@/components/settings/memory-settings';
 import { ModelTypeSettings } from '@/components/settings/model-type-settings';
@@ -106,10 +104,6 @@ export function SettingsPage() {
               <Terminal className="size-4" />
               {t.Settings.tabs.terminal || 'Terminal'}
             </TabsTrigger>
-            <TabsTrigger value="lint" className="w-full justify-start gap-2 rounded-md px-3 py-2">
-              <FileCode className="size-4" />
-              {t.Settings.tabs.lint || 'Lint'}
-            </TabsTrigger>
             <TabsTrigger value="lsp" className="w-full justify-start gap-2 rounded-md px-3 py-2">
               <Code className="size-4" />
               {t.Settings.tabs.lsp || 'LSP'}
@@ -165,9 +159,6 @@ export function SettingsPage() {
             </TabsContent>
             <TabsContent value="terminal" className="mt-0 flex-none space-y-6">
               <TerminalSettings />
-            </TabsContent>
-            <TabsContent value="lint" className="mt-0 flex-none space-y-6">
-              <LintSettings />
             </TabsContent>
             <TabsContent value="lsp" className="mt-0 flex-none space-y-6">
               <LspSettings />

@@ -41,11 +41,6 @@ export interface RepositoryLayoutState {
 
   projects: Project[];
 
-  lintSettings: {
-    enabled: boolean;
-    showInProblemsPanel: boolean;
-  };
-
   hasRepository: boolean;
   currentFile: OpenFile | null;
   shouldShowSidebar: boolean;
@@ -55,7 +50,6 @@ export interface RepositoryLayoutState {
   showChatPanel: boolean;
   showEditor: boolean;
   showTerminal: boolean;
-  showProblemsPanel: boolean;
   isEditorFullscreen: boolean;
   isTerminalFullscreen: boolean;
   isChatFullscreen: boolean;

@@ -242,14 +242,6 @@ export class TestIPCHandler {
       return response;
     }
 
-    // Lint commands
-    if (cmd === 'run_lint') {
-      return { diagnostics: [] };
-    }
-    if (cmd === 'check_lint_runtime') {
-      return true;
-    }
-
     // Default: log warning and return null
     if (this.debug) {
       console.warn('[IPC] Unhandled command:', cmd);

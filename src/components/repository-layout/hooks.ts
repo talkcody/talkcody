@@ -44,7 +44,6 @@ export function useRepositoryLayoutDerived(state: {
   openFiles: OpenFile[];
   fullscreenPanel: FullscreenPanel;
   isTerminalVisible: boolean;
-  lintSettings: { enabled: boolean; showInProblemsPanel: boolean };
 }) {
   // Derived state calculation
   const derivedState = useMemo(
@@ -62,11 +61,6 @@ export function useRepositoryLayoutDerived(state: {
         state.isTerminalVisible &&
         state.fullscreenPanel !== 'editor' &&
         state.fullscreenPanel !== 'chat',
-      showProblemsPanel:
-        state.lintSettings.enabled &&
-        state.lintSettings.showInProblemsPanel &&
-        state.openFiles.length > 0 &&
-        state.fullscreenPanel === 'none',
       isEditorFullscreen: state.fullscreenPanel === 'editor',
       isTerminalFullscreen: state.fullscreenPanel === 'terminal',
       isChatFullscreen: state.fullscreenPanel === 'chat',
@@ -77,8 +71,6 @@ export function useRepositoryLayoutDerived(state: {
       state.openFiles.length,
       state.fullscreenPanel,
       state.isTerminalVisible,
-      state.lintSettings.enabled,
-      state.lintSettings.showInProblemsPanel,
     ]
   );
 

@@ -2,5 +2,5 @@
   "title": "Features",
   "icon": "Sparkles",
   "defaultOpen": true,
-  "pages": ["openai-plus-plan", "github-copilot", "ai-agents", "commands", "tools", "custom-tools", "skills", "mcp-servers", "plan-mode", "worktree", "coding-plan", "web-search", "image-generator", "ppt-generator", "voice-input", "code-lint", "lsp", "terminal", "multi-window", "search", "share-link", "telegram-remote", "feishu-remote"]
+  "pages": ["openai-plus-plan", "github-copilot", "ai-agents", "commands", "tools", "custom-tools", "skills", "mcp-servers", "plan-mode", "worktree", "coding-plan", "web-search", "image-generator", "ppt-generator", "voice-input", "lsp", "terminal", "multi-window", "search", "share-link", "telegram-remote", "feishu-remote"]
 }

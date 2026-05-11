@@ -324,7 +324,6 @@ const en: LocaleDefinition = {
       customProviders: 'Custom Providers',
       models: 'Models',
       terminal: 'Terminal',
-      lint: 'Lint',
       lsp: 'LSP',
       worktree: 'Worktree',
       shortcuts: 'Shortcuts',
@@ -1988,112 +1987,7 @@ Note: ChatGPT Plus/Pro subscription is separate from API access.`,
     },
   },
 
-  Lint: {
-    // Panel
-    problems: 'Problems',
-    noProblems: 'No problems found',
-    lintDisabled: 'Lint is disabled',
-    autoFixAll: 'Auto-fix all issues',
-
-    // Severity
-    error: 'Error',
-    warning: 'Warning',
-    info: 'Info',
-    showErrors: 'Show Errors',
-    showWarnings: 'Show Warnings',
-    showInfo: 'Show Info',
-
-    // Diagnostic
-    lineColumn: (line, column) => `Line ${line}, Column ${column}`,
-    quickFix: 'Quick Fix',
-    fix: 'Fix',
-    viewInEditor: 'View in Editor',
-
-    // Quick fix options
-    fixes: {
-      removeVariable: 'Remove unused variable',
-      removeVariableDesc: 'Remove declared but unused variable',
-      removeImports: 'Remove unused imports',
-      removeImportsDesc: 'Remove imported but unused module',
-      convertToConst: 'Convert to const',
-      convertToConstDesc: 'Convert let declaration to const',
-      addTypeAnnotation: 'Add type annotation',
-      addTypeAnnotationDesc: 'Add explicit type annotation for any type',
-      addComment: 'Add comment',
-      addCommentDesc: 'Add comment for empty function',
-      ignoreDiagnostic: 'Ignore this diagnostic',
-      ignoreDiagnosticDesc: 'Add comment to ignore this diagnostic',
-      cancel: 'Cancel',
-    },
-
-    // Messages
-    fixApplied: 'Fix applied',
-    fixFailed: (error) => `Fix failed: ${error}`,
-    autoFixComingSoon: 'Batch auto-fix coming soon',
-    autoFixFailed: 'Auto-fix failed',
-    unknownError: 'Unknown error',
-
-    // Settings
-    settings: {
-      title: 'Lint Settings',
-      description: 'Configure syntax checking and code quality diagnostics in the editor',
-      tooltipTitle: 'Code Linting',
-      tooltipDescription:
-        'Configure code linting and quality diagnostics for real-time error detection in your editor.',
-      resetToDefaults: 'Reset to Defaults',
-      currentStatus: 'Current Status',
-      viewStatistics: 'View current diagnostic statistics',
-      enableLint: 'Enable Linting',
-      enableLintDesc: 'Enable real-time syntax checking and code quality diagnostics',
-      enableBiome: 'Enable Biome Integration',
-      enableBiomeDesc: 'Use Biome for code quality checking and auto-fix',
-      severitySettings: 'Severity Settings',
-      severitySettingsDesc: 'Select which severity levels to display',
-      showErrorsDesc: 'Show syntax errors and critical issues',
-      showWarningsDesc: 'Show code quality issues and suggestions',
-      showInfoDesc: 'Show code style and formatting suggestions',
-      displaySettings: 'Display Settings',
-      showInEditor: 'Show in Editor',
-      showInEditorDesc: 'Show diagnostic squiggles in the editor',
-      showProblemsPanel: 'Show Problems Panel',
-      showProblemsPanelDesc: 'Show problems panel in sidebar',
-      performanceSettings: 'Performance Settings',
-      checkDelay: 'Check Delay (ms)',
-      checkDelayDesc: 'Delay before checking after typing stops (100-10000ms)',
-      quickFixSettings: 'Quick Fix Settings',
-      enableQuickFix: 'Enable Quick Fix',
-      enableQuickFixDesc: 'Allow quick fixes for supported diagnostics',
-      supportedLanguages: 'Supported Languages',
-      runtimeWarning: 'Runtime Not Found',
-      runtimeWarningDesc:
-        'Linting requires Node.js or Bun to be installed. Please install one of them to enable code linting.',
-      downloadNode: 'Download Node.js',
-      downloadBun: 'Download Bun',
-    },
-
-    // Diagnostic codes descriptions
-    diagnosticCodes: {
-      'no-unused-variables': 'Unused variable',
-      'no-unused-imports': 'Unused import',
-      'use-const': 'Should use const',
-      'prefer-const': 'Prefer const',
-      'no-explicit-any': 'Avoid any type',
-      'no-empty-function': 'Avoid empty function',
-      'no-console': 'Avoid console',
-      'no-debugger': 'Avoid debugger',
-      'no-alert': 'Avoid alert',
-      eqeqeq: 'Use === instead of ==',
-      curly: 'Use braces in control statements',
-      'no-unused-expressions': 'Avoid unused expressions',
-      'prefer-arrow-callback': 'Use arrow function as callback',
-      'no-var': 'Avoid var',
-    },
-
-    // Editor header
-    checking: 'Checking...',
-    noIssues: 'No issues',
-
-    // File editor header status
+  FileEditor: {
     autoSaving: 'Auto-saving...',
     saving: 'Saving...',
     aiAnalyzing: 'AI analyzing...',
@@ -2103,13 +1997,6 @@ Note: ChatGPT Plus/Pro subscription is separate from API access.`,
     notIndexedYet: 'Not indexed yet',
     indexed: 'Indexed',
     notIndexed: 'Not indexed',
-
-    // FixApplier
-    FixApplier: {
-      editorNotReady: 'Editor not ready',
-      editorModelNotReady: 'Editor model not ready',
-      unknownFixType: (fixId) => `Unknown fix type: ${fixId}`,
-    },
   },
 
   Lsp: {

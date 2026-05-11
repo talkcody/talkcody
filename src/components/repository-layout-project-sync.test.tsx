@@ -27,7 +27,6 @@ vi.mock('@/stores/git-store');
 vi.mock('@/stores/terminal-store');
 vi.mock('@/stores/execution-store');
 vi.mock('@/stores/worktree-store');
-vi.mock('@/stores/lint-store');
 vi.mock('@/stores/task-queue-store');
 vi.mock('@/hooks/use-task-queue', () => ({
   useTaskQueue: vi.fn(() => ({
@@ -469,18 +468,6 @@ vi.mock('@/stores/worktree-store', () => ({
     const state = {
       initialize: vi.fn(),
       getWorktreeForTask: vi.fn(),
-    };
-    return selector ? selector(state) : state;
-  }),
-}));
-
-vi.mock('@/stores/lint-store', () => ({
-  useLintStore: vi.fn((selector: any) => {
-    const state = {
-      settings: {
-        enabled: false,
-        showInProblemsPanel: false,
-      },
     };
     return selector ? selector(state) : state;
   }),

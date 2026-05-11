@@ -21,7 +21,6 @@ export function getDocLinks() {
       planMode: `${BASE_URL}/features/plan-mode`,
       ralphLoop: `${BASE_URL}/features/ralph-loop`,
       worktree: `${BASE_URL}/features/worktree`,
-      codeLint: `${BASE_URL}/features/code-lint`,
       lsp: `${BASE_URL}/features/lsp`,
       terminal: `${BASE_URL}/features/terminal`,
     },

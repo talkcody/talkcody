@@ -26,7 +26,6 @@ pub mod feishu_gateway;
 pub mod file_search;
 pub mod glob;
 pub mod http_proxy;
-pub mod lint;
 pub mod list_files;
 pub mod lsp;
 pub mod oauth_callback_server;

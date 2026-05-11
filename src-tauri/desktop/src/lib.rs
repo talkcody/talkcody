@@ -22,7 +22,6 @@ pub use talkcody_core::git;
 pub use talkcody_core::glob;
 pub use talkcody_core::http_proxy;
 pub use talkcody_core::integrations;
-pub use talkcody_core::lint;
 pub use talkcody_core::list_files;
 pub use talkcody_core::llm;
 pub use talkcody_core::lsp;
@@ -1076,8 +1075,6 @@ pub fn run() {
             code_navigation::code_nav_get_indexed_files,
             code_navigation::summarize_code_content,
             estimate_tokens,
-            lint::run_lint,
-            lint::check_lint_runtime,
             background_tasks::spawn_background_task,
             background_tasks::get_background_task_status,
             background_tasks::get_background_task_output,

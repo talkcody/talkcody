@@ -1,7 +1,6 @@
 import { Maximize2, Minimize2 } from 'lucide-react';
 import type React from 'react';
 import { memo } from 'react';
-import { DiagnosticsPanel } from '@/components/diagnostics/diagnostics-panel';
 import { FileEditor } from '@/components/file-editor';
 import { FileTabs } from '@/components/file-tabs';
 import { TerminalPanel } from '@/components/terminal/terminal-panel';
@@ -9,7 +8,6 @@ import { Button } from '@/components/ui/button';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { useTranslation } from '@/hooks/use-locale';
-import type { LintDiagnostic } from '@/services/lint-service';
 import type { OpenFile } from '@/types/file-system';
 
 interface RepositoryEditorAreaProps {
@@ -19,7 +17,6 @@ interface RepositoryEditorAreaProps {
   showChatPanel: boolean;
   showEditor: boolean;
   showTerminal: boolean;
-  showProblemsPanel: boolean;
   hasOpenFiles: boolean;
   isEditorFullscreen: boolean;
   isTerminalFullscreen: boolean;
@@ -37,7 +34,6 @@ interface RepositoryEditorAreaProps {
   onContentChange: (content: string) => void;
   onToggleContentSearch: () => void;
   onToggleEditorFullscreen: () => void;
-  onDiagnosticClick: (diagnostic: LintDiagnostic & { filePath: string }) => void;
   onCopyTerminalToChat: (content: string) => void;
   onCloseTerminal: () => void;
   onToggleTerminalFullscreen: () => void;
@@ -50,7 +46,6 @@ export const RepositoryEditorArea = memo(function RepositoryEditorArea({
   showChatPanel,
   showEditor,
   showTerminal,
-  showProblemsPanel,
   hasOpenFiles,
   isEditorFullscreen,
   isTerminalFullscreen,
@@ -68,7 +63,6 @@ export const RepositoryEditorArea = memo(function RepositoryEditorArea({
   onContentChange,
   onToggleContentSearch,
   onToggleEditorFullscreen,
-  onDiagnosticClick,
   onCopyTerminalToChat,
   onCloseTerminal,
   onToggleTerminalFullscreen,
@@ -149,13 +143,6 @@ export const RepositoryEditorArea = memo(function RepositoryEditorArea({
               </ResizablePanel>
 
               {showTerminal && <ResizableHandle withHandle />}
-
-              {showProblemsPanel && (
-                <>
-                  <ResizableHandle withHandle />
-                  <DiagnosticsPanel onDiagnosticClick={onDiagnosticClick} />
-                </>
-              )}
             </>
           )}
 

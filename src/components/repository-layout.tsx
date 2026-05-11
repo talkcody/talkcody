@@ -7,7 +7,6 @@ import { useRepositoryLayout } from '@/hooks/use-repository-layout';
 import { useRepositoryWatcher } from '@/hooks/use-repository-watcher';
 import { logger } from '@/lib/logger';
 import { databaseService } from '@/services/database-service';
-import type { LintDiagnostic } from '@/services/lint-service';
 import { getRelativePath } from '@/services/repository-utils';
 import { taskService } from '@/services/task-service';
 import { WindowManagerService } from '@/services/window-manager-service';
@@ -51,7 +50,6 @@ export const RepositoryLayout = memo(function RepositoryLayout() {
     openFiles: state.openFiles,
     fullscreenPanel: uiState.fullscreenPanel,
     isTerminalVisible: state.isTerminalVisible,
-    lintSettings: state.lintSettings,
   });
 
   const worktree = useRepositoryWorktree();
@@ -134,7 +132,6 @@ export const RepositoryLayout = memo(function RepositoryLayout() {
     showChatPanel,
     showEditor,
     showTerminal,
-    showProblemsPanel,
     isEditorFullscreen,
     isTerminalFullscreen,
     isChatFullscreen,
@@ -261,10 +258,6 @@ export const RepositoryLayout = memo(function RepositoryLayout() {
   };
 
   const selectedFilePath = currentFile?.path || null;
-
-  const handleDiagnosticClick = (diagnostic: LintDiagnostic & { filePath: string }) => {
-    selectFile(diagnostic.filePath, diagnostic.range.start.line);
-  };
 
   useEffect(() => {
     if (isContentSearchVisible) {
@@ -408,7 +401,6 @@ export const RepositoryLayout = memo(function RepositoryLayout() {
                 showChatPanel={showChatPanel}
                 showEditor={showEditor}
                 showTerminal={showTerminal}
-                showProblemsPanel={showProblemsPanel}
                 hasOpenFiles={hasOpenFiles}
                 isEditorFullscreen={isEditorFullscreen}
                 isTerminalFullscreen={isTerminalFullscreen}
@@ -430,7 +422,6 @@ export const RepositoryLayout = memo(function RepositoryLayout() {
                 }}
                 onToggleContentSearch={() => setIsContentSearchVisible((prev) => !prev)}
                 onToggleEditorFullscreen={() => toggleFullscreen('editor')}
-                onDiagnosticClick={handleDiagnosticClick}
                 onCopyTerminalToChat={(content) => {
                   if (chatBoxRef.current?.appendToInput) {
                     chatBoxRef.current.appendToInput(`\n\n${content}`);

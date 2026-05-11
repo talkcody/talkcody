@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import { useGitStore } from '@/stores/git-store';
-import { useLintStore } from '@/stores/lint-store';
 import { useProjectStore } from '@/stores/project-store';
 import { DEFAULT_PROJECT, useSettingsStore } from '@/stores/settings-store';
 import { useTaskStore } from '@/stores/task-store';
@@ -89,12 +88,6 @@ export function useRepositoryLayout() {
     }))
   );
 
-  const lintState = useLintStore(
-    useShallow((state) => ({
-      lintSettings: state.settings,
-    }))
-  );
-
   // Derived state
   const currentFile = useMemo(() => {
     return repositoryState.activeFileIndex >= 0 &&
@@ -128,8 +121,6 @@ export function useRepositoryLayout() {
     ...worktreeState,
     // Project state
     ...projectState,
-    // Lint state
-    ...lintState,
 
     // Derived state
     currentFile,
