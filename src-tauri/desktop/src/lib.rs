@@ -24,7 +24,6 @@ pub use talkcody_core::http_proxy;
 pub use talkcody_core::integrations;
 pub use talkcody_core::list_files;
 pub use talkcody_core::llm;
-pub use talkcody_core::lsp;
 pub use talkcody_core::oauth_callback_server;
 pub use talkcody_core::platform;
 pub use talkcody_core::scheduler;
@@ -923,9 +922,6 @@ pub fn run() {
             app.manage(ws_state);
             let code_nav_state = CodeNavState(RwLock::new(CodeNavigationService::new()));
             app.manage(code_nav_state);
-            let lsp_state = lsp::LspState(tokio::sync::Mutex::new(lsp::LspRegistry::new()));
-            app.manage(lsp_state);
-
             // Start analytics session
             let app_version = app.package_info().version.to_string();
             let app_data_dir_clone = app_data_dir.clone();
@@ -1081,14 +1077,6 @@ pub fn run() {
             background_tasks::kill_background_task,
             background_tasks::list_background_tasks,
             background_tasks::cleanup_background_tasks,
-            lsp::lsp_start_server,
-            lsp::lsp_send_message,
-            lsp::lsp_stop_server,
-            lsp::lsp_list_servers,
-            lsp::lsp_check_server_available,
-            lsp::lsp_get_server_config,
-            lsp::lsp_get_server_status,
-            lsp::lsp_download_server,
             oauth_callback_server::start_oauth_callback_server,
             llm_commands::llm_stream_text,
             llm_commands::llm_close_responses_session,

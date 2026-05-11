@@ -133,7 +133,6 @@ export class PlanAgent {
       memoryRead: getToolSync('memoryRead'),
       readFile: getToolSync('readFile'),
       glob: getToolSync('glob'),
-      lsp: getToolSync('lsp'),
       codeSearch: getToolSync('codeSearch'),
       listFiles: getToolSync('listFiles'),
       webSearch: getToolSync('webSearch'),

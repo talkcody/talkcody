@@ -310,7 +310,6 @@ export interface LocaleDefinition {
       customProviders: string;
       models: string;
       terminal: string;
-      lsp: string;
       worktree: string;
       shortcuts: string;
       general: string;
@@ -2238,44 +2237,7 @@ export interface LocaleDefinition {
     };
   };
 
-  Lsp: {
-    // Severity
-    showErrors: string;
-    showWarnings: string;
-    showInfo: string;
-    showHints: string;
-
-    // Settings
-    settings: {
-      title: string;
-      description: string;
-      tooltipTitle: string;
-      tooltipDescription: string;
-      enableLsp: string;
-      enableLspDesc: string;
-      supportedLanguages: string;
-      showDiagnostics: string;
-      showDiagnosticsDesc: string;
-      severitySettings: string;
-      severitySettingsDesc: string;
-    };
-  };
-
   ToolMessages: {
-    Lsp: {
-      projectRootNotSet: string;
-      fileNotFound: (path: string) => string;
-      noLspSupport: string;
-      serverNotInstalled: (language: string) => string;
-      serverNotAvailable: (command: string) => string;
-      languageIdMissing: string;
-      positionRequired: (operation: string) => string;
-      operationNotSupported: (operation: string) => string;
-      noResults: (operation: string) => string;
-      success: (operation: string, location: string) => string;
-      failed: (operation: string, message: string) => string;
-      unknownError: string;
-    };
     Bash: {
       outputSaved: (path: string) => string;
       errorSaved: (path: string) => string;

@@ -244,35 +244,20 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                 render_doing_ui: true,
             },
         ),
-        // LSP tool
+        // Web tools
         (
             ToolDefinition {
-                name: "lsp".to_string(),
-                description:
-                    "Language Server Protocol operations (go to definition, find references, etc.)."
-                        .to_string(),
+                name: "webFetch".to_string(),
+                description: "Fetch content from a URL.".to_string(),
                 parameters: json!({
                     "type": "object",
                     "properties": {
-                        "operation": {
+                        "url": {
                             "type": "string",
-                            "enum": ["goto_definition", "find_references", "hover", "document_symbols", "workspace_symbols"],
-                            "description": "The LSP operation to perform"
-                        },
-                        "file_path": {
-                            "type": "string",
-                            "description": "The file path for the operation"
-                        },
-                        "line": {
-                            "type": "integer",
-                            "description": "The line number (0-indexed)"
-                        },
-                        "character": {
-                            "type": "integer",
-                            "description": "The character position (0-indexed)"
+                            "description": "The URL to fetch"
                         }
                     },
-                    "required": ["operation", "file_path", "line", "character"]
+                    "required": ["url"]
                 }),
                 requires_approval: false,
             },

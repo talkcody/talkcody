@@ -11,7 +11,6 @@ export function setupMonacoDiagnostics(_model: editor.ITextModel | null, monacoI
   if (diagnosticsDisabled) return;
 
   // TypeScript worker is removed to reduce bundle size (~6MB)
-  // All diagnostics are now provided by LSP (typescript-language-server)
   // We need to explicitly disable Monaco's built-in TypeScript diagnostics
   // which still run (slower) on the main thread even without the worker
   const monaco = monacoInstance || (window as { monaco?: Monaco }).monaco;

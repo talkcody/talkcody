@@ -97,7 +97,6 @@ export class ExploreAgent {
       memoryRead: getToolSync('memoryRead'),
       readFile: getToolSync('readFile'),
       glob: getToolSync('glob'),
-      lsp: getToolSync('lsp'),
       codeSearch: getToolSync('codeSearch'),
       listFiles: getToolSync('listFiles'),
       bash: getToolSync('bash'),

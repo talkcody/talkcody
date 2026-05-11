@@ -1,17 +1,15 @@
 //! Platform Abstraction Layer
 //!
-//! Provides unified interfaces for filesystem, git, shell, and LSP operations.
+//! Provides unified interfaces for filesystem, git, and shell operations.
 //! All operations are validated to stay within the workspace root.
 
 pub mod fs;
 pub mod git;
-pub mod lsp;
 pub mod shell;
 pub mod types;
 
 pub use fs::FileSystemPlatform;
 pub use git::GitPlatform;
-pub use lsp::LspPlatform;
 pub use shell::ShellPlatform;
 pub use types::*;
 
@@ -21,7 +19,6 @@ pub struct Platform {
     pub filesystem: FileSystemPlatform,
     pub git: GitPlatform,
     pub shell: ShellPlatform,
-    pub lsp: LspPlatform,
 }
 
 impl Platform {
@@ -30,7 +27,6 @@ impl Platform {
             filesystem: FileSystemPlatform::new(),
             git: GitPlatform::new(),
             shell: ShellPlatform::new(),
-            lsp: LspPlatform::new(),
         }
     }
 

@@ -27,7 +27,6 @@ import { globTool } from './glob-tool';
 import { imageGenerationTool } from './image-generation-tool';
 import { installSkill } from './install-skill-tool';
 import { listFiles } from './list-files-tool';
-import { lspTool } from './lsp-tool';
 import { memoryRead } from './memory-read-tool';
 import { getProjectMemoryTargetCandidates } from './memory-targets';
 import { memoryWrite } from './memory-write-tool';
@@ -132,17 +131,6 @@ export const TOOL_DEFINITIONS = {
       canConcurrent: true,
       fileOperation: false,
       renderDoingUI: false,
-    },
-  },
-  lsp: {
-    tool: lspTool,
-    label: 'LSP',
-    metadata: {
-      category: 'read' as ToolCategory,
-      canConcurrent: true,
-      fileOperation: true,
-      getTargetFile: (input) => (input?.filePath as string) || null,
-      renderDoingUI: true,
     },
   },
   memoryRead: {

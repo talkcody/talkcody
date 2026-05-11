@@ -251,48 +251,6 @@ pub fn get_tool_definitions() -> Vec<(ToolDefinition, ToolMetadata)> {
                 render_doing_ui: true,
             },
         ),
-        // LSP tool
-        (
-            ToolDefinition {
-                name: "lsp".to_string(),
-                description: "Language Server Protocol operations (go to definition, find references, etc.).".to_string(),
-                parameters: json!({
-                    "type": "object",
-                    "properties": {
-                        "operation": {
-                            "type": "string",
-                            "enum": ["goToDefinition", "findReferences", "hover", "documentSymbol", "workspaceSymbol", "goToImplementation", "prepareCallHierarchy", "incomingCalls", "outgoingCalls"],
-                            "description": "The LSP operation to perform"
-                        },
-                        "filePath": {
-                            "type": "string",
-                            "description": "The file path for the operation"
-                        },
-                        "line": {
-                            "type": "integer",
-                            "description": "The line number (1-based, as shown in editors)"
-                        },
-                        "character": {
-                            "type": "integer",
-                            "description": "The character offset (1-based, as shown in editors)"
-                        },
-                        "query": {
-                            "type": "string",
-                            "description": "Query string for workspace symbols"
-                        }
-                    },
-                    "required": ["operation"]
-                }),
-                requires_approval: false,
-            },
-            ToolMetadata {
-                category: ToolCategory::Read,
-                can_concurrent: true,
-                file_operation: true,
-                requires_approval: false,
-                render_doing_ui: true,
-            },
-        ),
         // Web tools
         (
             ToolDefinition {

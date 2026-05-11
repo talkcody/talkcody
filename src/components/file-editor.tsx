@@ -4,7 +4,6 @@ import React from 'react';
 import { useAICompletion } from '@/hooks/use-ai-completion';
 import { useFileEditorState } from '@/hooks/use-file-editor-state';
 import { useGitGutter } from '@/hooks/use-git-gutter';
-import { useLsp } from '@/hooks/use-lsp';
 import { useMonacoEditor } from '@/hooks/use-monaco-editor';
 import { logger } from '@/lib/logger';
 import { useRepositoryStore } from '@/stores/window-scoped-repository-store';
@@ -39,7 +38,7 @@ export function FileEditor({
     [selectFile]
   );
 
-  // Editor state for Git gutter and LSP (using state instead of ref to trigger re-renders)
+  // Editor state for Git gutter (using state instead of ref to trigger re-renders)
   const [editor, setEditor] = React.useState<monacoEditor.IStandaloneCodeEditor | null>(null);
 
   // AI completion logic
@@ -75,59 +74,6 @@ export function FileEditor({
     currentAICompletion,
     onContentChange,
   });
-
-  // LSP integration for type checking and language features
-  const {
-    isConnected: isLspConnected,
-    openDocument,
-    updateDocument,
-    closeDocument,
-  } = useLsp({
-    editor,
-    filePath,
-    rootPath,
-    enabled: true, // LSP is enabled by default
-  });
-
-  // Open document in LSP when editor mounts and content is available
-  React.useEffect(() => {
-    if (isLspConnected && editor && fileContent !== null && filePath) {
-      openDocument(fileContent).catch((e) => {
-        logger.debug('[LSP] Failed to open document:', e);
-      });
-    }
-  }, [isLspConnected, editor, fileContent, filePath, openDocument]);
-
-  // Update document in LSP when content changes (debounced)
-  const updateDocumentTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
-  React.useEffect(() => {
-    if (isLspConnected && currentContent !== null) {
-      // Clear previous timeout
-      if (updateDocumentTimeoutRef.current) {
-        clearTimeout(updateDocumentTimeoutRef.current);
-      }
-      // Debounce updates to avoid overwhelming the LSP server
-      updateDocumentTimeoutRef.current = setTimeout(() => {
-        updateDocument(currentContent).catch((e) => {
-          logger.debug('[LSP] Failed to update document:', e);
-        });
-      }, 300); // 300ms debounce
-    }
-    return () => {
-      if (updateDocumentTimeoutRef.current) {
-        clearTimeout(updateDocumentTimeoutRef.current);
-      }
-    };
-  }, [isLspConnected, currentContent, updateDocument]);
-
-  // Close document when file changes or component unmounts
-  React.useEffect(() => {
-    return () => {
-      if (isLspConnected) {
-        closeDocument().catch(() => {});
-      }
-    };
-  }, [isLspConnected, closeDocument]);
 
   // Monaco editor setup
   const { handleEditorDidMount } = useMonacoEditor({

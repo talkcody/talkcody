@@ -13,7 +13,6 @@ pub const CANONICAL_TOOL_NAMES: &[&str] = &[
     "glob",
     "codeSearch",
     "listFiles",
-    "lsp",
     "bash",
     "webFetch",
     "webSearch",
@@ -96,7 +95,6 @@ fn legacy_aliases() -> HashMap<&'static str, &'static str> {
         ("install-skill", "installSkill"),
         ("install_skill_tool", "installSkill"),
         ("test-custom-tool", "test_custom_tool"),
-        ("lsp", "lsp"),
     ])
 }
 

@@ -311,7 +311,6 @@ const zh: LocaleDefinition = {
       customProviders: '自定义提供商',
       models: '模型',
       terminal: '终端',
-      lsp: 'LSP',
       worktree: '工作树',
       shortcuts: '快捷键',
       about: '关于',
@@ -1941,44 +1940,7 @@ const zh: LocaleDefinition = {
     notIndexed: '未索引',
   },
 
-  Lsp: {
-    // Severity
-    showErrors: '显示错误',
-    showWarnings: '显示警告',
-    showInfo: '显示信息',
-    showHints: '显示提示',
-
-    // Settings
-    settings: {
-      title: 'LSP 设置',
-      description: '配置语言服务器协议设置以获得智能代码功能',
-      tooltipTitle: 'LSP（语言服务器协议）',
-      tooltipDescription: '配置语言服务器协议设置，以获得诊断、代码导航和自动补全等智能代码功能。',
-      enableLsp: '启用 LSP',
-      enableLspDesc: '启用语言服务器协议以获得代码智能功能',
-      supportedLanguages: '支持的语言',
-      showDiagnostics: '显示诊断',
-      showDiagnosticsDesc: '显示来自语言服务器的代码诊断信息',
-      severitySettings: '严重级别设置',
-      severitySettingsDesc: '选择要显示的诊断严重级别',
-    },
-  },
-
   ToolMessages: {
-    Lsp: {
-      projectRootNotSet: '未设置项目根路径。',
-      fileNotFound: (path) => `文件未找到：${path}`,
-      noLspSupport: '此文件类型不支持 LSP。',
-      serverNotInstalled: (language) => `未安装 ${language} 的 LSP 服务器。请在 LSP 设置中安装。`,
-      serverNotAvailable: (command) => `LSP 服务器不可用。请安装：${command}`,
-      languageIdMissing: '无法确定该文件的 LSP 语言 ID。',
-      positionRequired: (operation) => `LSP ${operation} 需要同时提供行和列。`,
-      operationNotSupported: (operation) => `不支持的 LSP 操作：${operation}`,
-      noResults: (operation) => `未找到 ${operation} 的结果`,
-      success: (operation, location) => `LSP ${operation} 完成：${location}`,
-      failed: (operation, message) => `运行 LSP ${operation} 失败：${message}`,
-      unknownError: '未知错误',
-    },
     Bash: {
       outputSaved: (path) => `完整 stdout 已保存至：${path}`,
       errorSaved: (path) => `完整 stderr 已保存至：${path}`,

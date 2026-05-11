@@ -13,7 +13,6 @@ pub const CANONICAL_TOOL_NAMES: &[&str] = &[
     "glob",
     "codeSearch",
     "listFiles",
-    "lsp",
     "bash",
     "webFetch",
     "webSearch",
@@ -86,7 +85,7 @@ fn legacy_aliases() -> HashMap<&'static str, &'static str> {
         ("exit-plan-mode", "exitPlanMode"),
         ("github_pr", "githubPR"),
         ("github-pr", "githubPR"),
-        ("lsp", "lsp"),
+
     ])
 }
 

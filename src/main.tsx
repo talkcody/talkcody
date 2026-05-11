@@ -8,7 +8,6 @@ import { startKeepAwakeManager } from '@/services/keep-awake-manager';
 
 // Configure Monaco Environment before app starts
 // TypeScript worker is removed to reduce bundle size (~6MB)
-// Completion is provided by LSP (typescript-language-server)
 window.MonacoEnvironment = {
   getWorker() {
     return new editorWorker();

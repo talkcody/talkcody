@@ -1,7 +1,7 @@
 //! Tool Registry and Dispatch
 //!
 //! Provides a registry of available tools and dispatch mechanism for tool execution.
-//! Tools execute on the backend host (filesystem, git, shell, LSP, search).
+//! Tools execute on the backend host (filesystem, git, shell, search).
 
 use crate::core::types::*;
 use crate::storage::models::*;
@@ -415,15 +415,6 @@ async fn execute_tool_by_name(
                 success: result.success,
                 data: serde_json::to_value(&result).unwrap_or_default(),
                 error: result.error,
-            }
-        }
-        // LSP tool
-        "lsp" => {
-            // For now, return a placeholder - full LSP implementation would require LSP client
-            ToolExecutionOutput {
-                success: true,
-                data: serde_json::json!({"message": "LSP tool executed (placeholder - full implementation requires LSP client setup"}),
-                error: None,
             }
         }
         // Web tools

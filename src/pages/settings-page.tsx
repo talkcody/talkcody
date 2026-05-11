@@ -19,7 +19,6 @@ import { ApiKeysSettings } from '@/components/settings/api-keys-settings';
 import { CustomToolsSettings } from '@/components/settings/custom-tools-settings';
 import { GeneralSettings } from '@/components/settings/general-settings';
 import { HooksSettings } from '@/components/settings/hooks-settings';
-import { LspSettings } from '@/components/settings/lsp-settings';
 import { MemorySettings } from '@/components/settings/memory-settings';
 import { ModelTypeSettings } from '@/components/settings/model-type-settings';
 import { RemoteControlSettings } from '@/components/settings/remote-control-settings';
@@ -104,10 +103,6 @@ export function SettingsPage() {
               <Terminal className="size-4" />
               {t.Settings.tabs.terminal || 'Terminal'}
             </TabsTrigger>
-            <TabsTrigger value="lsp" className="w-full justify-start gap-2 rounded-md px-3 py-2">
-              <Code className="size-4" />
-              {t.Settings.tabs.lsp || 'LSP'}
-            </TabsTrigger>
             <TabsTrigger
               value="worktree"
               className="w-full justify-start gap-2 rounded-md px-3 py-2"
@@ -159,9 +154,6 @@ export function SettingsPage() {
             </TabsContent>
             <TabsContent value="terminal" className="mt-0 flex-none space-y-6">
               <TerminalSettings />
-            </TabsContent>
-            <TabsContent value="lsp" className="mt-0 flex-none space-y-6">
-              <LspSettings />
             </TabsContent>
             <TabsContent value="worktree" className="mt-0 flex-none space-y-6">
               <WorktreeSettings />

@@ -21,7 +21,7 @@ describe('Tool Registry', () => {
         'glob',
         'codeSearch',
         'listFiles',
-        'lsp',
+
         'memoryRead',
         'writeFile',
         'memoryWrite',
@@ -136,7 +136,7 @@ describe('Tool Registry', () => {
         glob: 'Glob',
         codeSearch: 'Code Search',
         listFiles: 'List Files',
-        lsp: 'LSP',
+
         memoryRead: 'Memory Read',
         writeFile: 'Write File',
         memoryWrite: 'Memory Write',
@@ -204,7 +204,7 @@ describe('Tool Registry', () => {
 
   describe('Tool Categories', () => {
     it('should categorize read tools correctly', () => {
-      const readTools = ['readFile', 'glob', 'codeSearch', 'listFiles', 'lsp', 'memoryRead'];
+      const readTools = ['readFile', 'glob', 'codeSearch', 'listFiles', 'memoryRead'];
 
       for (const toolName of readTools) {
         const metadata = getToolMetadata(toolName);
@@ -248,10 +248,10 @@ describe('Tool Registry', () => {
       }
     });
 
-    it('should have exactly 7 read tools', () => {
+    it('should have exactly 5 read tools', () => {
       const allNames = getAllToolNames();
       const readTools = allNames.filter(name => getToolMetadata(name).category === 'read');
-      expect(readTools.length).toBe(6);
+      expect(readTools.length).toBe(5);
     });
 
     it('should have exactly 2 write tools', () => {
@@ -298,7 +298,7 @@ describe('Tool Registry', () => {
 
   describe('File Operation Metadata', () => {
     it('should mark file operation tools correctly', () => {
-      const fileOpTools = ['readFile', 'lsp', 'writeFile', 'memoryWrite', 'editFile'];
+      const fileOpTools = ['readFile', 'writeFile', 'memoryWrite', 'editFile'];
 
       for (const toolName of fileOpTools) {
         const metadata = getToolMetadata(toolName);
@@ -327,10 +327,10 @@ describe('Tool Registry', () => {
       }
     });
 
-    it('should have exactly 5 file operation tools', () => {
+    it('should have exactly 4 file operation tools', () => {
       const allNames = getAllToolNames();
       const fileOpTools = allNames.filter(name => getToolMetadata(name).fileOperation);
-      expect(fileOpTools.length).toBe(5);
+      expect(fileOpTools.length).toBe(4);
     });
   });
 

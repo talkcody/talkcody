@@ -7,7 +7,6 @@ import { hookSnapshotService } from '@/services/hooks/hook-snapshot-service';
 import { terminalService } from '@/services/terminal-service';
 import { useAgentStore } from '@/stores/agent-store';
 import { useAuthStore } from '@/stores/auth-store';
-import { initializeLspSettings } from '@/stores/lsp-store';
 import { usePlanModeStore } from '@/stores/plan-mode-store';
 import { useRalphLoopStore } from '@/stores/ralph-loop-store';
 import { initScheduledTaskListener } from '@/stores/scheduled-task-store';
@@ -163,11 +162,6 @@ class InitializationManager {
           // Ralph Loop store
           Promise.resolve(useRalphLoopStore.getState().initialize()).then(() => {
             logger.info('[InitManager] ✓ Ralph Loop initialized (background)');
-          }),
-
-          // LSP settings (sync from persisted settings)
-          Promise.resolve(initializeLspSettings()).then(() => {
-            logger.info('[InitManager] ✓ LSP settings initialized (background)');
           }),
 
           // Completion hooks (stop hook, ralph loop, auto code review)

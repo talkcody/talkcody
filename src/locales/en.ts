@@ -324,7 +324,6 @@ const en: LocaleDefinition = {
       customProviders: 'Custom Providers',
       models: 'Models',
       terminal: 'Terminal',
-      lsp: 'LSP',
       worktree: 'Worktree',
       shortcuts: 'Shortcuts',
       about: 'About',
@@ -1999,47 +1998,7 @@ Note: ChatGPT Plus/Pro subscription is separate from API access.`,
     notIndexed: 'Not indexed',
   },
 
-  Lsp: {
-    // Severity
-    showErrors: 'Show Errors',
-    showWarnings: 'Show Warnings',
-    showInfo: 'Show Info',
-    showHints: 'Show Hints',
-
-    // Settings
-    settings: {
-      title: 'LSP Settings',
-      description: 'Configure Language Server Protocol settings for intelligent code features',
-      tooltipTitle: 'LSP (Language Server Protocol)',
-      tooltipDescription:
-        'Configure language server protocol settings for intelligent code features including diagnostics, code navigation, and auto-completion.',
-      enableLsp: 'Enable LSP',
-      enableLspDesc: 'Enable Language Server Protocol for code intelligence features',
-      supportedLanguages: 'Supported Languages',
-      showDiagnostics: 'Show Diagnostics',
-      showDiagnosticsDesc: 'Display code diagnostics from language servers',
-      severitySettings: 'Severity Settings',
-      severitySettingsDesc: 'Select which severity levels to display',
-    },
-  },
-
   ToolMessages: {
-    Lsp: {
-      projectRootNotSet: 'Project root path is not set.',
-      fileNotFound: (path) => `File not found: ${path}`,
-      noLspSupport: 'No LSP support for this file type.',
-      serverNotInstalled: (language) =>
-        `LSP server for ${language} is not installed. Open LSP settings to install it.`,
-      serverNotAvailable: (command) => `LSP server not available. Please install: ${command}`,
-      languageIdMissing: 'Unable to determine LSP language ID for this file.',
-      positionRequired: (operation) =>
-        `LSP ${operation} requires both line and character to be provided.`,
-      operationNotSupported: (operation) => `Unsupported LSP operation: ${operation}`,
-      noResults: (operation) => `No results found for ${operation}`,
-      success: (operation, location) => `LSP ${operation} completed for ${location}`,
-      failed: (operation, message) => `Failed to run LSP ${operation}: ${message}`,
-      unknownError: 'Unknown error',
-    },
     Bash: {
       outputSaved: (path) => `Full stdout saved to: ${path}`,
       errorSaved: (path) => `Full stderr saved to: ${path}`,

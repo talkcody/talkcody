@@ -1,6 +1,6 @@
 //! Platform Types
 //!
-//! Shared types for platform operations (filesystem, git, shell, LSP)
+//! Shared types for platform operations (filesystem, git, shell)
 
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -109,40 +109,6 @@ pub struct ShellResult {
     pub stderr: String,
     pub exit_code: i32,
     pub timed_out: bool,
-}
-
-/// LSP position
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LspPosition {
-    pub line: u32,
-    pub character: u32,
-}
-
-/// LSP location
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LspLocation {
-    pub uri: String,
-    pub range: LspRange,
-}
-
-/// LSP range
-#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LspRange {
-    pub start: LspPosition,
-    pub end: LspPosition,
-}
-
-/// LSP symbol
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct LspSymbol {
-    pub name: String,
-    pub kind: String,
-    pub location: LspLocation,
-    pub container_name: Option<String>,
 }
 
 /// Search result
