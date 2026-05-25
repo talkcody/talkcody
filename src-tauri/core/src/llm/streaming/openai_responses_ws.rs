@@ -6,6 +6,7 @@ use crate::llm::types::{StreamEvent, TransportFallbackSource, TransportFallbackT
 use dashmap::DashMap;
 use futures_util::{SinkExt, StreamExt};
 use serde_json::Value;
+use std::future::Future;
 use std::sync::{Arc, OnceLock};
 use std::time::{Duration, Instant};
 use tokio::net::TcpStream;
@@ -23,6 +24,7 @@ const ACTIVE_RESPONSE_READ_POLL_INTERVAL: Duration = SESSION_KEEPALIVE_INTERVAL;
 const SUBSCRIPTION_MAX_CONNECTION_AGE: Duration = Duration::from_secs(55 * 60);
 const SUBSCRIPTION_READ_IDLE_TIMEOUT: Duration = Duration::from_secs(60 * 60);
 const SUBSCRIPTION_HTTP_REQUEST_TIMEOUT: Duration = Duration::from_secs(65 * 60);
+const WEBSOCKET_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const PRE_OUTPUT_RETRY_BACKOFFS_MS: [u64; 3] = [1_000, 2_000, 4_000];
 
 type OpenAiResponsesWebSocket = WebSocketStream<MaybeTlsStream<TcpStream>>;
@@ -162,6 +164,10 @@ pub(crate) fn websocket_read_idle_timeout() -> Duration {
 
 pub(crate) fn subscription_http_request_timeout() -> Duration {
     SUBSCRIPTION_HTTP_REQUEST_TIMEOUT
+}
+
+pub(crate) fn websocket_connect_timeout() -> Duration {
+    WEBSOCKET_CONNECT_TIMEOUT
 }
 
 pub fn should_use_websocket_transport(built_request: &BuiltRequest) -> bool {
@@ -491,6 +497,37 @@ fn active_response_timeout_error() -> String {
     )
 }
 
+fn format_timeout_duration(duration: Duration) -> String {
+    if duration.as_secs() > 0 && duration.subsec_nanos() == 0 {
+        return format!("{}s", duration.as_secs());
+    }
+
+    if duration.as_millis() > 0 {
+        return format!("{}ms", duration.as_millis());
+    }
+
+    format!("{}ns", duration.as_nanos())
+}
+
+async fn await_websocket_connect_with_timeout<F, T, E>(
+    future: F,
+    connect_timeout: Duration,
+) -> Result<T, String>
+where
+    F: Future<Output = Result<T, E>>,
+    E: std::fmt::Display,
+{
+    timeout(connect_timeout, future)
+        .await
+        .map_err(|_| {
+            format!(
+                "WebSocket connection timed out after {}",
+                format_timeout_duration(connect_timeout)
+            )
+        })?
+        .map_err(|err| format!("WebSocket connection failed: {}", err))
+}
+
 async fn send_active_response_keepalive(
     session: &mut WebSocketSessionState,
     idle_for: Duration,
@@ -550,9 +587,9 @@ async fn ensure_socket_connected(
         request.headers_mut().insert(header_name, header_value);
     }
 
-    let (socket, response) = connect_async(request)
-        .await
-        .map_err(|err| format!("WebSocket connection failed: {}", err))?;
+    let (socket, response) =
+        await_websocket_connect_with_timeout(connect_async(request), websocket_connect_timeout())
+            .await?;
 
     if response.status() != http::StatusCode::SWITCHING_PROTOCOLS {
         return Err(format!(
@@ -873,6 +910,7 @@ mod tests {
             Duration::from_secs(30)
         );
         assert_eq!(websocket_read_idle_timeout(), Duration::from_secs(60 * 60));
+        assert_eq!(websocket_connect_timeout(), Duration::from_secs(10));
         assert_eq!(
             subscription_http_request_timeout(),
             Duration::from_secs(65 * 60)
@@ -901,6 +939,45 @@ mod tests {
         assert!(connection_age_uses_rotation_budget(Duration::from_secs(
             56 * 60
         )));
+    }
+
+    #[tokio::test]
+    async fn websocket_connect_timeout_surfaces_a_clear_timeout_error() {
+        let result = await_websocket_connect_with_timeout(
+            std::future::pending::<Result<(), &'static str>>(),
+            Duration::from_millis(1),
+        )
+        .await;
+
+        assert_eq!(
+            result.expect_err("pending websocket connect should time out"),
+            "WebSocket connection timed out after 1ms"
+        );
+    }
+
+    #[tokio::test]
+    async fn websocket_connect_timeout_preserves_provider_errors() {
+        let result = await_websocket_connect_with_timeout(
+            async { Err::<(), _>("HTTP error: 401 Unauthorized") },
+            Duration::from_millis(1),
+        )
+        .await;
+
+        assert_eq!(
+            result.expect_err("websocket provider error should be preserved"),
+            "WebSocket connection failed: HTTP error: 401 Unauthorized"
+        );
+    }
+
+    #[tokio::test]
+    async fn websocket_connect_timeout_returns_successful_connections() {
+        let result = await_websocket_connect_with_timeout(
+            async { Ok::<_, &'static str>("connected") },
+            Duration::from_millis(1),
+        )
+        .await;
+
+        assert_eq!(result.expect("successful connection"), "connected");
     }
 
     #[test]

@@ -1,4 +1,4 @@
-import { exists, readTextFile } from '@tauri-apps/plugin-fs';
+import { exists } from '@tauri-apps/plugin-fs';
 import { z } from 'zod';
 import { GenericToolDoing } from '@/components/tools/generic-tool-doing';
 import { GenericToolResult } from '@/components/tools/generic-tool-result';
@@ -26,25 +26,6 @@ function extractLines(
   // Split content into lines for line-based operations
   const lines = fullContent.split('\n');
   const totalLines = lines.length;
-
-  // If no line parameters are specified, handle with max lines limit
-  if (start_line === undefined && line_count === undefined) {
-    if (totalLines > MAX_LINES) {
-      const truncatedLines = lines.slice(0, MAX_LINES);
-      const truncatedContent = truncatedLines.join('\n');
-      return {
-        success: true,
-        content: truncatedContent,
-        message: `Successfully read file: ${file_path} (TRUNCATED: showing first ${MAX_LINES} of ${totalLines} total lines)`,
-      };
-    } else {
-      return {
-        success: true,
-        content: fullContent,
-        message: `Successfully read ${totalLines} lines from file: ${file_path}`,
-      };
-    }
-  }
 
   // Validate start_line parameter
   if (start_line !== undefined && (start_line < 1 || start_line > totalLines)) {
@@ -79,22 +60,18 @@ function extractLines(
   const actualLinesRead = extractedLines.length;
   const startLineNumber = startIndex + 1;
   const endLineNumber = startIndex + actualLinesRead;
+  const remainingLines = totalLines - startIndex;
+  const isEntireFileRead = startIndex === 0 && endIndex === totalLines;
+  const wasTruncated = line_count === undefined && remainingLines > MAX_LINES;
+  const lineRangeSummary = `lines ${startLineNumber}-${endLineNumber} of ${totalLines} total lines`;
 
   let message: string;
-  if (start_line !== undefined && line_count !== undefined) {
-    message = `Successfully read ${actualLinesRead} lines (${startLineNumber}-${endLineNumber}) from file: ${file_path}`;
-  } else if (start_line !== undefined) {
-    if (actualLinesRead < totalLines - startIndex + 1) {
-      message = `Successfully read ${actualLinesRead} lines (${startLineNumber}-${endLineNumber}) from file: ${file_path} (TRUNCATED: limited to ${MAX_LINES} lines, file has ${totalLines} total lines)`;
-    } else {
-      message = `Successfully read lines ${startLineNumber}-${endLineNumber} from file: ${file_path}`;
-    }
+  if (isEntireFileRead) {
+    message = `Successfully read entire file: ${file_path} (${lineRangeSummary})`;
+  } else if (wasTruncated) {
+    message = `Successfully read ${actualLinesRead} lines (${lineRangeSummary}) from file: ${file_path} (PARTIAL READ: truncated by ${MAX_LINES}-line limit)`;
   } else {
-    if (actualLinesRead < totalLines) {
-      message = `Successfully read first ${actualLinesRead} lines from file: ${file_path} (TRUNCATED: limited to ${MAX_LINES} lines, file has ${totalLines} total lines)`;
-    } else {
-      message = `Successfully read first ${actualLinesRead} lines from file: ${file_path}`;
-    }
+    message = `Successfully read ${actualLinesRead} lines (${lineRangeSummary}) from file: ${file_path} (PARTIAL READ)`;
   }
 
   return {
